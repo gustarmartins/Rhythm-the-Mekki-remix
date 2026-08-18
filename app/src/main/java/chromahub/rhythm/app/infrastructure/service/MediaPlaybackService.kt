@@ -59,6 +59,7 @@ import chromahub.rhythm.app.util.BluetoothLyricsFormatter
 import chromahub.rhythm.app.util.GsonUtils
 import chromahub.rhythm.app.util.LyricsRomanizationPolicy
 import chromahub.rhythm.app.util.LyricsTranslationPolicy
+import chromahub.rhythm.app.util.ServiceStartPolicy
 import chromahub.rhythm.app.util.hasUsableTimedRomanization
 import chromahub.rhythm.app.util.hasUsableTimedTranslation
 import chromahub.rhythm.app.shared.data.model.Playlist
@@ -1863,15 +1864,16 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "Service started with command: ${intent?.action}")
 
-        // MUST always call startForeground() when the service was started via
-        // startForegroundService(). We can't know whether the caller used startService()
-        // or startForegroundService(), so we call it unconditionally to satisfy the FGS
-        // contract and avoid ANR. When Media3 is already managing the notification,
-        // this is harmless — it just posts a placeholder that Media3 will replace.
-        startForegroundWithNotification(
-            getString(chromahub.rhythm.app.R.string.service_rhythm_music),
-            getString(chromahub.rhythm.app.R.string.service_starting)
-        )
+        // App commands may arrive through startForegroundService() and must be
+        // promoted immediately. Media3's internal metadata wakeups have a null
+        // action and already own their foreground notification lifecycle; doing
+        // another placeholder promotion there creates a notification/FGS loop.
+        if (ServiceStartPolicy.requiresManualForegroundPromotion(intent?.action)) {
+            startForegroundWithNotification(
+                getString(chromahub.rhythm.app.R.string.service_rhythm_music),
+                getString(chromahub.rhythm.app.R.string.service_starting)
+            )
+        }
         
         when (intent?.action) {
             ACTION_UPDATE_SETTINGS -> {
