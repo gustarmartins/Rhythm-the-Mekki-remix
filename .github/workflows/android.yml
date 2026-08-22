@@ -69,7 +69,11 @@ jobs:
         APPLE_MUSIC_FALLBACK_TOKEN: ${{ secrets.APPLE_MUSIC_FALLBACK_TOKEN }}
         GITHUB_OWNER: ${{ github.repository_owner }}
         GITHUB_REPO: ${{ github.event.repository.name }}
-      run: ./gradlew assembleGithubRelease assembleGithubDebug
+      run: >-
+        ./gradlew --no-daemon --max-workers=2
+        -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
+        -Pkotlin.daemon.jvmargs=-Xmx2g
+        assembleGithubRelease assembleGithubDebug
 
     - name: Generate build info
       if: github.event_name == 'pull_request'
