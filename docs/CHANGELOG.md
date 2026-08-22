@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - 
 
+## [5.4.443.1174 Bluetooth Lyrics] - 2026-08-21
+
+### Changed
+
+- Enable Bluetooth Lyrics by default on a clean fork install.
+- Enable Older Car-Compatibility Mode by default on a clean fork install.
+- Keep explicit saved settings authoritative when updating.
+- Make the GitHub updater compare release tags instead of human-readable release titles.
+- Give fork releases their own version identity and concise release notes.
+
 ## [5.3.440.1160] - 2026-07-28
 
 ### Added

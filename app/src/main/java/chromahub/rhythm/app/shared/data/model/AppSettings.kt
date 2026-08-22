@@ -1525,11 +1525,15 @@ class AppSettings private constructor(context: Context) {
     private val _broadcastStatusEnabled = MutableStateFlow(prefs.getBoolean(KEY_BROADCAST_STATUS_ENABLED, false))
     val broadcastStatusEnabled: StateFlow<Boolean> = _broadcastStatusEnabled.asStateFlow()
 
-    private val _bluetoothLyricsEnabled = MutableStateFlow(prefs.getBoolean(KEY_BLUETOOTH_LYRICS_ENABLED, false))
+    // The fork enables the Bluetooth lyrics path on a clean install. An explicit user choice
+    // remains authoritative because getBoolean() only uses this value when the key is absent.
+    private val _bluetoothLyricsEnabled = MutableStateFlow(
+        prefs.getBoolean(KEY_BLUETOOTH_LYRICS_ENABLED, BuildConfig.ENABLE_FORK_DEFAULTS)
+    )
     val bluetoothLyricsEnabled: StateFlow<Boolean> = _bluetoothLyricsEnabled.asStateFlow()
 
     private val _bluetoothLyricsLegacyCarModeEnabled = MutableStateFlow(
-        prefs.getBoolean(KEY_BLUETOOTH_LYRICS_LEGACY_CAR_MODE_ENABLED, false)
+        prefs.getBoolean(KEY_BLUETOOTH_LYRICS_LEGACY_CAR_MODE_ENABLED, BuildConfig.ENABLE_FORK_DEFAULTS)
     )
     val bluetoothLyricsLegacyCarModeEnabled: StateFlow<Boolean> =
         _bluetoothLyricsLegacyCarModeEnabled.asStateFlow()
@@ -2084,13 +2088,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
             if (prefs.getBoolean(KEY_AUTO_BACKUP_ENABLED, false)) {
                 scheduleAutoBackup()
             }
-            if (prefs.getBoolean(KEY_UPDATES_ENABLED, false) &&
-                prefs.getBoolean(KEY_AUTO_CHECK_FOR_UPDATES, false) &&
-                (
-                    prefs.getBoolean(KEY_UPDATE_NOTIFICATIONS_ENABLED, false) ||
-                        prefs.getBoolean(KEY_UPDATE_STATUS_NOTIFICATIONS_ENABLED, false)
-                    ) &&
-                prefs.getBoolean(KEY_USE_SMART_UPDATE_POLLING, false)) {
+            if (shouldRunUpdateNotificationWorker()) {
                 scheduleUpdateNotificationWorker()
             }
             if (prefs.getBoolean(KEY_RHYTHM_PULSE_NOTIFICATIONS_ENABLED, false)) {
@@ -5316,9 +5314,15 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
 
         // General Broadcast Status Settings
         _broadcastStatusEnabled.value = prefs.getBoolean(KEY_BROADCAST_STATUS_ENABLED, false)
-        _bluetoothLyricsEnabled.value = prefs.getBoolean(KEY_BLUETOOTH_LYRICS_ENABLED, false)
+        _bluetoothLyricsEnabled.value = prefs.getBoolean(
+            KEY_BLUETOOTH_LYRICS_ENABLED,
+            BuildConfig.ENABLE_FORK_DEFAULTS
+        )
         _bluetoothLyricsLegacyCarModeEnabled.value =
-            prefs.getBoolean(KEY_BLUETOOTH_LYRICS_LEGACY_CAR_MODE_ENABLED, false)
+            prefs.getBoolean(
+                KEY_BLUETOOTH_LYRICS_LEGACY_CAR_MODE_ENABLED,
+                BuildConfig.ENABLE_FORK_DEFAULTS
+            )
         _bluetoothLyricsTextMode.value = BluetoothLyricsTextMode.fromPreference(
             value = prefs.getString(KEY_BLUETOOTH_LYRICS_TEXT_MODE, null),
             legacyPreferRomanization = prefs.getBoolean(

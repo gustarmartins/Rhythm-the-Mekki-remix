@@ -188,6 +188,9 @@ def main():
         
     version_name, version_code = parse_gradle_version_info()
     
+    version_match = re.search(r"(\d+\.\d+\.\d+\.\d+)", tag_name)
+    version_str = version_match.group(1) if version_match else version_name.split(" ")[0]
+
     major_minor = "5.1"
     mm_match = re.search(r"(\d+\.\d+)", tag_name)
     if mm_match:
@@ -203,78 +206,84 @@ def main():
             build_num = parts[3]
             
     github_notes = []
+    repository = os.environ.get("GITHUB_REPOSITORY", "").lower()
+    is_fork = repository == "gustarmartins/rhythm-the-mekki-remix"
+    channel = "Beta" if is_beta else "Stable"
     
     # Load banner URL (respects prepare_release.py choice, or uses default)
     banner_url = load_banner_url(is_beta)
     banner_html = render_banner_html(banner_url)
 
-    # Title & Banner
-    if is_beta:
-        github_notes.append(f"# Rhythm {major_minor} - Bug Fix Update\n")
+    if is_fork:
+        # Keep the fork's release page short and self-contained. The old notes
+        # template linked to upstream downloads and sponsors, which is confusing
+        # when the APK and updater target this repository instead.
+        release_url = "https://github.com/gustarmartins/Rhythm-the-Mekki-remix/releases"
+        github_notes.append(f"# Rhythm Bluetooth Lyrics — {version_str} ({channel})\n")
+        github_notes.append(
+            "A small fork of [Rhythm](https://github.com/cromaguy/Rhythm) that keeps the "
+            "upstream app and adds fork-specific Bluetooth lyrics defaults.\n"
+        )
+        github_notes.append("## What's changed")
+        github_notes.extend(bullets or ["- **Changed:** Fork release and update metadata."])
+        github_notes.append(
+            "- **Updates:** The GitHub build checks this fork's Releases page for stable updates."
+        )
+        github_notes.append("")
+        github_notes.append("## Downloads")
+        github_notes.append(
+            "Download the APK matching your device ABI. The **arm64-v8a** build is the best "
+            "choice for the Poco F4; the **universal** build works on most devices."
+        )
+        github_notes.append(
+            "Checksums are provided beside each APK. The GitHub APK is the update-enabled "
+            "build; the F-Droid flavor intentionally does not poll GitHub Releases."
+        )
+        github_notes.append("")
+        github_notes.append("## Update notes")
+        github_notes.append(
+            "- Existing settings remain authoritative. The new defaults do not overwrite an "
+            "explicit choice."
+        )
+        github_notes.append(
+            "- Keep a backup before updating. Android may require notification permission for "
+            "update announcements."
+        )
+        github_notes.append("")
+        github_notes.append("## Source and license")
+        source_url = f"https://github.com/{repository}" if repository else release_url
+        github_notes.append(f"- Source: [gustarmartins/Rhythm-the-Mekki-remix]({source_url})")
+        github_notes.append("- Upstream: [cromaguy/Rhythm](https://github.com/cromaguy/Rhythm)")
+        github_notes.append(
+            "- Licensed under [GNU GPLv3](https://github.com/cromaguy/Rhythm/blob/main/LICENSE)."
+        )
     else:
-        github_notes.append(f"# Rhythm {major_minor} - Feature Update\n")
+        # Preserve the upstream-compatible format if this script is reused in a
+        # non-fork checkout.
+        if is_beta:
+            github_notes.append(f"# Rhythm {major_minor} - Bug Fix Update\n")
+        else:
+            github_notes.append(f"# Rhythm {major_minor} - Feature Update\n")
 
-    if banner_html:
-        github_notes.append(banner_html + "\n")
-        
-    # What's New section
-    github_notes.append("**What's New:**")
-    for bullet in bullets:
-        github_notes.append(bullet)
-    github_notes.append("- **Many more reported Bug Fixes, UI & Performance Improvements.**")
-    
-    github_notes.append("")
-    
-    # Known Issues section
-    if is_beta:
-        github_notes.append("**Known Issues (Will be fixed on a later build):**")
-        github_notes.append("   - Translation contributions are being collected.")
-        github_notes.append("   - Report to GitHub Issues or Community on Discord & Telegram.")
-    else:
+        if banner_html:
+            github_notes.append(banner_html + "\n")
+
+        github_notes.append("**What's New:**")
+        github_notes.extend(bullets)
+        github_notes.append("- **Many more reported Bug Fixes, UI & Performance Improvements.**")
+        github_notes.append("")
         github_notes.append("**Known Issues:**")
         github_notes.append("   - Translation contributions are being collected.")
         github_notes.append("   - Report to GitHub Issues or Community on Discord & Telegram.")
-        
-    github_notes.append("")
-    
-    # Build Info section
-    github_notes.append("**Build Information:**")
-    github_notes.append(f"- Build: {build_num}")
-    github_notes.append(f"- Type: {'Beta' if is_beta else 'Stable'} Release")
-    
-    github_notes.append("\n---\n")
-    
-    # Important update notes
-    github_notes.append("> [!NOTE]")
-    github_notes.append("> **Important Update Notes**")
-    if is_beta:
-        github_notes.append("> * Don't restore old backups")
-        github_notes.append("\n> [!CAUTION]")
-        github_notes.append("> This is a **Beta** build. Please report [Issues](https://github.com/cromaguy/Rhythm/issues) if found.\n")
-    else:
-        github_notes.append("> * The app is in active development, so many features might be missing compared to other FOSS players.")
-        github_notes.append("> * You will find several improvements and changes with each release, so please stay up to date.")
-        github_notes.append("\n> [!TIP]")
-        github_notes.append("> * **Turn on Auto-Backup** so that no matter what happens, you can always recover your data.")
-        github_notes.append("> * You can turn off/on/manage APIs based on your needs from **Settings**.\n")
-        
-    # Badges Table
-    github_notes.append('<div align="center">\n')
-    github_notes.append('| | | | | |')
-    github_notes.append('|:---:|:---:|:---:|:---:|:---:|')
-    github_notes.append('| [<img src="https://github.com/user-attachments/assets/7ec1bd6a-7258-42ae-a264-12bbb51917be" alt="F-Droid" height="35">](https://f-droid.org/packages/chromahub.rhythm.app) | [<img src="https://github.com/user-attachments/assets/d3a1dfc4-e192-418a-8f5b-e21eaf6ba194" alt="IzzyOnDroid" height="35">](https://apt.izzysoft.de/fdroid/index/apk/chromahub.rhythm.app) | [<img src="https://github.com/user-attachments/assets/c479857e-83ab-4709-be48-d221321a4559" alt="Download APK" height="35">](https://github.com/cromaguy/Rhythm/releases/latest) | [<img src="https://github.com/user-attachments/assets/291f5586-b98f-4991-ac03-9a4eae1db159" alt="OpenAPK" height="35">](https://www.openapk.net/rhythm/chromahub.rhythm.app/) | [<img src="https://github.com/user-attachments/assets/22adc0a8-52b1-4977-9e6f-cbca95b14eec" alt="Obtainium" height="35">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/cromaguy/Rhythm/) |')
-    github_notes.append('\n</div>\n')
-    
-    github_notes.append("---")
-    
-    # Sponsors and credits
-    github_notes.append("\nIf you enjoy **Rhythm** and want to support open-source development:\n")
-    github_notes.append("[![Support me](https://github.com/user-attachments/assets/434466be-fd50-41e5-8bc4-38fcbb57ee17)](https://ko-fi.com/anjishnunandi)\n")
-    github_notes.append("* **Patreon:** [patreon.com/AnjishnuNandi](https://patreon.com/AnjishnuNandi)")
-    github_notes.append("* **GitHub Sponsors:** [github.com/sponsors/cromaguy](https://github.com/sponsors/cromaguy)\n")
-    github_notes.append("### 🏆 Special Credits")
-    github_notes.append("* **The Community**: A big thanks to all Testers, Contributors, and Users!")
-    github_notes.append("\n---\n")
+        github_notes.append("")
+        github_notes.append("**Build Information:**")
+        github_notes.append(f"- Build: {build_num}")
+        github_notes.append(f"- Type: {channel} Release")
+        github_notes.append("\n---\n")
+        github_notes.append("> [!NOTE]")
+        github_notes.append("> **Important Update Notes**")
+        github_notes.append("> * Turn on **Auto-Backup** so that you can recover your data.")
+        github_notes.append("> * Manage APIs from **Settings**.\n")
     
     release_notes_content = "\n".join(github_notes)
     

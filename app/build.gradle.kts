@@ -29,11 +29,11 @@ android {
         
         val overrideVersionCode = project.findProperty("versionCodeOverride")?.toString()?.toIntOrNull()
         val overrideVersionName = project.findProperty("versionNameOverride")?.toString()
-        versionCode = overrideVersionCode ?: 544431173
-        versionName = overrideVersionName ?: "5.4.443.1173"
+        versionCode = overrideVersionCode ?: 544431174
+        versionName = overrideVersionName ?: "5.4.443.1174-bluetooth-lyrics"
 
         val overrideReleaseDate = project.findProperty("releaseDateOverride")?.toString()
-        buildConfigField("String", "RELEASE_DATE", "\"${overrideReleaseDate ?: "2026-08-15"}\"")
+        buildConfigField("String", "RELEASE_DATE", "\"${overrideReleaseDate ?: "2026-08-21"}\"")
 
         val isNightly = project.findProperty("nightly")?.toString() == "true"
         buildConfigField("boolean", "IS_NIGHTLY", isNightly.toString())
@@ -55,6 +55,9 @@ android {
             ?: "Rhythm"
         buildConfigField("String", "GITHUB_OWNER", "\"$githubOwner\"")
         buildConfigField("String", "GITHUB_REPO", "\"$githubRepo\"")
+        val enableForkDefaults = githubOwner.equals("gustarmartins", ignoreCase = true) &&
+            githubRepo.equals("Rhythm-the-Mekki-remix", ignoreCase = true)
+        buildConfigField("boolean", "ENABLE_FORK_DEFAULTS", enableForkDefaults.toString())
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

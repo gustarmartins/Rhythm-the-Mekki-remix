@@ -703,7 +703,10 @@ class AppUpdaterViewModel(application: Application) : AndroidViewModel(applicati
         
         // Format APK size for display if available
         val apkSize = apkAsset?.size ?: 0
-        val versionName = release.name.ifEmpty { release.tag_name }
+        // Release titles are human-facing prose (for example, "Rhythm 5.4 - Feature Update")
+        // and are not a stable version identifier. Use the tag so semantic comparison and
+        // Android update detection continue to work when a release has a custom title.
+        val versionName = release.tag_name.removePrefix("v")
         
         return AppVersion(
             versionName = versionName,

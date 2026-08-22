@@ -4,12 +4,18 @@ on:
   push:
     tags: [ 'v*' ]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Stable or prerelease tag to publish (for example v5.4.443.1174-bluetooth-lyrics-stable)'
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 
 jobs:
   build:
@@ -71,7 +77,7 @@ jobs:
       - name: Set prerelease flag
         id: prerelease
         run: |
-          TAG="${{ github.ref_name }}"
+          TAG="$RELEASE_TAG"
           if [[ "$TAG" == *alpha* || "$TAG" == *beta* || "$TAG" == *rc* ]]; then
             echo "value=true" >> $GITHUB_OUTPUT
           else
@@ -79,12 +85,14 @@ jobs:
           fi
 
       - name: Generate Release Notes
-        run: python scripts/generate_release_notes.py "${{ github.ref_name }}" "${{ github.sha }}"
+        run: python scripts/generate_release_notes.py "$RELEASE_TAG" "${{ github.sha }}"
 
       - name: Github Release
         id: gh_release
         uses: softprops/action-gh-release@v2
         with:
+          name: Rhythm Bluetooth Lyrics - ${{ env.RELEASE_TAG }}
+          tag_name: ${{ env.RELEASE_TAG }}
           prerelease: ${{ steps.prerelease.outputs.value }}
           body_path: release_notes.md
           files: |
@@ -129,10 +137,10 @@ jobs:
           else
             BADGE="✅ <b>Rhythm Stable Release</b>"
           fi
-          RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+          RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${RELEASE_TAG}"
           CAPTION="${BADGE}"
           CAPTION+=$'\n\n'
-          CAPTION+="🏷️ <b>Tag:</b> <code>${{ github.ref_name }}</code>"
+          CAPTION+="🏷️ <b>Tag:</b> <code>${RELEASE_TAG}</code>"
           CAPTION+=$'\n'
           CAPTION+="📅 <b>Date:</b> <code>$(date +%Y-%m-%d)</code>"
           CAPTION+=$'\n\n'
@@ -167,7 +175,7 @@ jobs:
             exit 0
           fi
           IS_BETA="${{ steps.prerelease.outputs.value }}"
-          RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
+          RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${RELEASE_TAG}"
           RELEASE_DATE="$(date +%Y-%m-%d)"
 
           if [ "$IS_BETA" = "true" ]; then
@@ -185,7 +193,7 @@ jobs:
           cat > /tmp/discord_payload.json <<EOF
           {
             "username": "Rhythm Releases",
-            "avatar_url": "https://github.com/cromaguy/Rhythm/raw/main/assets/icon.png",
+            "avatar_url": "https://github.com/gustarmartins/Rhythm-the-Mekki-remix/raw/main/assets/icon.png",
             "embeds": [
               {
                 "title": "${EMBED_TITLE}",
@@ -195,7 +203,7 @@ jobs:
                 "fields": [
                   {
                     "name": "🏷️ Tag",
-                    "value": "\`${{ github.ref_name }}\`",
+                    "value": "\`${RELEASE_TAG}\`",
                     "inline": true
                   },
                   {
