@@ -91,7 +91,9 @@ jobs:
         id: gh_release
         uses: softprops/action-gh-release@v2
         with:
-          name: Rhythm Bluetooth Lyrics - ${{ env.RELEASE_TAG }}
+          # Keep the tag first: older installed updaters parse the release title
+          # as a version string before they can upgrade to the tag-aware updater.
+          name: ${{ env.RELEASE_TAG }} - Rhythm Bluetooth Lyrics
           tag_name: ${{ env.RELEASE_TAG }}
           prerelease: ${{ steps.prerelease.outputs.value }}
           body_path: release_notes.md
