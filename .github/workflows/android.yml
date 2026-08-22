@@ -72,7 +72,7 @@ jobs:
       run: >-
         ./gradlew --no-daemon --max-workers=2
         -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
-        -Pkotlin.daemon.jvmargs=-Xmx2g
+        -Pkotlin.daemon.jvmargs=-Xmx4500m
         assembleGithubRelease assembleGithubDebug
 
     - name: Generate build info
