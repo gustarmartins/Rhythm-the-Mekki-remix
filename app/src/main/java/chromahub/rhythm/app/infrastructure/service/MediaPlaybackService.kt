@@ -116,6 +116,9 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private var virtualizerStrength: Short = 0 // Store strength for virtualizer
     private var isInitializingAudioEffects: Boolean = false // Prevent concurrent initialization
     private var audioEffectsInitialized: Boolean = false // Track if effects have been successfully initialized
+    /** Audio session currently owning the optional platform Equalizer. */
+    @Volatile
+    private var audioEffectsSessionId: Int = 0
     private var isBassBoostAvailable: Boolean = true // Rhythm bass boost is always available
     private val audioEffectsInitMutex = Mutex()
     private var audioEffectsInitJob: Job? = null
@@ -1019,9 +1022,9 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                     handleBtVirtualPlaybackEnded()
                 }
                 if (playbackState == Player.STATE_READY && getPlayerAudioSessionId() != 0) {
-                    // Reinitialize audio effects with valid session ID
-                    val previouslyEnabled = getEqualizerEnabledSafe()
-                    Log.d(TAG, "Player ready with session ID ${getPlayerAudioSessionId()}, reinitializing effects (EQ was: $previouslyEnabled)")
+                    // Ensure optional effects are attached once the session is valid. The
+                    // initializer is session-aware and is a no-op for the same session.
+                    Log.d(TAG, "Player ready with session ID ${getPlayerAudioSessionId()}, ensuring audio effects")
                     initializeAudioEffects()
                     
                     // Force reload audio effects settings to fix cold boot issue
@@ -1052,23 +1055,6 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                         }
                     }
                     
-                    // Verify state was preserved — ensure EQ hardware stays enabled to avoid DSP burst on disable
-                    val currentlyEnabled = getEqualizerEnabledSafe()
-                    if (previouslyEnabled != currentlyEnabled) {
-                        if (appSettings.equalizerEnabled.value) {
-                            Log.w(TAG, "Equalizer state changed after reinitialization! Was: $previouslyEnabled, Now: $currentlyEnabled, Expected: true")
-                            setEqualizerEnabled(true)
-                        } else {
-                            Log.d(TAG, "Re-enabling EQ hardware with flat bands after reinitialization")
-                            withEqualizerSafe("re-enable eq on reinit", Unit) { eq ->
-                                eq.enabled = true
-                                val numberOfBands = eq.numberOfBands.toInt()
-                                for (i in 0 until numberOfBands) {
-                                    eq.setBandLevel(i.toShort(), 0)
-                                }
-                            }
-                        }
-                    }
                 }
             }
 
@@ -2573,22 +2559,22 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
             preloadController.release()
         }
         
-        // Release crossfade engine and transition controller
-        transitionController.release()
-        rhythmPlayerEngine.release()
-        
-        // Release audio effects
-        releaseAudioEffects()
-        
         // Remove player listener before releasing player
         playerListener?.let { player.removeListener(it) }
         playerListener = null
+
+        // Disconnect session-bound effects before releasing their players. Reversing this
+        // order can leave an orphan AudioFlinger chain and block a later createEffect call.
+        releaseAudioEffects()
+
+        // Release crossfade engine and transition controller
+        transitionController.release()
+        rhythmPlayerEngine.release()
         
         // Remove service as listener from controller
         controller?.removeListener(this)
         
         mediaSession?.run {
-            player.release()
             controller?.release()
             release()
             mediaSession = null
@@ -4085,9 +4071,32 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private suspend fun initializeAudioEffectsInternal(audioSessionId: Int) {
         try {
             isInitializingAudioEffects = true
+            val equalizerShouldBeEnabled = appSettings.equalizerEnabled.value
+
+            // STATE_READY and session callbacks can arrive more than once for the same
+            // ExoPlayer session. Avoid effect churn: repeatedly disconnecting/recreating
+            // an effect is unsafe on AudioFlinger and was the trigger for the observed
+            // createEffect/disconnect timeout.
+            if (audioEffectsInitialized && audioEffectsSessionId == audioSessionId &&
+                (!equalizerShouldBeEnabled || equalizer != null)
+            ) {
+                // Nothing changed at the AudioFlinger boundary. Settings changes are
+                // applied by their explicit actions; do not rewrite bands on every
+                // duplicate STATE_READY callback.
+                if (!equalizerShouldBeEnabled && equalizer != null) {
+                    try {
+                        equalizer?.release()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to release disabled platform Equalizer", e)
+                    }
+                    equalizer = null
+                }
+                return
+            }
+
             Log.d(TAG, "Initializing audio effects with session ID: $audioSessionId (previously initialized: $audioEffectsInitialized)")
 
-            // CRITICAL: Release ALL existing effects BEFORE creating new ones to prevent AudioFlinger error -38
+            // Release the old session-bound effect only when moving to a new session.
             try {
                 equalizer?.release()
                 equalizer = null
@@ -4104,15 +4113,21 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 Log.w(TAG, "Error releasing existing effects: ${e.message}")
             }
 
-            // Initialize equalizer directly (no dummy checks - they waste effect slots)
-            try {
-                equalizer = android.media.audiofx.Equalizer(0, audioSessionId).apply {
-                    enabled = true
+            // Do not allocate a platform effect when the user has EQ disabled. A flat,
+            // enabled hardware Equalizer is still a real AudioFlinger effect and conflicts
+            // with global DSP engines such as JamesDSP.
+            if (equalizerShouldBeEnabled) {
+                try {
+                    equalizer = android.media.audiofx.Equalizer(0, audioSessionId).apply {
+                        enabled = false
+                    }
+                    Log.d(TAG, "Equalizer initialized with ${equalizer?.numberOfBands} bands for session $audioSessionId")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Equalizer is not available on this device: ${e.message}")
+                    equalizer = null
                 }
-                Log.d(TAG, "Equalizer initialized with ${equalizer?.numberOfBands} bands for session $audioSessionId")
-            } catch (e: Exception) {
-                Log.w(TAG, "Equalizer is not available on this device: ${e.message}")
-                equalizer = null
+            } else {
+                Log.d(TAG, "Platform Equalizer disabled; skipping AudioFlinger effect allocation for session $audioSessionId")
             }
 
             // Initialize Rhythm audio processors (replaces Android BassBoost and Spatializer)
@@ -4124,6 +4139,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
 
             // Mark as successfully initialized
             audioEffectsInitialized = true
+            audioEffectsSessionId = audioSessionId
             Log.d(TAG, "Audio effects initialization completed successfully")
 
         } catch (e: Exception) {
@@ -4153,21 +4169,18 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                     // Enable equalizer AFTER applying levels to avoid audio glitches
                     setEqualizerEnabledSafe(true)
                 } else {
-                    // Zero all bands — don't disable hardware EQ to avoid AudioFlinger DSP burst
-                    withEqualizerSafe("set flat bands on load", Unit) { eq ->
-                        val numberOfBands = eq.numberOfBands.toInt()
-                        for (i in 0 until numberOfBands) {
-                            eq.setBandLevel(i.toShort(), 0)
-                        }
-                    }
-                    // Keep hardware EQ enabled — software controls the "off" state via flat bands
-                    setEqualizerEnabledSafe(true)
+                    // EQ-off means no platform effect. If an older service instance left
+                    // one attached, release it so JamesDSP can own the route cleanly.
+                    equalizer?.release()
+                    equalizer = null
+                    Log.d(TAG, "Platform Equalizer disabled; no session effect retained")
                 }
                 
-                val actualState = getEqualizerEnabledSafe()
-                if (!actualState) {
-                    Log.w(TAG, "EQ was unexpectedly disabled after load, re-enabling")
-                    setEqualizerEnabledSafe(true)
+                if (shouldBeEnabled) {
+                    val actualState = getEqualizerEnabledSafe()
+                    if (!actualState) {
+                        Log.d(TAG, "Equalizer remains disabled until its saved settings are applied")
+                    }
                 }
             } else {
                 Log.w(TAG, "Cannot load saved equalizer settings: equalizer is null")
@@ -4232,7 +4245,16 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
             }
         } else {
             val actualState = setEqualizerEnabledWithVolumeGuard(false)
-            Log.d(TAG, "Equalizer disabled (hardware kept enabled with flat bands to avoid DSP burst)")
+            // A disabled EQ must not remain registered as a session effect: global DSP
+            // engines (JamesDSP, Wavelet, etc.) need the route free. The transition guard
+            // above prevents an audible click; this single release removes the conflict.
+            try {
+                equalizer?.release()
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to release platform Equalizer after disable", e)
+            }
+            equalizer = null
+            Log.d(TAG, "Equalizer disabled and platform session effect released (actual=$actualState)")
         }
     }
     
@@ -4497,6 +4519,8 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         try {
             equalizer?.release()
             equalizer = null
+            audioEffectsSessionId = 0
+            audioEffectsInitialized = false
             
             // Reset Rhythm processors
             rhythmBassBoostProcessor?.reset()
