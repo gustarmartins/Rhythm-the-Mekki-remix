@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.local.data.database
 
 import android.content.Context
@@ -16,7 +21,7 @@ import chromahub.rhythm.app.features.local.data.database.entity.PlaylistSongEnti
 import chromahub.rhythm.app.features.local.data.database.entity.SongArtistEntity
 import chromahub.rhythm.app.features.local.data.database.entity.SongEntity
 
-@Database(entities = [SongEntity::class, ArtistEntity::class, SongArtistEntity::class, PlaylistEntity::class, PlaylistSongEntity::class], version = 8, exportSchema = false)
+@Database(entities = [SongEntity::class, ArtistEntity::class, SongArtistEntity::class, PlaylistEntity::class, PlaylistSongEntity::class], version = 9, exportSchema = false)
 abstract class RhythmDatabase : RoomDatabase() {
     abstract fun songDao(): SongDao
     abstract fun artistDao(): ArtistDao
@@ -115,6 +120,14 @@ abstract class RhythmDatabase : RoomDatabase() {
             }
         }
 
+        // Migration from version 8 to 9: Fix dateAdded and dateModified timestamps stored in seconds instead of milliseconds
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("UPDATE songs SET dateAdded = dateAdded * 1000 WHERE dateAdded > 0 AND dateAdded < 100000000000")
+                db.execSQL("UPDATE songs SET dateModified = dateModified * 1000 WHERE dateModified > 0 AND dateModified < 100000000000")
+            }
+        }
+
         fun getInstance(context: Context): RhythmDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -122,7 +135,7 @@ abstract class RhythmDatabase : RoomDatabase() {
                     RhythmDatabase::class.java,
                     "rhythm_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
                     .build()
                     .also { INSTANCE = it }
             }

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import java.util.Properties
 import com.android.build.api.variant.FilterConfiguration
 
@@ -29,11 +32,11 @@ android {
         
         val overrideVersionCode = project.findProperty("versionCodeOverride")?.toString()?.toIntOrNull()
         val overrideVersionName = project.findProperty("versionNameOverride")?.toString()
-        versionCode = overrideVersionCode ?: 544431174
-        versionName = overrideVersionName ?: "5.4.443.1174-bluetooth-lyrics"
+        versionCode = overrideVersionCode ?: 554801260
+        versionName = overrideVersionName ?: "5.5.480.1260-bluetooth-lyrics"
 
         val overrideReleaseDate = project.findProperty("releaseDateOverride")?.toString()
-        buildConfigField("String", "RELEASE_DATE", "\"${overrideReleaseDate ?: "2026-08-21"}\"")
+        buildConfigField("String", "RELEASE_DATE", "\"${overrideReleaseDate ?: "2026-09-08"}\"")
 
         val isNightly = project.findProperty("nightly")?.toString() == "true"
         buildConfigField("boolean", "IS_NIGHTLY", isNightly.toString())
@@ -48,11 +51,11 @@ android {
         val githubOwner = project.findProperty("githubOwner")?.toString()
             ?: localProperties.getProperty("GITHUB_OWNER")
             ?: System.getenv("GITHUB_OWNER")
-            ?: "cromaguy"
+            ?: "gustarmartins"
         val githubRepo = project.findProperty("githubRepo")?.toString()
             ?: localProperties.getProperty("GITHUB_REPO")
             ?: System.getenv("GITHUB_REPO")
-            ?: "Rhythm"
+            ?: "Rhythm-the-Mekki-remix"
         buildConfigField("String", "GITHUB_OWNER", "\"$githubOwner\"")
         buildConfigField("String", "GITHUB_REPO", "\"$githubRepo\"")
         val enableForkDefaults = githubOwner.equals("gustarmartins", ignoreCase = true) &&
@@ -60,6 +63,10 @@ android {
         buildConfigField("boolean", "ENABLE_FORK_DEFAULTS", enableForkDefaults.toString())
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 
     // Product flavors for different distribution channels
@@ -75,6 +82,7 @@ android {
             buildConfigField("boolean", "ENABLE_LYRICALLY_API", "true")
             buildConfigField("boolean", "ENABLE_DEEZER", "true")
             buildConfigField("boolean", "ENABLE_LRCLIB", "true")
+            buildConfigField("boolean", "ENABLE_BETTERLYRICS", "true")
             buildConfigField("boolean", "ENABLE_SPOTIFY_SEARCH", "true")
             buildConfigField("boolean", "ENABLE_WIKIPEDIA", "true")
             buildConfigField("String", "FLAVOR", "\"fdroid\"")
@@ -91,6 +99,7 @@ android {
             buildConfigField("boolean", "ENABLE_LYRICALLY_API", "true")
             buildConfigField("boolean", "ENABLE_DEEZER", "true")
             buildConfigField("boolean", "ENABLE_LRCLIB", "true")
+            buildConfigField("boolean", "ENABLE_BETTERLYRICS", "true")
             buildConfigField("boolean", "ENABLE_SPOTIFY_SEARCH", "true")
             buildConfigField("boolean", "ENABLE_WIKIPEDIA", "true")
             buildConfigField("String", "FLAVOR", "\"github\"")
@@ -251,6 +260,7 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.material3.android)
     implementation(libs.androidx.material3.window.size)
+    implementation(libs.androidx.window)
     implementation(libs.com.google.android.material)
 
     // Media3 dependencies

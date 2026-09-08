@@ -1,4 +1,12 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.streaming.presentation.components.bottomsheets
+
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 import android.content.Context
 import android.net.nsd.NsdManager
@@ -6,10 +14,12 @@ import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,15 +45,18 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.unit.dp
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.features.streaming.domain.model.StreamingServiceId
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.StandardBottomSheetHeader
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
@@ -64,6 +77,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
 
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Job
+
 data class DiscoveredServer(
     val name: String,
     val host: String,
@@ -72,58 +88,61 @@ data class DiscoveredServer(
     val type: String
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun NearbyServerDiscoverySheet(
-    serviceId: String,
-    onDismiss: () -> Unit,
-    onServerSelected: (String) -> Unit
+class NearbyServerScanner(
+    private val context: Context,
+    private val serviceId: String,
+    private val scope: CoroutineScope
 ) {
-    val upperServiceId = remember(serviceId) { serviceId.uppercase() }
-    val context = LocalContext.current
-    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
-    
-    val discoveredServers = remember { mutableStateListOf<DiscoveredServer>() }
-    var isScanning by remember { mutableStateOf(false) }
-    var scanTrigger by remember { mutableStateOf(0) }
+    val upperServiceId = serviceId.uppercase()
+    val discoveredServers = mutableStateListOf<DiscoveredServer>()
+    var isScanning by mutableStateOf(false)
+        private set
 
-    DisposableEffect(upperServiceId, scanTrigger) {
-        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        val multicastLock = wifiManager.createMulticastLock("RhythmGoDiscovery").apply {
-            setReferenceCounted(true)
-            try {
-                acquire()
-            } catch (e: Exception) {
-                // Ignore lock acquisition failure
+    private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+    private val nsdManager = context.applicationContext.getSystemService(Context.NSD_SERVICE) as NsdManager
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var multicastLock: WifiManager.MulticastLock? = null
+    private var jellyfinUdpJob: Job? = null
+    private val listeners = mutableListOf<NsdManager.DiscoveryListener>()
+    private val pendingResolves = mutableListOf<NsdServiceInfo>()
+    private var isResolving = false
+
+    fun startScan() {
+        if (isScanning) return
+        isScanning = true
+
+        try {
+            multicastLock = wifiManager.createMulticastLock("RhythmGoDiscovery").apply {
+                setReferenceCounted(true)
+                try {
+                    acquire()
+                } catch (e: Exception) {
+                    // Ignore lock acquisition failure
+                }
             }
+        } catch (e: Exception) {
+            // Ignore
         }
 
-        val nsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager
-        val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
-        
         val targetServiceType = when (upperServiceId) {
             StreamingServiceId.JELLYFIN -> "_jellyfin._tcp"
             StreamingServiceId.SUBSONIC -> "_subsonic._tcp"
             else -> "_http._tcp"
         }
 
-        // We will scan for both the specific service type and generic HTTP services
         val serviceTypesToScan = listOf(targetServiceType, "_http._tcp")
-        val listeners = mutableListOf<NsdManager.DiscoveryListener>()
-        
-        val jellyfinUdpJob = if (upperServiceId == StreamingServiceId.JELLYFIN) {
-            val scope = CoroutineScope(Dispatchers.IO)
-            scope.launch {
+
+        if (upperServiceId == StreamingServiceId.JELLYFIN) {
+            jellyfinUdpJob = scope.launch(Dispatchers.IO) {
                 var socket: DatagramSocket? = null
                 try {
                     socket = DatagramSocket().apply {
                         broadcast = true
                         soTimeout = 2000
                     }
-                    
                     val sendData = "Who is JellyfinServer?".toByteArray(Charsets.UTF_8)
                     val broadcastAddresses = getBroadcastAddresses()
-                    
+
                     fun sendBroadcasts() {
                         broadcastAddresses.forEach { addr ->
                             try {
@@ -133,7 +152,6 @@ fun NearbyServerDiscoverySheet(
                                 // Ignore send failures on specific interfaces
                             }
                         }
-                        // Fallback/universal broadcast address
                         try {
                             val universalPacket = DatagramPacket(
                                 sendData,
@@ -147,13 +165,12 @@ fun NearbyServerDiscoverySheet(
                         }
                     }
 
-                    // Initial broadcasts
                     repeat(3) {
                         if (!isActive) return@repeat
                         sendBroadcasts()
                         delay(250)
                     }
-                    
+
                     val receiveBuffer = ByteArray(2048)
                     while (isActive) {
                         try {
@@ -165,7 +182,7 @@ fun NearbyServerDiscoverySheet(
                                 receivePacket.length,
                                 Charsets.UTF_8
                             ).trim()
-                            
+
                             try {
                                 val json = org.json.JSONObject(responseJson)
                                 val rawAddress = json.optString("Address", "").trim()
@@ -178,7 +195,7 @@ fun NearbyServerDiscoverySheet(
                                         if (discoveredServers.none { it.url == finalUrl }) {
                                             discoveredServers.add(
                                                 DiscoveredServer(
-                                                    name = if (name.isBlank()) "Jellyfin Server" else name,
+                                                    name = if (name.isBlank()) "Jellyfin" else name,
                                                     host = pktHost,
                                                     port = 8096,
                                                     url = finalUrl,
@@ -192,10 +209,9 @@ fun NearbyServerDiscoverySheet(
                                 // Ignore JSON errors
                             }
                         } catch (e: java.io.InterruptedIOException) {
-                            // Socket timeout - resend broadcast packets to discover new hosts
                             sendBroadcasts()
                         } catch (e: Exception) {
-                            // Ignore other socket errors
+                            // Ignore
                         }
                     }
                 } catch (e: Exception) {
@@ -204,12 +220,7 @@ fun NearbyServerDiscoverySheet(
                     socket?.close()
                 }
             }
-        } else {
-            null
         }
-        
-        val pendingResolves = mutableListOf<NsdServiceInfo>()
-        var isResolving = false
 
         @Suppress("DEPRECATION")
         fun resolveNext() {
@@ -245,12 +256,11 @@ fun NearbyServerDiscoverySheet(
                                     } else if (serviceInfo.serviceType.contains("subsonic", ignoreCase = true) || nameLower.contains("subsonic")) {
                                         "Subsonic"
                                     } else if (upperServiceId == StreamingServiceId.JELLYFIN) {
-                                        "Jellyfin (HTTP)"
+                                        "Jellyfin"
                                     } else {
-                                        "Subsonic (HTTP)"
+                                        "Subsonic"
                                     }
 
-                                    // Avoid duplicates
                                     if (discoveredServers.none { it.url == url }) {
                                         discoveredServers.add(
                                             DiscoveredServer(
@@ -295,7 +305,6 @@ fun NearbyServerDiscoverySheet(
 
                 override fun onServiceFound(serviceInfo: NsdServiceInfo?) {
                     if (serviceInfo != null) {
-                        // Skip non-matching services for HTTP fallback to reduce noise
                         if (type.startsWith("_http._tcp")) {
                             val name = serviceInfo.serviceName?.lowercase() ?: ""
                             val port = serviceInfo.port
@@ -329,37 +338,85 @@ fun NearbyServerDiscoverySheet(
                 // Ignore failure for individual type scans
             }
         }
+    }
 
-        onDispose {
-            jellyfinUdpJob?.cancel()
-            try {
-                if (multicastLock.isHeld) {
-                    multicastLock.release()
-                }
-            } catch (e: Exception) {
-                // Ignore release failure
+    fun stopScan() {
+        if (!isScanning) return
+        isScanning = false
+        mainHandler.removeCallbacksAndMessages(null)
+        jellyfinUdpJob?.cancel()
+        jellyfinUdpJob = null
+        try {
+            if (multicastLock?.isHeld == true) {
+                multicastLock?.release()
             }
-            listeners.forEach { listener ->
-                try {
-                    nsdManager.stopServiceDiscovery(listener)
-                } catch (e: Exception) {
-                    // Ignore
-                }
+        } catch (e: Exception) {
+            // Ignore release failure
+        }
+        multicastLock = null
+        listeners.forEach { listener ->
+            try {
+                nsdManager.stopServiceDiscovery(listener)
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+        listeners.clear()
+        pendingResolves.clear()
+    }
+
+    fun rescan() {
+        stopScan()
+        discoveredServers.clear()
+        startScan()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NearbyServerDiscoverySheet(
+    serviceId: String,
+    onDismiss: () -> Unit,
+    onServerSelected: (String) -> Unit,
+    scanner: NearbyServerScanner? = null
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val upperServiceId = remember(serviceId) { serviceId.uppercase() }
+    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
+    
+    val effectiveScanner = scanner ?: remember(upperServiceId) {
+        NearbyServerScanner(context, upperServiceId, scope)
+    }
+
+    DisposableEffect(effectiveScanner) {
+        if (scanner == null) {
+            effectiveScanner.startScan()
+        }
+        onDispose {
+            if (scanner == null) {
+                effectiveScanner.stopScan()
             }
         }
     }
 
-    // Automatically stop scanning spinner after 10 seconds to conserve battery
-    LaunchedEffect(scanTrigger) {
-        delay(10000)
-        isScanning = false
+    val discoveredServers = effectiveScanner.discoveredServers
+    val isScanning = effectiveScanner.isScanning
+
+    // Automatically stop scanning after 10 seconds to conserve battery
+    LaunchedEffect(effectiveScanner.isScanning) {
+        if (effectiveScanner.isScanning) {
+            delay(10000)
+            effectiveScanner.stopScan()
+        }
     }
 
-    ModalBottomSheet(
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         dragHandle = { BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary) },
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()
     ) {
@@ -423,8 +480,7 @@ fun NearbyServerDiscoverySheet(
                     ) {
                         RhythmButtonWeighted(
                             onClick = {
-                                discoveredServers.clear()
-                                scanTrigger++
+                                effectiveScanner.rescan()
                             },
                             weight = 1f,
                             isFirst = true,
@@ -517,16 +573,26 @@ fun NearbyServerDiscoverySheet(
                     }
                 }
 
-                LazyColumn(
+                val serverListState = rememberLazyListState()
+
+                AdaptiveSheetScrollContainer(
+                    lazyListState = serverListState,
+                    blendColor = MaterialTheme.colorScheme.surfaceContainerLow,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(280.dp) // Bound the height so it doesn't expand infinitely
-                ) {
-                    item {
-                        Material3SettingsGroup(
-                            items = serverItems,
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                        )
+                        .heightIn(max = 280.dp)
+                ) { endPadding ->
+                    LazyColumn(
+                        state = serverListState,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(end = endPadding)
+                    ) {
+                        item {
+                            Material3SettingsGroup(
+                                items = serverItems,
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                            )
+                        }
                     }
                 }
                 
@@ -538,8 +604,7 @@ fun NearbyServerDiscoverySheet(
                     ) {
                         RhythmButtonWeighted(
                             onClick = {
-                                discoveredServers.clear()
-                                scanTrigger++
+                                effectiveScanner.rescan()
                             },
                             weight = 1f,
                             isFirst = true,

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.navigation
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
@@ -13,6 +18,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import androidx.compose.animation.AnimatedContent
+import chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamingMusicViewModel
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseInOutQuart
@@ -93,7 +99,6 @@ import chromahub.rhythm.app.activities.RhythmGuardTimeoutActivity
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.core.domain.model.AppMode
 import chromahub.rhythm.app.features.local.presentation.navigation.LocalNavigation
-import chromahub.rhythm.app.features.streaming.presentation.navigation.StreamingNavigation
 import chromahub.rhythm.app.shared.data.repository.UserPreferencesRepository
 import chromahub.rhythm.app.shared.data.repository.PlaybackStatsRepository
 import chromahub.rhythm.app.shared.data.repository.StatsTimeRange
@@ -116,6 +121,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.WindowInsetsSides
 import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
+import java.util.Locale
 
 
 
@@ -125,9 +131,10 @@ import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
  */
 @Composable
 fun RhythmNavigation(
+    modifier: Modifier = Modifier,
     musicViewModel: MusicViewModel = viewModel(),
     themeViewModel: ThemeViewModel = viewModel(),
-    modifier: Modifier = Modifier,
+    streamingMusicViewModel: StreamingMusicViewModel = viewModel(),
     navigateToSettingsTrigger: Boolean = false,
     onSettingsNavigationComplete: (() -> Unit)? = null
 ) {
@@ -166,7 +173,17 @@ fun RhythmNavigation(
         NavHost(
             navController = rootNavController,
             startDestination = "main",
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            predictivePopEnterTransition = {
+                fadeIn(animationSpec = tween(300))
+            },
+            predictivePopExitTransition = {
+                fadeOut(animationSpec = tween(300)) +
+                    slideOutVertically(
+                        targetOffsetY = { it / 4 },
+                        animationSpec = tween(350, easing = EaseInOutQuart)
+                    )
+            }
         ) {
             composable("main") {
                 AnimatedContent(
@@ -189,15 +206,12 @@ fun RhythmNavigation(
                 ) { mode ->
                     when (mode) {
                         "STREAMING" -> {
-                            // Show streaming navigation with proper bottom nav
-                            StreamingNavigation(
-                                localMusicViewModel = musicViewModel,
-                                onNavigateToSettings = navigateToSettings,
-                                onNavigateToPlayer = { /* TODO */ },
-                                onSwitchToLocalMode = {
-                                    // Switch back to local mode
-                                    appSettings.setAppMode("LOCAL")
-                                }
+                            // Streaming (Go) content is hosted on the shared Home/Library screens
+                            LocalNavigation(
+                                viewModel = musicViewModel,
+                                themeViewModel = themeViewModel,
+                                appSettings = appSettings,
+                                streamingMusicViewModel = streamingMusicViewModel
                             )
                         }
 
@@ -206,7 +220,8 @@ fun RhythmNavigation(
                             LocalNavigation(
                                 viewModel = musicViewModel,
                                 themeViewModel = themeViewModel,
-                                appSettings = appSettings
+                                appSettings = appSettings,
+                                streamingMusicViewModel = streamingMusicViewModel
                             )
                         }
                     }
@@ -461,7 +476,7 @@ private fun RhythmGuardWarningHost(
     var pendingBreakDurationMinutes by remember {
         mutableIntStateOf(configuredBreakResumeMinutes.coerceIn(1, 180))
     }
-    var bubbleHorizontalPos by rememberSaveable { mutableStateOf(2) } // 0: Left, 1: Middle, 2: Right (Default: 2)
+    var bubbleHorizontalPos by rememberSaveable { mutableIntStateOf(2) } // 0: Left, 1: Middle, 2: Right (Default: 2)
     var isBubbleCollapsed by rememberSaveable { mutableStateOf(false) }
     var rawDragXDp by remember { mutableFloatStateOf(0f) }
 
@@ -1425,7 +1440,7 @@ private fun RhythmGuardWarningHost(
                             else -> Alignment.TopEnd
                         }
                     )
-                    .offset(x = rawDragXDp.dp, y = with(density) { animatableY.value.toDp() })
+                    .offset { IntOffset(rawDragXDp.dp.roundToPx(), animatableY.value.toDp().roundToPx()) }
                     .pointerInput(timeoutReason, timeoutUntilMs, timeoutStartedAtMs, isTimeoutBubbleActive, isBubbleCollapsed) {
                         detectTapGestures(onTap = {
                             if (isBubbleCollapsed) {
@@ -1568,9 +1583,9 @@ private fun rhythmGuardFormatCountdown(seconds: Long): String {
     val secs = safeSeconds % 60
 
     return if (hours > 0) {
-        String.format("%d:%02d:%02d", hours, minutes, secs)
+        String.format(Locale.ROOT, "%d:%02d:%02d", hours, minutes, secs)
     } else {
-        String.format("%02d:%02d", minutes, secs)
+        String.format(Locale.ROOT, "%02d:%02d", minutes, secs)
     }
 }
 
@@ -1682,7 +1697,6 @@ private fun ensureRhythmGuardNotificationChannels(
     context: android.content.Context,
     notificationManager: NotificationManager
 ) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
 
     val alertChannel = NotificationChannel(
         RHYTHM_GUARD_ALERT_CHANNEL_ID,
@@ -1947,7 +1961,7 @@ fun ModeSelectorScreen(
             // Local Mode Card
             ModeCard(
                 title = stringResource(R.string.rhythmnavigation_local),
-                description = "Play music stored on your device",
+                description = stringResource(R.string.rhythmnavigation_local_desc),
                 icon = if (currentMode == AppMode.LOCAL) RhythmIcons.MusicNote else RhythmIcons.MusicNote,
                 isSelected = currentMode == AppMode.LOCAL,
                 onClick = { onModeSelected(AppMode.LOCAL) },
@@ -1957,7 +1971,7 @@ fun ModeSelectorScreen(
             // Streaming Mode Card
             ModeCard(
                 title = stringResource(R.string.rhythmnavigation_streaming),
-                description = "Stream from Spotify and more",
+                description = stringResource(R.string.rhythmnavigation_streaming_desc),
                 icon = if (currentMode == AppMode.STREAMING) MaterialSymbolIcon("cloud_queue", filled = true) else MaterialSymbolIcon("cloud_queue"),
                 isSelected = currentMode == AppMode.STREAMING,
                 onClick = { onModeSelected(AppMode.STREAMING) },

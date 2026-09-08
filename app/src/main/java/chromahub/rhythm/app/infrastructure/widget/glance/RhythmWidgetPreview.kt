@@ -1,8 +1,15 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.infrastructure.widget.glance
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -10,13 +17,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color // Added back to fix compilation
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import chromahub.rhythm.app.R
+import chromahub.rhythm.app.shared.presentation.theme.ExpressiveMaterialShape
+import chromahub.rhythm.app.shared.presentation.theme.rememberExpressiveShape
 
 /**
  * Preview components for Glance widgets
@@ -352,6 +366,149 @@ private fun LyricsWidgetMockup(
     }
 }
 
+// ==================== Rhythm Cookie Widget Mockup ====================
+
+@Composable
+private fun CookieWidgetMockup(
+    widthDp: Int,
+    heightDp: Int,
+    isPlaying: Boolean = true
+) {
+    val cookieShape = rememberExpressiveShape(ExpressiveMaterialShape.COOKIE_12)
+    val sunnyShape = rememberExpressiveShape(ExpressiveMaterialShape.SUNNY)
+    val square = minOf(widthDp, heightDp)
+    val scale = square / 100f
+
+    Box(
+        modifier = Modifier
+            .width(widthDp.dp)
+            .height(heightDp.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(square.dp)
+                .clip(cookieShape)
+                .background(MaterialTheme.colorScheme.surface)
+        ) {
+            // Mock album art filling the cookie
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            listOf(
+                                MaterialTheme.colorScheme.primary,
+                                MaterialTheme.colorScheme.tertiary
+                            )
+                        )
+                    )
+            )
+
+            // Play/Pause — sunny badge, top-right corner (center on the cookie rim)
+            Box(
+                modifier = Modifier
+                    .size((36 * scale).dp)
+                    .align(Alignment.TopEnd)
+                    .padding((2 * scale).dp)
+                    .clip(sunnyShape)
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                PlayPauseGlyph(
+                    isPlaying = isPlaying,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    glyphSize = (14 * scale).dp
+                )
+            }
+
+            // Previous — circle badge, bottom-left corner
+            Box(
+                modifier = Modifier
+                    .size((26 * scale).dp)
+                    .align(Alignment.BottomStart)
+                    .padding((6 * scale).dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.tertiary),
+                contentAlignment = Alignment.Center
+            ) {
+                SkipGlyph(
+                    flipped = true,
+                    color = MaterialTheme.colorScheme.onTertiary,
+                    glyphSize = (11 * scale).dp
+                )
+            }
+
+            // Next — circle badge, bottom-right corner
+            Box(
+                modifier = Modifier
+                    .size((26 * scale).dp)
+                    .align(Alignment.BottomEnd)
+                    .padding((6 * scale).dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.tertiary),
+                contentAlignment = Alignment.Center
+            ) {
+                SkipGlyph(
+                    flipped = false,
+                    color = MaterialTheme.colorScheme.onTertiary,
+                    glyphSize = (11 * scale).dp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayPauseGlyph(isPlaying: Boolean, color: Color, glyphSize: Dp) {
+    Canvas(modifier = Modifier.size(glyphSize)) {
+        if (isPlaying) {
+            // Two pause bars
+            val barWidth = size.width * 0.28f
+            drawRect(
+                color = color,
+                topLeft = Offset(size.width * 0.15f, size.height * 0.15f),
+                size = Size(barWidth, size.height * 0.7f)
+            )
+            drawRect(
+                color = color,
+                topLeft = Offset(size.width * 0.57f, size.height * 0.15f),
+                size = Size(barWidth, size.height * 0.7f)
+            )
+        } else {
+            val path = Path().apply {
+                moveTo(size.width * 0.32f, size.height * 0.18f)
+                lineTo(size.width * 0.32f, size.height * 0.82f)
+                lineTo(size.width * 0.82f, size.height * 0.5f)
+                close()
+            }
+            drawPath(path, color)
+        }
+    }
+}
+
+@Composable
+private fun SkipGlyph(flipped: Boolean, color: Color, glyphSize: Dp) {
+    Canvas(modifier = Modifier.size(glyphSize)) {
+        val cx = size.width / 2f
+        val triW = size.width * 0.3f
+        val path = Path().apply {
+            if (flipped) {
+                moveTo(cx + triW, size.height * 0.12f)
+                lineTo(cx + triW, size.height * 0.88f)
+                lineTo(cx - triW, size.height * 0.5f)
+                close()
+            } else {
+                moveTo(cx - triW, size.height * 0.12f)
+                lineTo(cx - triW, size.height * 0.88f)
+                lineTo(cx + triW, size.height * 0.5f)
+                close()
+            }
+        }
+        drawPath(path, color)
+    }
+}
+
 @Preview(name = "Glance Widget Previews - All Sizes", showBackground = true)
 @Composable
 fun GlanceWidgetPreviewsScreen() {
@@ -385,7 +542,7 @@ fun GlanceWidgetPreviewsScreen() {
                 
                 // 1x2 Narrow Vertical Widget
                 WidgetPreviewCard(
-                    title = stringResource(R.string.legacywidgetpreview_str_12_vertical_widget),
+                    title = stringResource(R.string.rhythmwidgetpreview_str_12_vertical_widget),
                     size = "110 × 220 dp"
                 ) {
                     WidgetMockup(110, 220, "Gabe")
@@ -415,7 +572,7 @@ fun GlanceWidgetPreviewsScreen() {
                 
                 // 3x2 Medium Widget
                 WidgetPreviewCard(
-                    title = stringResource(R.string.legacywidgetpreview_str_32_medium_widget),
+                    title = stringResource(R.string.rhythmwidgetpreview_str_32_medium_widget),
                     size = "250 × 150 dp"
                 ) {
                     WidgetMockup(250, 150, "Medium")
@@ -465,7 +622,7 @@ fun GlanceWidgetPreviewsScreen() {
                 
                 // ── Lyrics Widget Previews ──
                 Text(
-                    text = "Lyrics Widget",
+                    text = stringResource(R.string.rhythmwidgetpreview_lyrics_widget),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 16.dp)
@@ -473,7 +630,7 @@ fun GlanceWidgetPreviewsScreen() {
 
                 // Lyrics 3×2
                 WidgetPreviewCard(
-                    title = "Lyrics Widget — 3×2",
+                    title = stringResource(R.string.rhythmwidgetpreview_lyrics_3x2),
                     size = "250 × 150 dp"
                 ) {
                     LyricsWidgetMockup(250, 150, "LyricsWidget3x2")
@@ -483,10 +640,40 @@ fun GlanceWidgetPreviewsScreen() {
 
                 // Lyrics 4×3
                 WidgetPreviewCard(
-                    title = "Lyrics Widget — 4×3",
+                    title = stringResource(R.string.rhythmwidgetpreview_lyrics_4x3),
                     size = "350 × 220 dp"
                 ) {
                     LyricsWidgetMockup(350, 220, "LyricsWidget4x3")
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                // ── Rhythm Cookie Widget Previews ──
+                Text(
+                    text = stringResource(R.string.rhythmwidgetpreview_cookie_widget),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                // Cookie 2×2
+                WidgetPreviewCard(
+                    title = stringResource(R.string.rhythmwidgetpreview_cookie_2x2),
+                    size = "180 × 180 dp"
+                ) {
+                    CookieWidgetMockup(180, 180, isPlaying = true)
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                // Cookie resized wide
+                WidgetPreviewCard(
+                    title = stringResource(R.string.rhythmwidgetpreview_cookie_resized_wide),
+                    size = "180 × 90 dp"
+                ) {
+                    CookieWidgetMockup(180, 90, isPlaying = false)
                 }
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -644,6 +831,26 @@ fun LyricsWidget3x2DetailPreview() {
                 contentAlignment = Alignment.Center
             ) {
                 LyricsWidgetMockup(250, 150, "LyricsWidget3x2")
+            }
+        }
+    }
+}
+
+@Preview(name = "Cookie Widget Detail", showBackground = true)
+@Composable
+fun CookieWidgetDetailPreview() {
+    MaterialTheme {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CookieWidgetMockup(180, 180, isPlaying = true)
             }
         }
     }

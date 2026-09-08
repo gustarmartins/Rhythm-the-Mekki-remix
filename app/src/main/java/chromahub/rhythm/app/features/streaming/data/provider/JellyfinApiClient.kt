@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.streaming.data.provider
 
 import android.content.Context
@@ -11,8 +16,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
+import androidx.core.content.edit
 
 /**
  * Jellyfin API client for authentication, search and stream URL generation.
@@ -74,14 +81,14 @@ class JellyfinApiClient(context: Context) {
             )
             credentials = cred
             if (saveCredentials) {
-                prefs.edit()
-                    .putString(KEY_SERVER_URL, normalizedUrl)
-                    .putString(KEY_USERNAME, username.trim())
-                    .putString(KEY_ACCESS_TOKEN, token)
-                    .putString(KEY_USER_ID, userId)
-                    .apply()
+                prefs.edit {
+    putString(KEY_SERVER_URL, normalizedUrl)
+    putString(KEY_USERNAME, username.trim())
+    putString(KEY_ACCESS_TOKEN, token)
+    putString(KEY_USER_ID, userId)
+}
             } else {
-                prefs.edit().clear().apply()
+                prefs.edit { clear() }
             }
             ProviderConnectionResult(displayName = username.trim(), serverUrl = normalizedUrl)
         }
@@ -89,7 +96,7 @@ class JellyfinApiClient(context: Context) {
 
     fun logout() {
         credentials = null
-        prefs.edit().clear().apply()
+        prefs.edit { clear() }
     }
 
     suspend fun ping(): Result<Boolean> {
@@ -113,7 +120,7 @@ class JellyfinApiClient(context: Context) {
             includeItemTypes = "MusicAlbum",
             query = query,
             limit = limit,
-            fields = "Overview,ArtistItems,Artists,AlbumArtist,ProductionYear,ImageTags,RunTimeTicks,ParentId"
+            fields = "Overview,Genres,ArtistItems,Artists,AlbumArtist,ProductionYear,ImageTags,RunTimeTicks,ParentId"
         )
 
         return requestJson("/Users/${cred.userId}/Items", params).map { response ->
@@ -131,7 +138,47 @@ class JellyfinApiClient(context: Context) {
         }
     }
 
-    suspend fun fetchLibrarySongs(limit: Int = 5_000): Result<List<ProviderSong>> {
+    suspend fun getArtists(limit: Int = 5_000): Result<List<ProviderArtist>> {
+        val cred = credentials ?: return Result.failure(IllegalStateException("Jellyfin service is not connected"))
+
+        return withContext(Dispatchers.IO) {
+            try {
+                val pageSize = 200
+                var startIndex = 0
+                val artists = LinkedHashMap<String, ProviderArtist>()
+
+                while (artists.size < limit) {
+                    val params = buildArtistBrowseParams(
+                        query = null,
+                        limit = minOf(pageSize, limit - artists.size),
+                        startIndex = startIndex
+                    )
+                    val response = requestJson("/Artists", params).getOrThrow()
+                    val pageArtists = parseArtistItems(response)
+                    if (pageArtists.isEmpty()) break
+
+                    pageArtists.forEach { artist -> artists.putIfAbsent(artist.providerId, artist) }
+
+                    val totalRecordCount = response.optInt("TotalRecordCount", -1)
+                    startIndex += pageArtists.size
+
+                    if (totalRecordCount > 0 && startIndex >= totalRecordCount) break
+                    val limitParam = params["limit"]?.toIntOrNull().orZero()
+                    if (limitParam > 0 && pageArtists.size < limitParam) break
+                }
+
+                Result.success(artists.values.take(limit).toList())
+            } catch (e: Exception) {
+                Log.e(TAG, "Jellyfin getArtists fetch failed", e)
+                Result.failure(e)
+            }
+        }
+    }
+
+    suspend fun fetchLibrarySongs(
+        limit: Int = 5_000,
+        onProgress: ((current: Int, total: Int, songsCount: Int) -> Unit)? = null
+    ): Result<List<ProviderSong>> {
         val cred = credentials ?: return Result.failure(IllegalStateException("Jellyfin service is not connected"))
 
         return withContext(Dispatchers.IO) {
@@ -157,6 +204,12 @@ class JellyfinApiClient(context: Context) {
 
                     val totalRecordCount = response.optInt("TotalRecordCount", -1)
                     startIndex += rawItemsCount
+
+                    onProgress?.invoke(
+                        startIndex,
+                        if (totalRecordCount > 0) totalRecordCount else limit,
+                        songs.size
+                    )
 
                     if (totalRecordCount >= 0 && startIndex >= totalRecordCount) break
                     val limitParam = params["Limit"]?.toIntOrNull().orZero()
@@ -275,7 +328,7 @@ class JellyfinApiClient(context: Context) {
         }
 
         val params = mapOf(
-            "Fields" to "Overview,ArtistItems,Artists,AlbumArtist,ProductionYear,ImageTags,RunTimeTicks,ParentId,ItemCounts"
+            "Fields" to "Overview,Genres,ArtistItems,Artists,AlbumArtist,ProductionYear,ImageTags,RunTimeTicks,ParentId,ItemCounts"
         )
 
         return requestJson("/Users/${cred.userId}/Items/$albumId", params).map { response ->
@@ -295,7 +348,7 @@ class JellyfinApiClient(context: Context) {
         val params = mutableMapOf<String, String>(
             "IncludeItemTypes" to "Audio",
             "Recursive" to "true",
-            "Fields" to "Overview,ArtistItems,Artists,AlbumArtist,ProductionYear,ImageTags,RunTimeTicks,ParentId",
+            "Fields" to "Overview,Genres,Artists,AlbumArtist,ProductionYear,ImageTags,RunTimeTicks,ParentId",
             "Limit" to limit.toString(),
             "SortBy" to "PlayCount,Name",
             "SortOrder" to "Descending"
@@ -322,7 +375,7 @@ class JellyfinApiClient(context: Context) {
         val params = mutableMapOf<String, String>(
             "IncludeItemTypes" to "MusicAlbum",
             "Recursive" to "true",
-            "Fields" to "Overview,ArtistItems,Artists,AlbumArtist,ProductionYear,ImageTags,RunTimeTicks,ParentId",
+            "Fields" to "Overview,Genres,ArtistItems,Artists,AlbumArtist,ProductionYear,ImageTags,RunTimeTicks,ParentId",
             "Limit" to limit.toString()
         )
         if (!artistId.isNullOrBlank()) {
@@ -363,7 +416,7 @@ class JellyfinApiClient(context: Context) {
             query = null,
             limit = limit.coerceIn(1, 100)
         ).toMutableMap()
-        baseParams["Fields"] = "Artists,Album,ImageTags,RunTimeTicks,MediaSources"
+        baseParams["Fields"] = "Artists,Album,Genres,ImageTags,RunTimeTicks,MediaSources"
 
         return requestJson("/Items/$songId/Similar", baseParams).map { response ->
             parseAudioItems(response)
@@ -400,7 +453,7 @@ class JellyfinApiClient(context: Context) {
             includeItemTypes = "MusicAlbum",
             query = null,
             limit = limit.coerceIn(1, 100),
-            fields = "Overview,ArtistItems,Artists,AlbumArtist,ProductionYear,ImageTags,RunTimeTicks,ParentId"
+            fields = "Overview,Genres,ArtistItems,Artists,AlbumArtist,ProductionYear,ImageTags,RunTimeTicks,ParentId"
         ).toMutableMap()
         params["SortBy"] = sortBy
         if (sortBy == "PremiereDate" || sortBy == "DateCreated" || sortBy == "PlayCount") {
@@ -427,7 +480,7 @@ class JellyfinApiClient(context: Context) {
             try {
                 val bodyJson = JSONObject().apply {
                     put("Name", name.trim())
-                    put("Ids", songIds)
+                    put("Ids", JSONArray(songIds))
                     put("UserId", cred.userId)
                     put("MediaType", "Audio")
                     put("IsPublic", isPublic)
@@ -502,7 +555,7 @@ class JellyfinApiClient(context: Context) {
                         put("Name", name.trim())
                     }
                     if (songIds.isNotEmpty()) {
-                        put("Ids", songIds)
+                        put("Ids", JSONArray(songIds))
                     }
                     if (!description.isNullOrBlank()) {
                         put("Overview", description.trim())
@@ -541,15 +594,46 @@ class JellyfinApiClient(context: Context) {
             return Result.failure(IllegalArgumentException("At least one song id is required"))
         }
 
-        val params = mapOf(
-            "entryIds" to songIds.joinToString(",")
-        )
+        return withContext(Dispatchers.IO) {
+            try {
+                val targetIds = songIds.toSet()
+                val itemsResponse = requestJson(
+                    path = "/Playlists/$playlistId/Items",
+                    params = mapOf("Fields" to "Id", "Limit" to "1000")
+                ).getOrNull()
 
-        return request(
-            path = "/Playlists/$playlistId/Items",
-            params = params,
-            method = "DELETE"
-        ).map { true }
+                val entryIds = mutableListOf<String>()
+                val itemsArray = itemsResponse?.optJSONArray("Items")
+                if (itemsArray != null) {
+                    for (i in 0 until itemsArray.length()) {
+                        val item = itemsArray.optJSONObject(i) ?: continue
+                        val id = item.optString("Id", "")
+                        val playlistItemId = item.optString("PlaylistItemId", "")
+                        if (targetIds.contains(id) || targetIds.contains(playlistItemId)) {
+                            if (playlistItemId.isNotBlank()) {
+                                entryIds.add(playlistItemId)
+                            } else if (id.isNotBlank()) {
+                                entryIds.add(id)
+                            }
+                        }
+                    }
+                }
+
+                val idsToDelete = if (entryIds.isNotEmpty()) entryIds else songIds
+                val params = mapOf(
+                    "EntryIds" to idsToDelete.joinToString(",")
+                )
+
+                request(
+                    path = "/Playlists/$playlistId/Items",
+                    params = params,
+                    method = "DELETE"
+                ).map { true }
+            } catch (e: Exception) {
+                Log.e(TAG, "Jellyfin playlist removeSongs failed for playlistId=$playlistId", e)
+                Result.failure(e)
+            }
+        }
     }
 
     suspend fun markFavorite(itemId: String, isFavorite: Boolean): Result<Boolean> {
@@ -791,6 +875,11 @@ class JellyfinApiClient(context: Context) {
                     }
                 }
 
+                val songAlbumId = song.optString("AlbumId", "").takeIf { it.isNotBlank() }
+                    ?: song.optString("ParentId", "").takeIf { it.isNotBlank() }
+                val hasSongPrimary = song.optJSONObject("ImageTags")?.has("Primary") == true
+                val imageItemId = if (hasSongPrimary) id else (songAlbumId ?: id)
+
                 add(
                     ProviderSong(
                         providerId = id,
@@ -798,9 +887,8 @@ class JellyfinApiClient(context: Context) {
                         artist = artist,
                         album = album,
                         durationMs = durationMs,
-                        artworkUrl = buildImageUrl(id),
-                        albumId = song.optString("AlbumId", "").takeIf { it.isNotBlank() }
-                            ?: song.optString("ParentId", "").takeIf { it.isNotBlank() },
+                        artworkUrl = buildImageUrl(imageItemId),
+                        albumId = songAlbumId,
                         albumArtist = song.optString("AlbumArtist", "").takeIf { it.isNotBlank() },
                         isFavorite = isFavorite,
                         trackNumber = trackNum,
@@ -863,7 +951,7 @@ class JellyfinApiClient(context: Context) {
             put("IncludeItemTypes", "Playlist")
             put("Recursive", "true")
             put("Fields", "Overview,RunTimeTicks,ItemCounts")
-            put("Limit", limit.coerceIn(1, 100).toString())
+            put("Limit", limit.coerceIn(1, 1000).toString())
             if (startIndex > 0) {
                 put("StartIndex", startIndex.toString())
             }
@@ -884,7 +972,7 @@ class JellyfinApiClient(context: Context) {
             put("IncludeItemTypes", includeItemTypes)
             put("Recursive", "true")
             put("Fields", fields)
-            put("Limit", limit.coerceIn(1, 100).toString())
+            put("Limit", limit.coerceIn(1, 1000).toString())
             if (startIndex > 0) {
                 put("StartIndex", startIndex.toString())
             }
@@ -897,10 +985,13 @@ class JellyfinApiClient(context: Context) {
         startIndex: Int = 0
     ): Map<String, String> {
         return buildMap {
+            credentials?.userId?.takeIf { it.isNotBlank() }?.let {
+                put("userId", it)
+            }
             if (!query.isNullOrBlank()) {
                 put("searchTerm", query)
             }
-            put("limit", limit.coerceIn(1, 100).toString())
+            put("limit", limit.coerceIn(1, 1000).toString())
             if (startIndex > 0) {
                 put("startIndex", startIndex.toString())
             }
@@ -1027,10 +1118,10 @@ class JellyfinApiClient(context: Context) {
     }
 
     private fun loadCredentials(): Credentials? {
-        val server = prefs.getString(KEY_SERVER_URL, null).orEmpty()
-        val user = prefs.getString(KEY_USERNAME, null).orEmpty()
-        val token = prefs.getString(KEY_ACCESS_TOKEN, null).orEmpty()
-        val userId = prefs.getString(KEY_USER_ID, null).orEmpty()
+        val server = prefs.getString(KEY_SERVER_URL, null).orEmpty().trim().trimEnd('/')
+        val user = prefs.getString(KEY_USERNAME, null).orEmpty().trim()
+        val token = prefs.getString(KEY_ACCESS_TOKEN, null).orEmpty().trim()
+        val userId = prefs.getString(KEY_USER_ID, null).orEmpty().trim()
 
         if (server.isBlank() || user.isBlank() || token.isBlank() || userId.isBlank()) {
             return null

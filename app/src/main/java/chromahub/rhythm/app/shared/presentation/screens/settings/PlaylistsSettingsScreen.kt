@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
@@ -79,12 +84,12 @@ import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -97,6 +102,7 @@ import chromahub.rhythm.app.shared.data.repository.StatsTimeRange
 import chromahub.rhythm.app.util.GsonUtils
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
+import chromahub.rhythm.app.util.safeGetQuantityString
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -221,7 +227,7 @@ fun PlaylistsSettingsScreen(onBackClick: () -> Unit) {
                 SettingItem(
                     RhythmIcons.Delete,
                     context.getString(R.string.settings_cleanup_empty_playlists),
-                    context.getString(R.string.settings_cleanup_empty_playlists_desc, emptyPlaylists.size, if (emptyPlaylists.size > 1) "s" else ""),
+                    pluralStringResource(R.plurals.settings_cleanup_empty_playlists_desc, emptyPlaylists.size, emptyPlaylists.size),
                     onClick = {
                         HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                         showCleanupConfirmDialog = true
@@ -325,7 +331,7 @@ fun PlaylistsSettingsScreen(onBackClick: () -> Unit) {
                 )
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
@@ -520,6 +526,7 @@ fun PlaylistsSettingsScreen(onBackClick: () -> Unit) {
     }
 
     if (showCleanupConfirmDialog) {
+        val emptyCount = emptyPlaylists.size
         AlertDialog(
             onDismissRequest = { showCleanupConfirmDialog = false },
             icon = {
@@ -538,7 +545,7 @@ fun PlaylistsSettingsScreen(onBackClick: () -> Unit) {
                 )
             },
             text = {
-                Text(context.getString(R.string.dialog_cleanup_empty_playlists_message, emptyPlaylists.size, if (emptyPlaylists.size > 1) "s" else ""))
+                Text(pluralStringResource(R.plurals.dialog_cleanup_empty_playlists_message, emptyCount, emptyCount))
             },
             confirmButton = {
                 Button(

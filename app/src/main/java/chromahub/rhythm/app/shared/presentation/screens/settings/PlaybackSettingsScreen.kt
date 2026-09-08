@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
@@ -41,6 +46,7 @@ import chromahub.rhythm.app.shared.presentation.components.Material3SettingsGrou
 import chromahub.rhythm.app.shared.presentation.components.Material3SettingsItem
 import androidx.lifecycle.viewmodel.compose.viewModel
 import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel
+import chromahub.rhythm.app.shared.presentation.components.dialogs.PlaybackSpeedDialog
 
 @Composable
 fun PlaybackSettingsScreen(
@@ -53,15 +59,19 @@ fun PlaybackSettingsScreen(
     val musicViewModel: MusicViewModel = viewModel()
 
     val replayGain by appSettings.replayGain.collectAsState()
+    val skipSilenceEnabled by appSettings.skipSilenceEnabled.collectAsState()
     val repeatModePersistence by appSettings.repeatModePersistence.collectAsState()
     val shuffleModePersistence by appSettings.shuffleModePersistence.collectAsState()
+    val keepShuffleOnSelection by appSettings.keepShuffleOnSelection.collectAsState()
     val useHoursInTimeFormat by appSettings.useHoursInTimeFormat.collectAsState()
+    val showRemainingTime by appSettings.showRemainingTime.collectAsState()
     val gaplessEnabled by appSettings.gaplessPlayback.collectAsState()
     val crossfadeEnabled by appSettings.crossfade.collectAsState()
     val crossfadeDuration by appSettings.crossfadeDuration.collectAsState()
     val crossfadeRepeatOne by appSettings.crossfadeRepeatOne.collectAsState()
     val crossfadeOnSkip by appSettings.crossfadeOnSkip.collectAsState()
     val stopPlaybackOnAppClose by appSettings.stopPlaybackOnAppClose.collectAsState()
+    val monoAudioEnabled by appSettings.monoAudioEnabled.collectAsState()
     val useSystemVolume by appSettings.useSystemVolume.collectAsState()
     val resumeOnDeviceReconnect by appSettings.resumeOnDeviceReconnect.collectAsState()
     val audioOffloadEnabled by appSettings.audioOffloadEnabled.collectAsState()
@@ -70,6 +80,10 @@ fun PlaybackSettingsScreen(
     val batterySaverMode by appSettings.batterySaverMode.collectAsState()
     val batterySaverEnableOffload by appSettings.batterySaverEnableOffload.collectAsState()
     val isOffloadEnforced = batterySaverEnabled && (batterySaverMode == "auto" || (batterySaverMode == "manual" && batterySaverEnableOffload))
+
+    val defaultPlaybackSpeed by appSettings.defaultPlaybackSpeed.collectAsState()
+    val useDefaultPlaybackSpeed by appSettings.useDefaultPlaybackSpeed.collectAsState()
+    var showDefaultSpeedDialog by remember { mutableStateOf(false) }
 
     CollapsibleHeaderScreen(
         title = context.getString(R.string.settings_playback_title),
@@ -114,11 +128,31 @@ fun PlaybackSettingsScreen(
                         onToggleChange = { appSettings.setShuffleModePersistence(it) }
                     ),
                     SettingItem(
+                        RhythmIcons.Shuffle,
+                        context.getString(R.string.settings_keep_shuffle_on_selection),
+                        context.getString(R.string.settings_keep_shuffle_on_selection_desc),
+                        toggleState = keepShuffleOnSelection,
+                        onToggleChange = { appSettings.setKeepShuffleOnSelection(it) }
+                    ),
+                    SettingItem(
                         RhythmIcons.Stop,
                         context.getString(R.string.settings_stop_playback_on_close),
                         context.getString(R.string.settings_stop_playback_on_close_desc),
                         toggleState = stopPlaybackOnAppClose,
                         onToggleChange = { appSettings.setStopPlaybackOnAppClose(it) }
+                    ),
+                    SettingItem(
+                        MaterialSymbolIcon("speed"),
+                        context.getString(R.string.use_default_playback_speed),
+                        context.getString(R.string.use_default_playback_speed_desc),
+                        toggleState = useDefaultPlaybackSpeed,
+                        onToggleChange = { appSettings.setUseDefaultPlaybackSpeed(it) }
+                    ),
+                    SettingItem(
+                        MaterialSymbolIcon("tune"),
+                        context.getString(R.string.default_playback_speed),
+                        "${String.format(java.util.Locale.US, "%.3f", defaultPlaybackSpeed).dropLastWhile { it == '0' }.dropLastWhile { it == '.' }}x — ${context.getString(R.string.default_playback_speed_desc)}",
+                        onClick = { showDefaultSpeedDialog = true }
                     )
                 )
             ),
@@ -131,6 +165,22 @@ fun PlaybackSettingsScreen(
                         context.getString(R.string.settings_gapless_playback_desc),
                         toggleState = gaplessEnabled,
                         onToggleChange = { appSettings.setGaplessPlayback(it) }
+                    ),
+                    SettingItem(
+                        MaterialSymbolIcon("hearing"),
+                        context.getString(R.string.settings_skip_silence),
+                        when {
+                            isOffloadEnforced -> "Disabled under Lite Mode to conserve battery."
+                            isAudioOffloadActive && !skipSilenceEnabled -> "${context.getString(R.string.settings_skip_silence_desc)}\n(Enabling will disable hardware Audio Offload)"
+                            else -> context.getString(R.string.settings_skip_silence_desc)
+                        },
+                        toggleState = if (isOffloadEnforced || isAudioOffloadActive) false else skipSilenceEnabled,
+                        onToggleChange = {
+                            if (!isOffloadEnforced && !isAudioOffloadActive) {
+                                appSettings.setSkipSilenceEnabled(it)
+                            }
+                        },
+                        enabled = !isOffloadEnforced && !isAudioOffloadActive
                     ),
                     SettingItem(
                         RhythmIcons.Tune,
@@ -160,6 +210,18 @@ fun PlaybackSettingsScreen(
                         toggleState = if (isOffloadEnforced) false else crossfadeOnSkip,
                         onToggleChange = { if (!isOffloadEnforced) appSettings.setCrossfadeOnSkip(it) },
                         enabled = crossfadeEnabled && !isOffloadEnforced
+                    ),
+                    SettingItem(
+                        MaterialSymbolIcon("headset_mic"),
+                        context.getString(R.string.settings_mono_audio),
+                        when {
+                            isOffloadEnforced -> "Disabled under Lite Mode to conserve battery."
+                            isAudioOffloadActive && !monoAudioEnabled -> "${context.getString(R.string.settings_mono_audio_desc)}\n(Enabling will disable hardware Audio Offload)"
+                            else -> context.getString(R.string.settings_mono_audio_desc)
+                        },
+                        toggleState = if (isOffloadEnforced) false else monoAudioEnabled,
+                        onToggleChange = { if (!isOffloadEnforced) musicViewModel.setMonoAudioEnabled(it) },
+                        enabled = !isOffloadEnforced
                     ),
                     SettingItem(
                         MaterialSymbolIcon("volume_up"),
@@ -195,6 +257,13 @@ fun PlaybackSettingsScreen(
                         if (useHoursInTimeFormat) context.getString(R.string.settings_use_hours_enabled) else context.getString(R.string.settings_use_hours_disabled),
                         toggleState = useHoursInTimeFormat,
                         onToggleChange = { appSettings.setUseHoursInTimeFormat(it) }
+                    ),
+                    SettingItem(
+                        RhythmIcons.AccessTime,
+                        context.getString(R.string.settings_show_remaining_time),
+                        context.getString(R.string.settings_show_remaining_time_desc),
+                        toggleState = showRemainingTime,
+                        onToggleChange = { appSettings.setShowRemainingTime(it) }
                     )
                 )
             )
@@ -243,7 +312,10 @@ fun PlaybackSettingsScreen(
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Slider(
                                         value = crossfadeDuration,
-                                        onValueChange = { appSettings.setCrossfadeDuration(it) },
+                                        onValueChange = {
+                                            HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
+                                            appSettings.setCrossfadeDuration(it)
+                                        },
                                         valueRange = 0.5f..12f,
                                         steps = 22,
                                         modifier = Modifier.fillMaxWidth()
@@ -287,7 +359,6 @@ fun PlaybackSettingsScreen(
                                         TunerAnimatedSwitch(
                                             checked = item.toggleState,
                                             onCheckedChange = {
-                                                HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
                                                 item.onToggleChange?.invoke(it)
                                             }
                                         )
@@ -299,7 +370,6 @@ fun PlaybackSettingsScreen(
                                     TunerAnimatedSwitch(
                                         checked = item.toggleState,
                                         onCheckedChange = {
-                                            HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
                                             item.onToggleChange?.invoke(it)
                                         }
                                     )
@@ -347,6 +417,18 @@ fun PlaybackSettingsScreen(
             }
 
             item(key = "playback_bottom_spacer") { Spacer(modifier = Modifier.height(100.dp)) }
+        }
+
+        if (showDefaultSpeedDialog) {
+            PlaybackSpeedDialog(
+                currentSpeed = defaultPlaybackSpeed,
+                syncEnabled = false,
+                onDismiss = { showDefaultSpeedDialog = false },
+                onSave = { speed ->
+                    appSettings.setDefaultPlaybackSpeed(speed)
+                    showDefaultSpeedDialog = false
+                }
+            )
         }
     }
 }

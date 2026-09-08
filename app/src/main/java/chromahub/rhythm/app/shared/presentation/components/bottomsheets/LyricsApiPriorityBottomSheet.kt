@@ -1,11 +1,18 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.bottomsheets
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,7 +45,8 @@ fun LyricsApiPriorityBottomSheet(
     val haptic = LocalHapticFeedback.current
     val apiPriority by appSettings.lyricsApiPriority.collectAsState()
 
-    ModalBottomSheet(
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.COMPACT_DIALOG,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -47,65 +55,49 @@ fun LyricsApiPriorityBottomSheet(
                 color = MaterialTheme.colorScheme.primary
             )
         },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp)
-        ) {
-            // Header
-            Row(
+        StandardBottomSheetHeader(
+            title = stringResource(R.string.lyricssourcesettingsscreen_lyrics_api_priority),
+            subtitle = stringResource(R.string.lyricssourcesettingsscreen_choose_which_online_lyrics),
+            visible = true
+        )
+
+        val scrollState = rememberScrollState()
+
+        AdaptiveSheetScrollContainer(
+            scrollState = scrollState,
+            modifier = Modifier.fillMaxWidth()
+        ) { endPadding ->
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .verticalScroll(scrollState)
+                    .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Column {
-                    Text(
-                        text = stringResource(R.string.lyricssourcesettingsscreen_lyrics_api_priority),
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 6.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                shape = CircleShape
-                            )
-                    ) {
-                        Text(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            text = stringResource(R.string.lyricssourcesettingsscreen_choose_which_online_lyrics),
-                            overflow = TextOverflow.Ellipsis,
-                            maxLines = 1,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
 
             // Options
             val priorityOptions = listOf(
+                LyricsApiPriority.BETTERLYRICS_FIRST to Triple(
+                    "Better Lyrics First",
+                    "Search Better Lyrics API first, fallback to others",
+                    MaterialSymbolIcon("lyrics")
+                ),
                 LyricsApiPriority.LYRICALLY_FIRST to Triple(
                     "Lyrically First",
-                    "Search Lyrically API first, fallback to LRCLib",
+                    "Search Lyrically API first, fallback to others",
                     MaterialSymbolIcon("music_note")
                 ),
                 LyricsApiPriority.LRCLIB_FIRST to Triple(
                     "LRCLib First",
-                    "Search LRCLib API first, fallback to Lyrically",
+                    "Search LRCLib API first, fallback to others",
                     MaterialSymbolIcon("cloud_queue")
                 )
             )
 
-            priorityOptions.forEach { (priority, info) ->
+            priorityOptions.forEachIndexed { index, (priority, info) ->
                 val (title, description, icon) = info
                 val isSelected = apiPriority == priority
 
@@ -117,14 +109,12 @@ fun LyricsApiPriorityBottomSheet(
                     },
                     colors = CardDefaults.cardColors(
                         containerColor = if (isSelected)
-                            MaterialTheme.colorScheme.primaryContainer
+                            MaterialTheme.colorScheme.onPrimaryContainer
                         else
                             MaterialTheme.colorScheme.surfaceContainerHigh
                     ),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp)
+                    shape = groupedBottomSheetItemShape(index, priorityOptions.size),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
                         modifier = Modifier
@@ -136,10 +126,10 @@ fun LyricsApiPriorityBottomSheet(
                             imageVector = icon,
                             contentDescription = null,
                             tint = if (isSelected)
-                                MaterialTheme.colorScheme.onPrimaryContainer
+                                MaterialTheme.colorScheme.primaryContainer
                             else
-                                MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(32.dp)
+                                MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(if (isSelected) 30.dp else 26.dp)
                         )
 
                         Spacer(modifier = Modifier.width(16.dp))
@@ -150,7 +140,7 @@ fun LyricsApiPriorityBottomSheet(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = if (isSelected)
-                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                    MaterialTheme.colorScheme.primaryContainer
                                 else
                                     MaterialTheme.colorScheme.onSurface
                             )
@@ -158,7 +148,7 @@ fun LyricsApiPriorityBottomSheet(
                                 text = description,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (isSelected)
-                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                                 else
                                     MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -168,7 +158,7 @@ fun LyricsApiPriorityBottomSheet(
                             Icon(
                                 imageVector = RhythmIcons.CheckCircle,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = MaterialTheme.colorScheme.primaryContainer,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -177,4 +167,5 @@ fun LyricsApiPriorityBottomSheet(
             }
         }
     }
+}
 }

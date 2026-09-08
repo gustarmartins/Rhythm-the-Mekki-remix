@@ -1,5 +1,14 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 package chromahub.rhythm.app.features.streaming.presentation.components.settings
+
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.StandardBottomSheetHeader
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
@@ -62,6 +71,7 @@ import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
 
 private const val STREAMING_SECTION_DISCOVER = "DISCOVER"
 private const val STREAMING_SECTION_PLAYLISTS = "PLAYLISTS"
@@ -74,7 +84,6 @@ private const val STREAMING_SECTION_NEW_RELEASES = "NEW_RELEASES"
 private val defaultStreamingReorderableSections = listOf(
     STREAMING_SECTION_RECENTLY_PLAYED,
     STREAMING_SECTION_ARTISTS,
-    STREAMING_SECTION_PLAYLISTS,
     STREAMING_SECTION_RHYTHM_GUARD,
     STREAMING_SECTION_RHYTHM_STATS,
     STREAMING_SECTION_NEW_RELEASES
@@ -107,14 +116,13 @@ fun StreamingHomeSectionOrderBottomSheet(
     val showNewReleases by appSettings.streamingHomeShowNewReleases.collectAsState()
     val showPlaylists by appSettings.streamingHomeShowPlaylists.collectAsState()
 
-    val fixedSections = setOf("GREETING", STREAMING_SECTION_DISCOVER)
+    val fixedSections = setOf("GREETING", STREAMING_SECTION_DISCOVER, STREAMING_SECTION_PLAYLISTS)
     var reorderableList by remember(sectionOrder) {
         mutableStateOf(sectionOrder.filter { it !in fixedSections }.toList())
     }
     var visibilityMap by remember(
         showDiscover,
         showArtists,
-        showPlaylists,
         showRhythmGuard,
         showRhythmStats,
         showRecentlyPlayed,
@@ -124,7 +132,6 @@ fun StreamingHomeSectionOrderBottomSheet(
             mapOf(
                 STREAMING_SECTION_DISCOVER to showDiscover,
                 STREAMING_SECTION_ARTISTS to showArtists,
-                STREAMING_SECTION_PLAYLISTS to showPlaylists,
                 STREAMING_SECTION_RHYTHM_GUARD to showRhythmGuard,
                 STREAMING_SECTION_RHYTHM_STATS to showRhythmStats,
                 STREAMING_SECTION_RECENTLY_PLAYED to showRecentlyPlayed,
@@ -149,61 +156,29 @@ fun StreamingHomeSectionOrderBottomSheet(
         }
     }
 
-    ModalBottomSheet(
+    val lazyListState = rememberLazyListState()
+
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
+        lazyListState = lazyListState,
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         dragHandle = {
             BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary)
         },
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()
     ) {
         val totalSectionCards = reorderableList.size + 1
 
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // Header content (Fixed)
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(top = 16.dp, bottom = 8.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text(
-                            text = context.getString(R.string.bottomsheet_home_section_order),
-                            style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 6.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    shape = CircleShape
-                                )
-                        ) {
-                            Text(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                style = MaterialTheme.typography.labelLarge,
-                                text = context.getString(R.string.bottomsheet_reorder_toggle_visibility),
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = 1,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
-            }
+        StandardBottomSheetHeader(
+            title = context.getString(R.string.bottomsheet_home_section_order),
+            subtitle = context.getString(R.string.bottomsheet_reorder_toggle_visibility),
+            visible = true
+        )
 
+        Column(modifier = Modifier.fillMaxWidth()) {
             // Fixed Discover Carousel section (always first, not reorderable)
             Column(
                 modifier = Modifier
@@ -290,15 +265,19 @@ fun StreamingHomeSectionOrderBottomSheet(
 
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Reorderable list using DragDropLazyColumn
-            val lazyListState = rememberLazyListState()
-            DragDropLazyColumn(
-                items = reorderableList,
+            // Reorderable list using DragDropLazyColumn inside AdaptiveSheetScrollContainer
+            AdaptiveSheetScrollContainer(
+                lazyListState = lazyListState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(horizontal = 24.dp),
-                lazyListState = lazyListState,
+            ) { endPadding ->
+                DragDropLazyColumn(
+                    items = reorderableList,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 24.dp + endPadding),
+                    lazyListState = lazyListState,
                 onMove = { fromIndex, toIndex ->
                     val newList = reorderableList.toMutableList()
                     val item = newList.removeAt(fromIndex)
@@ -411,8 +390,9 @@ fun StreamingHomeSectionOrderBottomSheet(
                     }
                 }
             }
+        }
         
-            Surface(
+        Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.surfaceContainer,
                 tonalElevation = 3.dp
@@ -430,7 +410,6 @@ fun StreamingHomeSectionOrderBottomSheet(
                             visibilityMap = mapOf(
                                 STREAMING_SECTION_DISCOVER to true,
                                 STREAMING_SECTION_ARTISTS to true,
-                                STREAMING_SECTION_PLAYLISTS to true,
                                 STREAMING_SECTION_RHYTHM_GUARD to true,
                                 STREAMING_SECTION_RHYTHM_STATS to true,
                                 STREAMING_SECTION_RECENTLY_PLAYED to true,
@@ -451,7 +430,7 @@ fun StreamingHomeSectionOrderBottomSheet(
                             appSettings.setStreamingHomeSectionOrder(finalOrder)
                             appSettings.setStreamingHomeShowRecommended(visibilityMap[STREAMING_SECTION_DISCOVER] ?: true)
                             appSettings.setStreamingHomeShowArtists(visibilityMap[STREAMING_SECTION_ARTISTS] ?: true)
-                            appSettings.setStreamingHomeShowPlaylists(visibilityMap[STREAMING_SECTION_PLAYLISTS] ?: true)
+                            appSettings.setStreamingHomeShowPlaylists(false)
                             appSettings.setStreamingHomeShowRhythmGuard(visibilityMap[STREAMING_SECTION_RHYTHM_GUARD] ?: true)
                             appSettings.setStreamingHomeShowRhythmStats(visibilityMap[STREAMING_SECTION_RHYTHM_STATS] ?: true)
                             appSettings.setStreamingHomeShowRecentlyPlayed(visibilityMap[STREAMING_SECTION_RECENTLY_PLAYED] ?: true)

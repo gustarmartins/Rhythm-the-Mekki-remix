@@ -3,7 +3,8 @@
 
     <!-- Splash screen starting theme (SplashScreen compat library — Android 12+) -->
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#121212</item>
+        <!-- launcher_bg adapts to the app theme (white in light, dark in night) -->
+        <item name="windowSplashScreenBackground">@color/launcher_bg</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/rhythm_logo</item>
         <item name="windowSplashScreenAnimationDuration">10</item>
         <item name="postSplashScreenTheme">@style/Theme.Rhythm</item>
@@ -11,10 +12,10 @@
 
     <!-- Base app theme -->
     <style name="Theme.Rhythm" parent="Theme.AppCompat.NoActionBar">
-        <!-- Prevent white flash on startup -->
-        <item name="android:windowBackground">@android:color/black</item>
+        <!-- Window background adapts to the app theme to avoid a wrong-color flash on startup -->
+        <item name="android:windowBackground">@color/launcher_bg</item>
         <item name="android:windowActivityTransitions">true</item>
-        <item name="android:colorBackground">@android:color/black</item>
+        <item name="android:colorBackground">@color/launcher_bg</item>
         <item name="android:colorPrimary">@android:color/white</item>
         <item name="colorPrimary">@android:color/white</item>
     </style>

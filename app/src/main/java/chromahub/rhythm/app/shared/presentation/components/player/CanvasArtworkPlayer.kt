@@ -1,9 +1,15 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.player
 
 import android.view.TextureView
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.annotation.OptIn
+import androidx.core.view.isEmpty
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
@@ -14,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
@@ -24,6 +31,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import java.util.Locale
@@ -33,9 +42,9 @@ import java.util.Locale
 fun CanvasArtworkPlayer(
     primaryUrl: String?,
     fallbackUrl: String?,
-    isPlaying: Boolean = true,
-    alwaysPlay: Boolean = false,
     modifier: Modifier = Modifier,
+    isPlaying: Boolean = true,
+    alwaysPlay: Boolean = false
 ) {
     val context = LocalContext.current
     val primary = primaryUrl?.takeIf { it.isNotBlank() }
@@ -44,7 +53,7 @@ fun CanvasArtworkPlayer(
 
     var currentUrl by remember(initial) { mutableStateOf(initial) }
     var isVideoReady by remember(initial) { mutableStateOf(false) }
-    var videoAspectRatio by remember(initial) { mutableStateOf(0f) }
+    var videoAspectRatio by remember(initial) { mutableFloatStateOf(0f) }
 
     // Resolve effective play state — alwaysPlay overrides isPlaying
     val effectivePlaying = alwaysPlay || isPlaying
@@ -53,7 +62,25 @@ fun CanvasArtworkPlayer(
     val currentIsPlaying by rememberUpdatedState(effectivePlaying)
 
     val exoPlayer = remember(initial) {
-        ExoPlayer.Builder(context)
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                /* minBufferMs = */ 2_000,
+                /* maxBufferMs = */ 6_000,
+                /* bufferForPlaybackMs = */ 500,
+                /* bufferForPlaybackAfterRebufferMs = */ 1_000
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+
+        val renderersFactory = DefaultRenderersFactory(context.applicationContext).apply {
+            setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
+            setEnableDecoderFallback(true)
+        }
+
+        // Use the application context so the player never retains the Activity
+        // (media3 holds the builder context in its codec adapter factory).
+        ExoPlayer.Builder(context.applicationContext, renderersFactory)
+            .setLoadControl(loadControl)
             .build()
             .apply {
                 setAudioAttributes(
@@ -143,7 +170,7 @@ fun CanvasArtworkPlayer(
                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
 
                 // Ensure TextureView is added only once to avoid re-creation issues
-                if (childCount == 0) {
+                if (isEmpty()) {
                     val textureView = TextureView(ctx).apply {
                         layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
                     }

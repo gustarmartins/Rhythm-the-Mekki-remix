@@ -1,6 +1,16 @@
-@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class, ExperimentalLayoutApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
+
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.StandardBottomSheetHeader
 
 
 
@@ -29,6 +39,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import chromahub.rhythm.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -79,13 +90,13 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -107,7 +118,11 @@ import chromahub.rhythm.app.shared.presentation.components.common.CollapsibleHea
 import chromahub.rhythm.app.shared.presentation.components.common.ButtonGroupStyle
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveScrollBar
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveButtonGroup
-import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveGroupButton
+import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveFilterChip
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmGroupedButton
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonWeighted
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonSize
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonType
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.StandardBottomSheetHeader
 import chromahub.rhythm.app.shared.presentation.components.common.StyledProgressBar
 import chromahub.rhythm.app.shared.presentation.components.common.ProgressStyle
@@ -161,6 +176,36 @@ import chromahub.rhythm.app.shared.presentation.screens.settings.SettingItem
 import chromahub.rhythm.app.shared.presentation.screens.settings.SettingGroup
 
 
+private data class FormatCategory(
+    val titleRes: Int,
+    val formats: List<String>
+)
+
+private val FORMAT_CATEGORIES = listOf(
+    FormatCategory(
+        R.string.settings_formats_group_common,
+        listOf("mp3", "m4a", "aac", "alac", "flac", "ogg", "opus", "oga", "opa", "wav", "aiff", "aif", "wma")
+    ),
+    FormatCategory(
+        R.string.settings_formats_group_lossless,
+        listOf("ape", "wv", "tta", "tak", "dsf", "dff", "dsd")
+    ),
+    FormatCategory(
+        R.string.settings_formats_group_surround,
+        listOf("ac3", "ac4", "eac", "eac3", "dts", "dtshd", "dtsx", "truehd")
+    ),
+    FormatCategory(
+        R.string.settings_formats_group_containers,
+        listOf("mka", "m4b", "adts", "mp4", "mkv")
+    ),
+    FormatCategory(
+        R.string.settings_formats_group_legacy,
+        listOf("mid", "midi", "mhm", "mhm1")
+    )
+)
+
+private val ALL_KNOWN_FORMATS: List<String> = FORMAT_CATEGORIES.flatMap { it.formats }
+
 // ✅ REDESIGNED Media Scan Screen with improved UI
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -181,6 +226,22 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
     // Get current media scan mode from settings
     val mediaScanMode by appSettings.mediaScanMode.collectAsState()
     val includeHiddenWhitelistedMedia by appSettings.includeHiddenWhitelistedMedia.collectAsState()
+    val allowedFormats by appSettings.allowedFormats.collectAsState()
+    val minimumDuration by appSettings.minimumDuration.collectAsState()
+
+    val enabledKnownCount = allowedFormats.count { it in ALL_KNOWN_FORMATS }
+
+    fun updateAllowedFormats(newFormats: Set<String>) {
+        if (newFormats.isEmpty()) {
+            Toast.makeText(
+                context,
+                context.getString(R.string.settings_formats_at_least_one),
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+        appSettings.setAllowedFormats(newFormats)
+    }
 
     // Mode state
     var currentMode by remember {
@@ -190,6 +251,8 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
     // Bottom sheet states
     var showSongsBottomSheet by remember { mutableStateOf(false) }
     var showFoldersBottomSheet by remember { mutableStateOf(false) }
+    var showFormatsBottomSheet by remember { mutableStateOf(false) }
+    var showDurationBottomSheet by remember { mutableStateOf(false) }
 
     // File picker launcher for folder selection
     val folderPickerLauncher = rememberLauncherForActivityResult(
@@ -299,6 +362,14 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
                             HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                             currentMode = MediaScanMode.WHITELIST
                             appSettings.setMediaScanMode(MediaScanMode.WHITELIST)
+                            if (whitelistedFolders.isEmpty() && whitelistedSongs.isEmpty()) {
+                                try {
+                                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+                                    folderPickerLauncher.launch(intent)
+                                } catch (e: ActivityNotFoundException) {
+                                    Toast.makeText(context, context.getString(R.string.error_no_document_app), Toast.LENGTH_LONG).show()
+                                }
+                            }
                         }
                     }
                 )
@@ -413,7 +484,7 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
                     
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
+                        shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
@@ -427,10 +498,18 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
                                 onItemClick = { index ->
                                     HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                                     currentMode = if (index == 0) {
-                            appSettings.setMediaScanMode(MediaScanMode.BLACKLIST)
+                                        appSettings.setMediaScanMode(MediaScanMode.BLACKLIST)
                                         MediaScanMode.BLACKLIST
                                     } else {
-                            appSettings.setMediaScanMode(MediaScanMode.WHITELIST)
+                                        appSettings.setMediaScanMode(MediaScanMode.WHITELIST)
+                                        if (whitelistedFolders.isEmpty() && whitelistedSongs.isEmpty()) {
+                                            try {
+                                                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+                                                folderPickerLauncher.launch(intent)
+                                            } catch (e: ActivityNotFoundException) {
+                                                Toast.makeText(context, context.getString(R.string.error_no_document_app), Toast.LENGTH_LONG).show()
+                                            }
+                                        }
                                         MediaScanMode.WHITELIST
                                     }
                                 },
@@ -464,12 +543,53 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
                             toggleState = includeHiddenWhitelistedMedia,
                             onToggleChange = { appSettings.setIncludeHiddenWhitelistedMedia(it) }
                         )
+                    ),
+                    toMaterial3SettingsItem(
+                        context = context,
+                        hapticFeedback = haptic,
+                        item = SettingItem(
+                            icon = RhythmIcons.Player.Timer,
+                            title = context.getString(R.string.settings_min_duration),
+                            description = formatMinimumDuration(context, minimumDuration),
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                                showDurationBottomSheet = true
+                            }
+                        )
                     )
                 )
 
                 Material3SettingsGroup(
                     title = context.getString(R.string.settings_scan_behavior),
                     items = scanBehaviorItems,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            }
+
+            item {
+                val formatsItems = listOf(
+                    toMaterial3SettingsItem(
+                        context = context,
+                        hapticFeedback = haptic,
+                        item = SettingItem(
+                            icon = RhythmIcons.MusicNote,
+                            title = context.getString(R.string.settings_allowed_formats),
+                            description = context.getString(
+                                R.string.settings_allowed_formats_desc,
+                                enabledKnownCount,
+                                ALL_KNOWN_FORMATS.size
+                            ),
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                                showFormatsBottomSheet = true
+                            }
+                        )
+                    )
+                )
+
+                Material3SettingsGroup(
+                    title = context.getString(R.string.settings_audio_formats),
+                    items = formatsItems,
                     containerColor = MaterialTheme.colorScheme.surfaceContainer
                 )
             }
@@ -497,7 +617,7 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
                 Spacer(modifier = Modifier.height(24.dp))
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
                     )
@@ -548,24 +668,9 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
     if (showSongsBottomSheet) {
         val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
 
-        // Animation states
-        var showContent by remember { mutableStateOf(false) }
-        val contentAlpha by animateFloatAsState(
-            targetValue = if (showContent) 1f else 0f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            ),
-            label = "contentAlpha"
-        )
-
-        LaunchedEffect(Unit) {
-            delay(100)
-            showContent = true
-        }
-
-        ModalBottomSheet(
-        modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
+        RhythmAdaptiveModalSheet(
+            adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
             onDismissRequest = { showSongsBottomSheet = false },
             sheetState = sheetState,
             dragHandle = {
@@ -575,147 +680,110 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
             },
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 24.dp)
-                    .graphicsLayer(alpha = contentAlpha)
-            ) {
-                // Header
-                Row(
+            StandardBottomSheetHeader(
+                title = context.getString(R.string.settings_manage_songs),
+                subtitle = if (currentMode == MediaScanMode.BLACKLIST) context.getString(R.string.settings_blocked_songs) else context.getString(R.string.settings_whitelisted_songs),
+                visible = true
+            )
+
+            val songsScrollState = rememberScrollState()
+
+            AdaptiveSheetScrollContainer(
+                scrollState = songsScrollState,
+                modifier = Modifier.fillMaxWidth()
+            ) { endPadding ->
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 0.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .verticalScroll(songsScrollState)
+                        .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp)
                 ) {
-                    Column {
-                        Text(
-                            text = context.getString(R.string.settings_manage_songs),
-                            style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 6.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    shape = CircleShape
-                                )
-                        ) {
-                            Text(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                style = MaterialTheme.typography.labelLarge,
-                                text = if (currentMode == MediaScanMode.BLACKLIST) context.getString(R.string.settings_blocked_songs) else context.getString(R.string.settings_whitelisted_songs),
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = 1,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Stats cards
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                        ),
-                        shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier.weight(1f)
+                    // Stats cards
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = if (currentMode == MediaScanMode.BLACKLIST) RhythmIcons.Block else RhythmIcons.CheckCircle,
-                                contentDescription = null,
-                                tint = if (currentMode == MediaScanMode.BLACKLIST)
-                                    MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(32.dp)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "${filteredSongDetails.size}",
-                                style = MaterialTheme.typography.displaySmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = if (currentMode == MediaScanMode.BLACKLIST) context.getString(R.string.settings_blocked) else context.getString(R.string.settings_whitelisted),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                        ),
-                        shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Icon(
-                                imageVector = RhythmIcons.MusicNote,
-                                contentDescription = null,
-                                
-                                modifier = Modifier.size(32.dp)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "${allSongs.size}",
-                                style = MaterialTheme.typography.displaySmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = context.getString(R.string.settings_total_songs),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Songs list with lazy column
-                LazyColumn(
-            contentPadding = PaddingValues(bottom = 24.dp + LocalMiniPlayerPadding.current.calculateBottomPadding()),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f, fill = false)
-                        .heightIn(max = 400.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(
-                        items = filteredSongDetails,
-                        key = { "filtered_${it.id}" },
-                        contentType = { "song" }
-                    ) { song ->
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                             ),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = if (currentMode == MediaScanMode.BLACKLIST) RhythmIcons.Block else RhythmIcons.CheckCircle,
+                                    contentDescription = null,
+                                    tint = if (currentMode == MediaScanMode.BLACKLIST)
+                                        MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "${filteredSongDetails.size}",
+                                    style = MaterialTheme.typography.displaySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = if (currentMode == MediaScanMode.BLACKLIST) context.getString(R.string.settings_blocked) else context.getString(R.string.settings_whitelisted),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                            ),
+                            shape = RoundedCornerShape(20.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.MusicNote,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "${allSongs.size}",
+                                    style = MaterialTheme.typography.displaySmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = context.getString(R.string.settings_total_songs),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Songs list
+                    filteredSongDetails.forEach { song ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                            ),
+                            shape = RoundedCornerShape(16.dp)
                         ) {
                             Row(
                                 modifier = Modifier
@@ -789,32 +857,32 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
                             }
                         }
                     }
-                }
 
-                // Clear button at bottom
-                if (filteredSongDetails.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    OutlinedButton(
-                        onClick = {
-                            HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
-                            if (currentMode == MediaScanMode.BLACKLIST) {
-                                appSettings.clearBlacklist()
-                            } else {
-                                appSettings.clearWhitelist()
-                            }
-                            showSongsBottomSheet = false
-                        },
-                        border = BorderStroke(2.dp, if (currentMode == MediaScanMode.BLACKLIST)
-                            MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = MaterialSymbolIcon("delete_sweep", filled = true),
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(context.getString(R.string.settings_clear_all_button, if (currentMode == MediaScanMode.BLACKLIST) context.getString(R.string.settings_blocked) else context.getString(R.string.settings_whitelisted)))
+                    // Clear button at bottom
+                    if (filteredSongDetails.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        OutlinedButton(
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
+                                if (currentMode == MediaScanMode.BLACKLIST) {
+                                    appSettings.clearBlacklist()
+                                } else {
+                                    appSettings.clearWhitelist()
+                                }
+                                showSongsBottomSheet = false
+                            },
+                            border = BorderStroke(2.dp, if (currentMode == MediaScanMode.BLACKLIST)
+                                MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = MaterialSymbolIcon("delete_sweep", filled = true),
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(context.getString(R.string.settings_clear_all_button, if (currentMode == MediaScanMode.BLACKLIST) context.getString(R.string.settings_blocked) else context.getString(R.string.settings_whitelisted)))
+                        }
                     }
                 }
             }
@@ -825,24 +893,9 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
     if (showFoldersBottomSheet) {
         val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
 
-        // Animation states
-        var showContent by remember { mutableStateOf(false) }
-        val contentAlpha by animateFloatAsState(
-            targetValue = if (showContent) 1f else 0f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            ),
-            label = "contentAlpha"
-        )
-
-        LaunchedEffect(Unit) {
-            delay(100)
-            showContent = true
-        }
-
-        ModalBottomSheet(
-        modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
+        RhythmAdaptiveModalSheet(
+            adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
             onDismissRequest = { showFoldersBottomSheet = false },
             sheetState = sheetState,
             dragHandle = {
@@ -852,114 +905,80 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
             },
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 24.dp)
-                    .graphicsLayer(alpha = contentAlpha)
-            ) {
-                // Header
-                Row(
+            StandardBottomSheetHeader(
+                title = context.getString(R.string.settings_manage_folders),
+                subtitle = if (currentMode == MediaScanMode.BLACKLIST) context.getString(R.string.settings_blocked_folders) else context.getString(R.string.settings_whitelisted_folders),
+                visible = true
+            )
+
+            val foldersScrollState = rememberScrollState()
+
+            AdaptiveSheetScrollContainer(
+                scrollState = foldersScrollState,
+                modifier = Modifier.fillMaxWidth()
+            ) { endPadding ->
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 0.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .verticalScroll(foldersScrollState)
+                        .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp)
                 ) {
-                    Column {
-                        Text(
-                            text = context.getString(R.string.settings_manage_folders),
-                            style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Box(
+                    // Stats card
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        ),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
                             modifier = Modifier
-                                .padding(top = 6.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    shape = CircleShape
-                                )
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
+                            Icon(
+                                imageVector = if (currentMode == MediaScanMode.BLACKLIST) MaterialSymbolIcon("folder_off") else RhythmIcons.Folder,
+                                contentDescription = null,
+                                tint = if (currentMode == MediaScanMode.BLACKLIST)
+                                    MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                style = MaterialTheme.typography.labelLarge,
-                                text = if (currentMode == MediaScanMode.BLACKLIST) context.getString(R.string.settings_blocked_folders) else context.getString(R.string.settings_whitelisted_folders),
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = 1,
+                                text = "${filteredFoldersList.size}",
+                                style = MaterialTheme.typography.displaySmall,
+                                fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Stats card
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                    ),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = if (currentMode == MediaScanMode.BLACKLIST) MaterialSymbolIcon("folder_off") else RhythmIcons.Folder,
-                            contentDescription = null,
-                            tint = if (currentMode == MediaScanMode.BLACKLIST)
-                                MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "${filteredFoldersList.size}",
-                            style = MaterialTheme.typography.displaySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = if (currentMode == MediaScanMode.BLACKLIST) context.getString(R.string.settings_blocked_folders) else context.getString(R.string.settings_whitelisted_folders),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Folders list
-                LazyColumn(
-                    contentPadding = PaddingValues(bottom = 24.dp + LocalMiniPlayerPadding.current.calculateBottomPadding()),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f, fill = false)
-                        .heightIn(max = 400.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (filteredFoldersList.isNotEmpty()) {
-                        item {
                             Text(
-                                text = if (currentMode == MediaScanMode.BLACKLIST) "Currently Blocked Folders" else "Currently Whitelisted Folders",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 4.dp)
+                                text = if (currentMode == MediaScanMode.BLACKLIST) context.getString(R.string.settings_blocked_folders) else context.getString(R.string.settings_whitelisted_folders),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        items(filteredFoldersList, key = { "folder_${it.hashCode()}" }) { folder ->
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Folders list
+                    if (filteredFoldersList.isNotEmpty()) {
+                        Text(
+                            text = if (currentMode == MediaScanMode.BLACKLIST) "Currently Blocked Folders" else "Currently Whitelisted Folders",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        filteredFoldersList.forEach { folder ->
                             Card(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                                 ),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(16.dp)
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -1035,32 +1054,31 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
                     }
 
                     if (suggestedFolders.isNotEmpty()) {
-                        item {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Suggested Folders (Detected Music)",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(bottom = 4.dp)
-                            )
-                        }
-                        items(suggestedFolders, key = { "suggested_${it.hashCode()}" }) { folder ->
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = context.getString(R.string.media_suggested_folders),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        suggestedFolders.forEach { folder ->
                             Card(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                                    if (currentMode == MediaScanMode.BLACKLIST) {
+                                        appSettings.addFolderToBlacklist(folder)
+                                    } else {
+                                        appSettings.addFolderToWhitelist(folder)
+                                    }
+                                },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
-                                        HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
-                                        if (currentMode == MediaScanMode.BLACKLIST) {
-                                            appSettings.addFolderToBlacklist(folder)
-                                        } else {
-                                            appSettings.addFolderToWhitelist(folder)
-                                        }
-                                    },
+                                    .padding(vertical = 4.dp),
                                 colors = CardDefaults.cardColors(
                                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
                                 ),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(16.dp)
                             ) {
                                 Row(
                                     modifier = Modifier
@@ -1078,7 +1096,7 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
-                                            imageVector = RhythmIcons.Folder,
+                                            imageVector = MaterialSymbolIcon("create_new_folder"),
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(24.dp)
@@ -1089,7 +1107,7 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
 
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = File(folder).name.ifEmpty { context.getString(R.string.settings_root) },
+                                            text = File(folder).name.ifEmpty { folder },
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.SemiBold,
                                             maxLines = 1,
@@ -1107,80 +1125,474 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
 
                                     Icon(
                                         imageVector = RhythmIcons.Add,
-                                        contentDescription = "Add folder",
+                                        contentDescription = context.getString(R.string.settings_add_folder),
                                         tint = MaterialTheme.colorScheme.primary
                                     )
                                 }
                             }
                         }
                     }
-                }
 
-                // Action buttons at bottom
-                Spacer(modifier = Modifier.height(24.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Button(
-                        onClick = {
-                            HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
-                            try {
-                                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
-                                folderPickerLauncher.launch(intent)
-                            } catch (e: ActivityNotFoundException) {
-                                Toast.makeText(context, context.getString(R.string.error_no_document_app), Toast.LENGTH_LONG).show()
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        ),
-                        modifier = Modifier.weight(1f)
+                    // Action buttons at bottom
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Icon(
-                            imageVector = RhythmIcons.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(context.getString(R.string.settings_add_folder_button))
-                    }
-
-                    if (filteredFoldersList.isNotEmpty()) {
-                        OutlinedButton(
+                        Button(
                             onClick = {
                                 HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
-                                if (currentMode == MediaScanMode.BLACKLIST) {
-                                    blacklistedFolders.forEach { folder ->
-                                        appSettings.removeFolderFromBlacklist(folder)
-                                    }
-                                } else {
-                                    whitelistedFolders.forEach { folder ->
-                                        appSettings.removeFolderFromWhitelist(folder)
-                                    }
+                                try {
+                                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+                                    folderPickerLauncher.launch(intent)
+                                } catch (e: ActivityNotFoundException) {
+                                    Toast.makeText(context, context.getString(R.string.error_no_document_app), Toast.LENGTH_LONG).show()
                                 }
-                                showFoldersBottomSheet = false
                             },
-                            border = BorderStroke(2.dp, if (currentMode == MediaScanMode.BLACKLIST)
-                                MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            ),
                             modifier = Modifier.weight(1f)
                         ) {
                             Icon(
-                                imageVector = MaterialSymbolIcon("delete_sweep", filled = true),
+                                imageVector = RhythmIcons.Add,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(context.getString(R.string.settings_clear_all_button_short))
+                            Text(context.getString(R.string.settings_add_folder_button))
+                        }
+
+                        if (filteredFoldersList.isNotEmpty()) {
+                            OutlinedButton(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
+                                    if (currentMode == MediaScanMode.BLACKLIST) {
+                                        blacklistedFolders.forEach { folder ->
+                                            appSettings.removeFolderFromBlacklist(folder)
+                                        }
+                                    } else {
+                                        whitelistedFolders.forEach { folder ->
+                                            appSettings.removeFolderFromWhitelist(folder)
+                                        }
+                                    }
+                                    showFoldersBottomSheet = false
+                                },
+                                border = BorderStroke(2.dp, if (currentMode == MediaScanMode.BLACKLIST)
+                                    MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = MaterialSymbolIcon("delete_sweep", filled = true),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(context.getString(R.string.settings_clear_all_button_short))
+                            }
                         }
                     }
                 }
             }
         }
     }
+
+    if (showFormatsBottomSheet) {
+        val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
+
+        LaunchedEffect(Unit) {
+            sheetState.expand()
+        }
+
+        RhythmAdaptiveModalSheet(
+            adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
+            onDismissRequest = { showFormatsBottomSheet = false },
+            sheetState = sheetState,
+            dragHandle = {
+                BottomSheetDefaults.DragHandle(
+                    color = MaterialTheme.colorScheme.primary
+                )
+            },
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ) {
+            StandardBottomSheetHeader(
+                title = context.getString(R.string.settings_allowed_formats),
+                subtitle = context.getString(
+                    R.string.settings_allowed_formats_desc,
+                    enabledKnownCount,
+                    ALL_KNOWN_FORMATS.size
+                ),
+                visible = true
+            )
+
+            val formatsScrollState = rememberScrollState()
+
+            AdaptiveSheetScrollContainer(
+                scrollState = formatsScrollState,
+                modifier = Modifier.fillMaxWidth()
+            ) { endPadding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(formatsScrollState)
+                        .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp)
+                ) {
+                    FORMAT_CATEGORIES.forEach { category ->
+                        Text(
+                            text = context.getString(category.titleRes),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(bottom = 8.dp, top = 12.dp)
+                        )
+
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            category.formats.forEach { format ->
+                                val selected = allowedFormats.contains(format)
+                                ExpressiveFilterChip(
+                                    selected = selected,
+                                    onClick = {
+                                        HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                                        updateAllowedFormats(
+                                            if (selected) allowedFormats - format else allowedFormats + format
+                                        )
+                                    },
+                                    leadingIcon = if (selected) ({
+                                        Icon(
+                                            imageVector = RhythmIcons.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(FilterChipDefaults.IconSize)
+                                        )
+                                    }) else null,
+                                    label = {
+                                        Text(
+                                            text = format.uppercase(),
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = MaterialSymbolIcon("lightbulb", filled = true),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = context.getString(R.string.settings_quick_tips),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = context.getString(R.string.settings_allowed_formats_open_desc),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = context.getString(R.string.settings_formats_video_note),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showDurationBottomSheet) {
+        val sheetState = rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
+        )
+
+        var currentSeconds by remember(minimumDuration) {
+            mutableFloatStateOf((minimumDuration / 1000L).toFloat().coerceIn(0f, 300f))
+        }
+
+        LaunchedEffect(Unit) {
+            sheetState.expand()
+        }
+
+        RhythmAdaptiveModalSheet(
+            adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
+            onDismissRequest = { showDurationBottomSheet = false },
+            sheetState = sheetState,
+            dragHandle = {
+                BottomSheetDefaults.DragHandle(
+                    color = MaterialTheme.colorScheme.primary
+                )
+            },
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ) {
+            StandardBottomSheetHeader(
+                title = context.getString(R.string.settings_min_duration),
+                subtitle = if (currentSeconds > 0f) "Filtering < ${formatMinimumDuration(context, (currentSeconds * 1000L).toLong())}" else context.getString(R.string.settings_min_duration_none),
+                visible = true
+            )
+
+            val durationScrollState = rememberScrollState()
+
+            AdaptiveSheetScrollContainer(
+                scrollState = durationScrollState,
+                modifier = Modifier.fillMaxWidth()
+            ) { endPadding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(durationScrollState)
+                        .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 12.dp)
+                ) {
+                        // ── Grouped Cards: Slider (Top) + Preset Chips (Bottom) ───
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            // Top Card: Slider
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp, vertical = 20.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Slider(
+                                        value = currentSeconds,
+                                        onValueChange = { value ->
+                                            val stepped = kotlin.math.round(value / 5f) * 5f
+                                            if (stepped != currentSeconds) {
+                                                currentSeconds = stepped
+                                                HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                                            }
+                                        },
+                                        valueRange = 0f..300f,
+                                        steps = 59, // 0 to 300 in steps of 5
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "0s (All)",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = "2m 30s",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = "5m",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Bottom Card: Preset buttons using RhythmGroupedButton
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 24.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    val row1 = listOf(
+                                        0L to "0s",
+                                        5_000L to "5s",
+                                        10_000L to "10s",
+                                        15_000L to "15s"
+                                    )
+                                    val row2 = listOf(
+                                        30_000L to "30s",
+                                        60_000L to "1m",
+                                        120_000L to "2m",
+                                        300_000L to "5m"
+                                    )
+
+                                    RhythmGroupedButton(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        size = RhythmButtonSize.Medium
+                                    ) {
+                                        row1.forEachIndexed { index, (durationMs, label) ->
+                                            val isSelected = (currentSeconds * 1000L).toLong() == durationMs
+                                            RhythmButtonWeighted(
+                                                onClick = {
+                                                    HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                                                    currentSeconds = (durationMs / 1000L).toFloat()
+                                                },
+                                                weight = 1f,
+                                                isFirst = index == 0,
+                                                isLast = index == row1.lastIndex,
+                                                selected = isSelected,
+                                                type = if (isSelected) RhythmButtonType.Filled else RhythmButtonType.Tonal,
+                                                containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                                text = label
+                                            )
+                                        }
+                                    }
+
+                                    RhythmGroupedButton(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        size = RhythmButtonSize.Medium
+                                    ) {
+                                        row2.forEachIndexed { index, (durationMs, label) ->
+                                            val isSelected = (currentSeconds * 1000L).toLong() == durationMs
+                                            RhythmButtonWeighted(
+                                                onClick = {
+                                                    HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                                                    currentSeconds = (durationMs / 1000L).toFloat()
+                                                },
+                                                weight = 1f,
+                                                isFirst = index == 0,
+                                                isLast = index == row2.lastIndex,
+                                                selected = isSelected,
+                                                type = if (isSelected) RhythmButtonType.Filled else RhythmButtonType.Tonal,
+                                                containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
+                                                contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                                text = label
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Tip Card
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = MaterialSymbolIcon("lightbulb", filled = true),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = context.getString(R.string.settings_min_duration_tip),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Apply + Reset buttons pinned at bottom
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = 24.dp, top = 8.dp)
+                ) {
+                    RhythmGroupedButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        size = RhythmButtonSize.Large
+                    ) {
+                        RhythmButtonWeighted(
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                                currentSeconds = 0f
+                            },
+                            weight = 1f,
+                            isFirst = true,
+                            icon = MaterialSymbolIcon("restart_alt"),
+                            text = context.getString(R.string.bottomsheet_reset)
+                        )
+                        RhythmButtonWeighted(
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
+                                val newDuration = (currentSeconds * 1000L).toLong()
+                                val changed = appSettings.minimumDuration.value != newDuration
+                                appSettings.setMinimumDuration(newDuration)
+                                if (changed) {
+                                    musicViewModel.refreshLibrary(showMediaScanLoader = false)
+                                }
+                                showDurationBottomSheet = false
+                            },
+                            weight = 1f,
+                            isLast = true,
+                            icon = RhythmIcons.Check,
+                            text = context.getString(R.string.ui_apply)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+private fun formatMinimumDuration(context: Context, durationMs: Long): String {
+    if (durationMs <= 0L) {
+        return context.getString(R.string.settings_min_duration_none)
+    }
+    val totalSeconds = durationMs / 1000L
+    val minutes = totalSeconds / 60L
+    val remainingSeconds = totalSeconds % 60L
+
+    return when {
+        minutes > 0 && remainingSeconds > 0 -> context.getString(R.string.settings_min_duration_minutes, minutes, remainingSeconds)
+        minutes > 0 -> context.getString(R.string.settings_min_duration_minutes_only, minutes)
+        else -> context.getString(R.string.settings_min_duration_seconds, remainingSeconds)
+    }
 }
-
-
 
 @Composable
 fun MediaScanTipItem(

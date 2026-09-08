@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.util
 
 import android.graphics.Bitmap
@@ -8,6 +13,7 @@ import android.graphics.Rect
 import android.graphics.Typeface
 import android.net.Uri
 import android.util.Log
+import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toBitmap
 import androidx.core.net.toUri
 import coil.compose.AsyncImagePainter
@@ -54,7 +60,7 @@ object ImageUtils {
             val letter = safeName.firstOrNull()?.uppercase() ?: "?"
             val color = getColorForName(safeName)
             
-            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val bitmap = createBitmap(size, size, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             
             // Draw background

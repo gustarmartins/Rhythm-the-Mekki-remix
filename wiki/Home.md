@@ -19,12 +19,12 @@ Welcome to the official Rhythm Music Player documentation!
 
 Rhythm is a modern, open-source music player for Android with Material 3 design, featuring:
 - 🎨 Dynamic Material You theming with Material Symbols
-- 🎵 Professional audio engine (Media3 ExoPlayer) with Replay Gain & Crossfade
+- 🎵 Professional audio engine (Media3 ExoPlayer) with Replay Gain, Crossfade & Mono Audio
 - 🎤 Synchronized lyrics with full-screen view and home screen widget
 - 📊 Rhythm Stats 2.0 — comprehensive listening analytics
 - 🎛️ 10-band equalizer with AutoEQ
-- 🌐 Dual-mode architecture (Local + Streaming via Subsonic/Navidrome/Jellyfin)
-- 📱 Tablet-optimized UI and modern home screen widgets
+- 🌐 Go Mode — local + streaming via Subsonic/Navidrome/Jellyfin with nearby-server discovery
+- 📱 Tablet- and foldable-optimized UI (posture-aware player) and modern home screen widgets
 
 ## 🔗 External Resources
 

@@ -8,7 +8,7 @@ Rhythm features a dynamic onboarding process to personalize your music experienc
 
 ### The Onboarding Flow
 1. **Welcome Screen 👋**: Introduction to Rhythm's features.
-2. **App Mode Choice 📱**: Choose between **Local** (device files) or **Streaming** (server-based) playback mode.
+2. **App Mode Choice 📱**: Choose between **Local** (device files) or **Go Mode** (server-based streaming via Subsonic/Navidrome/Jellyfin).
 3. **Rhythm Guard 🛡️**: Set up hearing safety defaults based on your age.
 4. **Permission Setup 🔐**: Grant necessary storage and notification permissions.
 5. **Notification Preferences 🔔**: Configure how you receive alerts and playback controls.
@@ -48,11 +48,13 @@ Rhythm features a dynamic onboarding process to personalize your music experienc
 #### 📚 Library
 Browse by:
 - **Songs**: All tracks in your library
+- **Liked**: Your favorite (♥) tracks
+- **Playlists**: Your custom playlists
 - **Albums**: Organized by album
 - **Artists**: View by artist
-- **Playlists**: Your custom playlists
+- **Album Artists**: Grouped by album artist
+- **Dates**: Tracks by release date
 - **Explorer**: Folder-based browsing
-- **Genres**: Browse by music genre
 
 #### 🔍 Search
 - Lightning-fast fuzzy search
@@ -122,6 +124,7 @@ Browse by:
 - **AutoEQ Presets**: Device-optimized profiles (6032+ devices)
 - **Import/Export EQ**: Share your settings
 - **Bass Boost & Virtualizer**: Enhanced audio effects
+- **Mono Audio**: Downmix stereo to mono for single-earpiece listening
 
 ---
 
@@ -132,11 +135,12 @@ Browse by:
 2. Tap "Widgets"
 3. Find "Rhythm Music"
 4. Drag widget to home screen
-5. Resize as needed (2x1 to 5x5)
+5. Resize as needed
 
 ### Widget Types
-- **Legacy Widget**: RemoteViews with 7 responsive layouts
-- **Glance Widget**: Modern Material 3 with 6 responsive layouts
+- **Glance Music Widget**: Modern Material 3 with adaptive responsive sizes
+- **Cookie Widget**: Expressive 12-sided cookie-shaped music widget
+- **Stats Widget**: Playback statistics on the home screen
 - **Lyrics Widget**: Display current song lyrics on home screen
 
 ### Widget Features
@@ -207,7 +211,7 @@ Access comprehensive statistics:
 ## 🆘 Getting Help
 
 ### In-App Help
-- Settings → About → Help
+- Settings → Updates & Info → About (Report a Bug, Discord, Telegram support)
 - Contextual help in settings
 
 ### Community Support

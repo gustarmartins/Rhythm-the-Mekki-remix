@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <!-- Images permission is OPTIONAL - only needed for enhanced album art display -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" android:required="false" />
@@ -18,6 +18,7 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" android:required="false" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     
     <!-- Bluetooth permissions -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
@@ -49,6 +50,7 @@
         android:supportsRtl="true"
         android:localeConfig="@xml/locale_config"
         android:theme="@style/Theme.Rhythm"
+        android:largeHeap="true"
         android:enableOnBackInvokedCallback="true"
         tools:targetApi="36">
         
@@ -81,10 +83,13 @@
                 android:resource="@xml/file_paths" />
         </provider>
         
-        <!-- Add MediaTransferReceiver for Output Switcher functionality -->
+        <!-- Add MediaTransferReceiver for Output Switcher functionality.
+             Must stay exported without a permission: the system and other
+             media apps send media-transfer broadcasts to it by design. -->
         <receiver
             android:name="androidx.mediarouter.media.MediaTransferReceiver"
-            android:exported="true">
+            android:exported="true"
+            tools:ignore="ExportedReceiver">
         </receiver>
         
 
@@ -117,10 +122,42 @@
                 android:resource="@xml/lyric_widget" />
         </receiver>
         
+        <!-- Rhythm Cookie Widget -->
+        <receiver
+            android:name=".infrastructure.widget.glance.RhythmCookieWidgetReceiver"
+            android:exported="true"
+            android:label="Rhythm Cookie"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/rhythm_cookie_widget_info" />
+        </receiver>
+
+        <!-- Rhythm Stats Widget -->
+        <receiver
+            android:name=".infrastructure.widget.glance.RhythmStatsWidgetReceiver"
+            android:exported="true"
+            android:label="Rhythm Stats"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/rhythm_stats_widget_info" />
+        </receiver>
+        
+        <!-- MediaPlaybackService is exported so Android Auto, the system
+             media controller and other apps can connect to the media session
+             and MediaBrowserService. A permission would block those clients. -->
         <service
             android:name=".infrastructure.service.MediaPlaybackService"
             android:exported="true"
-            android:foregroundServiceType="mediaPlayback">
+            android:foregroundServiceType="mediaPlayback"
+            tools:ignore="ExportedService">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />
                 <action android:name="android.media.browse.MediaBrowserService" />
@@ -160,7 +197,6 @@
         <activity
             android:name=".activities.MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.App.Starting"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize"
@@ -217,15 +253,20 @@
                 <data android:mimeType="audio/mp3" />
                 <data android:mimeType="audio/x-mp3" />
                 <data android:mimeType="audio/mp4" />
+                <data android:mimeType="video/mp4" />
                 <data android:mimeType="audio/m4a" />
                 <data android:mimeType="audio/aac" />
                 <data android:mimeType="audio/x-aac" />
                 <data android:mimeType="audio/ogg" />
                 <data android:mimeType="audio/flac" />
                 <data android:mimeType="audio/wav" />
+                <data android:mimeType="audio/eac3" />
+                <data android:mimeType="audio/mhm1" />
                 <data android:mimeType="video/x-matroska" />
                 <data android:mimeType="video/mkv" />
                 <data android:mimeType="audio/x-matroska" />
+                <data android:mimeType="audio/mka" />
+                <data android:mimeType="audio/x-mka" />
                 <data android:mimeType="application/x-matroska" />
             </intent-filter>
         </activity>
@@ -241,6 +282,18 @@
             <meta-data
                 android:name="autoStoreLocales"
                 android:value="true" />
+        </service>
+
+        <!-- Rhythm Quick Settings Tile Service -->
+        <service
+            android:name=".infrastructure.service.RhythmTileService"
+            android:label="@string/app_name"
+            android:icon="@drawable/ic_notification"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
         </service>
     </application>
 

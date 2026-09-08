@@ -1,5 +1,14 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 package chromahub.rhythm.app.shared.presentation.components.player
+
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.StandardBottomSheetHeader
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
@@ -61,6 +70,7 @@ import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
 
 private fun groupedChipItemShape(index: Int, totalCount: Int): RoundedCornerShape {
     return when {
@@ -99,8 +109,9 @@ fun PlayerChipOrderBottomSheet(
     fun getChipInfo(chipId: String): Pair<String, MaterialSymbolIcon> {
         return when (chipId) {
             "FAVORITE" -> Pair("Favorite", RhythmIcons.FavoriteFilled)
-            "SPEED" -> Pair("Speed", MaterialSymbolIcon("speed", filled = true))
-            "PITCH" -> Pair("Pitch", MaterialSymbolIcon("graphic_eq", filled = true))
+            "SPEED_PITCH" -> Pair("Speed & Pitch", MaterialSymbolIcon("tune", filled = true))
+            "SPEED" -> Pair("Speed & Pitch", MaterialSymbolIcon("speed", filled = true))
+            "PITCH" -> Pair("Speed & Pitch", MaterialSymbolIcon("graphic_eq", filled = true))
             "EQUALIZER" -> Pair("Equalizer", MaterialSymbolIcon("graphic_eq", filled = true))
             "SLEEP_TIMER" -> Pair("Sleep Timer", RhythmIcons.AccessTime)
             "LYRICS" -> Pair("Lyrics", MaterialSymbolIcon("lyrics", filled = true))
@@ -111,7 +122,11 @@ fun PlayerChipOrderBottomSheet(
         }
     }
     
-    ModalBottomSheet(
+    val lazyListState = rememberLazyListState()
+
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
+        lazyListState = lazyListState,
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         dragHandle = { 
@@ -119,64 +134,30 @@ fun PlayerChipOrderBottomSheet(
                 color = MaterialTheme.colorScheme.primary
             )
         },
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()
     ) {
+        StandardBottomSheetHeader(
+            title = context.getString(R.string.player_chip_order_title),
+            subtitle = context.getString(R.string.player_chip_order_desc),
+            visible = true
+        )
+
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Header content (Fixed)
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(top = 16.dp, bottom = 8.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text(
-                            text = context.getString(R.string.player_chip_order_title),
-                            style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 6.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    shape = CircleShape
-                                )
-                        ) {
-                            Text(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                style = MaterialTheme.typography.labelLarge,
-                                text = context.getString(R.string.player_chip_order_desc),
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = 1,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Reorderable list using DragDropLazyColumn
-            val lazyListState = rememberLazyListState()
-            DragDropLazyColumn(
-                items = reorderableList,
+            // Reorderable list using DragDropLazyColumn inside AdaptiveSheetScrollContainer
+            AdaptiveSheetScrollContainer(
+                lazyListState = lazyListState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(horizontal = 24.dp),
-                lazyListState = lazyListState,
+            ) { endPadding ->
+                DragDropLazyColumn(
+                    items = reorderableList,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 24.dp, end = 24.dp + endPadding),
+                    lazyListState = lazyListState,
                 onMove = { fromIndex, toIndex ->
                     val newList = reorderableList.toMutableList()
                     val item = newList.removeAt(fromIndex)
@@ -291,8 +272,9 @@ fun PlayerChipOrderBottomSheet(
                     }
                 }
             }
+        }
             
-            // Sticky Footer at the bottom
+        // Sticky Footer at the bottom
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.surfaceContainer,
@@ -310,7 +292,7 @@ fun PlayerChipOrderBottomSheet(
                             HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                             appSettings.resetPlayerChipOrder()
                             appSettings.setHiddenPlayerChips(emptySet())
-                            reorderableList = listOf("FAVORITE", "SPEED", "PITCH", "EQUALIZER", "SLEEP_TIMER", "LYRICS", "ALBUM", "ARTIST", "SHARE")
+                            reorderableList = listOf("FAVORITE", "SPEED", "EQUALIZER", "SLEEP_TIMER", "LYRICS", "ALBUM", "ARTIST", "SHARE")
                             hiddenChipsSet = emptySet()
                             Toast.makeText(context, R.string.player_chip_order_reset, Toast.LENGTH_SHORT).show()
                         },

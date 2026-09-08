@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Palette used by launcher widget previews (previewLayout / previewImage).
+     Matches the Material 3 expressive dark palette the widgets render with. -->
+<resources>
+    <color name="widget_preview_surface">#FF1E1B22</color>
+    <color name="widget_preview_surface_variant">#FF49454F</color>
+    <color name="widget_preview_primary">#FFD0BCFF</color>
+    <color name="widget_preview_on_primary">#FF381E72</color>
+    <color name="widget_preview_primary_container">#FF4F378B</color>
+    <color name="widget_preview_on_primary_container">#FFEADDFF</color>
+    <color name="widget_preview_tertiary">#FFEFB8C8</color>
+    <color name="widget_preview_on_tertiary">#FF492532</color>
+    <color name="widget_preview_text">#FFE6E1E5</color>
+    <color name="widget_preview_subtext">#FFCAC4D0</color>
+</resources>

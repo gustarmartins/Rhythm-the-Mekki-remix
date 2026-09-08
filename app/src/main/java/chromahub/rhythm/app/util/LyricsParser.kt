@@ -1,7 +1,13 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.util
 
 import android.util.Log
 import java.util.regex.Pattern
+import java.util.Locale
 import chromahub.rhythm.app.shared.data.model.AppSettings
 
 object LyricsParser {
@@ -127,6 +133,23 @@ object LyricsParser {
             (run.size >= 3 && totalLength <= 16)
     }
     
+    fun hasNonLatinScript(text: String): Boolean {
+        return text.any { c ->
+            if (!c.isLetter()) return@any false
+            val script = Character.UnicodeScript.of(c.code)
+            script != Character.UnicodeScript.LATIN && script != Character.UnicodeScript.COMMON && script != Character.UnicodeScript.INHERITED
+        }
+    }
+
+    fun isLatinBased(text: String): Boolean {
+        val letters = text.filter { it.isLetter() }
+        if (letters.isEmpty()) return false
+        return letters.all { c ->
+            val script = Character.UnicodeScript.of(c.code)
+            script == Character.UnicodeScript.LATIN
+        }
+    }
+    
     /**
      * Separate main lyrics from translation and romanization lines
      * @param lines List of text lines (first is main lyrics, rest may be translations/romanizations)
@@ -174,13 +197,18 @@ object LyricsParser {
                         line.substring(1, line.length - 1).trim()
                     ).ifBlank { null }
                 }
-                // If main text has non-ASCII and this line has ASCII, it's likely romanization
-                mainText.any { it.code > 127 } && line.all { it.code <= 127 || it.isWhitespace() } -> {
+                // If main text has non-Latin script and candidate line is Latin-based (e.g. Romaji/Pinyin/Romaja),
+                // it is romanization (even with CJK/full-width punctuation like 、 or 。 or accented chars)
+                hasNonLatinScript(mainText) && isLatinBased(line) -> {
                     romanization = appendSupplementalUnique(romanization, line).ifBlank { null }
                 }
-                // If main text is ASCII and this line has non-ASCII, it's likely translation
-                mainText.all { it.code <= 127 || it.isWhitespace() } && line.any { it.code > 127 } -> {
+                // If main text is Latin and this line has non-Latin, it's likely translation
+                isLatinBased(mainText) && hasNonLatinScript(line) -> {
                     translation = appendSupplementalUnique(translation, line).ifBlank { null }
+                }
+                // If main text has non-ASCII and candidate line has no non-Latin letters, it's romanization
+                mainText.any { it.code > 127 } && !hasNonLatinScript(line) && line.any { it.isLetter() } -> {
+                    romanization = appendSupplementalUnique(romanization, line).ifBlank { null }
                 }
                 // Otherwise, treat as translation
                 else -> {
@@ -230,6 +258,13 @@ object LyricsParser {
         }
 
         if (trimmedCandidate.startsWith("[") && trimmedCandidate.endsWith("]") && trimmedCandidate.length > 2) {
+            return true
+        }
+
+        val mainHasNonLatin = hasNonLatinScript(mainText)
+        val candidateIsLatin = isLatinBased(trimmedCandidate)
+        val candidateHasNonLatin = hasNonLatinScript(trimmedCandidate)
+        if ((mainHasNonLatin && candidateIsLatin) || (isLatinBased(mainText) && candidateHasNonLatin)) {
             return true
         }
 
@@ -381,13 +416,18 @@ object LyricsParser {
                                 line.substring(1, line.length - 1).trim()
                             ).ifBlank { null }
                         }
-                        // If main text has non-ASCII and this line has ASCII, it's likely romanization
-                        mainText.any { it.code > 127 } && line.all { it.code <= 127 || it.isWhitespace() } -> {
+                        // If main text has non-Latin script and candidate line is Latin-based (e.g. Romaji/Pinyin/Romaja),
+                        // it is romanization (even with CJK/full-width punctuation like 、 or 。 or accented chars)
+                        hasNonLatinScript(mainText) && isLatinBased(line) -> {
                             romanization = appendSupplementalUnique(romanization, line).ifBlank { null }
                         }
-                        // If main text is ASCII and this line has non-ASCII, it's likely translation
-                        mainText.all { it.code <= 127 || it.isWhitespace() } && line.any { it.code > 127 } -> {
+                        // If main text is Latin and this line has non-Latin, it's likely translation
+                        isLatinBased(mainText) && hasNonLatinScript(line) -> {
                             translation = appendSupplementalUnique(translation, line).ifBlank { null }
+                        }
+                        // If main text has non-ASCII and candidate line has no non-Latin letters, it's romanization
+                        mainText.any { it.code > 127 } && !hasNonLatinScript(line) && line.any { it.isLetter() } -> {
+                            romanization = appendSupplementalUnique(romanization, line).ifBlank { null }
                         }
                         // Otherwise, treat as translation
                         else -> {
@@ -470,13 +510,18 @@ object LyricsParser {
                                 line.substring(1, line.length - 1).trim()
                             ).ifBlank { null }
                         }
-                        // If main text has non-ASCII and this line has ASCII, it's likely romanization
-                        mainText.any { it.code > 127 } && line.all { it.code <= 127 || it.isWhitespace() } -> {
+                        // If main text has non-Latin script and candidate line is Latin-based (e.g. Romaji/Pinyin/Romaja),
+                        // it is romanization (even with CJK/full-width punctuation like 、 or 。 or accented chars)
+                        hasNonLatinScript(mainText) && isLatinBased(line) -> {
                             romanization = appendSupplementalUnique(romanization, line).ifBlank { null }
                         }
-                        // If main text is ASCII and this line has non-ASCII, it's likely translation
-                        mainText.all { it.code <= 127 || it.isWhitespace() } && line.any { it.code > 127 } -> {
+                        // If main text is Latin and this line has non-Latin, it's likely translation
+                        isLatinBased(mainText) && hasNonLatinScript(line) -> {
                             translation = appendSupplementalUnique(translation, line).ifBlank { null }
+                        }
+                        // If main text has non-ASCII and candidate line has no non-Latin letters, it's romanization
+                        mainText.any { it.code > 127 } && !hasNonLatinScript(line) && line.any { it.isLetter() } -> {
+                            romanization = appendSupplementalUnique(romanization, line).ifBlank { null }
                         }
                         // Otherwise, treat as translation
                         else -> {
@@ -575,7 +620,7 @@ object LyricsParser {
         val minutes = totalSeconds / 60
         val seconds = totalSeconds % 60
         val millis = (milliseconds % 1000) / 10
-        return String.format("%02d:%02d.%02d", minutes, seconds, millis)
+        return String.format(Locale.ROOT, "%02d:%02d.%02d", minutes, seconds, millis)
     }
 }
 

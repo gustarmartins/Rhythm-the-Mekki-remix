@@ -10,12 +10,13 @@ Rhythm employs a unique dual-mode architecture to support both local and streami
 Focuses on device-based media using the Android `MediaStore` API. It handles local file indexing, metadata extraction from files, and local playback state.
 
 ### Streaming Mode (`features/streaming`)
-Provides a completely separate pipeline for streaming servers. It includes its own data repositories and presentation layer, allowing the app to function as a streaming client without interfering with the local library.
+Provides a completely separate pipeline for streaming servers. It includes its own data repositories and presentation layer, allowing the app to function as a streaming client without interfering with the local library. In recent releases the streaming UI has been progressively merged into the shared local UI while keeping its dedicated repositories and ViewModels.
 
 ### Shared Core
 Both modes leverage the `shared` and `infrastructure` layers:
 - **Shared Data**: Common domain models (Song, Album, Artist) ensure consistency.
 - **Playback Service**: A unified `MediaPlaybackService` handles the actual audio output via ExoPlayer, regardless of whether the source is local or streaming.
+- **Audio Processors**: The audio pipeline (`RhythmAudioProcessor`) chains effects such as Replay Gain, Bass Boost, Virtualizer/Spatialization, and Mono downmix (`RhythmMonoAudioProcessor`) before output.
 - **Infrastructure**: Common utilities for networking, permissions, and background workers are used by both modes.
 
 
@@ -100,7 +101,6 @@ class MusicViewModelTest {
 - No analytics or tracking code
 - All data stored locally
 - No server communication except optional features
-- Encrypted backups (optional)
 
 ### Permissions
 
@@ -211,8 +211,8 @@ android {
         applicationId = "chromahub.rhythm.app"
         minSdk = 26
         targetSdk = 37
-        versionCode = 514141085
-        versionName = "5.1.414.1085 Beta"
+        versionCode = 544561196
+        versionName = "5.4.456.1196 Beta"
     }
     
     buildFeatures {
@@ -226,9 +226,9 @@ android {
 
 ```toml
 [versions]
-kotlin = "2.4.0"
-composeBom = "2026.06.00"
-media3 = "1.10.1"
+kotlin = "2.4.10"
+composeBom = "2026.06.01"
+media3 = "1.11.0"
 
 [libraries]
 androidx-ui = { group = "androidx.compose.ui", name = "ui" }

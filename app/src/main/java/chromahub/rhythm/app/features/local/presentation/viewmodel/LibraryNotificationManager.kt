@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.local.presentation.viewmodel
 
 import android.app.Application
@@ -50,10 +55,6 @@ class LibraryNotificationManager(private val context: Application) {
 
     fun ensureOperationsNotificationChannel() {
         if (isChannelCreated) return
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            isChannelCreated = true
-            return
-        }
 
         val channel = NotificationChannel(
             OPERATIONS_NOTIFICATION_CHANNEL_ID,
@@ -384,8 +385,9 @@ class LibraryNotificationManager(private val context: Application) {
                         return@launch
                     }
 
-                    val summary = context.getString(
-                        R.string.notification_library_setup_complete_summary,
+                    val summary = context.resources.getQuantityString(
+                        R.plurals.notification_library_setup_complete_summary,
+                        filteredSongsSize(),
                         filteredSongsSize(),
                         filteredAlbumsSize(),
                         filteredArtistsSize()

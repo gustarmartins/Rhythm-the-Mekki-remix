@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.player
 
 import androidx.compose.runtime.Composable
@@ -17,11 +22,11 @@ fun MiniPlayer(
     onPlayPause: () -> Unit,
     onPlayerClick: () -> Unit,
     onSkipNext: () -> Unit,
+    modifier: Modifier = Modifier,
     onSkipPrevious: () -> Unit = {},
     onDismiss: () -> Unit = {},
     isMediaLoading: Boolean = false,
-    verticalDragEnabled: Boolean = true,
-    modifier: Modifier = Modifier
+    verticalDragEnabled: Boolean = true
 ) {
     val context = LocalContext.current
     val appSettings = remember { AppSettings.getInstance(context) }

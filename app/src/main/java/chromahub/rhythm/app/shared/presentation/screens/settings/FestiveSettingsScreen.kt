@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.screens.settings
 
 import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
@@ -72,7 +77,7 @@ fun FestiveSettingsScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
@@ -80,10 +85,9 @@ fun FestiveSettingsScreen(
                         FestiveSettingRow(
                             icon = MaterialSymbolIcon("celebration"),
                             title = stringResource(R.string.theme_enable_festive),
-                            description = "Show festive decorations across the app",
+                            description = context.getString(R.string.festive_enabled_desc),
                             checked = festiveEnabled,
                             onCheckedChange = { 
-                                HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.HEAVY)
                                 appSettings.setFestiveThemeEnabled(it) 
                             }
                         )
@@ -97,12 +101,11 @@ fun FestiveSettingsScreen(
                             FestiveSettingRow(
                                 icon = MaterialSymbolIcon("event_available"),
                                 title = stringResource(R.string.theme_auto_detect),
-                                description = "Automatically show decorations for holidays",
+                                description = context.getString(R.string.festive_auto_detect_desc),
                                 checked = festiveAutoDetect,
-                                onCheckedChange = { 
-                                    HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.HEAVY)
-                                    appSettings.setFestiveThemeAutoDetect(it) 
-                                }
+                            onCheckedChange = { 
+                                appSettings.setFestiveThemeAutoDetect(it) 
+                            }
                             )
                         }
                     }
@@ -124,7 +127,7 @@ fun FestiveSettingsScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
+                        shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
@@ -132,7 +135,7 @@ fun FestiveSettingsScreen(
                             FestiveTypeOption(
                                 icon = MaterialSymbolIcon("ac_unit"),
                                 title = stringResource(R.string.settings_festival_christmas),
-                                description = "Snowfall decorations",
+                                description = context.getString(R.string.festive_christmas_desc),
                                 selected = festiveType == "CHRISTMAS",
                                 onClick = { 
                                     HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.HEAVY)
@@ -148,7 +151,7 @@ fun FestiveSettingsScreen(
                             FestiveTypeOption(
                                 icon = MaterialSymbolIcon("celebration"),
                                 title = stringResource(R.string.settings_festival_new_year),
-                                description = "Festive snowfall and sparkles",
+                                description = context.getString(R.string.festive_new_year_desc),
                                 selected = festiveType == "NEW_YEAR",
                                 onClick = { 
                                     HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.HEAVY)
@@ -175,7 +178,7 @@ fun FestiveSettingsScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
+                        shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
@@ -207,7 +210,10 @@ fun FestiveSettingsScreen(
                                     appSettings.setFestiveThemeIntensity(it) 
                                 },
                                 valueRange = 0.1f..1f,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
+                                onValueChangeFinished = {
+                                    HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
+                                }
                             )
                             
                             Spacer(modifier = Modifier.height(8.dp))
@@ -227,35 +233,38 @@ fun FestiveSettingsScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    Column(
+                        modifier = Modifier.padding(20.dp)
                     ) {
-                        Icon(
-                            imageVector = RhythmIcons.Info,
-                            contentDescription = null,
-                            
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Column {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = MaterialSymbolIcon("lightbulb", filled = true),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                contentDescription = null,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = stringResource(R.string.festivesettingsscreen_about_festive_themes),
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = stringResource(R.string.festivesettingsscreen_festive_decorations_add_a),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = stringResource(R.string.festivesettingsscreen_festive_decorations_add_a),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                        )
                     }
                 }
             }

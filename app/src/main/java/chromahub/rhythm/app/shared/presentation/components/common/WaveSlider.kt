@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.common
 
 import android.annotation.SuppressLint
@@ -22,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,7 +43,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -51,6 +59,8 @@ import kotlinx.coroutines.isActive
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import chromahub.rhythm.app.ui.theme.PlayerProgressColor
+import chromahub.rhythm.app.util.HapticUtils
+import chromahub.rhythm.app.util.HapticType
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -80,6 +90,8 @@ fun WaveSlider(
     semanticsProgressStep: Float = 0.01f
 ) {
     val density = LocalDensity.current
+    val context = LocalContext.current
+    val hapticFeedback = LocalHapticFeedback.current
     val strokeWidthPx = with(density) { strokeWidth.toPx() }
     val thumbRadiusPx = with(density) { thumbRadius.toPx() }
     val trackEdgePaddingPx = with(density) { trackEdgePadding.coerceAtLeast(0.dp).toPx() }
@@ -101,6 +113,7 @@ fun WaveSlider(
     val latestOnValueChangeFinished by rememberUpdatedState(onValueChangeFinished)
     val latestOnValueCommit by rememberUpdatedState(onValueCommit)
     var isPointerSeeking by remember { mutableStateOf(false) }
+    var lastHapticValue by remember { mutableIntStateOf(Int.MIN_VALUE) }
     val isInteracting = isPointerSeeking
 
     val thumbInteractionFraction by animateFloatAsState(
@@ -234,6 +247,8 @@ fun WaveSlider(
                             down.consume()
                             var latestGestureValue = valueForX(down.position.x)
                             latestOnValueChange(latestGestureValue)
+                            lastHapticValue = latestGestureValue.roundToInt()
+                            HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
 
                             var pointerId = down.id
                             while (true) {
@@ -252,6 +267,11 @@ fun WaveSlider(
                                     change.consume()
                                     latestGestureValue = valueForX(change.position.x)
                                     latestOnValueChange(latestGestureValue)
+                                    val newTick = latestGestureValue.roundToInt()
+                                    if (newTick != lastHapticValue) {
+                                        HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
+                                        lastHapticValue = newTick
+                                    }
                                 }
                             }
 

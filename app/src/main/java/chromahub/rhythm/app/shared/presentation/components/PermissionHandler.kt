@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components
 
 import android.Manifest
@@ -210,10 +215,7 @@ fun PermissionHandler(
 
         if (hasStoragePermissions) {
             permissionScreenState = PermissionScreenState.PermissionsGranted
-            if (!onboardingCompleted) {
-                continueFullTour = false
-                currentOnboardingStep = OnboardingStep.RHYTHM_GUARD
-            } else {
+            if (onboardingCompleted) {
                 currentOnboardingStep = OnboardingStep.COMPLETE
                 onSetIsInitializingApp(true) // Start app initialization
                 // MusicViewModel owns service startup and serializes controller connection
@@ -300,7 +302,7 @@ fun PermissionHandler(
     Box(modifier = Modifier.fillMaxSize()) {
         // Show the main app as soon as onboarding is complete, not initializing
         AnimatedVisibility(
-            visible = currentOnboardingStep == OnboardingStep.COMPLETE && !isInitializingApp, // Show app immediately when complete
+            visible = currentOnboardingStep == OnboardingStep.COMPLETE, // Show app as soon as onboarding is complete (service starts in the background)
             enter = fadeIn(animationSpec = tween(1000, easing = androidx.compose.animation.core.EaseOutCubic)) +
                    slideInVertically(
                        initialOffsetY = { it / 3 },
@@ -312,7 +314,9 @@ fun PermissionHandler(
 
 
         AnimatedVisibility(
-            visible = isInitializingApp || (isLoading && currentOnboardingStep != OnboardingStep.COMPLETE && currentOnboardingStep != OnboardingStep.PERMISSIONS), // Show loading if app initializing, or general loading not on permission screen
+            // Only the host startup loader covers library + service initialization now; here we
+            // just cover general startup/onboarding loading (never on the permission screen).
+            visible = isLoading && currentOnboardingStep != OnboardingStep.COMPLETE && currentOnboardingStep != OnboardingStep.PERMISSIONS,
             exit = fadeOut(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseInCubic))
         ) {
             Box(
@@ -345,17 +349,18 @@ fun PermissionHandler(
                         OnboardingStep.WELCOME -> currentOnboardingStep = OnboardingStep.APP_MODE_CHOICE
                         OnboardingStep.APP_MODE_CHOICE -> {
                             currentOnboardingStep = if (appSettings.appMode.value == "STREAMING") {
-                                OnboardingStep.STREAMING_SETUP
+                                OnboardingStep.STREAMING_SERVICE_CHOICE
                             } else {
                                 OnboardingStep.PERMISSIONS
                             }
                         }
-                        OnboardingStep.STREAMING_SETUP -> currentOnboardingStep = OnboardingStep.RHYTHM_GUARD
+                        OnboardingStep.STREAMING_SERVICE_CHOICE -> currentOnboardingStep = OnboardingStep.STREAMING_SETUP
+                        OnboardingStep.STREAMING_SETUP -> currentOnboardingStep = OnboardingStep.FULL_TOUR_PROMPT
                         OnboardingStep.PERMISSIONS -> {
                             // Handle based on current permission state
                             when (permissionScreenState) {
                                 PermissionScreenState.PermissionsGranted -> {
-                                    currentOnboardingStep = OnboardingStep.RHYTHM_GUARD
+                                    currentOnboardingStep = OnboardingStep.MEDIA_SCAN
                                 }
                                 PermissionScreenState.RedirectToSettings -> {
                                     // This is handled by onRequestAgain callback
@@ -375,36 +380,42 @@ fun PermissionHandler(
                                 }
                             }
                         }
-                        OnboardingStep.RHYTHM_GUARD -> {
-                            currentOnboardingStep = if (appSettings.appMode.value == "STREAMING") {
-                                OnboardingStep.UPDATER
-                            } else {
-                                OnboardingStep.MEDIA_SCAN
-                            }
-                        }
                         OnboardingStep.MEDIA_SCAN -> {
                             musicViewModel.refreshLibrary(showMediaScanLoader = false)
                             onShowMediaScanLoaderChange(true)
-                            currentOnboardingStep = OnboardingStep.UPDATER
+                            currentOnboardingStep = OnboardingStep.FULL_TOUR_PROMPT
                         }
-                        OnboardingStep.UPDATER -> currentOnboardingStep = OnboardingStep.FULL_TOUR_PROMPT
                         OnboardingStep.FULL_TOUR_PROMPT -> {
                             currentOnboardingStep = if (continueFullTour) {
-                                OnboardingStep.BACKUP_RESTORE
+                                OnboardingStep.RHYTHM_GUARD
                             } else {
                                 OnboardingStep.SETUP_FINISHED
                             }
                         }
-                        OnboardingStep.NOTIFICATIONS -> currentOnboardingStep = OnboardingStep.BACKUP_RESTORE
-                        OnboardingStep.BACKUP_RESTORE -> currentOnboardingStep = OnboardingStep.AUDIO_PLAYBACK
+                        OnboardingStep.RHYTHM_GUARD -> currentOnboardingStep = OnboardingStep.AUDIO_PLAYBACK
                         OnboardingStep.AUDIO_PLAYBACK -> currentOnboardingStep = OnboardingStep.THEMING
                         OnboardingStep.THEMING -> currentOnboardingStep = OnboardingStep.PLAYER_THEME_CHOICE
                         OnboardingStep.PLAYER_THEME_CHOICE -> currentOnboardingStep = OnboardingStep.GESTURES
-                        OnboardingStep.GESTURES -> currentOnboardingStep = OnboardingStep.WIDGETS
+                        OnboardingStep.GESTURES -> {
+                            currentOnboardingStep = if (appSettings.appMode.value == "STREAMING") {
+                                OnboardingStep.WIDGETS
+                            } else {
+                                OnboardingStep.LIBRARY_SETUP
+                            }
+                        }
                         OnboardingStep.LIBRARY_SETUP -> currentOnboardingStep = OnboardingStep.WIDGETS
-                        OnboardingStep.WIDGETS -> currentOnboardingStep = OnboardingStep.INTEGRATIONS // Move to integrations
-                        OnboardingStep.INTEGRATIONS -> currentOnboardingStep = OnboardingStep.RHYTHM_STATS // Move to rhythm stats
-                        OnboardingStep.RHYTHM_STATS -> currentOnboardingStep = OnboardingStep.SETUP_FINISHED // Move to setup finished
+                        OnboardingStep.WIDGETS -> currentOnboardingStep = OnboardingStep.INTEGRATIONS
+                        OnboardingStep.INTEGRATIONS -> currentOnboardingStep = OnboardingStep.UPDATER
+                        OnboardingStep.UPDATER -> {
+                            currentOnboardingStep = if (appSettings.appMode.value == "STREAMING") {
+                                OnboardingStep.RHYTHM_STATS
+                            } else {
+                                OnboardingStep.BACKUP_RESTORE
+                            }
+                        }
+                        OnboardingStep.NOTIFICATIONS -> currentOnboardingStep = OnboardingStep.RHYTHM_STATS
+                        OnboardingStep.BACKUP_RESTORE -> currentOnboardingStep = OnboardingStep.RHYTHM_STATS
+                        OnboardingStep.RHYTHM_STATS -> currentOnboardingStep = OnboardingStep.SETUP_FINISHED
                         OnboardingStep.SETUP_FINISHED -> {
                             completeOnboardingNow()
                         }
@@ -415,37 +426,46 @@ fun PermissionHandler(
                     when (currentOnboardingStep) {
                         OnboardingStep.APP_MODE_CHOICE -> currentOnboardingStep = OnboardingStep.WELCOME
                         OnboardingStep.PERMISSIONS -> currentOnboardingStep = OnboardingStep.APP_MODE_CHOICE
-                        OnboardingStep.STREAMING_SETUP -> currentOnboardingStep = OnboardingStep.APP_MODE_CHOICE
-                        OnboardingStep.RHYTHM_GUARD -> {
-                            if (appSettings.appMode.value == "STREAMING") {
-                                currentOnboardingStep = OnboardingStep.STREAMING_SETUP
-                            } else {
+                        OnboardingStep.STREAMING_SERVICE_CHOICE -> currentOnboardingStep = OnboardingStep.APP_MODE_CHOICE
+                        OnboardingStep.STREAMING_SETUP -> currentOnboardingStep = OnboardingStep.STREAMING_SERVICE_CHOICE
+                        OnboardingStep.MEDIA_SCAN -> {
                                 currentOnboardingStep = OnboardingStep.PERMISSIONS
                                 scope.launch {
                                     onSetIsLoading(false)
                                     evaluatePermissionsAndSetStep()
                                 }
                             }
-                        }
-                        OnboardingStep.MEDIA_SCAN -> currentOnboardingStep = OnboardingStep.RHYTHM_GUARD
-                        OnboardingStep.UPDATER -> {
+                        OnboardingStep.FULL_TOUR_PROMPT -> {
                             currentOnboardingStep = if (appSettings.appMode.value == "STREAMING") {
-                                OnboardingStep.RHYTHM_GUARD
+                                OnboardingStep.STREAMING_SETUP
                             } else {
                                 OnboardingStep.MEDIA_SCAN
                             }
                         }
-                        OnboardingStep.FULL_TOUR_PROMPT -> currentOnboardingStep = OnboardingStep.UPDATER
-                        OnboardingStep.NOTIFICATIONS -> currentOnboardingStep = OnboardingStep.FULL_TOUR_PROMPT
-                        OnboardingStep.BACKUP_RESTORE -> currentOnboardingStep = OnboardingStep.FULL_TOUR_PROMPT
-                        OnboardingStep.AUDIO_PLAYBACK -> currentOnboardingStep = OnboardingStep.BACKUP_RESTORE
+                        OnboardingStep.RHYTHM_GUARD -> currentOnboardingStep = OnboardingStep.FULL_TOUR_PROMPT
+                        OnboardingStep.AUDIO_PLAYBACK -> currentOnboardingStep = OnboardingStep.RHYTHM_GUARD
                         OnboardingStep.THEMING -> currentOnboardingStep = OnboardingStep.AUDIO_PLAYBACK
                         OnboardingStep.PLAYER_THEME_CHOICE -> currentOnboardingStep = OnboardingStep.THEMING
                         OnboardingStep.GESTURES -> currentOnboardingStep = OnboardingStep.PLAYER_THEME_CHOICE
                         OnboardingStep.LIBRARY_SETUP -> currentOnboardingStep = OnboardingStep.GESTURES
-                        OnboardingStep.WIDGETS -> currentOnboardingStep = OnboardingStep.GESTURES
+                        OnboardingStep.WIDGETS -> {
+                            currentOnboardingStep = if (appSettings.appMode.value == "STREAMING") {
+                                OnboardingStep.GESTURES
+                            } else {
+                                OnboardingStep.LIBRARY_SETUP
+                            }
+                        }
                         OnboardingStep.INTEGRATIONS -> currentOnboardingStep = OnboardingStep.WIDGETS
-                        OnboardingStep.RHYTHM_STATS -> currentOnboardingStep = OnboardingStep.INTEGRATIONS
+                        OnboardingStep.UPDATER -> currentOnboardingStep = OnboardingStep.INTEGRATIONS
+                        OnboardingStep.BACKUP_RESTORE -> currentOnboardingStep = OnboardingStep.UPDATER
+                        OnboardingStep.NOTIFICATIONS -> currentOnboardingStep = OnboardingStep.UPDATER
+                        OnboardingStep.RHYTHM_STATS -> {
+                            currentOnboardingStep = if (appSettings.appMode.value == "STREAMING") {
+                                OnboardingStep.UPDATER
+                            } else {
+                                OnboardingStep.BACKUP_RESTORE
+                            }
+                        }
                         OnboardingStep.SETUP_FINISHED -> {
                             currentOnboardingStep = if (continueFullTour) {
                                 OnboardingStep.RHYTHM_STATS
@@ -458,7 +478,7 @@ fun PermissionHandler(
                 },
                 onContinueFullTour = {
                     continueFullTour = true
-                    currentOnboardingStep = OnboardingStep.BACKUP_RESTORE
+                    currentOnboardingStep = OnboardingStep.RHYTHM_GUARD
                 },
                 onSkipFullTour = {
                     continueFullTour = false

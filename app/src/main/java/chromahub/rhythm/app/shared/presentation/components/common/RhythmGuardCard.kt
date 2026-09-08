@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.common
 
 import androidx.compose.animation.core.animateFloatAsState
@@ -27,6 +32,7 @@ import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import kotlinx.coroutines.delay
+import java.util.Locale
 
 @Composable
 fun RhythmGuardCard(
@@ -197,7 +203,7 @@ fun RhythmGuardCard(
                         val totalSecs = remainingMs / 1000
                         val mins = totalSecs / 60
                         val secs = totalSecs % 60
-                        String.format("%02d:%02d", mins, secs)
+                        String.format(Locale.ROOT, "%02d:%02d", mins, secs)
                     }
                     Text(
                         text = stringResource(id = R.string.streaming_home_guard_break_active, formattedTime),

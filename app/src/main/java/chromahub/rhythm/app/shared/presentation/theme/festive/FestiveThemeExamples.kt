@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.ui.theme.festive
 
 import androidx.compose.foundation.background
@@ -114,7 +119,7 @@ fun ExampleAutoDetection() {
 // Example 4: Interactive intensity control
 @Composable
 fun ExampleInteractiveIntensity() {
-    var intensity by remember { mutableStateOf(0.5f) }
+    var intensity by remember { mutableFloatStateOf(0.5f) }
     
     ChristmasSnowfallOverlay(
         enabled = true,
@@ -324,7 +329,7 @@ fun ExampleWithAppSettings() {
  */
 @Composable
 fun FestiveThemeExamples() {
-    var selectedExample by remember { mutableStateOf(0) }
+    var selectedExample by remember { mutableIntStateOf(0) }
     
     when (selectedExample) {
         0 -> ExampleBasicChristmasSnowfall()

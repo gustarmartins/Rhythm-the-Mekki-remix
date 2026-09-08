@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.util
 
 import androidx.compose.animation.AnimatedVisibility
@@ -28,6 +33,9 @@ import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShap
 import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShapeFor
 import androidx.compose.ui.res.stringResource
 import chromahub.rhythm.app.R
+import androidx.compose.runtime.collectAsState
+import chromahub.rhythm.app.shared.data.model.AppSettings
+import chromahub.rhythm.app.shared.data.model.ArtistArtworkSource
 
 /**
  * Modern Material 3 style utilities for image handling using Compose and Coil
@@ -60,19 +68,22 @@ object M3ImageUtils {
                 .build()
         }
         
-        var showPlaceholder by remember { mutableStateOf(true) }
+        var showPlaceholder by remember(data) { mutableStateOf(data == null || data.toString().isBlank()) }
         
         Box(modifier = modifier) {
-            AsyncImage(
-                model = imageRequest,
-                contentDescription = contentDescription,
-                modifier = if (shape != null) Modifier.fillMaxSize().clip(shape) else Modifier.fillMaxSize(),
-                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                onState = { state ->
-                    showPlaceholder = state is AsyncImagePainter.State.Loading || 
-                                     state is AsyncImagePainter.State.Error
-                }
-            )
+            if (data != null && data.toString().isNotBlank()) {
+                AsyncImage(
+                    model = imageRequest,
+                    contentDescription = contentDescription,
+                    modifier = if (shape != null) Modifier.fillMaxSize().clip(shape) else Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    onState = { state ->
+                        showPlaceholder = state is AsyncImagePainter.State.Loading || 
+                                         state is AsyncImagePainter.State.Error ||
+                                         state is AsyncImagePainter.State.Empty
+                    }
+                )
+            }
             
             // Show appropriate placeholder based on loading state
             AnimatedVisibility(
@@ -83,11 +94,11 @@ object M3ImageUtils {
                 Box(modifier = Modifier.fillMaxSize()) {
                     val resolvedShape = shape ?: androidx.compose.ui.graphics.RectangleShape
                     when (type) {
-                        M3PlaceholderType.ALBUM -> AlbumPlaceholder(name, Modifier.fillMaxSize(), resolvedShape)
-                        M3PlaceholderType.ARTIST -> ArtistPlaceholder(name, Modifier.fillMaxSize(), resolvedShape)
-                        M3PlaceholderType.TRACK -> TrackPlaceholder(name, Modifier.fillMaxSize(), resolvedShape)
-                        M3PlaceholderType.PLAYLIST -> PlaylistPlaceholder(name, Modifier.fillMaxSize(), resolvedShape)
-                        M3PlaceholderType.GENERAL -> AlbumPlaceholder(name, Modifier.fillMaxSize(), resolvedShape)
+                        M3PlaceholderType.ALBUM -> AlbumPlaceholder(name = name, modifier = Modifier.fillMaxSize(), shape = resolvedShape)
+                        M3PlaceholderType.ARTIST -> ArtistPlaceholder(name = name, modifier = Modifier.fillMaxSize(), shape = resolvedShape)
+                        M3PlaceholderType.TRACK -> TrackPlaceholder(name = name, modifier = Modifier.fillMaxSize(), shape = resolvedShape)
+                        M3PlaceholderType.PLAYLIST -> PlaylistPlaceholder(name = name, modifier = Modifier.fillMaxSize(), shape = resolvedShape)
+                        M3PlaceholderType.GENERAL -> AlbumPlaceholder(name = name, modifier = Modifier.fillMaxSize(), shape = resolvedShape)
                     }
                 }
             }
@@ -137,6 +148,10 @@ object M3ImageUtils {
         shape: Shape? = null,
         applyExpressiveShape: Boolean = true
     ) {
+        val context = LocalContext.current
+        val artistArtworkSource by remember { AppSettings.getInstance(context).artistArtworkSource }.collectAsState()
+        val data = if (artistArtworkSource == ArtistArtworkSource.DISABLED) null else imageUrl
+
         val expressiveShape = if (applyExpressiveShape) {
             rememberExpressiveShapeFor(
                 ExpressiveShapeTarget.ARTIST_ART,
@@ -148,7 +163,7 @@ object M3ImageUtils {
         val finalShape = shape ?: expressiveShape
         
         M3MediaImage(
-            data = imageUrl,
+            data = data,
             contentDescription = stringResource(R.string.artist_artwork_description, artistName ?: ""),
             modifier = modifier,
             shape = finalShape,

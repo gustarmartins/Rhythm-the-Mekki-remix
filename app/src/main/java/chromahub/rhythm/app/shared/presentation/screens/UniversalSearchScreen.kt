@@ -1,8 +1,19 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.screens
+
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
+import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveCookieEmptyState
+import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShape
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -39,6 +50,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -85,6 +97,9 @@ import coil.request.ImageRequest
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
+import androidx.core.net.toUri
+import chromahub.rhythm.app.util.windowScreenWidthDp
+import chromahub.rhythm.app.util.windowScreenHeightDp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,8 +124,8 @@ fun UniversalSearchScreen(
     val focusManager = LocalFocusManager.current
     val haptics = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
-    val configuration = LocalConfiguration.current
-    val isTablet = configuration.screenWidthDp >= 600
+    val isTablet = windowScreenWidthDp() >= 600
+    val isLandscapeTablet = isTablet && windowScreenWidthDp() > windowScreenHeightDp()
     val horizontalPadding = if (isTablet) 32.dp else 24.dp
 
     var query by remember { mutableStateOf("") }
@@ -187,6 +202,7 @@ fun UniversalSearchScreen(
     val streamingLikedSongs by streamingViewModel.likedSongs.collectAsState()
 
     val isGenreDetectionComplete by localViewModel.isGenreDetectionComplete.collectAsState()
+    val streamingBrowseCategories by streamingViewModel.browseCategories.collectAsState()
 
     val genreBrowseSummaries by localViewModel.genreBrowseSummaries.collectAsState()
 
@@ -303,7 +319,7 @@ fun UniversalSearchScreen(
             modifier = Modifier.fillMaxSize()
         ) { isBlank ->
             if (isBlank) {
-                if (isTablet && searchHistory.isNotEmpty()) {
+                if (isLandscapeTablet && searchHistory.isNotEmpty()) {
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
@@ -497,24 +513,83 @@ fun UniversalSearchScreen(
 
                         if (searchHistory.isEmpty()) {
                             item(key = "empty_prompt") {
+                                val cookieShape = rememberExpressiveShape("COOKIE_12")
+                                val smallCookieShape = rememberExpressiveShape("COOKIE_6")
+                                val containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                val contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(vertical = 80.dp)
+                                        .padding(vertical = 48.dp)
                                         .animateItem(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)),
-                                    horizontalAlignment = Alignment.CenterHorizontally
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Box(
+                                        modifier = Modifier.size(132.dp),
+                                        contentAlignment = Alignment.Center
                                 ) {
                                     Surface(
-                                        shape = RoundedCornerShape(topStart = 48.dp, topEnd = 48.dp, bottomStart = 16.dp, bottomEnd = 48.dp),
-                                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(120.dp)
+                                            shape = smallCookieShape,
+                                            color = containerColor.copy(alpha = 0.45f),
+                                            modifier = Modifier
+                                                .size(42.dp)
+                                                .align(Alignment.TopStart)
+                                                .offset(x = (-6).dp, y = 10.dp)
                                     ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(RhythmIcons.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(48.dp))
+                                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                                Icon(
+                                                    imageVector = RhythmIcons.MusicNote,
+                                                    contentDescription = null,
+                                                    tint = contentColor.copy(alpha = 0.55f),
+                                                    modifier = Modifier.size(18.dp)
+                                                )
                                         }
                                     }
-                                    Spacer(modifier = Modifier.height(24.dp))
-                                    Text(stringResource(R.string.universalsearchscreen_search_across_local_streaming), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
+                                        Surface(
+                                            shape = smallCookieShape,
+                                            color = containerColor.copy(alpha = 0.45f),
+                                            modifier = Modifier
+                                                .size(34.dp)
+                                                .align(Alignment.BottomEnd)
+                                                .offset(x = 8.dp, y = (-6).dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                                Icon(
+                                                    imageVector = RhythmIcons.Tune,
+                                                    contentDescription = null,
+                                                    tint = contentColor.copy(alpha = 0.55f),
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        }
+                                        Surface(
+                                            shape = cookieShape,
+                                            color = containerColor,
+                                            shadowElevation = 6.dp,
+                                            modifier = Modifier.size(96.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                                                Icon(
+                                                    imageVector = RhythmIcons.Search,
+                                                    contentDescription = null,
+                                                    tint = contentColor,
+                                                    modifier = Modifier.size(44.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(20.dp))
+
+                                    Text(
+                                        text = stringResource(R.string.universalsearchscreen_search_across_local_streaming),
+                                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(horizontal = 32.dp)
+                                    )
                                 }
                             }
                         }
@@ -543,47 +618,22 @@ fun UniversalSearchScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         item(key = "no_results") {
-                            Column(
+                            ExpressiveCookieEmptyState(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 64.dp)
+                                    .padding(vertical = 48.dp)
                                     .animateItem(),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
-                                    modifier = Modifier.size(120.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = RhythmIcons.Search,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                            modifier = Modifier.size(60.dp)
+                                title = stringResource(R.string.no_results_found),
+                                subtitle = stringResource(R.string.search_no_results_query_format, query),
+                                mainIcon = RhythmIcons.Search,
+                                accentIcon = RhythmIcons.Search,
+                                cornerIcon = RhythmIcons.MusicNote,
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                                         )
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(24.dp))
-                                Text(
-                                    text = stringResource(R.string.no_results_found),
-                                    style = MaterialTheme.typography.headlineSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    textAlign = TextAlign.Center
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = "We couldn't find anything matching \"$query\".",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 32.dp)
-                                )
-                            }
-                        }
-                    }
-                } else if (isTablet) {
+                } else if (isLandscapeTablet) {
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
@@ -691,7 +741,7 @@ fun UniversalSearchScreen(
                                                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                                                             )
                                                             Text(
-                                                                text = "See all $totalSongs songs",
+                                                                text = stringResource(R.string.search_view_all_count_format, totalSongs),
                                                                 style = MaterialTheme.typography.bodyMedium,
                                                                 color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                                                             )
@@ -925,7 +975,7 @@ fun UniversalSearchScreen(
                                                             color = MaterialTheme.colorScheme.onSecondaryContainer
                                                         )
                                                         Text(
-                                                            text = "See all $totalSongs songs",
+                                                            text = stringResource(R.string.search_view_all_count_format, totalSongs),
                                                             style = MaterialTheme.typography.bodyMedium,
                                                             color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                                                         )
@@ -1050,29 +1100,35 @@ fun UniversalSearchScreen(
         }
 
         // Bottom Search Bar & Controls Area
-        Column(
+        Box(
             modifier = Modifier
-                .then(
-                    if (isTablet) {
-                        Modifier.widthIn(max = 680.dp).align(Alignment.BottomCenter)
-                    } else {
-                        Modifier.fillMaxWidth().align(Alignment.BottomCenter)
-                    }
-                )
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
                 .background(
                     brush = Brush.verticalGradient(
                         colorStops = arrayOf(
                             0f to Color.Transparent,
-                            0.2f to MaterialTheme.colorScheme.background.copy(alpha = 0.92f),
+                            0.18f to MaterialTheme.colorScheme.background.copy(alpha = 0.93f),
                             1f to MaterialTheme.colorScheme.background
                         )
                     )
                 )
                 .navigationBarsPadding()
                 .imePadding()
+        ) {
+        Column(
+            modifier = Modifier
+                .then(
+                    if (isTablet) {
+                        Modifier.widthIn(max = 680.dp).align(Alignment.BottomCenter)
+                    } else {
+                        Modifier.fillMaxWidth()
+                    }
+                )
                 .padding(horizontal = horizontalPadding)
                 .padding(top = 16.dp, bottom = 12.dp)
                 .animateContentSize(spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
+                .align(Alignment.BottomCenter)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1289,6 +1345,7 @@ fun UniversalSearchScreen(
                 }
             }
         }
+        } // end Box (gradient wrapper)
 
         AnimatedVisibility(
             visible = showAllSongsPage,
@@ -1393,7 +1450,16 @@ fun UniversalSearchScreen(
                 onGoToAlbum = {
                     showSongOptionsSheet = false
                     if (isLocal) {
-                        val album = localViewModel.filteredAlbums.value.findAlbumForSong(songObj)
+                        val allLocalAlbums = localViewModel.albums.value.ifEmpty { localViewModel.filteredAlbums.value }
+                        val album = allLocalAlbums.findAlbumForSong(songObj)
+                            ?: songObj.album.trim().takeIf { it.isNotBlank() }?.let { albumTitle ->
+                                Album(
+                                    id = songObj.albumId.ifBlank { "unknown_$albumTitle" },
+                                    title = albumTitle,
+                                    artist = songObj.albumArtist?.takeIf { it.isNotBlank() } ?: songObj.artist,
+                                    artworkUri = songObj.artworkUri
+                                )
+                            }
                         if (album != null) {
                             handleAction("LOCAL") { onLocalAlbumClick(album) }
                         } else Toast.makeText(context, R.string.universalsearchscreen_album_not_found, Toast.LENGTH_SHORT).show()
@@ -1419,7 +1485,7 @@ fun UniversalSearchScreen(
                     showSongOptionsSheet = false
                     if (isLocal) {
                         val separatorEnabled = appSettings.artistSeparatorEnabled.value
-                        val delimiters = appSettings.artistSeparatorDelimiters.value.ifBlank { "/;,+&" }
+                        val delimiters = appSettings.artistSeparatorDelimiters.value.ifBlank { AppSettings.DEFAULT_ARTIST_SEPARATOR_DELIMITERS }
                         val songArtistNames = chromahub.rhythm.app.util.ArtistSeparator.splitArtistNames(
                             artistName = songObj.artist,
                             delimiters = delimiters,
@@ -1427,6 +1493,10 @@ fun UniversalSearchScreen(
                         )
                         val artist = songArtistNames.firstNotNullOfOrNull { name ->
                             localArtists.find { it.name.equals(name, ignoreCase = true) }
+                        } ?: songArtistNames.firstOrNull()?.trim()?.takeIf { it.isNotBlank() }?.let { name ->
+                            Artist(id = name, name = name)
+                        } ?: songObj.artist.trim().takeIf { it.isNotBlank() }?.let { name ->
+                            Artist(id = name, name = name)
                         }
                         if (artist != null) {
                             handleAction("LOCAL") { onLocalArtistClick(artist) }
@@ -1449,6 +1519,14 @@ fun UniversalSearchScreen(
                         if (isLocal) {
                             appSettings.addToBlacklist(songObj.id)
                             Toast.makeText(context, context.getString(R.string.song_added_to_blacklist_format, songObj.title), Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    showSongOptionsSheet = false
+                },
+                onDeleteSong = {
+                    handleAction("LOCAL") {
+                        if (isLocal) {
+                            localViewModel.deleteSong(songObj)
                         }
                     }
                     showSongOptionsSheet = false
@@ -1565,8 +1643,8 @@ private fun StreamingSong.toLocalSong(): Song {
         album = this.album,
         albumId = this.albumId ?: "",
         duration = this.duration,
-        uri = Uri.parse(this.streamingUrl ?: this.previewUrl ?: ""),
-        artworkUri = this.artworkUri?.let { Uri.parse(it) },
+        uri = (this.streamingUrl ?: this.previewUrl ?: "").toUri(),
+        artworkUri = this.artworkUri?.let { (it).toUri() },
         trackNumber = 0,
         year = 0,
         genre = null,
@@ -1909,8 +1987,7 @@ fun UniversalAllSongsPage(
 
     val miniPlayerBottomPadding = LocalMiniPlayerPadding.current.calculateBottomPadding()
     val contentBottomPadding = (miniPlayerBottomPadding + 20.dp).coerceAtLeast(96.dp)
-    val configuration = LocalConfiguration.current
-    val isTablet = configuration.screenWidthDp >= 600
+    val isTablet = windowScreenWidthDp() >= 600
     val horizontalPadding = if (isTablet) 32.dp else 24.dp
 
     CollapsibleHeaderScreen(
@@ -1977,13 +2054,15 @@ fun UniversalSongOptionsBottomSheet(
     onGoToAlbum: () -> Unit,
     onGoToArtist: () -> Unit,
     onAddToBlacklist: () -> Unit,
+    onDeleteSong: () -> Unit,
     haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
 ) {
     val context = LocalContext.current
     var showContent by remember { mutableStateOf(true) }
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
 
-    ModalBottomSheet(
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -1992,14 +2071,13 @@ fun UniversalSongOptionsBottomSheet(
                 color = MaterialTheme.colorScheme.primary
             )
         },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onBackground,
         tonalElevation = 0.dp
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+            modifier = Modifier.fillMaxWidth()
         ) {
             AnimatedVisibility(
                 visible = showContent,
@@ -2009,15 +2087,22 @@ fun UniversalSongOptionsBottomSheet(
                 UniversalSongOptionsHeader(songObj = songObj)
             }
 
+            val scrollState = rememberScrollState()
+
             AnimatedVisibility(
                 visible = showContent,
                 enter = fadeIn() + slideInVertically { it },
                 exit = fadeOut() + slideOutVertically { it }
             ) {
+                AdaptiveSheetScrollContainer(
+                    scrollState = scrollState,
+                    modifier = Modifier.fillMaxWidth()
+                ) { endPadding ->
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                            .verticalScroll(scrollState)
+                            .padding(start = 16.dp, end = 16.dp + endPadding, top = 8.dp, bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val resolvedSong = remember(songObj) {
@@ -2077,8 +2162,8 @@ fun UniversalSongOptionsBottomSheet(
                             )
                             add(
                                 UniversalOptionItem(
-                                    icon = if (isFavorite) RhythmIcons.FavoriteFilled else RhythmIcons.Favorite,
-                                    text = if (isFavorite) context.getString(R.string.action_remove_from_favorites) else context.getString(R.string.action_add_to_favorites),
+                                        icon = if (isFavorite) MaterialSymbolIcon("thumb_down", filled = true) else MaterialSymbolIcon("thumb_up", filled = true),
+                                        text = if (isFavorite) context.getString(R.string.action_dislike) else context.getString(R.string.action_like),
                                     containerColor = tertiaryContainer,
                                     iconColor = onTertiaryContainer,
                                     onClick = onToggleFavorite
@@ -2121,6 +2206,15 @@ fun UniversalSongOptionsBottomSheet(
                                         onClick = onAddToBlacklist
                                     )
                                 )
+                                    add(
+                                        UniversalOptionItem(
+                                            icon = RhythmIcons.Delete,
+                                            text = context.getString(R.string.action_delete_song),
+                                            containerColor = errorContainer,
+                                            iconColor = errorColor,
+                                            onClick = onDeleteSong
+                                        )
+                                    )
                             }
                             add(
                                 UniversalOptionItem(
@@ -2136,43 +2230,61 @@ fun UniversalSongOptionsBottomSheet(
 
                     val chunks = remember(gridItems) { gridItems.chunked(2) }
 
-                    chunks.forEach { chunk ->
+                        chunks.forEachIndexed { rowIndex, chunk ->
                         if (chunk.size == 2) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(IntrinsicSize.Max),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Box(modifier = Modifier.weight(1f)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
+                                    ) {
+                                        val index0 = rowIndex * 2
                                     UniversalSongOptionGridItem(
                                         icon = chunk[0].icon,
                                         text = chunk[0].text,
                                         containerColor = chunk[0].containerColor,
                                         iconColor = chunk[0].iconColor,
+                                            shape = getUniversalGridItemShape(index0, gridItems.size),
                                         onClick = {
                                             HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                                             chunk[0].onClick()
-                                        }
+                                            },
+                                            modifier = Modifier.fillMaxHeight()
                                     )
                                 }
-                                Box(modifier = Modifier.weight(1f)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxHeight()
+                                    ) {
+                                        val index1 = rowIndex * 2 + 1
                                     UniversalSongOptionGridItem(
                                         icon = chunk[1].icon,
                                         text = chunk[1].text,
                                         containerColor = chunk[1].containerColor,
                                         iconColor = chunk[1].iconColor,
+                                            shape = getUniversalGridItemShape(index1, gridItems.size),
                                         onClick = {
                                             HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                                             chunk[1].onClick()
-                                        }
+                                            },
+                                            modifier = Modifier.fillMaxHeight()
                                     )
                                 }
                             }
                         } else {
+                                val index0 = rowIndex * 2
                             UniversalSongOptionGridItem(
                                 icon = chunk[0].icon,
                                 text = chunk[0].text,
                                 containerColor = chunk[0].containerColor,
                                 iconColor = chunk[0].iconColor,
+                                    shape = getUniversalGridItemShape(index0, gridItems.size),
                                 onClick = {
                                     HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                                     chunk[0].onClick()
@@ -2181,8 +2293,7 @@ fun UniversalSongOptionsBottomSheet(
                             )
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(32.dp))
+                    }
                 }
             }
         }
@@ -2212,7 +2323,7 @@ private fun UniversalSongOptionsHeader(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .padding(horizontal = 24.dp, vertical = 16.dp)
     ) {
         Text(
             text = stringResource(R.string.playlistsongoptionsbottomsheet_song_options),
@@ -2290,12 +2401,48 @@ private fun UniversalSongOptionsHeader(
     }
 }
 
+private fun getUniversalGridItemShape(index: Int, totalItems: Int): RoundedCornerShape {
+    if (totalItems <= 1) return RoundedCornerShape(24.dp)
+    if (totalItems == 2) {
+        return if (index == 0) {
+            RoundedCornerShape(topStart = 24.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 8.dp)
+        } else {
+            RoundedCornerShape(topStart = 8.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 24.dp)
+        }
+    }
+    
+    val totalRows = (totalItems + 1) / 2
+    val r = index / 2
+    val c = index % 2
+    
+    return when {
+        r == 0 -> {
+            if (c == 0) {
+                RoundedCornerShape(topStart = 24.dp, topEnd = 8.dp, bottomStart = 8.dp, bottomEnd = 8.dp)
+            } else {
+                RoundedCornerShape(topStart = 8.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 8.dp)
+            }
+        }
+        r == totalRows - 1 -> {
+            if (index == totalItems - 1 && c == 0) {
+                RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
+            } else if (c == 0) {
+                RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 8.dp)
+            } else {
+                RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 8.dp, bottomEnd = 24.dp)
+            }
+        }
+        else -> RoundedCornerShape(8.dp)
+    }
+}
+
 @Composable
 private fun UniversalSongOptionGridItem(
     icon: chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon,
     text: String,
     containerColor: Color,
     iconColor: Color,
+    shape: Shape,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -2305,41 +2452,29 @@ private fun UniversalSongOptionGridItem(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        shape = RoundedCornerShape(16.dp),
+        shape = shape,
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .padding(16.dp)
         ) {
             Surface(
-                modifier = Modifier.size(44.dp),
+                modifier = Modifier.size(36.dp),
                 shape = CircleShape,
-                color = containerColor.copy(alpha = 0.3f),
+                color = containerColor.copy(alpha = 0.25f),
                 tonalElevation = 0.dp
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    containerColor.copy(alpha = 0.15f),
-                                    containerColor.copy(alpha = 0.05f)
-                                ),
-                                radius = 22f
-                            )
-                        )
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
                         tint = iconColor,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -2348,10 +2483,10 @@ private fun UniversalSongOptionGridItem(
 
             Text(
                 text = text,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
@@ -2410,7 +2545,7 @@ private fun LazyListScope.universalGenreBrowseItems(
             val rowGenres = rows[rowIndex]
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 rowGenres.forEachIndexed { colIndex, summary ->
                     val itemIndex = rowIndex * columnsCount + colIndex
@@ -2418,6 +2553,8 @@ private fun LazyListScope.universalGenreBrowseItems(
                         genre = summary.name,
                         songCount = summary.songCount,
                         index = itemIndex,
+                        totalItems = genreSummaries.size,
+                        columnsCount = columnsCount,
                         onClick = { onGenreClick(summary.name) },
                         modifier = Modifier.weight(1f)
                     )
@@ -2432,21 +2569,34 @@ private fun LazyListScope.universalGenreBrowseItems(
     }
 }
 
+private fun getUniversalResponsiveGridItemShape(index: Int, totalItems: Int, columnsCount: Int): RoundedCornerShape {
+    if (totalItems <= 1) return RoundedCornerShape(24.dp)
+    val totalRows = (totalItems + columnsCount - 1) / columnsCount
+    val r = index / columnsCount
+    val c = index % columnsCount
+    val isTopRow = r == 0
+    val isBottomRow = r == totalRows - 1
+    val isLeftColumn = c == 0
+    val isRightColumn = c == columnsCount - 1 || index == totalItems - 1
+    val topStart = if (isTopRow && isLeftColumn) 24.dp else 8.dp
+    val topEnd = if (isTopRow && isRightColumn) 24.dp else 8.dp
+    val bottomStart = if (isBottomRow && isLeftColumn) 24.dp else 8.dp
+    val bottomEnd = if (isBottomRow && isRightColumn) 24.dp else 8.dp
+    return RoundedCornerShape(topStart = topStart, topEnd = topEnd, bottomStart = bottomStart, bottomEnd = bottomEnd)
+}
+
 @Composable
 private fun UniversalGenreBrowseItemCard(
     genre: String,
     songCount: Int,
     index: Int,
+    totalItems: Int,
+    columnsCount: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val shape = remember(index) {
-        when (index % 4) {
-            0 -> RoundedCornerShape(topStart = 32.dp, topEnd = 12.dp, bottomEnd = 32.dp, bottomStart = 12.dp)
-            1 -> RoundedCornerShape(topStart = 12.dp, topEnd = 32.dp, bottomEnd = 12.dp, bottomStart = 32.dp)
-            2 -> RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp, bottomEnd = 12.dp, bottomStart = 12.dp)
-            else -> RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp, bottomEnd = 32.dp, bottomStart = 32.dp)
-        }
+    val shape = remember(index, totalItems, columnsCount) {
+        getUniversalResponsiveGridItemShape(index, totalItems, columnsCount)
     }
 
     val colorPair = when (index % 3) {
@@ -2502,14 +2652,30 @@ private fun UniversalGenreBrowseItemCard(
 private fun universalGenreIconFor(genre: String): chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon {
     val normalized = genre.lowercase()
     return when {
-        normalized.contains("hip hop") || normalized.contains("hip-hop") || normalized.contains("rap") || normalized.contains("trap") -> MaterialSymbolIcon("mic")
-        normalized.contains("rock") || normalized.contains("metal") || normalized.contains("punk") || normalized.contains("grunge") -> RhythmIcons.Music.Audiotrack
-        normalized.contains("electronic") || normalized.contains("edm") || normalized.contains("house") || normalized.contains("techno") || normalized.contains("trance") || normalized.contains("synth") -> RhythmIcons.Player.Equalizer
-        normalized.contains("classical") || normalized.contains("instrumental") || normalized.contains("orchestra") || normalized.contains("opera") -> RhythmIcons.Music.Album
-        normalized.contains("jazz") || normalized.contains("blues") || normalized.contains("soul") || normalized.contains("r&b") || normalized.contains("funk") -> RhythmIcons.Music.MusicNote
-        normalized.contains("ambient") || normalized.contains("chill") || normalized.contains("lofi") || normalized.contains("lo-fi") || normalized.contains("acoustic") -> RhythmIcons.Devices.Headphones
-        normalized.contains("pop") || normalized.contains("dance") || normalized.contains("disco") || normalized.contains("k-pop") || normalized.contains("j-pop") -> RhythmIcons.Music.MusicNote
-        normalized.contains("country") || normalized.contains("folk") -> RhythmIcons.Music.Audiotrack
+        normalized.contains("hip hop") || normalized.contains("hip-hop") || normalized.contains("rap") || normalized.contains("trap") ->
+            MaterialSymbolIcon("mic")
+
+        normalized.contains("rock") || normalized.contains("metal") || normalized.contains("punk") || normalized.contains("grunge") ->
+            RhythmIcons.Music.Audiotrack
+
+        normalized.contains("electronic") || normalized.contains("edm") || normalized.contains("house") || normalized.contains("techno") || normalized.contains("trance") || normalized.contains("synth") ->
+            RhythmIcons.Player.Equalizer
+
+        normalized.contains("classical") || normalized.contains("instrumental") || normalized.contains("orchestra") || normalized.contains("opera") ->
+            RhythmIcons.Music.Album
+
+        normalized.contains("jazz") || normalized.contains("blues") || normalized.contains("soul") || normalized.contains("r&b") || normalized.contains("funk") ->
+            RhythmIcons.Actions.Favorite
+
+        normalized.contains("ambient") || normalized.contains("chill") || normalized.contains("lofi") || normalized.contains("lo-fi") || normalized.contains("acoustic") ->
+            MaterialSymbolIcon("headphones")
+
+        normalized.contains("pop") || normalized.contains("dance") || normalized.contains("disco") || normalized.contains("k-pop") || normalized.contains("j-pop") ->
+            RhythmIcons.Music.MusicNote
+
+        normalized.contains("country") || normalized.contains("folk") ->
+            RhythmIcons.Music.Audiotrack
+
         else -> RhythmIcons.Music.MusicNote
     }
 }

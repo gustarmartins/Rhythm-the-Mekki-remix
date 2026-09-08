@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.data.repository
 
 import android.content.Context
@@ -60,9 +65,8 @@ enum class StatsTimeRange(val displayName: String, val daysBack: Int) {
  * Provides comprehensive stats tracking for songs and listening habits
  */
 class PlaybackStatsRepository private constructor(private val context: Context) {
-    
     private val gson = Gson()
-    private val historyFile = File(context.filesDir, "playback_history.json")
+    private val historyFile = File(context.applicationContext.filesDir, "playback_history.json")
     private val fileLock = Any()
     private val eventsType = object : TypeToken<MutableList<PlaybackEvent>>() {}.type
     
@@ -229,6 +233,7 @@ class PlaybackStatsRepository private constructor(private val context: Context) 
         val timeline: List<TimelineEntry>,
         val activeDays: Int,
         val longestStreakDays: Int,
+        val currentStreakDays: Int,
         val totalSessions: Int,
         val averageSessionDurationMs: Long,
         val longestSessionDurationMs: Long,
@@ -406,23 +411,46 @@ class PlaybackStatsRepository private constructor(private val context: Context) 
             )
         }.sortedByDescending { it.totalDurationMs }.take(5)
         
-        // Top artists
-        val artistGroups = segmentsBySong.entries.groupBy { (songId, _) ->
-            songMap[songId]?.artist 
-                ?: filteredEvents.find { it.songId == songId }?.artistName 
-                ?: "Unknown Artist"
+        // Top artists (supports multi-artist tags like "Kendrick Lamar; SZA")
+        val appSettings = chromahub.rhythm.app.shared.data.model.AppSettings.getInstance(context)
+        val artistSeparatorEnabled = appSettings.artistSeparatorEnabled.value
+        val delimiters = if (artistSeparatorEnabled) appSettings.artistSeparatorDelimiters.value else ""
+        val artistDurations = mutableMapOf<String, Long>()
+        val artistPlayCounts = mutableMapOf<String, Int>()
+        val artistSongSets = mutableMapOf<String, MutableSet<String>>()
+
+        segmentsBySong.forEach { (songId, segments) ->
+            val rawArtist = songMap[songId]?.artist
+                ?: filteredEvents.find { it.songId == songId }?.artistName
+            val resolvedArtists = if (rawArtist.isNullOrBlank()) {
+                listOf("Unknown Artist")
+            } else {
+                chromahub.rhythm.app.util.ArtistSeparator.splitArtistNames(
+                    artistName = rawArtist,
+                    delimiters = delimiters,
+                    enabled = artistSeparatorEnabled
+                ).ifEmpty { listOf(rawArtist.trim()) }
+            }
+            val songDuration = segments.sumOf { it.durationMs }
+            val songPlayCount = segments.size
+
+            resolvedArtists.forEach { artist ->
+                artistDurations[artist] = artistDurations.getOrDefault(artist, 0L) + songDuration
+                artistPlayCounts[artist] = artistPlayCounts.getOrDefault(artist, 0) + songPlayCount
+                artistSongSets.getOrPut(artist) { mutableSetOf() }.add(songId)
+            }
         }
-        val topArtists = artistGroups.map { (artist, songEntries) ->
-            val allSegments = songEntries.flatMap { it.value }
+
+        val topArtists = artistDurations.map { (artist, durationMs) ->
             ArtistPlaybackSummary(
                 artist = artist,
-                totalDurationMs = allSegments.sumOf { it.durationMs },
-                playCount = allSegments.size,
-                uniqueSongs = songEntries.size
+                totalDurationMs = durationMs,
+                playCount = artistPlayCounts.getOrDefault(artist, 0),
+                uniqueSongs = artistSongSets[artist]?.size ?: 0
             )
         }.sortedByDescending { it.totalDurationMs }.take(5)
         
-        val uniqueArtistsCount = artistGroups.keys.size
+        val uniqueArtistsCount = artistDurations.keys.size
         
         // Top albums
         val albumGroups = segmentsBySong.entries.groupBy { (songId, _) ->
@@ -531,6 +559,11 @@ class PlaybackStatsRepository private constructor(private val context: Context) 
             timeline = timeline,
             activeDays = activeDays,
             longestStreakDays = longestStreak,
+            currentStreakDays = run {
+                val today = LocalDate.now(zoneId)
+                val yesterday = today.minusDays(1)
+                if (lastDay == today || lastDay == yesterday) currentStreak else 0
+            },
             totalSessions = totalSessions,
             averageSessionDurationMs = averageSessionDuration,
             longestSessionDurationMs = longestSessionDuration,

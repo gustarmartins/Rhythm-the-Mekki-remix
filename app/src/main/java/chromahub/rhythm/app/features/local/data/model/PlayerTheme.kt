@@ -1,8 +1,15 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.local.data.model
 
+import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import chromahub.rhythm.app.R
 
 /**
  * Defines the visual theme configuration for the player controls
@@ -10,8 +17,8 @@ import androidx.compose.ui.unit.dp
  */
 data class PlayerTheme(
     val id: String,
-    val name: String,
-    val description: String,
+    @StringRes val nameRes: Int,
+    @StringRes val descriptionRes: Int,
     
     // Control Button Sizes
     val playPauseButtonSize: ButtonSize,
@@ -57,8 +64,8 @@ data class PlayerTheme(
          */
         val DEFAULT = PlayerTheme(
             id = "default",
-            name = "Default (Expressive)",
-            description = "Modern expressive design with smooth animations and morphing controls",
+            nameRes = R.string.player_theme_default_name,
+            descriptionRes = R.string.player_theme_default_desc,
             
             // Button Sizes
             playPauseButtonSize = ButtonSize(
@@ -106,8 +113,8 @@ data class PlayerTheme(
          */
         val COMPACT = PlayerTheme(
             id = "compact",
-            name = "Compact",
-            description = "Space-efficient design with smaller buttons and reduced spacing",
+            nameRes = R.string.player_theme_compact_name,
+            descriptionRes = R.string.player_theme_compact_desc,
             
             playPauseButtonSize = ButtonSize(
                 extraSmall = 44.dp,
@@ -150,8 +157,8 @@ data class PlayerTheme(
          */
         val LARGE = PlayerTheme(
             id = "large",
-            name = "Large",
-            description = "Larger buttons for improved accessibility and touch targets",
+            nameRes = R.string.player_theme_large_name,
+            descriptionRes = R.string.player_theme_large_desc,
             
             playPauseButtonSize = ButtonSize(
                 extraSmall = 56.dp,
@@ -194,8 +201,8 @@ data class PlayerTheme(
          */
         val MINIMAL = PlayerTheme(
             id = "minimal",
-            name = "Minimal",
-            description = "Clean and simple design with minimal visual effects",
+            nameRes = R.string.player_theme_minimal_name,
+            descriptionRes = R.string.player_theme_minimal_desc,
             
             playPauseButtonSize = ButtonSize(
                 extraSmall = 48.dp,

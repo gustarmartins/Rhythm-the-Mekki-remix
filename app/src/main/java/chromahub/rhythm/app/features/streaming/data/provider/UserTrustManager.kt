@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.streaming.data.provider
 
 import android.util.Log
@@ -74,46 +79,4 @@ internal object UserTrustManager {
             .firstOrNull()
             ?: throw IllegalStateException("No X509TrustManager found in AndroidCAStore TrustManagerFactory")
     }
-}
-
-/**
- * Composite [X509TrustManager] that accepts a certificate chain when **any**
- * of the supplied delegate managers accepts it.
- *
- * This is kept here as an alternative implementation reference but is not
- * currently used — the AndroidCAStore approach above is simpler and safer.
- */
-@Suppress("unused")
-private class CompositeTrustManager(
-    private val delegates: List<X509TrustManager>
-) : X509TrustManager {
-
-    override fun checkClientTrusted(chain: Array<out X509Certificate>, authType: String) {
-        var lastException: Exception? = null
-        for (delegate in delegates) {
-            try {
-                delegate.checkClientTrusted(chain, authType)
-                return
-            } catch (e: Exception) {
-                lastException = e
-            }
-        }
-        throw lastException ?: Exception("No trust manager accepted the client certificate chain")
-    }
-
-    override fun checkServerTrusted(chain: Array<out X509Certificate>, authType: String) {
-        var lastException: Exception? = null
-        for (delegate in delegates) {
-            try {
-                delegate.checkServerTrusted(chain, authType)
-                return
-            } catch (e: Exception) {
-                lastException = e
-            }
-        }
-        throw lastException ?: Exception("No trust manager accepted the server certificate chain")
-    }
-
-    override fun getAcceptedIssuers(): Array<X509Certificate> =
-        delegates.flatMap { it.acceptedIssuers.toList() }.toTypedArray()
 }

@@ -1,11 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Media3 notification configuration -->
-    <drawable name="media3_notification_small_icon">@drawable/ic_notification</drawable>
-    <drawable name="media3_notification_icon">@drawable/ic_notification</drawable>
     
     <!-- Alternative Media3 notification references -->
-    <item name="androidx_media3_session_notification_small_icon" type="drawable">@drawable/ic_notification</item>
-    <item name="androidx_media3_ui_notification_small_icon" type="drawable">@drawable/ic_notification</item>
-    <item name="media_notification_small_icon" type="drawable">@drawable/ic_notification</item>
 </resources>

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
@@ -84,7 +89,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -114,6 +118,7 @@ import chromahub.rhythm.app.shared.presentation.components.common.ThumbStyle
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.LicensesBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.UpdateBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.LyricsApiPriorityBottomSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.LrcRenameBehaviorBottomSheet
 import chromahub.rhythm.app.ui.utils.LazyListStateSaver
 import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeProvider
@@ -169,9 +174,12 @@ fun LyricsSettingsScreen(onBackClick: () -> Unit) {
     val hapticFeedback = LocalHapticFeedback.current
 
     val lyricsSourcePreference by appSettings.lyricsSourcePreference.collectAsState()
+    val bluetoothLyricsEnabled by appSettings.bluetoothLyricsEnabled.collectAsState()
+    val broadcastStatusEnabled by appSettings.broadcastStatusEnabled.collectAsState()
     var showPriorityBottomSheet by remember { mutableStateOf(false) }
     var showBluetoothLyricsTextModeDialog by remember { mutableStateOf(false) }
     var showTranslationLanguageDialog by remember { mutableStateOf(false) }
+    var showLrcRenameBottomSheet by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
 
@@ -182,9 +190,9 @@ fun LyricsSettingsScreen(onBackClick: () -> Unit) {
             scope.launch {
                 val success = appSettings.exportLyricsPreferencesToCsv(context, it)
                 if (success) {
-                    Toast.makeText(context, "Exported successfully", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.lyrics_exported_success), Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(context, "Export failed", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.lyrics_export_failed), Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -197,9 +205,9 @@ fun LyricsSettingsScreen(onBackClick: () -> Unit) {
             scope.launch {
                 val success = appSettings.importLyricsPreferencesFromCsv(context, it)
                 if (success) {
-                    Toast.makeText(context, "Imported successfully", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.lyrics_imported_success), Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(context, "Import failed", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.lyrics_import_failed), Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -232,6 +240,7 @@ fun LyricsSettingsScreen(onBackClick: () -> Unit) {
 
     val showLyrics by appSettings.showLyrics.collectAsState()
     val tapLyricsToFullScreen by appSettings.tapLyricsToFullScreen.collectAsState()
+    val tapLyricsToSeek by appSettings.tapLyricsToSeek.collectAsState()
     val keepScreenOnLyrics by appSettings.keepScreenOnLyrics.collectAsState()
     val autoHideLyricsControls by appSettings.autoHideLyricsControls.collectAsState()
     val showLyricsBackgroundArtwork by appSettings.showLyricsBackgroundArtwork.collectAsState()
@@ -240,7 +249,7 @@ fun LyricsSettingsScreen(onBackClick: () -> Unit) {
     val playerLyricsTextSize by appSettings.playerLyricsTextSize.collectAsState()
     val playerLyricsAlignment by appSettings.playerLyricsAlignment.collectAsState()
     val playerThemeId by appSettings.playerThemeId.collectAsState()
-    val isExpressiveActive = playerThemeId == "EXPRESSIVE"
+    val isExpressiveActive = playerThemeId != "MATERIAL"
 
     val lyricBold by appSettings.lyricBold.collectAsState()
     val trimLyrics by appSettings.trimLyrics.collectAsState()
@@ -494,20 +503,21 @@ fun LyricsSettingsScreen(onBackClick: () -> Unit) {
 
                 Material3SettingsGroup(
                     items = listOf(
-                        Material3SettingsItem(
+                        toMaterial3SettingsItem(
+                            context = context,
+                            hapticFeedback = hapticFeedback,
+                            item = SettingItem(
                             icon = MaterialSymbolIcon("lyrics"),
-                            title = { Text(stringResource(R.string.lyricssourcesettingsscreen_lyrics_api_priority)) },
-                            description = {
-                                Text(
-                                    text = if (apiPriority == chromahub.rhythm.app.shared.data.model.LyricsApiPriority.LYRICALLY_FIRST) context.getString(R.string.lyrics_settings_lyrically_first) else context.getString(R.string.lyrics_settings_lrclib_first),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                title = stringResource(R.string.lyricssourcesettingsscreen_lyrics_api_priority),
+                                description = when (apiPriority) {
+                                    chromahub.rhythm.app.shared.data.model.LyricsApiPriority.BETTERLYRICS_FIRST -> context.getString(R.string.lyrics_settings_betterlyrics_first)
+                                    chromahub.rhythm.app.shared.data.model.LyricsApiPriority.LYRICALLY_FIRST -> context.getString(R.string.lyrics_settings_lyrically_first)
+                                    chromahub.rhythm.app.shared.data.model.LyricsApiPriority.LRCLIB_FIRST -> context.getString(R.string.lyrics_settings_lrclib_first)
                             },
                             onClick = {
-                                HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.HEAVY)
                                 showPriorityBottomSheet = true
                             }
+                            )
                         ),
                         toMaterial3SettingsItem(
                             context = context,
@@ -562,16 +572,18 @@ fun LyricsSettingsScreen(onBackClick: () -> Unit) {
                                         )
                                         Slider(
                                             value = playerLyricsTextSize,
-                                            onValueChange = { appSettings.setPlayerLyricsTextSize(it) },
-                                            valueRange = 0.5f..2.0f,
-                                            modifier = Modifier.fillMaxWidth()
+                                            onValueChange = { appSettings.setPlayerLyricsTextSize(it) },                                                valueRange = 0.5f..2.0f,
+                                                modifier = Modifier.fillMaxWidth(),
+                                                onValueChangeFinished = {
+                                                    HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
+                                                }
                                         )
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            Text("50%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                            Text("200%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(context.getString(R.string.lyrics_size_min), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text(context.getString(R.string.lyrics_size_max), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
                                 }
@@ -750,11 +762,56 @@ fun LyricsSettingsScreen(onBackClick: () -> Unit) {
 
             // Lyrics File & Data Management
             item {
+                Material3SettingsGroup(
+                    items = buildList {
+                        add(toMaterial3SettingsItem(
+                            context = context,
+                            hapticFeedback = hapticFeedback,
+                            item = SettingItem(
+                                icon = MaterialSymbolIcon("folder_open"),
+                                title = context.getString(R.string.lyrics_folder_access_title),
+                                description = if (lyricsFolderTreeUris.isEmpty()) {
+                                    context.getString(R.string.lyrics_folder_access_desc)
+                                } else {
+                                    context.resources.getQuantityString(
+                                        R.plurals.lyrics_folder_access_count,
+                                        lyricsFolderTreeUris.size, lyricsFolderTreeUris.size
+                                    )
+                                },
+                                onClick = { lyricsFolderLauncher.launch(null) }
+                            )
+                        ))
+                        if (lyricsFolderTreeUris.isNotEmpty()) {
+                            add(toMaterial3SettingsItem(
+                                context = context,
+                                hapticFeedback = hapticFeedback,
+                                item = SettingItem(
+                                    icon = MaterialSymbolIcon("folder_off"),
+                                    title = context.getString(R.string.lyrics_folder_access_clear),
+                                    description = context.getString(R.string.lyrics_folder_access_clear_desc),
+                                    onClick = appSettings::clearLyricsFolderTreeUris
+                                )
+                            ))
+                        }
+                        add(toMaterial3SettingsItem(
+                            context = context,
+                            hapticFeedback = hapticFeedback,
+                            item = SettingItem(
+                                icon = MaterialSymbolIcon("ads_click"),
+                                title = context.getString(R.string.settings_lyrics_tap_seek),
+                                description = context.getString(R.string.settings_lyrics_tap_seek_desc),
+                                toggleState = tapLyricsToSeek,
+                                onToggleChange = { appSettings.setTapLyricsToSeek(it) }
+                            )
+                        ))
+                    },
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
                 val lrcRenameBehavior by appSettings.lrcRenameBehavior.collectAsState()
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Lyrics File & Data Management",
+                    text = context.getString(R.string.lyrics_file_data_management),
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.SemiBold
                     ),
@@ -763,102 +820,80 @@ fun LyricsSettingsScreen(onBackClick: () -> Unit) {
                 )
 
                 Material3SettingsGroup(
-                    items = buildList {
-                        add(
-                            Material3SettingsItem(
-                                icon = MaterialSymbolIcon("folder_open"),
-                                title = {
-                                    Text(stringResource(R.string.lyrics_folder_access_title))
-                                },
-                                description = {
-                                    Text(
-                                        if (lyricsFolderTreeUris.isEmpty()) {
-                                            stringResource(R.string.lyrics_folder_access_desc)
-                                        } else {
-                                            context.resources.getQuantityString(
-                                                R.plurals.lyrics_folder_access_count,
-                                                lyricsFolderTreeUris.size,
-                                                lyricsFolderTreeUris.size
-                                            )
-                                        }
-                                    )
-                                },
-                                onClick = {
-                                    HapticUtils.performHapticFeedback(
-                                        context,
-                                        hapticFeedback,
-                                        HapticType.HEAVY
-                                    )
-                                    lyricsFolderLauncher.launch(null)
+                    items = listOf(
+                        toMaterial3SettingsItem(
+                            context = context,
+                            hapticFeedback = hapticFeedback,
+                            item = SettingItem(
+                            icon = MaterialSymbolIcon("drive_file_rename_outline"),
+                                title = context.getString(R.string.lyrics_lrc_rename_behavior),
+                                description = when (lrcRenameBehavior) {
+                                    "always" -> context.getString(R.string.lyrics_rename_always)
+                                    "never" -> context.getString(R.string.lyrics_rename_never)
+                                    else -> context.getString(R.string.lyrics_rename_ask)
+                            },
+                            onClick = {
+                                    showLrcRenameBottomSheet = true
+                            }
+                            )
+                        ),
+                        toMaterial3SettingsItem(
+                            context = context,
+                            hapticFeedback = hapticFeedback,
+                            item = SettingItem(
+                            icon = MaterialSymbolIcon("upload"),
+                                title = context.getString(R.string.lyrics_export_preferences),
+                                description = context.getString(R.string.lyrics_export_preferences_desc),
+                            onClick = {
+                                exportCsvLauncher.launch("rhythm_lyrics_preferences.csv")
+                            }
+                            )
+                        ),
+                        toMaterial3SettingsItem(
+                            context = context,
+                            hapticFeedback = hapticFeedback,
+                            item = SettingItem(
+                            icon = MaterialSymbolIcon("download"),
+                                title = context.getString(R.string.lyrics_import_preferences),
+                                description = context.getString(R.string.lyrics_import_preferences_desc),
+                            onClick = {
+                                importCsvLauncher.launch("*/*")
+                            }
+                            )
+                        )
+                    ),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            }
+
+            // Notification Lyrics
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.bluetooth_lyrics_enabled),
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
+                )
+
+                Material3SettingsGroup(
+                    items = listOf(
+                        toMaterial3SettingsItem(
+                            context = context,
+                            hapticFeedback = hapticFeedback,
+                            item = SettingItem(
+                                icon = MaterialSymbolIcon("lyrics"),
+                                title = stringResource(R.string.bluetooth_lyrics_enabled),
+                                description = stringResource(R.string.bluetooth_lyrics_desc),
+                                toggleState = bluetoothLyricsEnabled,
+                                onToggleChange = {
+                                    appSettings.setBluetoothLyricsEnabled(it)
                                 }
                             )
                         )
-                        if (lyricsFolderTreeUris.isNotEmpty()) {
-                            add(
-                                Material3SettingsItem(
-                                    icon = MaterialSymbolIcon("folder_off"),
-                                    title = {
-                                        Text(
-                                            stringResource(
-                                                R.string.lyrics_folder_access_clear
-                                            )
-                                        )
-                                    },
-                                    description = {
-                                        Text(
-                                            stringResource(
-                                                R.string.lyrics_folder_access_clear_desc
-                                            )
-                                        )
-                                    },
-                                    onClick = appSettings::clearLyricsFolderTreeUris
-                                )
-                            )
-                        }
-                        add(
-                        Material3SettingsItem(
-                            icon = MaterialSymbolIcon("drive_file_rename_outline"),
-                            title = { Text("LRC Rename Behavior") },
-                            description = {
-                                Text(
-                                    text = when (lrcRenameBehavior) {
-                                        "always" -> "Always rename to match song"
-                                        "never" -> "Never rename (always tag)"
-                                        else -> "Ask every time"
-                                    }
-                                )
-                            },
-                            onClick = {
-                                HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
-                                val nextBehavior = when (lrcRenameBehavior) {
-                                    "ask" -> "always"
-                                    "always" -> "never"
-                                    else -> "ask"
-                                }
-                                appSettings.setLrcRenameBehavior(nextBehavior)
-                            }
-                        ))
-                        add(
-                        Material3SettingsItem(
-                            icon = MaterialSymbolIcon("upload"),
-                            title = { Text("Export Lyrics Preferences") },
-                            description = { Text("Backup song-specific source settings and custom tags to CSV") },
-                            onClick = {
-                                HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.HEAVY)
-                                exportCsvLauncher.launch("rhythm_lyrics_preferences.csv")
-                            }
-                        ))
-                        add(
-                        Material3SettingsItem(
-                            icon = MaterialSymbolIcon("download"),
-                            title = { Text("Import Lyrics Preferences") },
-                            description = { Text("Restore song-specific source settings and custom tags from CSV") },
-                            onClick = {
-                                HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.HEAVY)
-                                importCsvLauncher.launch("*/*")
-                            }
-                        ))
-                    },
+                    ),
                     containerColor = MaterialTheme.colorScheme.surfaceContainer
                 )
             }
@@ -867,21 +902,20 @@ fun LyricsSettingsScreen(onBackClick: () -> Unit) {
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
-                    ),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(bottom = 12.dp)
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = RhythmIcons.Info,
+                                imageVector = MaterialSymbolIcon("lightbulb", filled = true),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 contentDescription = null,
-                                
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(modifier = Modifier.width(12.dp))
@@ -889,15 +923,15 @@ fun LyricsSettingsScreen(onBackClick: () -> Unit) {
                                 text = stringResource(R.string.settings_about_lyrics_sources),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
-
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = stringResource(R.string.lyricssourcesettingsscreen_embedded_lyrics_are_stored) +
                                     stringResource(R.string.lyrics_settings_info_bullets),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                             lineHeight = 20.sp
                         )
                     }
@@ -928,6 +962,13 @@ fun LyricsSettingsScreen(onBackClick: () -> Unit) {
             currentLanguage = lyricsTranslationLanguage,
             onSelect = appSettings::setLyricsTranslationLanguage,
             onDismiss = { showTranslationLanguageDialog = false }
+        )
+    }
+
+    if (showLrcRenameBottomSheet) {
+        LrcRenameBehaviorBottomSheet(
+            onDismiss = { showLrcRenameBottomSheet = false },
+            appSettings = appSettings
         )
     }
 }

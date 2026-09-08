@@ -18,7 +18,8 @@ This document details the technical architecture and libraries used in Rhythm Mu
 | Technology | Purpose |
 |:---|:---|
 | **Media3 ExoPlayer** | Professional-grade media playback engine |
-| **FFmpeg Decoder** | Extended codec support (EAC3-JOC, AC-3, WMA) |
+| **FFmpeg Decoder** | Extended codec support (EAC3-JOC, AC-3, AC-4, WMA) via the Jellyfin media3-ffmpeg-decoder extension |
+| **Audio Processors** | Replay Gain, Bass Boost, Virtualizer, and Mono downmix DSP chain |
 | **MediaStore API** | Android media content provider |
 | **AudioFocus** | Audio focus management for calls/notifications |
 
@@ -27,7 +28,6 @@ This document details the technical architecture and libraries used in Rhythm Mu
 | Technology | Purpose |
 |:---|:---|
 | **Glance** | Modern reactive widgets with Material 3 design |
-| **RemoteViews** | Legacy widget support |
 | **WorkManager** | Background widget updates |
 
 ### Programming Language
@@ -237,7 +237,7 @@ interface MusicRepository {
 │                                     │
 │  ┌──────────────────────────────┐  │
 │  │      ExoPlayer               │  │
-│  │  • Media3 ExoPlayer 1.10.1   │  │
+│  │  • Media3 ExoPlayer 1.11.0   │  │
 │  │  • FFmpeg decoder extension  │  │
 │  │  • Gapless playback          │  │
 │  │  • Audio focus handling      │  │
@@ -264,6 +264,29 @@ interface MusicRepository {
 │  • Send playback commands           │
 │  • Display metadata                 │
 └─────────────────────────────────────┘
+```
+
+## 📱 Audio Processing Architecture
+
+Rhythm chains audio effects through the `RhythmAudioProcessor` pipeline inside `RhythmPlayerEngine`:
+
+```
+┌────────────────────────────────────────────┐
+│            RhythmPlayerEngine             │
+│   (infrastructure/service/player/)        │
+│                                            │
+│  ┌────────────────────────────────────┐   │
+│  │      RhythmAudioProcessor         │   │
+│  │  • Replay Gain (album/track)      │   │
+│  │  • Bass Boost                     │   │
+│  │  • Virtualizer / Spatialization   │   │
+│  │  • Mono downmix (RhythmMono       │   │
+│  │    AudioProcessor)                │   │
+│  └────────────────────────────────────┘   │
+│                                            │
+│  • Posture-aware player layouts (#529)     │
+│  • Device-specific audio routing           │
+└────────────────────────────────────────────┘
 ```
 
 ## 📱 Widget Architecture
@@ -329,8 +352,8 @@ android {
         applicationId = "chromahub.rhythm.app"
         minSdk = 26
         targetSdk = 37
-        versionCode = 514081066
-        versionName = "5.1.408.1066"
+        versionCode = 544561196
+        versionName = "5.4.456.1196 Beta"
     }
     
     buildFeatures {
@@ -355,12 +378,12 @@ android {
 ```toml
 # gradle/libs.versions.toml
 [versions]
-agp = "9.2.1"
-kotlin = "2.4.0"
+agp = "9.3.1"
+kotlin = "2.4.10"
 ksp = "2.3.6"
-composeBom = "2026.06.00"
-material3 = "1.5.0-alpha22"
-media3 = "1.10.1"
+composeBom = "2026.06.01"
+material3 = "1.5.0-alpha25"
+media3 = "1.11.0"
 
 [libraries]
 androidx-ui = { group = "androidx.compose.ui", name = "ui" }

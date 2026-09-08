@@ -6,9 +6,9 @@ We take security seriously. This section outlines which versions of Rhythm are c
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :white_check_mark: |
-| < 5.0   | :x:                |
+| 5.4.x   | :white_check_mark: |
+| 5.3.x   | :white_check_mark: |
+| < 5.3   | :x:                |
 
 ## Reporting a Vulnerability
 

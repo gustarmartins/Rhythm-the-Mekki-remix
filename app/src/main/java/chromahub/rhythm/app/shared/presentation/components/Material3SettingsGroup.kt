@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components
 
 import androidx.compose.animation.animateColorAsState
@@ -9,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,19 +50,251 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 
 /**
+ * Stock Android / Pixel Settings Badge Palette with uniform luminous colors across light & dark themes.
+ */
+data class SettingsBadgePalette(
+    val container: Color,
+    val tint: Color
+) {
+    constructor(
+        containerLight: Color,
+        tintLight: Color,
+        containerDark: Color = containerLight,
+        tintDark: Color = tintLight
+    ) : this(containerLight, tintLight)
+
+    val containerLight: Color get() = container
+    val tintLight: Color get() = tint
+    val containerDark: Color get() = container
+    val tintDark: Color get() = tint
+
+    @Composable
+    fun containerColor(isDark: Boolean = false): Color = container
+
+    @Composable
+    fun iconTintColor(isDark: Boolean = false): Color = tint
+}
+
+/**
+ * Predefined Stock Android / Pixel Settings Badge Palettes (Material 3 Expressive)
+ */
+object SettingsPalettes {
+    val Amber = SettingsBadgePalette(
+        container = Color(0xFFFFDCBE),
+        tint = Color(0xFF7C4113)
+    )
+    val Yellow = SettingsBadgePalette(
+        container = Color(0xFFFFF0A4),
+        tint = Color(0xFF624F00)
+    )
+    val Emerald = SettingsBadgePalette(
+        container = Color(0xFFC4EED0),
+        tint = Color(0xFF18532A)
+    )
+    val Cyan = SettingsBadgePalette(
+        container = Color(0xFFC0EAE6),
+        tint = Color(0xFF006A6F)
+    )
+    val SkyBlue = SettingsBadgePalette(
+        container = Color(0xFFC2E7FF),
+        tint = Color(0xFF004D77)
+    )
+    val Indigo = SettingsBadgePalette(
+        container = Color(0xFFD6E3FF),
+        tint = Color(0xFF1D5FA9)
+    )
+    val Purple = SettingsBadgePalette(
+        container = Color(0xFFEEDCFF),
+        tint = Color(0xFF5D367B)
+    )
+    val Rose = SettingsBadgePalette(
+        container = Color(0xFFF7D8EB),
+        tint = Color(0xFF82276C)
+    )
+    val Coral = SettingsBadgePalette(
+        container = Color(0xFFFFD8E2),
+        tint = Color(0xFF962846)
+    )
+    val Lime = SettingsBadgePalette(
+        container = Color(0xFFE0F3B8),
+        tint = Color(0xFF3B5606)
+    )
+    val Slate = SettingsBadgePalette(
+        container = Color(0xFFE2E2E6),
+        tint = Color(0xFF44474E)
+    )
+    val Teal = SettingsBadgePalette(
+        container = Color(0xFFBCEBEB),
+        tint = Color(0xFF006874)
+    )
+    val Orange = SettingsBadgePalette(
+        container = Color(0xFFFFDAC5),
+        tint = Color(0xFF763710)
+    )
+}
+
+object SettingsExpressiveShapes {
+    val Circle: Shape = CircleShape
+    val Squircle: Shape = RoundedCornerShape(12.dp)
+}
+
+fun getSectionPalette(title: String?): SettingsBadgePalette {
+    if (title.isNullOrBlank()) return SettingsPalettes.Purple
+    val lower = title.lowercase()
+    return when {
+        lower.contains("appearance") || lower.contains("theme") || lower.contains("look") || lower.contains("shape") || lower.contains("style") -> SettingsPalettes.Purple
+        lower.contains("home") || lower.contains("widget") || lower.contains("order") -> SettingsPalettes.Orange
+        lower.contains("interface") || lower.contains("navigation") || lower.contains("control") || lower.contains("gesture") -> SettingsPalettes.SkyBlue
+        lower.contains("queue") || lower.contains("playback") || lower.contains("volume") || lower.contains("persist") || lower.contains("gain") -> SettingsPalettes.Emerald
+        lower.contains("audio") || lower.contains("sound") || lower.contains("lyrics") || lower.contains("equalizer") || lower.contains("effect") || lower.contains("format") -> SettingsPalettes.Rose
+        lower.contains("library") || lower.contains("media") || lower.contains("scan") || lower.contains("artist") || lower.contains("playlist") || lower.contains("directory") || lower.contains("folder") -> SettingsPalettes.Amber
+        lower.contains("notification") || lower.contains("alert") || lower.contains("service") -> SettingsPalettes.Coral
+        lower.contains("storage") || lower.contains("data") || lower.contains("cache") || lower.contains("backup") || lower.contains("guard") || lower.contains("stat") || lower.contains("room") || lower.contains("backend") -> SettingsPalettes.Yellow
+        lower.contains("update") || lower.contains("about") || lower.contains("info") || lower.contains("version") -> SettingsPalettes.Slate
+        lower.contains("advanced") || lower.contains("crash") || lower.contains("experiment") || lower.contains("dev") -> SettingsPalettes.Purple
+        lower.contains("performance") || lower.contains("battery") || lower.contains("power") || lower.contains("speed") -> SettingsPalettes.Lime
+        lower.contains("network") || lower.contains("api") || lower.contains("source") || lower.contains("connectivity") -> SettingsPalettes.SkyBlue
+        lower.contains("display") || lower.contains("screen") || lower.contains("carousel") -> SettingsPalettes.Amber
+        else -> {
+            val list = listOf(
+                SettingsPalettes.Purple,
+                SettingsPalettes.SkyBlue,
+                SettingsPalettes.Emerald,
+                SettingsPalettes.Amber,
+                SettingsPalettes.Yellow,
+                SettingsPalettes.Coral,
+                SettingsPalettes.Cyan,
+                SettingsPalettes.Rose,
+                SettingsPalettes.Indigo,
+                SettingsPalettes.Teal,
+                SettingsPalettes.Orange,
+                SettingsPalettes.Lime
+            )
+            val index = (title.hashCode().toLong() and 0x7FFFFFFF).toInt() % list.size
+            list[index]
+        }
+    }
+}
+
+fun getIconPalette(icon: Any?): SettingsBadgePalette {
+    val rawName = when (icon) {
+        is MaterialSymbolIcon -> icon.name
+        is ImageVector -> icon.name
+        else -> null
+    }
+    if (rawName.isNullOrBlank()) return SettingsPalettes.Purple
+
+    val lower = rawName.lowercase()
+    return when {
+        lower.contains("palette") || lower.contains("brush") || lower.contains("color") ||
+            lower.contains("theme") || lower.contains("art") || lower.contains("paint") ||
+            lower.contains("interests") || lower.contains("shape") || lower.contains("corner") ||
+            lower.contains("category") || lower.contains("style") || lower.contains("auto_graph") ||
+            lower.contains("stat") -> SettingsPalettes.Purple
+
+        lower.contains("album") || lower.contains("image") || lower.contains("photo") ||
+            lower.contains("picture") || lower.contains("wallpaper") || lower.contains("blur") ||
+            lower.contains("backdrop") || lower.contains("glow") || lower.contains("artist") ||
+            lower.contains("person") || lower.contains("face") || lower.contains("favorite") ||
+            lower.contains("heart") || lower.contains("play_circle") -> SettingsPalettes.Rose
+
+        lower.contains("notification") || lower.contains("alert") || lower.contains("bell") ||
+            lower.contains("equalizer") || lower.contains("audio") || lower.contains("sound") ||
+            lower.contains("volume") || lower.contains("high_quality") || lower.contains("speaker") ||
+            lower.contains("music") || lower.contains("bug") || lower.contains("playlist") -> SettingsPalettes.Coral
+
+        lower.contains("wifi") || lower.contains("network") || lower.contains("cloud") ||
+            lower.contains("public") || lower.contains("globe") || lower.contains("language") ||
+            lower.contains("translate") || lower.contains("update") || lower.contains("download") ||
+            lower.contains("search") || lower.contains("explore") || lower.contains("tablet") ||
+            lower.contains("phone") || lower.contains("devices") || lower.contains("cast") ||
+            lower.contains("touch") || lower.contains("gesture") || lower.contains("hand") -> SettingsPalettes.SkyBlue
+
+        lower.contains("reorder") || lower.contains("queue") || lower.contains("list") ||
+            lower.contains("apps") || lower.contains("grid") || lower.contains("call_split") ||
+            lower.contains("split") || lower.contains("merge") || lower.contains("alt_route") ||
+            lower.contains("sort") || lower.contains("swap") || lower.contains("shuffle") ||
+            lower.contains("repeat") || lower.contains("navigation") || lower.contains("compass") -> SettingsPalettes.Indigo
+
+        lower.contains("display") || lower.contains("screen") || lower.contains("brightness") ||
+            lower.contains("sun") || lower.contains("contrast") || lower.contains("lightbulb") ||
+            lower.contains("bulb") || lower.contains("idea") || lower.contains("tips") ||
+            lower.contains("gradient") || lower.contains("aspect") -> SettingsPalettes.Amber
+
+        lower.contains("home") || lower.contains("timer") || lower.contains("time") ||
+            lower.contains("clock") || lower.contains("alarm") || lower.contains("scale") ||
+            lower.contains("linear") || lower.contains("slider") || lower.contains("forward") ||
+            lower.contains("rewind") || lower.contains("fast") || lower.contains("seek") -> SettingsPalettes.Orange
+
+        lower.contains("storage") || lower.contains("folder") || lower.contains("sd") ||
+            lower.contains("hard_drive") || lower.contains("disk") || lower.contains("data") ||
+            lower.contains("save") || lower.contains("memory") || lower.contains("chip") ||
+            lower.contains("document") || lower.contains("file") -> SettingsPalettes.Yellow
+
+        lower.contains("security") || lower.contains("guard") || lower.contains("shield") ||
+            lower.contains("lock") || lower.contains("key") || lower.contains("backup") ||
+            lower.contains("restore") || lower.contains("check") || lower.contains("verified") ||
+            lower.contains("play") || lower.contains("visibility") || lower.contains("eye") ||
+            lower.contains("autorenew") || lower.contains("sync") -> SettingsPalettes.Emerald
+
+        lower.contains("speed") || lower.contains("bolt") || lower.contains("battery") ||
+            lower.contains("power") || lower.contains("flash") || lower.contains("fast_forward") ||
+            lower.contains("rocket") || lower.contains("electric") -> SettingsPalettes.Lime
+
+        lower.contains("widget") || lower.contains("lyrics") || lower.contains("subtitle") ||
+            lower.contains("rotate") || lower.contains("refresh") || lower.contains("loop") ||
+            lower.contains("bluetooth") || lower.contains("colorize") || lower.contains("tune") -> SettingsPalettes.Cyan
+
+        lower.contains("info") || lower.contains("help") || lower.contains("about") ||
+            lower.contains("code") || lower.contains("terminal") || lower.contains("science") ||
+            lower.contains("settings") || lower.contains("build") || lower.contains("version") -> SettingsPalettes.Slate
+
+        else -> {
+            val list = listOf(
+                SettingsPalettes.SkyBlue,
+                SettingsPalettes.Emerald,
+                SettingsPalettes.Amber,
+                SettingsPalettes.Coral,
+                SettingsPalettes.Purple,
+                SettingsPalettes.Cyan,
+                SettingsPalettes.Rose,
+                SettingsPalettes.Indigo,
+                SettingsPalettes.Yellow,
+                SettingsPalettes.Orange,
+                SettingsPalettes.Lime,
+                SettingsPalettes.Teal
+            )
+            val index = (lower.hashCode().toLong() and 0x7FFFFFFF).toInt() % list.size
+            list[index]
+        }
+    }
+}
+
+/**
  * Material 3 Expressive settings group — card stack with dynamic corner radii.
  *
  * Single item → fully rounded 24dp
  * First item → 24dp top, 6dp bottom
  * Middle items → 6dp all
  * Last item → 6dp top, 24dp bottom
+ *
+ * When [itemShape] is provided it overrides the corner radii for every card in
+ * the group, letting the group blend into a larger connected card stack. When
+ * [lastItemShape] is provided it overrides only the last card (taking precedence
+ * over [itemShape]) so the group can cap the bottom of a connected stack.
  */
 @Composable
 fun Material3SettingsGroup(
     title: String? = null,
     items: List<Material3SettingsItem>,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
+    palette: SettingsBadgePalette? = null,
+    itemShape: Shape? = null,
+    lastItemShape: Shape? = null,
+    iconShape: Shape? = null
 ) {
+    val sectionPalette = palette ?: if (title != null) getSectionPalette(title) else null
+
     Column(modifier = Modifier.fillMaxWidth()) {
         title?.let {
             Text(
@@ -74,18 +312,23 @@ fun Material3SettingsGroup(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             items.forEachIndexed { index, item ->
+                val isLast = index == items.size - 1
                 val shape = when {
+                    lastItemShape != null && isLast -> lastItemShape
+                    itemShape != null -> itemShape
                     items.size == 1 -> RoundedCornerShape(24.dp)
                     index == 0 -> RoundedCornerShape(
                         topStart = 24.dp, topEnd = 24.dp,
                         bottomStart = 6.dp, bottomEnd = 6.dp
                     )
-                    index == items.size - 1 -> RoundedCornerShape(
+                    isLast -> RoundedCornerShape(
                         topStart = 6.dp, topEnd = 6.dp,
                         bottomStart = 24.dp, bottomEnd = 24.dp
                     )
                     else -> RoundedCornerShape(6.dp)
                 }
+
+                val itemPalette = item.palette ?: sectionPalette ?: getIconPalette(item.icon)
 
                 Card(
                     modifier = Modifier
@@ -97,7 +340,11 @@ fun Material3SettingsGroup(
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    Material3SettingsItemRow(item = item)
+                    Material3SettingsItemRow(
+                        item = item,
+                        fallbackPalette = itemPalette,
+                        fallbackShape = item.iconShape ?: iconShape ?: CircleShape
+                    )
                 }
             }
         }
@@ -105,19 +352,26 @@ fun Material3SettingsGroup(
 }
 
 @Composable
-private fun Material3SettingsItemRow(item: Material3SettingsItem) {
+private fun Material3SettingsItemRow(
+    item: Material3SettingsItem,
+    fallbackPalette: SettingsBadgePalette? = null,
+    fallbackShape: Shape = CircleShape
+) {
+    val isDark = isSystemInDarkTheme()
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
-    val defaultIconBg = if (item.isHighlighted) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.secondaryContainer
+    val itemPalette = item.palette ?: fallbackPalette
+
+    val defaultIconBg = when {
+        item.palette != null -> item.palette.containerColor(isDark)
+        fallbackPalette != null -> fallbackPalette.containerColor(isDark)
+        else -> MaterialTheme.colorScheme.secondaryContainer
     }
-    val defaultIconTint = if (item.isHighlighted) {
-        MaterialTheme.colorScheme.onPrimaryContainer
-    } else {
-        MaterialTheme.colorScheme.onSecondaryContainer
+    val defaultIconTint = when {
+        item.palette != null -> item.palette.iconTintColor(isDark)
+        fallbackPalette != null -> fallbackPalette.iconTintColor(isDark)
+        else -> MaterialTheme.colorScheme.onSecondaryContainer
     }
 
     // Expressive press scale animation
@@ -180,7 +434,7 @@ private fun Material3SettingsItemRow(item: Material3SettingsItem) {
         } else item.icon?.let { icon ->
             Surface(
                 modifier = Modifier.size(40.dp),
-                shape = item.iconShape ?: CircleShape,
+                shape = item.iconShape ?: fallbackShape,
                 color = iconBgColor,
                 tonalElevation = if (item.isHighlighted) 2.dp else 0.dp
             ) {
@@ -282,6 +536,7 @@ data class Material3SettingsItem(
     val icon: Any? = null,
     val iconTint: Color? = null,
     val iconBackgroundTint: Color? = null,
+    val palette: SettingsBadgePalette? = null,
     val title: @Composable () -> Unit,
     val description: (@Composable () -> Unit)? = null,
     val trailingContent: (@Composable () -> Unit)? = null,
@@ -298,3 +553,4 @@ enum class SettingScope {
     STREAMING,
     BOTH
 }
+

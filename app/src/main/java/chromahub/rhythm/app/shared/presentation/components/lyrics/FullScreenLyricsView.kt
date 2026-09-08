@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.components.lyrics
@@ -49,6 +54,9 @@ import chromahub.rhythm.app.shared.presentation.components.common.M3PlaceholderT
 import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShapeFor
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeTarget
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressivePlayerControlGroup
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmGroupedButton
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonWeighted
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonSize
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
@@ -62,6 +70,9 @@ import androidx.compose.ui.graphics.luminance
 import kotlinx.coroutines.delay
 import chromahub.rhythm.app.R
 import androidx.compose.ui.res.stringResource
+import java.util.Locale
+import chromahub.rhythm.app.util.windowScreenWidthDp
+import chromahub.rhythm.app.util.windowScreenHeightDp
 
 @Composable
 fun FullScreenLyricsView(
@@ -79,9 +90,9 @@ fun FullScreenLyricsView(
     onClose: () -> Unit,
     onShowLyricsEditor: () -> Unit,
     onNavigateToLyricsSettings: () -> Unit,
+    modifier: Modifier = Modifier,
     canvasArtwork: CanvasArtwork? = null,
-    canvasLoading: Boolean = false,
-    modifier: Modifier = Modifier
+    canvasLoading: Boolean = false
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -276,6 +287,7 @@ fun FullScreenLyricsView(
                             primaryUrl = canvasArtwork.animated,
                             fallbackUrl = canvasArtwork.videoUrl,
                             isPlaying = isPlaying,
+                            alwaysPlay = true,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -352,7 +364,7 @@ fun FullScreenLyricsView(
 
         // 2. MAIN LAYOUT CONTAINER
         // 2. MAIN LAYOUT CONTAINER (Adaptive Tablet Split or Phone Stack)
-        val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
+        val isTablet = windowScreenWidthDp() >= 600
 
         if (isTablet) {
             Row(
@@ -510,7 +522,7 @@ fun FullScreenLyricsView(
                                         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                                             Icon(
                                                 imageVector = MaterialSymbolIcon("chevron_left"),
-                                                contentDescription = "Nudge backward",
+                                                contentDescription = stringResource(R.string.lyrics_nudge_backward),
                                                 tint = textPrimaryColor,
                                                 modifier = Modifier.size(20.dp)
                                             )
@@ -520,7 +532,7 @@ fun FullScreenLyricsView(
                                     // Display Current Offset
                                     val offsetSeconds = manualSyncOffsetMs / 1000f
                                     Text(
-                                        text = String.format("%+.1fs", offsetSeconds),
+                                        text = String.format(Locale.ROOT, "%+.1fs", offsetSeconds),
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.ExtraBold,
                                             color = MaterialTheme.colorScheme.primary
@@ -557,7 +569,7 @@ fun FullScreenLyricsView(
                                         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                                             Icon(
                                                 imageVector = MaterialSymbolIcon("chevron_right"),
-                                                contentDescription = "Nudge forward",
+                                                contentDescription = stringResource(R.string.lyrics_nudge_forward),
                                                 tint = textPrimaryColor,
                                                 modifier = Modifier.size(20.dp)
                                             )
@@ -950,11 +962,42 @@ fun FullScreenLyricsView(
                                         textAlign = TextAlign.Center
                                     )
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    Button(
-                                        onClick = onRetryLyrics,
-                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                                    RhythmGroupedButton(
+                                        size = RhythmButtonSize.Small
                                     ) {
-                                        Text(stringResource(R.string.fullscreenlyricsview_retry_fetching))
+                                        RhythmButtonWeighted(
+                                            onClick = {
+                                                HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
+                                                onRetryLyrics()
+                                            },
+                                            weight = 1f,
+                                            isFirst = true,
+                                            isLast = false,
+                                            icon = RhythmIcons.Refresh,
+                                            text = stringResource(R.string.updates_retry)
+                                        )
+                                        RhythmButtonWeighted(
+                                            onClick = {
+                                                HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
+                                                onShowLyricsEditor()
+                                            },
+                                            weight = 1f,
+                                            isFirst = false,
+                                            isLast = false,
+                                            icon = RhythmIcons.Player.Lyrics,
+                                            text = stringResource(R.string.lyrics_editor_short)
+                                        )
+                                        RhythmButtonWeighted(
+                                            onClick = {
+                                                HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
+                                                onNavigateToLyricsSettings()
+                                            },
+                                            weight = 1f,
+                                            isFirst = false,
+                                            isLast = true,
+                                            icon = MaterialSymbolIcon("settings", filled = true),
+                                            text = stringResource(R.string.lyrics_settings_short)
+                                        )
                                     }
                                 }
                             }
@@ -1184,7 +1227,7 @@ fun FullScreenLyricsView(
                                         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                                             Icon(
                                                 imageVector = MaterialSymbolIcon("chevron_left"),
-                                                contentDescription = "Nudge backward",
+                                                contentDescription = stringResource(R.string.lyrics_nudge_backward),
                                                 tint = textPrimaryColor,
                                                 modifier = Modifier.size(20.dp)
                                             )
@@ -1194,7 +1237,7 @@ fun FullScreenLyricsView(
                                     // Display Current Offset
                                     val offsetSeconds = manualSyncOffsetMs / 1000f
                                     Text(
-                                        text = String.format("%+.1fs", offsetSeconds),
+                                        text = String.format(Locale.ROOT, "%+.1fs", offsetSeconds),
                                         style = MaterialTheme.typography.bodyMedium.copy(
                                             fontWeight = FontWeight.ExtraBold,
                                             color = MaterialTheme.colorScheme.primary
@@ -1231,7 +1274,7 @@ fun FullScreenLyricsView(
                                         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                                             Icon(
                                                 imageVector = MaterialSymbolIcon("chevron_right"),
-                                                contentDescription = "Nudge forward",
+                                                contentDescription = stringResource(R.string.lyrics_nudge_forward),
                                                 tint = textPrimaryColor,
                                                 modifier = Modifier.size(20.dp)
                                             )

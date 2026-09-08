@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.screens.player
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
@@ -10,6 +15,8 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseInOut
 import androidx.compose.animation.core.Spring
@@ -33,7 +40,6 @@ import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.input.pointer.pointerInput
-//import kotlinx.coroutines.awaitRelease
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,7 +65,6 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Switch
@@ -74,8 +79,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.runtime.collectAsState
@@ -120,14 +123,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.produceState
+import androidx.core.net.toUri
+import androidx.activity.result.IntentSenderRequest
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -135,9 +140,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -169,14 +172,12 @@ import chromahub.rhythm.app.shared.presentation.components.common.ButtonGroupSty
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeTarget
 import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShapeFor
 import chromahub.rhythm.app.ui.theme.PlayerButtonColor
-// import chromahub.rhythm.app.shared.presentation.components.common.M3PlaceholderType
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
 import chromahub.rhythm.app.util.LyricsFileUtils
 import chromahub.rhythm.app.util.LrcUtils
 import chromahub.rhythm.app.util.SemanticLyrics
-import androidx.compose.runtime.collectAsState
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
@@ -193,7 +194,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.navigationBarsPadding
 import chromahub.rhythm.app.shared.presentation.components.player.formatDuration
-import java.util.concurrent.TimeUnit // Import TimeUnit for duration formatting
+import java.util.concurrent.TimeUnit
 import chromahub.rhythm.app.shared.presentation.components.common.PlaybackBufferingLoader
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.ArtistChooserBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.QueueBottomSheet
@@ -201,22 +202,24 @@ import chromahub.rhythm.app.features.local.presentation.screens.LibraryTab
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.PlaybackBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SongInfoBottomSheet
-import chromahub.rhythm.app.shared.presentation.components.bottomsheets.ArtistBottomSheet
 
 import chromahub.rhythm.app.shared.presentation.components.player.PlayerChipOrderBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.lyrics.LyricsEditorBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.AudioQualityBadges
 import chromahub.rhythm.app.util.MediaUtils
+import chromahub.rhythm.app.util.windowScreenHeightDp
+import chromahub.rhythm.app.util.windowScreenWidthDp
+import java.util.Locale
 import chromahub.rhythm.app.shared.data.model.Album
 import chromahub.rhythm.app.shared.data.model.Artist
 import chromahub.rhythm.app.shared.data.model.findAlbumForSong
 import chromahub.rhythm.app.features.local.presentation.navigation.Screen
 import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel
-import chromahub.rhythm.app.shared.presentation.components.player.formatDuration
 import chromahub.rhythm.app.shared.presentation.components.lyrics.WordByWordLyricsView
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.ExtraControlBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.dialogs.PlaybackSpeedDialog
 import chromahub.rhythm.app.shared.presentation.components.dialogs.PlaybackPitchDialog
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.PlaybackSpeedAndPitchBottomSheet
 import androidx.navigation.NavController
 import androidx.compose.ui.res.stringResource
 
@@ -227,20 +230,24 @@ import androidx.compose.ui.res.stringResource
 fun MaterialPlayerScreen(
     song: Song?,
     isPlaying: Boolean,
-    canvasArtwork: CanvasArtwork? = null,
-    canvasLoading: Boolean = false,
     progress: () -> Float,
     location: PlaybackLocation?,
-    queuePosition: Int = 1,
-    queueTotal: Int = 1,
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
     onSeek: (Float) -> Unit,
-    onLyricsSeek: ((Long) -> Unit)? = null,
     onBack: () -> Unit,
     onLocationClick: () -> Unit,
     onQueueClick: () -> Unit,
+    appSettings: chromahub.rhythm.app.shared.data.model.AppSettings,
+    musicViewModel: chromahub.rhythm.app.viewmodel.MusicViewModel,
+    navController: NavController,
+    modifier: Modifier = Modifier,
+    canvasArtwork: CanvasArtwork? = null,
+    canvasLoading: Boolean = false,
+    queuePosition: Int = 1,
+    queueTotal: Int = 1,
+    onLyricsSeek: ((Long) -> Unit)? = null,
     locations: List<PlaybackLocation> = emptyList(),
     onLocationSelect: (PlaybackLocation) -> Unit = {},
     volume: Float = 0.7f,
@@ -264,11 +271,11 @@ fun MaterialPlayerScreen(
     onRetryLyrics: () -> Unit = {},
     onEditLyrics: (String) -> Unit = {},
     onPickLyricsFile: () -> Unit = {},
-    onSaveLyrics: (String, String) -> Unit = { _, _ -> }, // (lyrics, saveLocation)
+    onSaveLyrics: (String, String) -> Unit = { _, _ -> },
     playlists: List<Playlist> = emptyList(),
     queue: List<Song> = emptyList(),
     onSongClick: (Song) -> Unit = {},
-    onSongClickAtIndex: (Int) -> Unit = { _ -> }, // New parameter for index-based queue clicks
+    onSongClickAtIndex: (Int) -> Unit = { _ -> },
     onRemoveFromQueueAtIndex: (Int) -> Unit = { _ -> },
     onMoveQueueItem: (Int, Int) -> Unit = { _, _ -> },
     onAddSongsToQueue: () -> Unit = {},
@@ -277,13 +284,11 @@ fun MaterialPlayerScreen(
     onAddToPlaylistSheetDismiss: () -> Unit = {},
     onAddSongToPlaylist: (Song, String) -> Unit = { _, _ -> },
     onCreatePlaylist: (String) -> Unit = { _ -> },
-    onShowCreatePlaylistDialog: (Song?) -> Unit = {} ,
+    onShowCreatePlaylistDialog: (Song?) -> Unit = {},
     onClearQueue: () -> Unit = {},
-    // New parameters for loader control and bottom sheets
     isMediaLoading: Boolean = false,
     isSeeking: Boolean = false,
     onShowAlbumBottomSheet: () -> Unit = {},
-    onShowArtistBottomSheet: () -> Unit = {},
     // Album and artist data for bottom sheets
     songs: List<Song> = emptyList(),
     albums: List<Album> = emptyList(),
@@ -292,17 +297,12 @@ fun MaterialPlayerScreen(
     onShuffleAlbumSongs: (List<Song>) -> Unit = {},
     onPlayArtistSongs: (List<Song>) -> Unit = {},
     onShuffleArtistSongs: (List<Song>) -> Unit = {},
-    appSettings: chromahub.rhythm.app.shared.data.model.AppSettings,
-    musicViewModel: chromahub.rhythm.app.viewmodel.MusicViewModel,
-    navController: NavController,
     isStreamingMode: Boolean = false,
     onOpenFullScreenLyrics: () -> Unit = {},
     swipeToDismissEnabled: Boolean = true,
-    expansionFraction: Float = 1f,
-    modifier: Modifier = Modifier
+    expansionFraction: Float = 1f
 ) {
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
@@ -320,7 +320,7 @@ fun MaterialPlayerScreen(
     val artistSeparatorEnabled by appSettingsInstance.artistSeparatorEnabled.collectAsState()
     val artistSeparatorDelimiters by appSettingsInstance.artistSeparatorDelimiters.collectAsState()
     val useHoursFormat by appSettingsInstance.useHoursInTimeFormat.collectAsState()
-    val enableRatingSystem by appSettingsInstance.enableRatingSystem.collectAsState()
+    val showRemainingTime by appSettingsInstance.showRemainingTime.collectAsState()
     
     // Player customization settings
     val playerShowGradientOverlay by appSettingsInstance.playerShowGradientOverlay.collectAsState()
@@ -345,6 +345,7 @@ fun MaterialPlayerScreen(
     // Progress bar customization settings
     val playerProgressStyle by appSettingsInstance.playerProgressStyle.collectAsState()
     val playerProgressThumbStyle by appSettingsInstance.playerProgressThumbStyle.collectAsState()
+    val playerProgressThumbRotate by appSettingsInstance.playerProgressThumbRotate.collectAsState()
     
     // Enhanced seeking settings
     val enhancedSeekingEnabled by appSettingsInstance.enhancedSeekingEnabled.collectAsState()
@@ -362,9 +363,10 @@ fun MaterialPlayerScreen(
     val gesturePlayerSwipeDismiss by appSettingsInstance.gesturePlayerSwipeDismiss.collectAsState()
     val gesturePlayerSwipeTracks by appSettingsInstance.gesturePlayerSwipeTracks.collectAsState()
     val gestureArtworkDoubleTap by appSettingsInstance.gestureArtworkDoubleTap.collectAsState()
+    val gestureArtworkSingleTap by appSettingsInstance.gestureArtworkSingleTap.collectAsState()
 
     // Helper function to split artist names
-    val splitArtistNames: (String) -> List<String> = remember {
+    val splitArtistNames: (String) -> List<String> = remember(artistSeparatorDelimiters, artistSeparatorEnabled) {
         { artistName ->
             chromahub.rhythm.app.util.ArtistSeparator.splitArtistNames(
                 artistName = artistName,
@@ -437,17 +439,17 @@ fun MaterialPlayerScreen(
     }
 
     // Calculate screen dimensions
-    val screenHeight = with(density) { configuration.screenHeightDp.dp.toPx() }
-    val screenWidth = with(density) { configuration.screenWidthDp.dp.toPx() }
+    val screenHeight = with(density) { windowScreenHeightDp().dp.toPx() }
+    val screenWidth = with(density) { windowScreenWidthDp().dp.toPx() }
 
     // Enhanced screen size detection for better responsiveness
-    val isCompactHeight = forcePlayerCompactMode || configuration.screenHeightDp < 600
-    val isLargeHeight = configuration.screenHeightDp > 800
-    val isTablet = configuration.screenWidthDp >= 600 // Tablet detection
-    val isLandscapeTablet = isTablet && configuration.screenWidthDp > configuration.screenHeightDp
-    val isExtraSmallWidth = configuration.screenWidthDp < 360 // Extra small width (< 360dp)
-    val isCompactWidth = forcePlayerCompactMode || configuration.screenWidthDp < 400 // Compact width (< 400dp)
-    val isMidWidth = configuration.screenWidthDp in 400..499 // Mid-range width (400-499dp)
+    val isCompactHeight = forcePlayerCompactMode || windowScreenHeightDp() < 600
+    val isLargeHeight = windowScreenHeightDp() > 800
+    val isTablet = windowScreenWidthDp() >= 600 // Tablet detection
+    val isLandscapeTablet = isTablet && windowScreenWidthDp() > windowScreenHeightDp()
+    val isExtraSmallWidth = windowScreenWidthDp() < 360 // Extra small width (< 360dp)
+    val isCompactWidth = forcePlayerCompactMode || windowScreenWidthDp() < 400 // Compact width (< 400dp)
+    val isMidWidth = windowScreenWidthDp() in 400..499 // Mid-range width (400-499dp)
     
     // Bottom sheet states
     var showSleepTimerBottomSheet by remember { mutableStateOf(false) }
@@ -621,6 +623,57 @@ fun MaterialPlayerScreen(
         }
     }
 
+    val autoFetchArtwork by appSettings.autoFetchArtwork.collectAsState()
+    val artworkValidation = rememberArtworkValidation(song?.artworkUri, context)
+    var isAutoFetchingMissingArtwork by remember { mutableStateOf(false) }
+    var fetchedAutoArtworkUriStr by remember { mutableStateOf<String?>(null) }
+    var showAutoFetchEmbedDialog by remember { mutableStateOf(false) }
+    var pendingAutoFetchSong by remember { mutableStateOf<Song?>(null) }
+    val autoFetchPromptedSongIds = remember { mutableStateOf<Set<String>>(emptySet()) }
+    var lastNoArtworkToastTime by remember { mutableLongStateOf(0L) }
+
+    // Auto-fetch in both modes, but only after validation confirms the song has no
+    // artwork (null = still checking). Each song is prompted at most once per session.
+    LaunchedEffect(song?.id, autoFetchArtwork, artworkValidation) {
+        val currentSong = song
+        val alreadyPrompted = currentSong != null && currentSong.id in autoFetchPromptedSongIds.value
+        if (autoFetchArtwork && currentSong != null && artworkValidation == false && !isAutoFetchingMissingArtwork && !alreadyPrompted) {
+            autoFetchPromptedSongIds.value = autoFetchPromptedSongIds.value + currentSong.id
+            isAutoFetchingMissingArtwork = true
+            musicViewModel.autoFetchArtworkForSong(currentSong) { success, uriStr ->
+                isAutoFetchingMissingArtwork = false
+                if (success && uriStr != null) {
+                    if (isStreamingMode) {
+                        // Go mode: no file to embed — apply to the in-memory song (session-only).
+                        if (song.id == currentSong.id) {
+                            val artUri = uriStr.toUri()
+                            musicViewModel.updateCurrentSongMetadata(currentSong.copy(artworkUri = artUri))
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.expressiveplayerscreen_artwork_applied),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    } else {
+                        pendingAutoFetchSong = currentSong
+                        fetchedAutoArtworkUriStr = uriStr
+                        showAutoFetchEmbedDialog = true
+                    }
+                } else {
+                    val now = android.os.SystemClock.elapsedRealtime()
+                    if (now - lastNoArtworkToastTime > 5000) {
+                        lastNoArtworkToastTime = now
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.expressiveplayerscreen_no_artwork_found),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+        }
+    }
+
     // Reset song info when song changes
     LaunchedEffect(song?.id) {
         if (song != null) {
@@ -661,16 +714,28 @@ fun MaterialPlayerScreen(
 
     // Bottom sheet states
     val queueSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
-    val addToPlaylistSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
+    val addToPlaylistSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
     val deviceOutputSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
-    val artistBottomSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
     var showQueueSheet by remember { mutableStateOf(false) }
     var showDeviceOutputSheet by remember { mutableStateOf(false) }
     var showSongInfoSheet by remember { mutableStateOf(false) }
-    var showArtistSheet by remember { mutableStateOf(false) }
-    var selectedArtist by remember { mutableStateOf<Artist?>(null) }
     var candidateArtists by remember { mutableStateOf<List<Artist>>(emptyList()) }
     var showArtistChooserSheet by remember { mutableStateOf(false) }
+    
+    val openArtistForSong: (Song) -> Unit = { currentSong ->
+        val artistNames = splitArtistNames(currentSong.artist)
+
+        if (artistNames.size <= 1) {
+            val artistName = artistNames.firstOrNull()?.trim() ?: currentSong.artist.trim()
+            navController.navigate(Screen.ArtistDetail.createRoute(artistName))
+        } else {
+            candidateArtists = artistNames.map { name ->
+                artists.firstOrNull { it.name.trim().equals(name.trim(), ignoreCase = true) }
+                    ?: Artist(id = name.trim(), name = name.trim())
+            }
+            showArtistChooserSheet = true
+        }
+    }
     
     val navigateToAlbum: (String, String) -> Unit = { id, title ->
         if (isStreamingMode) {
@@ -679,19 +744,27 @@ fun MaterialPlayerScreen(
             // and calling popBackStack on a missing entry causes an
             // "Cannot transition entry that is not in the back stack" crash.
             val playerInStack = try {
-                navController.getBackStackEntry("streaming_player")
+                navController.getBackStackEntry(Screen.Player.route)
                 true
             } catch (_: IllegalArgumentException) {
                 false
             }
             if (playerInStack) {
-                navController.popBackStack("streaming_player", inclusive = true)
+                navController.popBackStack(Screen.Player.route, inclusive = true)
             }
+            try {
             navController.navigate("streaming_album/${android.net.Uri.encode(id)}?albumName=${android.net.Uri.encode(title)}") {
                 launchSingleTop = true
             }
+            } catch (e: Exception) {
+                Log.e("MaterialPlayerScreen", "Failed to navigate to streaming album", e)
+            }
         } else {
+            try {
             navController.navigate(Screen.AlbumDetail.createRoute(id, title))
+            } catch (e: Exception) {
+                Log.e("MaterialPlayerScreen", "Failed to navigate to album detail", e)
+            }
         }
     }
     var showCompactChipsSheet by remember { mutableStateOf(false) }
@@ -750,7 +823,7 @@ fun MaterialPlayerScreen(
     val line6Alpha = line6Fraction
     
     // Swipe to dismiss gesture state - enhanced for mini player-like transition
-    var swipeOffsetY by remember { mutableStateOf(0f) }
+    var swipeOffsetY by remember { mutableFloatStateOf(0f) }
     var isDragging by remember { mutableStateOf(false) }
     var isSwipeDismissing by remember { mutableStateOf(false) }
     val dismissTargetOffset = screenHeight * 1.18f
@@ -782,19 +855,30 @@ fun MaterialPlayerScreen(
 
     // Calculate current and total time
     val totalTimeMs = song?.duration?.takeIf { it > 0 } ?: resolvedDurationMs.takeIf { it > 0 } ?: 0L
-    val currentTimeMs by remember(totalTimeMs) {
-        derivedStateOf { (totalTimeMs * progress()).toLong() }
-    }
+    val progressValue = progress().coerceIn(0f, 1f)
+    val currentTimeMs = (totalTimeMs * progressValue).toLong()
     val canSeek = totalTimeMs > 0
     
     // Calculate scrub preview time when enhanced seeking is active
     val scrubTimeMs = (totalTimeMs * scrubProgress).toLong()
 
-    // Format current and total time
-    val currentTimeFormatted by remember(totalTimeMs, useHoursFormat) {
-        derivedStateOf { formatDuration(currentTimeMs, useHoursFormat) }
+    // Format current and total time directly to ensure perfect sync
+    val currentSeconds = currentTimeMs / 1000
+    val totalSeconds = totalTimeMs / 1000
+    val remainingSeconds = (totalSeconds - currentSeconds).coerceAtLeast(0L)
+
+    val currentTimeFormatted = remember(currentSeconds, useHoursFormat) {
+        formatDuration(currentSeconds * 1000, useHoursFormat)
     }
-    val totalTimeFormatted = formatDuration(totalTimeMs, useHoursFormat)
+    val totalTimeFormatted = if (showRemainingTime) {
+        remember(remainingSeconds, useHoursFormat) {
+            "-" + formatDuration(remainingSeconds * 1000, useHoursFormat)
+        }
+    } else {
+        remember(totalTimeMs, useHoursFormat) {
+            formatDuration(totalSeconds * 1000, useHoursFormat)
+        }
+    }
     val scrubTimeFormatted = formatDuration(scrubTimeMs, useHoursFormat)
 
     // Track previous queue position for slide direction
@@ -927,7 +1011,6 @@ fun MaterialPlayerScreen(
             },
             onClearQueue = {
                 onClearQueue()
-                showQueueSheet = false
             },
             onToggleShuffle = onToggleShuffle,
             onToggleRepeat = onToggleRepeat,
@@ -996,19 +1079,31 @@ fun MaterialPlayerScreen(
             appSettings = appSettings,
             onNavigateToSettings = {
                 showDeviceOutputSheet = false
+                try {
                 navController.navigate(Screen.TunerPlayback.route)
+                } catch (e: Exception) {
+                    Log.e("MaterialPlayerScreen", "Failed to navigate to playback settings", e)
+                }
             },
             onNavigateToGoMode = if (appMode == "STREAMING") {
                 {
                     showDeviceOutputSheet = false
+                    try {
                     navController.navigate("streaming_go_settings")
+                    } catch (e: Exception) {
+                        Log.e("MaterialPlayerScreen", "Failed to navigate to go settings", e)
+                    }
                 }
             } else {
                 null
             },
             onNavigateToEqualizer = {
                 showDeviceOutputSheet = false
+                try {
                 navController.navigate(Screen.Equalizer.route)
+                } catch (e: Exception) {
+                    Log.e("MaterialPlayerScreen", "Failed to navigate to equalizer", e)
+                }
             },
             sheetState = deviceOutputSheetState
         )
@@ -1095,66 +1190,13 @@ fun MaterialPlayerScreen(
     }
 
 
-
-    // Artist Bottom Sheet
-    if (showArtistSheet && selectedArtist != null) {
-        ArtistBottomSheet(
-            artist = selectedArtist!!,
-            onDismiss = { 
-                showArtistSheet = false
-                selectedArtist = null
-            },
-            onSongClick = onSongClick,
-            onAlbumClick = { album -> 
-                showArtistSheet = false
-                selectedArtist = null
-                navigateToAlbum(album.id, album.title)
-            },
-            onPlayAll = { artistSongs -> 
-                if (artistSongs.isNotEmpty()) {
-                    onPlayArtistSongs(artistSongs)
-                }
-            },
-            onShufflePlay = { artistSongs -> 
-                if (artistSongs.isNotEmpty()) {
-                    onShuffleArtistSongs(artistSongs)
-                }
-            },
-            onAddToQueue = { song -> musicViewModel.addSongToQueue(song) },
-            onAddToQueueAll = { songs -> musicViewModel.addSongsToQueue(songs) },
-            onAddSongToPlaylist = { track -> 
-                selectedSongForPlaylist = track
-                showAddToPlaylistSheetInternal = true
-            },
-            onPlayerClick = { /* Already in player screen */ },
-            sheetState = artistBottomSheetState,
-            haptics = haptic,
-            onPlayNext = { song -> musicViewModel.playNext(song) },
-            onToggleFavorite = { song -> musicViewModel.toggleFavorite(song) },
-            favoriteSongs = musicViewModel.favoriteSongs.collectAsState().value,
-            onShowSongInfo = { song ->
-                // Song info can be shown via a toast or separate sheet if needed
-                Toast.makeText(context, context.getString(R.string.song_metadata_details, song.title, song.artist, song.album), Toast.LENGTH_SHORT).show()
-            },
-            onAddToBlacklist = { song ->
-                appSettings.addToBlacklist(song.id)
-                Toast.makeText(context, context.getString(R.string.song_added_to_blacklist_format, song.title), Toast.LENGTH_SHORT).show()
-            },
-            currentSong = song,
-            isPlaying = isPlaying,
-            songs = songs,
-            albums = albums
-        )
-    }
-
     if (showArtistChooserSheet && candidateArtists.isNotEmpty()) {
         ArtistChooserBottomSheet(
             candidateArtists = candidateArtists,
             onDismiss = { showArtistChooserSheet = false },
             onArtistSelected = { artist ->
-                selectedArtist = artist
                 showArtistChooserSheet = false
-                showArtistSheet = true
+                navController.navigate(Screen.ArtistDetail.createRoute(artist.name))
             },
             haptic = haptic
         )
@@ -1172,9 +1214,7 @@ fun MaterialPlayerScreen(
             sleepTimerActive = sleepTimerActive,
             sleepTimerRemainingSeconds = sleepTimerRemainingSeconds,
             lyrics = lyrics,
-            isFavorite = isFavorite,
             onAddToPlaylist = onAddToPlaylist,
-            onToggleFavorite = onToggleFavorite,
             onPlaybackSpeed = { showPlaybackSpeedDialog = true },
             onPlaybackPitch = { showPlaybackPitchDialog = true },
             onEqualizer = { navController.navigate(Screen.Equalizer.route) },
@@ -1186,34 +1226,20 @@ fun MaterialPlayerScreen(
                     if (albumForSong != null) {
                         navigateToAlbum(albumForSong.id, albumForSong.title)
                     } else {
-                        val serviceId = currentSong.id.substringBefore("::", "JELLYFIN")
                         val fallbackAlbumId = currentSong.albumId.takeIf { it.isNotBlank() }
-                            ?: "$serviceId::album::${currentSong.artist}::${currentSong.album}"
+                            ?: if (isStreamingMode) {
+                                val serviceId = currentSong.id.substringBefore("::", "JELLYFIN")
+                                "$serviceId::album::${currentSong.artist}::${currentSong.album}"
+                            } else {
+                                "unknown_${currentSong.album}"
+                            }
                         navigateToAlbum(fallbackAlbumId, currentSong.album)
                     }
                 }
             },
             onArtist = {
                 song?.let { currentSong ->
-                    val artistNames = splitArtistNames(currentSong.artist)
-
-                    if (artistNames.size <= 1) {
-                        val matched = artistNames.firstNotNullOfOrNull { name ->
-                            artists.find { it.name.equals(name, ignoreCase = true) }
-                        } ?: artistNames.firstOrNull()?.trim()?.let { name ->
-                            Artist(id = name, name = name)
-                        }
-                        matched?.let {
-                            selectedArtist = it
-                            showArtistSheet = true
-                        }
-                    } else {
-                        candidateArtists = artistNames.map { name ->
-                            artists.firstOrNull { it.name.trim().equals(name.trim(), ignoreCase = true) }
-                                ?: Artist(id = name.trim(), name = name.trim())
-                        }
-                        showArtistChooserSheet = true
-                    }
+                    openArtistForSong(currentSong)
                 }
             },
             onSongInfo = { showSongInfoSheet = true },
@@ -1231,7 +1257,7 @@ fun MaterialPlayerScreen(
             HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
             onBack()
         },
-        screenModifier = if (swipeToDismissEnabled) {
+        modifier = if (swipeToDismissEnabled) {
             Modifier
                 .graphicsLayer {
                     val swipeProgress = (animatedSwipeOffset / screenHeight).coerceIn(0f, 1f)
@@ -1541,7 +1567,7 @@ fun MaterialPlayerScreen(
                                         haptic,
                                         HapticType.HEAVY
                                     )
-                                    onShowArtistBottomSheet()
+                                    openArtistForSong(song)
                                 }
                         )
                         
@@ -1599,7 +1625,7 @@ fun MaterialPlayerScreen(
                         modifier = Modifier.weight(1f, fill = false)
                     ) {
                         // State for artwork swipe gestures
-                        var artworkOffsetX by remember { mutableStateOf(0f) }
+                        var artworkOffsetX by remember { mutableFloatStateOf(0f) }
                         val artworkSwipeThreshold = 150f
                         
                         val artworkTranslationX by animateFloatAsState(
@@ -1633,8 +1659,8 @@ fun MaterialPlayerScreen(
                                     translationX = artworkTranslationX + albumSlideOffset
                                 }
                                 // Swipe gestures for changing tracks on artwork
-                                .pointerInput(gesturePlayerSwipeTracks, gestureArtworkDoubleTap) {
-                                    if (gesturePlayerSwipeTracks || gestureArtworkDoubleTap) {
+                                .pointerInput(gesturePlayerSwipeTracks, gestureArtworkDoubleTap, gestureArtworkSingleTap) {
+                                    if (gesturePlayerSwipeTracks || gestureArtworkDoubleTap || gestureArtworkSingleTap) {
                                         detectTapGestures(
                                             onDoubleTap = {
                                                 if (gestureArtworkDoubleTap) {
@@ -1648,6 +1674,7 @@ fun MaterialPlayerScreen(
                                                 }
                                             },
                                             onTap = {
+                                                if (gestureArtworkSingleTap) {
                                                 // Single tap - toggle lyrics if available
                                                 if (showLyrics && !isLyricsContentVisible && isSongInfoVisible) {
                                                     HapticUtils.performHapticFeedback(
@@ -1664,6 +1691,7 @@ fun MaterialPlayerScreen(
                                                     )
                                                     showLyricsView = !showLyricsView
                                                 }
+                                            }
                                             }
                                         )
                                     }
@@ -1744,6 +1772,7 @@ fun MaterialPlayerScreen(
                                                     primaryUrl = canvasArtwork.animated,
                                                     fallbackUrl = canvasArtwork.videoUrl,
                                                     isPlaying = isPlaying,
+                                                    alwaysPlay = true,
                                                     modifier = Modifier
                                                         .fillMaxSize()
                                                         .clip(playerArtworkShape)
@@ -1778,7 +1807,7 @@ fun MaterialPlayerScreen(
                                                             strokeWidth = 2f
                                                         )
                                                         Text(
-                                                            text = "Canvas",
+                                                            text = stringResource(R.string.materialplayerscreen_canvas),
                                                             style = MaterialTheme.typography.labelSmall,
                                                             color = MaterialTheme.colorScheme.onSurface
                                                         )
@@ -1976,10 +2005,6 @@ fun MaterialPlayerScreen(
                                                 AutoScrollingTextOnDemand(
                                                     text = buildString {
                                                         append(song.artist)
-                                                        if (!song.album.isNullOrBlank() && song.album != song.artist) {
-//                                                            append(" • ")
-//                                                            append(song.album)
-                                                        }
                                                     },
                                                     style = MaterialTheme.typography.titleMedium.copy(
                                                         fontWeight = FontWeight.Medium,
@@ -1995,26 +2020,6 @@ fun MaterialPlayerScreen(
                                                     modifier = Modifier.padding(horizontal = 2.dp),
                                                     enabled = true
                                                 )
-                                            }
-                                            
-                                            // Rating stars display
-                                            // Rating stars display - only show if rating system is enabled
-                                            val currentRating = chromahub.rhythm.app.shared.data.model.AppSettings.getInstance(context).getSongRating(song.id)
-                                            if (enableRatingSystem && currentRating > 0) {
-                                                Spacer(modifier = Modifier.height(if (isExtraSmallWidth) 2.dp else if (isCompactHeight) 4.dp else 6.dp))
-                                                Box(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    contentAlignment = when (playerTextAlignment) {
-                                                        "START" -> Alignment.CenterStart
-                                                        "END" -> Alignment.CenterEnd
-                                                        else -> Alignment.Center
-                                                    }
-                                                ) {
-                                                    chromahub.rhythm.app.shared.presentation.components.RatingStarsDisplay(
-                                                        rating = currentRating,
-                                                        size = if (isExtraSmallWidth) 10.dp else if (isCompactHeight) 14.dp else 16.dp
-                                                    )
-                                                }
                                             }
                                             
                                             // Audio quality badges
@@ -2207,7 +2212,7 @@ fun MaterialPlayerScreen(
                                                                         Text(stringResource(R.string.updates_retry))
                                                                     }
 
-                                                                    // Edit manually button
+                                                                    // Lyrics Editor button
                                                                     ExpressiveGroupButton(
                                                                         onClick = {
                                                                             HapticUtils.performHapticFeedback(
@@ -2226,10 +2231,10 @@ fun MaterialPlayerScreen(
                                                                             modifier = Modifier.size(18.dp)
                                                                         )
                                                                         Spacer(modifier = Modifier.width(8.dp))
-                                                                        Text(stringResource(R.string.button_add))
+                                                                        Text(stringResource(R.string.lyrics_editor_short))
                                                                     }
 
-                                                                    // Load lyrics button
+                                                                    // Lyrics Settings button
                                                                     ExpressiveGroupButton(
                                                                         onClick = {
                                                                             HapticUtils.performHapticFeedback(
@@ -2237,27 +2242,26 @@ fun MaterialPlayerScreen(
                                                                                 haptic,
                                                                                 HapticType.HEAVY
                                                                             )
-                                                                            loadLyricsLauncher.launch(
-                                                                                arrayOf(
-                                                                                    "text/plain",
-                                                                                    "text/*",
-                                                                                    "text/x-lrc",
-                                                                                    "application/x-lrc",
-                                                                                    "application/octet-stream",
-                                                                                    "*/*"
-                                                                                )
-                                                                            )
+                                                                            try {
+                                                                                navController.navigate(Screen.TunerLyrics.route) {
+                                                                                    popUpTo(Screen.Player.route) {
+                                                                                        inclusive = true
+                                                                                    }
+                                                                                }
+                                                                            } catch (e: Exception) {
+                                                                                android.util.Log.e("MaterialPlayerScreen", "Failed to navigate to lyrics settings", e)
+                                                                            }
                                                                         },
                                                                         isStart = false,
                                                                         isEnd = true
                                                                     ) {
                                                                         Icon(
-                                                                            imageVector = MaterialSymbolIcon("file_open", filled = true),
+                                                                            imageVector = MaterialSymbolIcon("settings", filled = true),
                                                                             contentDescription = null,
                                                                             modifier = Modifier.size(18.dp)
                                                                         )
                                                                         Spacer(modifier = Modifier.width(8.dp))
-                                                                        Text(stringResource(R.string.expressiveplayerscreen_load))
+                                                                        Text(stringResource(R.string.lyrics_settings_short))
                                                                     }
                                                                 }
                                                             }
@@ -2441,10 +2445,6 @@ fun MaterialPlayerScreen(
                             AutoScrollingTextOnDemand(
                                 text = buildString {
                                     append(song.artist)
-                                    if (!song.album.isNullOrBlank() && song.album != song.artist) {
-//                                        append(" • ")
-//                                        append(song.album)
-                                    }
                                 },
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Medium,
@@ -2461,30 +2461,10 @@ fun MaterialPlayerScreen(
                                             haptic,
                                             HapticType.HEAVY
                                         )
-                                        onShowArtistBottomSheet()
+                                        openArtistForSong(song)
                                     },
                                 enabled = true
                             )
-                            
-                            // Rating stars display
-                            // Rating stars display - only show if rating system is enabled
-                            val currentRating = chromahub.rhythm.app.shared.data.model.AppSettings.getInstance(context).getSongRating(song.id)
-                            if (enableRatingSystem && currentRating > 0) {
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Box(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentAlignment = when (playerTextAlignment) {
-                                        "START" -> Alignment.CenterStart
-                                        "END" -> Alignment.CenterEnd
-                                        else -> Alignment.Center
-                                    }
-                                ) {
-                                    chromahub.rhythm.app.shared.presentation.components.RatingStarsDisplay(
-                                        rating = currentRating,
-                                        size = 14.dp
-                                    )
-                                }
-                            }
                             
                             // Audio quality badges for tablets
                             if (playerShowAudioQualityBadges) {
@@ -2616,11 +2596,7 @@ fun MaterialPlayerScreen(
                                         ProgressStyle.NORMAL
                                     }
                                     
-                                    val thumbStyle = try {
-                                        ThumbStyle.valueOf(playerProgressThumbStyle)
-                                    } catch (e: IllegalArgumentException) {
-                                        ThumbStyle.CIRCLE
-                                    }
+                                    val thumbStyle = ThumbStyle.fromStorage(playerProgressThumbStyle)
                                     
                                     Box(
                                         modifier = Modifier
@@ -2645,6 +2621,7 @@ fun MaterialPlayerScreen(
                                             showThumb = thumbStyle != ThumbStyle.NONE,
                                             thumbStyle = thumbStyle,
                                             thumbSize = 14.dp,
+                                            rotateThumbWhenPlaying = playerProgressThumbRotate,
                                             waveAmplitudeWhenPlaying = 3.dp,
                                             waveLength = 60.dp // Longer wavelength = fewer waves for Player screen
                                         )
@@ -2683,6 +2660,7 @@ fun MaterialPlayerScreen(
                                                 }
                                             },
                                             onValueChangeFinished = {
+                                                HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                                                 if (canSeek && enhancedSeekingEnabled && isScrubbing) {
                                                     onSeek(scrubProgress)
                                                     isScrubbing = false
@@ -2701,6 +2679,7 @@ fun MaterialPlayerScreen(
 
                                 // Total time pill
                                 Surface(
+                                    onClick = { appSettingsInstance.setShowRemainingTime(!showRemainingTime) },
                                     shape = RoundedCornerShape(12.dp),
                                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
                                     modifier = Modifier.padding(horizontal = 2.dp, vertical = 1.dp)
@@ -3063,7 +3042,7 @@ fun MaterialPlayerScreen(
                                                     },
                                                     leadingIcon = {
                                                         Icon(
-                                                            imageVector = if (isFavorite) RhythmIcons.FavoriteFilled else RhythmIcons.Favorite,
+                                                            imageVector = if (isFavorite) MaterialSymbolIcon("thumb_down", filled = true) else MaterialSymbolIcon("thumb_up", filled = true),
                                                             contentDescription = stringResource(R.string.cd_toggle_favorite),
                                                             modifier = Modifier.size(if (isExtraSmallWidth) 14.dp else 16.dp)
                                                         )
@@ -3133,7 +3112,7 @@ fun MaterialPlayerScreen(
                                                     label = {
                                                         Text(
                                                             if (playbackSpeed != 1.0f)
-                                                                "${String.format("%.2f", playbackSpeed)}x"
+                                                                "${String.format(Locale.US, "%.2f", playbackSpeed)}x"
                                                             else
                                                                 "Speed",
                                                             style = MaterialTheme.typography.labelLarge.copy(
@@ -3205,7 +3184,7 @@ fun MaterialPlayerScreen(
                                                     label = {
                                                         Text(
                                                             if (playbackPitch != 1.0f)
-                                                                "${String.format("%.2f", playbackPitch)}x"
+                                                                "${String.format(Locale.US, "%.2f", playbackPitch)}x"
                                                             else
                                                                 "Pitch",
                                                             style = MaterialTheme.typography.labelLarge.copy(
@@ -3481,9 +3460,13 @@ fun MaterialPlayerScreen(
                                                             if (albumForSong != null) {
                                                                 navigateToAlbum(albumForSong.id, albumForSong.title)
                                                             } else {
-                                                                val serviceId = currentSong.id.substringBefore("::", "JELLYFIN")
                                                                 val fallbackAlbumId = currentSong.albumId.takeIf { it.isNotBlank() }
-                                                                    ?: "$serviceId::album::${currentSong.artist}::${currentSong.album}"
+                                                                    ?: if (isStreamingMode) {
+                                                                        val serviceId = currentSong.id.substringBefore("::", "JELLYFIN")
+                                                                        "$serviceId::album::${currentSong.artist}::${currentSong.album}"
+                                                                    } else {
+                                                                        "unknown_${currentSong.album}"
+                                                                    }
                                                                 navigateToAlbum(fallbackAlbumId, currentSong.album)
                                                             }
                                                         }
@@ -3548,25 +3531,7 @@ fun MaterialPlayerScreen(
                                                             HapticType.HEAVY
                                                         )
                                                         song?.let { currentSong ->
-                                                            val artistNames = splitArtistNames(currentSong.artist)
-
-                                                            if (artistNames.size <= 1) {
-                                                                val matched = artistNames.firstNotNullOfOrNull { name ->
-                                                                    artists.find { it.name.equals(name, ignoreCase = true) }
-                                                                } ?: artistNames.firstOrNull()?.trim()?.let { name ->
-                                                                    Artist(id = name, name = name)
-                                                                }
-                                                                matched?.let {
-                                                                    selectedArtist = it
-                                                                    showArtistSheet = true
-                                                                }
-                                                            } else {
-                                                                candidateArtists = artistNames.map { name ->
-                                                                    artists.firstOrNull { it.name.trim().equals(name.trim(), ignoreCase = true) }
-                                                                        ?: Artist(id = name.trim(), name = name.trim())
-                                                                }
-                                                                showArtistChooserSheet = true
-                                                            }
+                                                            openArtistForSong(currentSong)
                                                         }
                                                     },
                                                     label = {
@@ -3641,7 +3606,7 @@ fun MaterialPlayerScreen(
                                                     leadingIcon = {
                                                         Icon(
                                                             imageVector = RhythmIcons.Share,
-                                                            contentDescription = "Share song",
+                                                            contentDescription = stringResource(R.string.materialplayerscreen_share_song_cd),
                                                             modifier = Modifier.size(if (isExtraSmallWidth) 14.dp else 16.dp)
                                                         )
                                                     },
@@ -4132,36 +4097,26 @@ fun MaterialPlayerScreen(
         }
     }
     
-    if (showPlaybackSpeedDialog) {
+    if (showPlaybackSpeedDialog || showPlaybackPitchDialog) {
         val syncSpeedAndPitch by appSettings.syncSpeedAndPitch.collectAsState()
-        PlaybackSpeedDialog(
+        val playbackPitch by musicViewModel.playbackPitch.collectAsState()
+        PlaybackSpeedAndPitchBottomSheet(
             currentSpeed = playbackSpeed,
+            currentPitch = playbackPitch,
             syncEnabled = syncSpeedAndPitch,
             onSyncChange = { appSettings.setSyncSpeedAndPitch(it) },
-            onDismiss = { showPlaybackSpeedDialog = false },
-            onSave = { speed ->
-                musicViewModel.setPlaybackSpeed(speed)
-                if (syncSpeedAndPitch) {
-                    musicViewModel.setPlaybackPitch(speed)
-                }
+            onDismiss = {
                 showPlaybackSpeedDialog = false
-            }
-        )
-    }
-    
-    if (showPlaybackPitchDialog) {
-        val syncSpeedAndPitch by appSettings.syncSpeedAndPitch.collectAsState()
-        PlaybackPitchDialog(
-            currentPitch = musicViewModel.playbackPitch.collectAsState().value,
-            syncEnabled = syncSpeedAndPitch,
-            onSyncChange = { appSettings.setSyncSpeedAndPitch(it) },
-            onDismiss = { showPlaybackPitchDialog = false },
-            onSave = { pitch ->
-                musicViewModel.setPlaybackPitch(pitch)
-                if (syncSpeedAndPitch) {
-                    musicViewModel.setPlaybackSpeed(pitch)
-                }
                 showPlaybackPitchDialog = false
+            },
+            onSave = { speed, pitch ->
+                musicViewModel.setPlaybackSpeed(speed)
+                musicViewModel.setPlaybackPitch(pitch)
+                showPlaybackSpeedDialog = false
+                showPlaybackPitchDialog = false
+            },
+            onSetDefaultSpeed = { speed ->
+                musicViewModel.setDefaultPlaybackSpeed(speed)
             }
         )
     }
@@ -4187,9 +4142,10 @@ fun MaterialPlayerScreen(
     if (showLyricsEditorDialog) {
         LyricsEditorBottomSheet(
             lyricsData = lyrics,
-            songTitle = song?.title ?: stringResource(R.string.rating_unknown),
+            songTitle = song?.title ?: stringResource(R.string.common_unknown),
             initialTimeOffset = musicViewModel.lyricsTimeOffset.collectAsState().value,
             song = song,
+            isStreamingMode = isStreamingMode,
             onDismiss = { showLyricsEditorDialog = false },
             onSave = { editedLyrics, timeOffset, format ->
                 // Save lyrics to cache and update current lyrics immediately with offset
@@ -4270,6 +4226,122 @@ fun MaterialPlayerScreen(
             onDismiss = { showDeviceConfig = false }
         )
     }
+
+    if (showAutoFetchEmbedDialog) {
+        val dialogSong = pendingAutoFetchSong ?: song
+        AlertDialog(
+            onDismissRequest = {
+                showAutoFetchEmbedDialog = false
+                pendingAutoFetchSong = null
+            },
+            icon = {
+                Icon(
+                    imageVector = MaterialSymbolIcon("cloud_download", filled = true),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(28.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = stringResource(R.string.expressiveplayerscreen_artwork_auto_fetched),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.expressiveplayerscreen_artwork_auto_fetched_msg, dialogSong?.title ?: ""),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            confirmButton = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            showAutoFetchEmbedDialog = false
+                            pendingAutoFetchSong = null
+                            dialogSong?.let { currentSong ->
+                                val artUri = fetchedAutoArtworkUriStr?.let { it.toUri() }
+                                musicViewModel.saveMetadataChanges(
+                                    song = currentSong,
+                                    title = currentSong.title,
+                                    artist = currentSong.artist,
+                                    album = currentSong.album,
+                                    genre = currentSong.genre ?: "",
+                                    year = currentSong.year,
+                                    trackNumber = currentSong.trackNumber,
+                                    artworkUri = artUri,
+                                    onSuccess = { fileWritten ->
+                                        if (fileWritten) {
+                                            Toast.makeText(context, context.getString(R.string.expressiveplayerscreen_artwork_embedded_toast), Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, context.getString(R.string.expressiveplayerscreen_artwork_applied_toast), Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    onError = { err ->
+                                        Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                                    },
+                                    onPermissionRequired = { pendingRequest ->
+                                        try {
+                                            val intentSenderRequest = IntentSenderRequest.Builder(
+                                                pendingRequest.intentSender
+                                            ).build()
+                                            writePermissionLauncher.launch(intentSenderRequest)
+                                        } catch (e: Exception) {
+                                            Toast.makeText(
+                                                context,
+                                                context.getString(R.string.failed_to_request_permission, e.message ?: ""),
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                            musicViewModel.cancelPendingMetadataWrite()
+                                        }
+                                    }
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                    ) {
+                        Icon(
+                            imageVector = MaterialSymbolIcon("cloud_download", filled = true),
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.expressiveplayerscreen_embed_in_file))
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            showAutoFetchEmbedDialog = false
+                            pendingAutoFetchSong = null
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                    ) {
+                        Icon(
+                            imageVector = MaterialSymbolIcon("library_music", filled = true),
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.expressiveplayerscreen_keep_library_only))
+                    }
+                }
+            },
+            dismissButton = {}
+        )
+    }
 }
 
 private fun filterPlainLyricsByPreference(
@@ -4293,11 +4365,9 @@ private fun filterPlainLyricsByPreference(
 
         val isBracketTranslation = trimmed.startsWith("(") && trimmed.endsWith(")") && trimmed.length > 2
         val isBracketRomanization = trimmed.startsWith("[") && trimmed.endsWith("]") && trimmed.length > 2
-        val hasLettersOrDigits = trimmed.any { it.isLetterOrDigit() }
-        val isAsciiOnly = trimmed.all { char ->
-            char.code <= 127 || char.isWhitespace()
-        }
-        val inferredRomanization = hasLettersOrDigits && isAsciiOnly && previousMainLineWasNonAscii
+        val hasLetters = trimmed.any { it.isLetter() }
+        val isLatin = chromahub.rhythm.app.util.LyricsParser.isLatinBased(trimmed)
+        val inferredRomanization = hasLetters && isLatin && previousMainLineWasNonAscii
 
         val shouldHide =
             (!showTranslation && isBracketTranslation) ||
@@ -4310,7 +4380,7 @@ private fun filterPlainLyricsByPreference(
         filteredLines += line
 
         if (!isBracketTranslation && !isBracketRomanization && !inferredRomanization) {
-            previousMainLineWasNonAscii = trimmed.any { it.code > 127 }
+            previousMainLineWasNonAscii = chromahub.rhythm.app.util.LyricsParser.hasNonLatinScript(trimmed)
         }
     }
 

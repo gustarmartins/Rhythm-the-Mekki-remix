@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.streaming.presentation.screens
 
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
@@ -185,7 +190,7 @@ fun StreamingServiceSetupScreen(
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Text(
-                                    text = "Establishing connection with the provider...",
+                                    text = stringResource(R.string.streamingservicesetup_establishing_connection),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center
@@ -291,12 +296,29 @@ fun StreamingServiceSetupScreen(
                             ),
                             shape = RoundedCornerShape(18.dp)
                         ) {
-                            Text(
-                                text = error.orEmpty(),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.padding(16.dp)
-                            )
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = error.orEmpty(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                val isDomainUrl = remember(serverUrl) {
+                                    val clean = serverUrl.trim().lowercase()
+                                        .removePrefix("http://")
+                                        .removePrefix("https://")
+                                        .substringBefore(":")
+                                        .substringBefore("/")
+                                    clean.isNotEmpty() && !clean.matches(Regex("^(\\d{1,3}\\.){3}\\d{1,3}$")) && clean != "localhost"
+                                }
+                                if (isDomainUrl) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = stringResource(id = R.string.streaming_service_setup_lan_hairpin_tip),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
+                                    )
+                                }
+                            }
                         }
                     }
                 }

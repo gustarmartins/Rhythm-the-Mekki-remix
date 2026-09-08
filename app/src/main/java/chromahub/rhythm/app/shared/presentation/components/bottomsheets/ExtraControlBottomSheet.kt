@@ -1,4 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.bottomsheets
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
@@ -11,10 +17,13 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -43,12 +52,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import chromahub.rhythm.app.shared.data.model.LyricsData
 import chromahub.rhythm.app.util.HapticUtils
@@ -61,10 +70,46 @@ import androidx.compose.ui.res.stringResource
 private data class ControlAction(
     val icon: MaterialSymbolIcon,
     val label: String,
+    val description: String?,
     val containerColor: Color,
     val iconColor: Color,
     val onClick: () -> Unit
 )
+
+private fun getGridItemShape(index: Int, totalItems: Int): RoundedCornerShape {
+    if (totalItems <= 1) return RoundedCornerShape(24.dp)
+    if (totalItems == 2) {
+        return if (index == 0) {
+            RoundedCornerShape(topStart = 24.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 8.dp)
+        } else {
+            RoundedCornerShape(topStart = 8.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 24.dp)
+        }
+    }
+    
+    val totalRows = (totalItems + 1) / 2
+    val r = index / 2
+    val c = index % 2
+    
+    return when {
+        r == 0 -> {
+            if (c == 0) {
+                RoundedCornerShape(topStart = 24.dp, topEnd = 8.dp, bottomStart = 8.dp, bottomEnd = 8.dp)
+            } else {
+                RoundedCornerShape(topStart = 8.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 8.dp)
+            }
+        }
+        r == totalRows - 1 -> {
+            if (index == totalItems - 1 && c == 0) {
+                RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
+            } else if (c == 0) {
+                RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 8.dp)
+            } else {
+                RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 8.dp, bottomEnd = 24.dp)
+            }
+        }
+        else -> RoundedCornerShape(8.dp)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,9 +121,8 @@ fun ExtraControlBottomSheet(
     sleepTimerActive: Boolean,
     sleepTimerRemainingSeconds: Long,
     lyrics: LyricsData?,
-    isFavorite: Boolean = false,
     onAddToPlaylist: () -> Unit,
-    onToggleFavorite: () -> Unit = {},
+    onEditControls: (() -> Unit)? = null,
     onPlaybackSpeed: () -> Unit,
     onPlaybackPitch: () -> Unit = {},
     onEqualizer: () -> Unit,
@@ -95,13 +139,6 @@ fun ExtraControlBottomSheet(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    var showContent by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        delay(100)
-        showContent = true
-    }
-
     fun dismissAndDo(action: () -> Unit) {
         scope.launch {
             sheetState.hide()
@@ -110,45 +147,43 @@ fun ExtraControlBottomSheet(
         }
     }
 
-    val primary = MaterialTheme.colorScheme.primaryContainer
-    val onPrimary = MaterialTheme.colorScheme.onPrimaryContainer
     val secondary = MaterialTheme.colorScheme.secondaryContainer
     val onSecondary = MaterialTheme.colorScheme.onSecondaryContainer
     val tertiary = MaterialTheme.colorScheme.tertiaryContainer
     val onTertiary = MaterialTheme.colorScheme.onTertiaryContainer
-    val errorContainer = MaterialTheme.colorScheme.errorContainer
-    val error = MaterialTheme.colorScheme.error
 
     val actions = buildList {
-        // Add to Playlist (always shown)
+        onEditControls?.let { editControls ->
+            add(ControlAction(
+                icon = RhythmIcons.Edit,
+                label = context.getString(R.string.bottomsheet_edit_controls),
+                description = null,
+                containerColor = secondary,
+                iconColor = onSecondary,
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
+                    dismissAndDo { editControls() }
+                }
+            ))
+        }
+
         add(ControlAction(
             icon = RhythmIcons.AddToPlaylist,
-            label = "Add to Playlist",
-            containerColor = primary,
-            iconColor = onPrimary,
+            label = context.getString(R.string.bottomsheet_add_to_playlist),
+            description = null,
+            containerColor = secondary,
+            iconColor = onSecondary,
             onClick = {
                 HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
                 dismissAndDo { onAddToPlaylist() }
             }
         ))
 
-        if ("FAVORITE" !in hiddenChips) {
+        if ("SPEED" !in hiddenChips || "PITCH" !in hiddenChips) {
             add(ControlAction(
-                icon = if (isFavorite) RhythmIcons.FavoriteFilled else RhythmIcons.Favorite,
-                label = if (isFavorite) "Unfavorite" else "Favorite",
-                containerColor = if (isFavorite) errorContainer else primary,
-                iconColor = if (isFavorite) error else onPrimary,
-                onClick = {
-                    HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
-                    dismissAndDo { onToggleFavorite() }
-                }
-            ))
-        }
-
-        if ("SPEED" !in hiddenChips) {
-            add(ControlAction(
-                icon = MaterialSymbolIcon("speed", filled = true),
-                label = "Speed",
+                icon = MaterialSymbolIcon("tune", filled = true),
+                label = context.getString(R.string.player_speed_and_pitch),
+                description = context.getString(R.string.extrasheet_tempo_pitch),
                 containerColor = secondary,
                 iconColor = onSecondary,
                 onClick = {
@@ -158,23 +193,11 @@ fun ExtraControlBottomSheet(
             ))
         }
 
-        if ("PITCH" !in hiddenChips) {
-            add(ControlAction(
-                icon = MaterialSymbolIcon("graphic_eq", filled = true),
-                label = "Pitch",
-                containerColor = secondary,
-                iconColor = onSecondary,
-                onClick = {
-                    HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
-                    dismissAndDo { onPlaybackPitch() }
-                }
-            ))
-        }
-
         if ("EQUALIZER" !in hiddenChips) {
             add(ControlAction(
                 icon = MaterialSymbolIcon("graphic_eq", filled = true),
-                label = if (equalizerEnabled) "EQ (ON)" else "Equalizer",
+                label = context.getString(R.string.equalizer),
+                description = if (equalizerEnabled) context.getString(R.string.status_enabled) else context.getString(R.string.status_disabled),
                 containerColor = if (equalizerEnabled) tertiary else secondary,
                 iconColor = if (equalizerEnabled) onTertiary else onSecondary,
                 onClick = {
@@ -184,15 +207,15 @@ fun ExtraControlBottomSheet(
             ))
         }
 
-        if ("SLEEP_TIMER" !in hiddenChips) {
-            val sleepLabel = if (sleepTimerActive) {
+        if ("SLEEP_TIMER" !in hiddenChips) {                val sleepLabel = if (sleepTimerActive) {
                 val m = sleepTimerRemainingSeconds / 60
                 val s = sleepTimerRemainingSeconds % 60
                 "${m}:${s.toString().padStart(2, '0')}"
-            } else "Sleep Timer"
+            } else context.getString(R.string.status_disabled)
             add(ControlAction(
-                icon = if (sleepTimerActive) RhythmIcons.AccessTime else RhythmIcons.AccessTime,
-                label = sleepLabel,
+                icon = RhythmIcons.AccessTime,
+                label = context.getString(R.string.sleep_timer),
+                description = sleepLabel,
                 containerColor = if (sleepTimerActive) tertiary else secondary,
                 iconColor = if (sleepTimerActive) onTertiary else onSecondary,
                 onClick = {
@@ -203,10 +226,11 @@ fun ExtraControlBottomSheet(
         }
 
         if ("LYRICS" !in hiddenChips) {
-            val hasLyrics = lyrics?.getBestLyrics()?.isNotEmpty() == true
+            val hasLyrics = lyrics != null && lyrics.hasLyrics() && !lyrics.isErrorMessage()
             add(ControlAction(
                 icon = if (hasLyrics) RhythmIcons.Edit else MaterialSymbolIcon("lyrics", filled = true),
-                label = if (hasLyrics) "Edit Lyrics" else "Add Lyrics",
+                label = if (hasLyrics) context.getString(R.string.action_edit_lyrics) else context.getString(R.string.action_add_lyrics),
+                description = if (hasLyrics) context.getString(R.string.extrasheet_has_lyrics) else null,
                 containerColor = secondary,
                 iconColor = onSecondary,
                 onClick = {
@@ -219,7 +243,8 @@ fun ExtraControlBottomSheet(
         if ("ALBUM" !in hiddenChips) {
             add(ControlAction(
                 icon = RhythmIcons.AlbumFilled,
-                label = "Go to Album",
+                label = context.getString(R.string.multiselectionbottomsheet_go_to_album),
+                description = null,
                 containerColor = secondary,
                 iconColor = onSecondary,
                 onClick = {
@@ -232,7 +257,8 @@ fun ExtraControlBottomSheet(
         if ("ARTIST" !in hiddenChips) {
             add(ControlAction(
                 icon = RhythmIcons.ArtistFilled,
-                label = "Go to Artist",
+                label = context.getString(R.string.multiselectionbottomsheet_go_to_artist),
+                description = null,
                 containerColor = secondary,
                 iconColor = onSecondary,
                 onClick = {
@@ -242,10 +268,10 @@ fun ExtraControlBottomSheet(
             ))
         }
 
-        // Song Info (always shown)
         add(ControlAction(
             icon = RhythmIcons.Info,
-            label = "Song Info",
+            label = context.getString(R.string.action_song_info),
+            description = null,
             containerColor = secondary,
             iconColor = onSecondary,
             onClick = {
@@ -254,10 +280,10 @@ fun ExtraControlBottomSheet(
             }
         ))
 
-        // Share File (always shown)
         add(ControlAction(
             icon = RhythmIcons.Share,
-            label = "Share File",
+            label = context.getString(R.string.extrasheet_share_file),
+            description = null,
             containerColor = secondary,
             iconColor = onSecondary,
             onClick = {
@@ -267,13 +293,18 @@ fun ExtraControlBottomSheet(
         ))
     }
 
-    ModalBottomSheet(
+    val scrollState = rememberScrollState()
+
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.WIDE_DIALOG,
+        scrollState = scrollState,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         dragHandle = {
             BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary)
         },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onBackground,
         tonalElevation = 0.dp
@@ -281,68 +312,74 @@ fun ExtraControlBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                .padding(bottom = 16.dp)
         ) {
             // Header — matches SongOptionsBottomSheet style
-            AnimatedVisibility(
-                visible = showContent,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
             ) {
-                Column(
+                Text(
+                    text = stringResource(R.string.settings_shapes_player_controls),
+                    style = MaterialTheme.typography.displayMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            shape = CircleShape
+                        )
                 ) {
                     Text(
-                        text = stringResource(R.string.settings_shapes_player_controls),
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        text = stringResource(R.string.libraryscreen_more_actions),
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                shape = CircleShape
-                            )
-                    ) {
-                        Text(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            text = stringResource(R.string.libraryscreen_more_actions),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
                 }
             }
 
-            // 2-column action grid
-            AnimatedVisibility(
-                visible = showContent,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it }
-            ) {
-                Column(
+            // Grouped status grid layout matching RhythmGuardTrendsRow
+            AdaptiveSheetScrollContainer(
+                    scrollState = scrollState,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    actions.chunked(2).forEach { rowActions ->
+                        .weight(1f, fill = false)
+                ) { endPadding ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 24.dp, end = 24.dp + endPadding, top = 8.dp, bottom = 8.dp)
+                            .verticalScroll(scrollState),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                    actions.chunked(2).forEachIndexed { rowIndex, rowActions ->
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(IntrinsicSize.Max),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            rowActions.forEach { action ->
-                                Box(modifier = Modifier.weight(1f)) {
+                            rowActions.forEachIndexed { colIndex, action ->
+                                val overallIndex = rowIndex * 2 + colIndex
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                ) {
                                     ControlGridItem(
                                         icon = action.icon,
                                         text = action.label,
+                                        description = action.description,
                                         containerColor = action.containerColor,
                                         iconColor = action.iconColor,
-                                        onClick = action.onClick
+                                        shape = getGridItemShape(overallIndex, actions.size),
+                                        onClick = action.onClick,
+                                        modifier = Modifier.fillMaxHeight()
                                     )
                                 }
                             }
@@ -351,7 +388,7 @@ fun ExtraControlBottomSheet(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(32.dp))
                 }
             }
         }
@@ -362,41 +399,42 @@ fun ExtraControlBottomSheet(
 private fun ControlGridItem(
     icon: MaterialSymbolIcon,
     text: String,
+    description: String?,
     containerColor: Color,
     iconColor: Color,
+    shape: Shape,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface
         ),
-        shape = RoundedCornerShape(16.dp),
+        shape = shape,
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .padding(16.dp)
         ) {
             Surface(
-                modifier = Modifier.size(44.dp),
+                modifier = Modifier.size(36.dp),
                 shape = CircleShape,
-                color = containerColor.copy(alpha = 0.3f),
+                color = containerColor.copy(alpha = 0.25f),
                 tonalElevation = 0.dp
             ) {
                 Box(
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
                         tint = iconColor,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -405,12 +443,23 @@ private fun ControlGridItem(
 
             Text(
                 text = text,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface
             )
+
+            if (description != null) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

@@ -1,4 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.bottomsheets
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 import android.content.Intent
 import android.net.Uri
@@ -41,6 +47,7 @@ import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
 import androidx.compose.ui.res.stringResource
+import androidx.core.net.toUri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,9 +60,18 @@ fun LicensesBottomSheet(
 
     val licenseItems = listOf(
         licenseItem(
+            name = "Better Lyrics",
+            description = context.getString(R.string.licenses_desc_better_lyrics),
+            license = "GPL License",
+            url = "https://github.com/better-lyrics/api",
+            icon = RhythmIcons.Connectivity.OpenInNew,
+            context = context,
+            haptic = haptic
+        ),
+        licenseItem(
             name = "Gramophone",
-            description = "Feature-rich, privacy-focused music player for Android",
-            license = "GPL v3.0 License",
+            description = context.getString(R.string.licenses_desc_gramophone),
+            license = "GPL License",
             url = "https://github.com/FoedusProgramme/Gramophone",
             icon = RhythmIcons.Connectivity.OpenInNew,
             context = context,
@@ -63,8 +79,8 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "PixelPlayer",
-            description = "Offline-first, Material 3 Expressive music player for Android",
-            license = "GPL v3.0 License",
+            description = context.getString(R.string.licenses_desc_pixelplayer),
+            license = "GPL License",
             url = "https://github.com/theovilardo/PixelPlayer",
             icon = RhythmIcons.Connectivity.OpenInNew,
             context = context,
@@ -72,25 +88,25 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "VIVI Music",
-            description = "More Than Just Music — Your Ultimate Audio Experience",
-            license = "GPL v3.0 License",
+            description = context.getString(R.string.licenses_desc_vivi_music),
+            license = "GPL License",
             url = "https://github.com/vivizzz007/vivi-music",
             icon = RhythmIcons.Connectivity.OpenInNew,
             context = context,
             haptic = haptic
         ),
         licenseItem(
-            name = "Booming Music",
-            description = "Modern, offline-focused local music player for Android",
-            license = "GPL v3.0 License",
-            url = "https://github.com/mardous/BoomingMusic",
+            name = "Zenith",
+            description = context.getString(R.string.licenses_desc_zenith),
+            license = "GPL License",
+            url = "https://github.com/1372Slash/Zenith",
             icon = RhythmIcons.Connectivity.OpenInNew,
             context = context,
             haptic = haptic
         ),
         licenseItem(
             name = "AutoEQ",
-            description = "Automatic headphone equalization from frequency responses",
+            description = context.getString(R.string.licenses_desc_autoeq),
             license = "MIT License",
             url = "https://github.com/jaakkopasanen/AutoEq",
             icon = RhythmIcons.Connectivity.OpenInNew,
@@ -99,8 +115,8 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "Jetpack Compose",
-            description = "Android's modern toolkit for building native UI (BOM 2026.05.01)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_jetpack_compose),
+            license = "Apache License",
             url = "https://developer.android.com/jetpack/compose",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -108,8 +124,8 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "Material 3 Components",
-            description = "Material Design 3 components for Android (v1.5.0-alpha20)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_material3_components),
+            license = "Apache License",
             url = "https://m3.material.io/",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -117,8 +133,8 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "Media3 ExoPlayer",
-            description = "Modern media playback library for Android (v1.10.1)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_media3_exoplayer),
+            license = "Apache License",
             url = "https://github.com/androidx/media",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -126,8 +142,8 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "Kotlin Coroutines",
-            description = "Asynchronous programming framework for Kotlin (v1.11.0)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_kotlin_coroutines),
+            license = "Apache License",
             url = "https://github.com/Kotlin/kotlinx.coroutines",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -135,8 +151,8 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "Coil",
-            description = "Image loading library for Android backed by Kotlin Coroutines (v2.7.0)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_coil),
+            license = "Apache License",
             url = "https://coil-kt.github.io/coil/",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -144,8 +160,8 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "Retrofit",
-            description = "Type-safe HTTP client for Android and Java (v3.0.0)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_retrofit),
+            license = "Apache License",
             url = "https://square.github.io/retrofit/",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -153,8 +169,8 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "OkHttp",
-            description = "HTTP client for Android, Kotlin, and Java (v5.3.2)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_okhttp),
+            license = "Apache License",
             url = "https://square.github.io/okhttp/",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -162,8 +178,8 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "Gson",
-            description = "Java serialization/deserialization library for JSON (v2.14.0)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_gson),
+            license = "Apache License",
             url = "https://github.com/google/gson",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -171,8 +187,8 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "AndroidX Navigation",
-            description = "Navigation components for Android apps (v2.9.8)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_androidx_navigation),
+            license = "Apache License",
             url = "https://developer.android.com/guide/navigation",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -180,8 +196,8 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "Accompanist Permissions",
-            description = "Compose utilities for permissions handling (v0.37.3)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_accompanist_permissions),
+            license = "Apache License",
             url = "https://google.github.io/accompanist/permissions/",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -189,8 +205,8 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "AndroidX Palette",
-            description = "Library to extract prominent colors from images (v1.0.0)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_androidx_palette),
+            license = "Apache License",
             url = "https://developer.android.com/jetpack/androidx/releases/palette",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -198,17 +214,26 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "JAudioTagger",
-            description = "Audio metadata editing library for Java (v3.0.1)",
-            license = "LGPL v2.1",
+            description = context.getString(R.string.licenses_desc_jaudiotagger),
+            license = "LGPL License",
             url = "https://github.com/Borewit/jaudiotagger",
             icon = RhythmIcons.Connectivity.OpenInNew,
             context = context,
             haptic = haptic
         ),
         licenseItem(
+            name = "TagLib",
+            description = context.getString(R.string.licenses_desc_taglib),
+            license = "Apache License",
+            url = "https://github.com/kyant0/taglib",
+            icon = RhythmIcons.Connectivity.OpenInNew,
+            context = context,
+            haptic = haptic
+        ),
+        licenseItem(
             name = "AndroidX Fragment",
-            description = "Modular UI components for Android (v1.8.9)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_androidx_fragment),
+            license = "Apache License",
             url = "https://developer.android.com/jetpack/androidx/releases/fragment",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -216,17 +241,26 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "AndroidX MediaRouter",
-            description = "Media routing support for Android (v1.8.1)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_androidx_mediarouter),
+            license = "Apache License",
             url = "https://developer.android.com/jetpack/androidx/releases/mediarouter",
             icon = RhythmIcons.Actions.Info,
             context = context,
             haptic = haptic
         ),
         licenseItem(
+            name = "AndroidX Window",
+            description = context.getString(R.string.licenses_desc_androidx_window),
+            license = "Apache License",
+            url = "https://developer.android.com/jetpack/androidx/releases/window",
+            icon = RhythmIcons.Actions.Info,
+            context = context,
+            haptic = haptic
+        ),
+        licenseItem(
             name = "Glance AppWidget",
-            description = "Modern reactive widgets framework with Material 3 (v1.1.1)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_glance_appwidget),
+            license = "Apache License",
             url = "https://developer.android.com/jetpack/androidx/releases/glance",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -234,26 +268,26 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "WorkManager",
-            description = "Deferrable, asynchronous task management library (v2.11.2)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_workmanager),
+            license = "Apache License",
             url = "https://developer.android.com/jetpack/androidx/releases/work",
             icon = RhythmIcons.Actions.Info,
             context = context,
             haptic = haptic
         ),
         licenseItem(
-            name = "Material Icons Extended",
-            description = "Extended set of Material Design icons (BOM 2026.05.01)",
-            license = "Apache License 2.0",
-            url = "https://developer.android.com/jetpack/compose/resources/material-icons",
+            name = "Material Symbols",
+            description = context.getString(R.string.licenses_desc_material_symbols),
+            license = "SIL Open Font License",
+            url = "https://fonts.google.com/icons",
             icon = RhythmIcons.Actions.Info,
             context = context,
             haptic = haptic
         ),
         licenseItem(
             name = "LeakCanary",
-            description = "Memory leak detection library for Android (v2.14)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_leakcanary),
+            license = "Apache License",
             url = "https://square.github.io/leakcanary/",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -261,8 +295,8 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "Desugar JDK Libs",
-            description = "Java 8+ API compatibility for older Android versions (v2.1.5)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_desugar_jdk_libs),
+            license = "Apache License",
             url = "https://github.com/google/desugar_jdk_libs",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -270,26 +304,35 @@ fun LicensesBottomSheet(
         ),
         licenseItem(
             name = "Media3 FFmpeg Decoder",
-            description = "FFmpeg audio/video decoder extension for Media3 (v1.10.1)",
-            license = "Apache License 2.0",
-            url = "https://github.com/androidx/media",
+            description = context.getString(R.string.licenses_desc_media3_ffmpeg_decoder),
+            license = "Apache License",
+            url = "https://github.com/jellyfin/media3",
             icon = RhythmIcons.Actions.Info,
             context = context,
             haptic = haptic
         ),
         licenseItem(
             name = "Room",
-            description = "SQLite object mapping library for database persistence (v2.8.4)",
-            license = "Apache License 2.0",
+            description = context.getString(R.string.licenses_desc_room),
+            license = "Apache License",
             url = "https://developer.android.com/jetpack/androidx/releases/room",
             icon = RhythmIcons.Actions.Info,
             context = context,
             haptic = haptic
         ),
         licenseItem(
+            name = "AndroidX Paging",
+            description = context.getString(R.string.licenses_desc_androidx_paging),
+            license = "Apache License",
+            url = "https://developer.android.com/jetpack/androidx/releases/paging",
+            icon = RhythmIcons.Actions.Info,
+            context = context,
+            haptic = haptic
+        ),
+        licenseItem(
             name = "Geom Font",
-            description = "Modern, clean sans-serif typeface from Google Fonts",
-            license = "SIL Open Font License 1.1",
+            description = context.getString(R.string.licenses_desc_geom_font),
+            license = "SIL Open Font License",
             url = "https://fonts.google.com/specimen/Geom",
             icon = RhythmIcons.Actions.Info,
             context = context,
@@ -313,7 +356,11 @@ fun LicensesBottomSheet(
         )
     )
 
-    ModalBottomSheet(
+    val scrollState = rememberScrollState()
+
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
+        scrollState = scrollState,
         onDismissRequest = onDismiss,
         sheetState = bottomSheetState,
         dragHandle = { 
@@ -321,48 +368,44 @@ fun LicensesBottomSheet(
                 color = MaterialTheme.colorScheme.primary
             )
         },
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Text(
-                text = context.getString(R.string.licenses_title),
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
+        Column(modifier = Modifier.fillMaxWidth()) {
+            StandardBottomSheetHeader(
+                title = context.getString(R.string.licenses_title),
+                subtitle = context.getString(R.string.licenses_desc),
+                visible = true
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            AdaptiveSheetScrollContainer(
+                scrollState = scrollState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+            ) { endPadding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                        .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp)
+                ) {
+                    Material3SettingsGroup(
+                        title = stringResource(R.string.settings_about_open_source_libs),
+                        items = licenseItems,
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                    )
 
-            Text(
-                text = context.getString(R.string.licenses_desc),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                    Spacer(modifier = Modifier.height(16.dp))
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Material3SettingsGroup(
-                title = stringResource(R.string.settings_about_open_source_libs),
-                items = licenseItems,
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Material3SettingsGroup(
-                title = stringResource(R.string.licensesbottomsheet_license_notes),
-                items = licenseInfoItems,
-                containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
+                    Material3SettingsGroup(
+                        title = stringResource(R.string.licensesbottomsheet_license_notes),
+                        items = licenseInfoItems,
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+                    )
+                }
+            }
         }
     }
 }
@@ -397,7 +440,7 @@ private fun licenseItem(
         },
         onClick = {
             HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            val intent = Intent(Intent.ACTION_VIEW, (url).toUri()).apply {
                 addCategory(Intent.CATEGORY_BROWSABLE)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.util
 
 import android.annotation.SuppressLint
@@ -7,6 +12,7 @@ import android.util.LruCache
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.scale
 import com.google.android.material.color.utilities.Hct
 import com.google.android.material.color.utilities.QuantizerCelebi
 import com.google.android.material.color.utilities.SchemeExpressive
@@ -14,6 +20,10 @@ import com.google.android.material.color.utilities.SchemeFruitSalad
 import com.google.android.material.color.utilities.SchemeTonalSpot
 import com.google.android.material.color.utilities.SchemeVibrant
 import com.google.android.material.color.utilities.SchemeContent
+import com.google.android.material.color.utilities.SchemeMonochrome
+import com.google.android.material.color.utilities.SchemeNeutral
+import com.google.android.material.color.utilities.SchemeFidelity
+import com.google.android.material.color.utilities.SchemeRainbow
 import com.google.android.material.color.utilities.MathUtils
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +39,7 @@ import kotlin.math.roundToInt
  */
 data class ExtractedColors(
     val seedColor: Int = 0,
+    val isMonochrome: Boolean = false,
     // Light theme colors
     // Primary colors
     val primary: Int,
@@ -99,29 +110,9 @@ data class ColorExtractionConfig(
 )
 
 /**
- * Scored HCT color for ranking
- */
-@SuppressLint("RestrictedApi")
-private data class ScoredHct(
-    val hct: Hct,
-    val score: Double
-)
-
-/**
- * Constants for color extraction
- */
-private const val GRAYSCALE_CHROMA_THRESHOLD = 12.0
-private const val NEUTRAL_PIXEL_CHROMA_THRESHOLD = 8.0
-private const val HIGH_CHROMA_THRESHOLD = 18.0
-private const val REQUIRED_NEUTRAL_POPULATION = 0.92
-private const val MAX_HIGH_CHROMA_POPULATION = 0.03
-private const val MAX_WEIGHTED_CHROMA_FOR_NEUTRAL = 9.0
-private const val MAX_GRAYSCALE_CHANNEL_DELTA = 10
-
-/**
  * Extracted color cache
  */
-private val extractedColorCache = LruCache<Int, Color>(32)
+private val extractedColorCache = LruCache<Int, ExtractedColors>(32)
 
 /**
  * Utility object for extracting color palettes from album artwork using Rhythm's palette algorithm
@@ -147,14 +138,13 @@ object ColorExtractor {
             }
 
             val cacheKey = 31 * bitmap.hashCode() + config.hashCode()
-            extractedColorCache.get(cacheKey)?.let { seedColor ->
-                // Use cached seed color to generate scheme
-                return@withContext generateColorSchemeFromSeed(seedColor)
+            extractedColorCache.get(cacheKey)?.let { cached ->
+                return@withContext cached
             }
 
             val workingBitmap = resizeForExtraction(bitmap, config.downscaleMaxDimension)
 
-            val seedColor = runCatching {
+            val extractedResult = runCatching {
                 val pixels = IntArray(workingBitmap.width * workingBitmap.height)
                 workingBitmap.getPixels(
                     pixels,
@@ -169,27 +159,22 @@ object ColorExtractor {
                 val fallbackArgb = averageColorArgb(pixels)
                 val quantized = QuantizerCelebi.quantize(pixels, config.quantizerMaxColors)
 
-                val rankedSeeds = scoreQuantizedColors(
-                    colorsToPopulation = quantized,
-                    scoring = config.scoring,
-                    fallbackColorArgb = fallbackArgb
-                )
-                Color(rankedSeeds.firstOrNull() ?: fallbackArgb)
+                val (seedArgb, isMonochrome) = extractSeedAndNeutralStatus(quantized, fallbackArgb)
+                generateColorSchemeFromSeed(seedArgb, isMonochrome)
             }.getOrElse {
                 android.util.Log.e(TAG, "Failed to extract seed color", it)
-                Color(0xFF6750A4) // Material default purple
+                generateColorSchemeFromSeed(0xFF6750A4.toInt(), false)
             }
-
-            // Cache the seed color
-            extractedColorCache.put(cacheKey, seedColor)
 
             // Recycle bitmap if it's not the original
             if (workingBitmap !== bitmap) {
                 workingBitmap.recycle()
             }
 
-            // Generate full color scheme from seed
-            generateColorSchemeFromSeed(seedColor)
+            if (extractedResult != null) {
+                extractedColorCache.put(cacheKey, extractedResult)
+            }
+            extractedResult
 
         } catch (e: Exception) {
             android.util.Log.e(TAG, "Failed to extract colors from bitmap", e)
@@ -198,91 +183,144 @@ object ColorExtractor {
     }
 
     /**
+     * Determine seed color and whether the artwork is monochromatic/neutral
+     */
+    private fun extractSeedAndNeutralStatus(
+        quantized: Map<Int, Int>,
+        fallbackArgb: Int
+    ): Pair<Int, Boolean> {
+        if (quantized.isEmpty()) return fallbackArgb to false
+
+        val isNeutral = isMostlyNeutralArtwork(quantized)
+        if (isNeutral) {
+            val dominantNeutral = quantized.entries
+                .filter { isArgbNearGrayscale(it.key) || Hct.fromInt(it.key).chroma <= 8.0 }
+                .maxByOrNull { it.value }?.key ?: fallbackArgb
+            return dominantNeutral to true
+        }
+
+        val dominantSeed = scoreMajorityColor(quantized, fallbackArgb)
+        return dominantSeed to false
+    }
+
+    /**
+     * Score and extract the majority / dominant color from quantized pixels
+     */
+    private fun scoreMajorityColor(
+        colorsToPopulation: Map<Int, Int>,
+        fallbackColorArgb: Int
+    ): Int {
+        if (colorsToPopulation.isEmpty()) return fallbackColorArgb
+
+        val totalPopulation = colorsToPopulation.values.sumOf { it.toLong() }.toDouble()
+        if (totalPopulation <= 0.0) return fallbackColorArgb
+
+        // Filter out near-grayscale/noise pixels when colorful pixels are present
+        val colorfulEntries = colorsToPopulation.entries.filter { (argb, pop) ->
+            pop > 0 && !isArgbNearGrayscale(argb) && Hct.fromInt(argb).chroma >= 6.0
+        }
+
+        if (colorfulEntries.isEmpty()) {
+            return colorsToPopulation.maxByOrNull { it.value }?.key ?: fallbackColorArgb
+        }
+
+        // Group into 12 hue bins (30 degrees each) to cluster shades of the same color family
+        val hueBins = DoubleArray(12)
+        val hueBinColors = Array(12) { mutableListOf<Pair<Int, Int>>() }
+
+        for ((argb, pop) in colorfulEntries) {
+            val hct = Hct.fromInt(argb)
+            val bin = ((MathUtils.sanitizeDegreesDouble(hct.hue) / 30.0).toInt()) % 12
+            hueBins[bin] += pop.toDouble()
+            hueBinColors[bin].add(argb to pop)
+        }
+
+        // Find the hue bin with the highest total population (majority artwork color)
+        var bestBinIndex = 0
+        var maxBinPopulation = 0.0
+        for (i in 0 until 12) {
+            if (hueBins[i] > maxBinPopulation) {
+                maxBinPopulation = hueBins[i]
+                bestBinIndex = i
+            }
+        }
+
+        val dominantCluster = hueBinColors[bestBinIndex]
+        if (dominantCluster.isEmpty()) {
+            return colorfulEntries.maxByOrNull { it.value }?.key ?: fallbackColorArgb
+        }
+
+        // Within the dominant hue cluster, pick the best representative color:
+        // Prioritize higher population and balanced tone/chroma
+        val bestColor = dominantCluster.maxByOrNull { (argb, pop) ->
+            val hct = Hct.fromInt(argb)
+            val popScore = (pop.toDouble() / maxBinPopulation) * 100.0
+
+            val tonePenalty = when {
+                hct.tone < 20.0 -> (20.0 - hct.tone) * 2.0
+                hct.tone > 85.0 -> (hct.tone - 85.0) * 2.0
+                else -> 0.0
+            }
+
+            val chromaBonus = hct.chroma.coerceIn(0.0, 60.0) * 0.5
+
+            popScore - tonePenalty + chromaBonus
+        }?.first
+
+        return bestColor ?: fallbackColorArgb
+    }
+
+    /**
      * Generate a complete Material 3 color scheme from a seed color
      */
-    private fun generateColorSchemeFromSeed(seedColor: Color): ExtractedColors? {
+    private fun generateColorSchemeFromSeed(seedArgb: Int, isMonochrome: Boolean): ExtractedColors? {
         return runCatching {
-            val seedArgb = seedColor.toArgb()
             val sourceHct = Hct.fromInt(seedArgb)
-            val shouldForceNeutral = shouldUseNeutralArtworkScheme(seedArgb, sourceHct)
 
-            // Choose content scheme for colorful artwork to preserve exact hue and chroma, else tonal spot
-            val schemeType = when {
-                sourceHct.chroma > 12.0 -> "CONTENT"      // Colorful = CONTENT (keeps exact hue/chroma)
-                else -> "TONAL_SPOT"                      // Neutral = TONAL_SPOT
-            }
-
-            val lightScheme = createDynamicScheme(sourceHct, schemeType, false)
-            val darkScheme = createDynamicScheme(sourceHct, schemeType, true)
-
-            if (shouldForceNeutral) {
-                // Convert to grayscale for neutral artwork
-                val grayscaleLight = lightScheme.toGrayscaleScheme()
-                val grayscaleDark = darkScheme.toGrayscaleScheme()
-                ExtractedColors(
-                    seedColor = seedArgb,
-                    primary = grayscaleLight.primary.toArgb(),
-                    onPrimary = grayscaleLight.onPrimary.toArgb(),
-                    primaryContainer = grayscaleLight.primaryContainer.toArgb(),
-                    onPrimaryContainer = grayscaleLight.onPrimaryContainer.toArgb(),
-                    secondary = grayscaleLight.secondary.toArgb(),
-                    onSecondary = grayscaleLight.onSecondary.toArgb(),
-                    secondaryContainer = grayscaleLight.secondaryContainer.toArgb(),
-                    onSecondaryContainer = grayscaleLight.onSecondaryContainer.toArgb(),
-                    tertiary = grayscaleLight.tertiary.toArgb(),
-                    onTertiary = grayscaleLight.onTertiary.toArgb(),
-                    tertiaryContainer = grayscaleLight.tertiaryContainer.toArgb(),
-                    onTertiaryContainer = grayscaleLight.onTertiaryContainer.toArgb(),
-                    darkPrimary = grayscaleDark.primary.toArgb(),
-                    darkOnPrimary = grayscaleDark.onPrimary.toArgb(),
-                    darkPrimaryContainer = grayscaleDark.primaryContainer.toArgb(),
-                    darkOnPrimaryContainer = grayscaleDark.onPrimaryContainer.toArgb(),
-                    darkSecondary = grayscaleDark.secondary.toArgb(),
-                    darkOnSecondary = grayscaleDark.onSecondary.toArgb(),
-                    darkSecondaryContainer = grayscaleDark.secondaryContainer.toArgb(),
-                    darkOnSecondaryContainer = grayscaleDark.onSecondaryContainer.toArgb(),
-                    darkTertiary = grayscaleDark.tertiary.toArgb(),
-                    darkOnTertiary = grayscaleDark.onTertiary.toArgb(),
-                    darkTertiaryContainer = grayscaleDark.tertiaryContainer.toArgb(),
-                    darkOnTertiaryContainer = grayscaleDark.onTertiaryContainer.toArgb(),
-                    surface = grayscaleDark.surface.toArgb(), // Use dark surface for better contrast
-                    onSurface = grayscaleDark.onSurface.toArgb(),
-                    surfaceVariant = grayscaleDark.surfaceVariant.toArgb(),
-                    onSurfaceVariant = grayscaleDark.onSurfaceVariant.toArgb()
-                )
+            val lightScheme = if (isMonochrome) {
+                createDynamicScheme(sourceHct, "MONOCHROME", false)
             } else {
-                ExtractedColors(
-                    seedColor = seedArgb,
-                    primary = lightScheme.primary.toArgb(),
-                    onPrimary = lightScheme.onPrimary.toArgb(),
-                    primaryContainer = lightScheme.primaryContainer.toArgb(),
-                    onPrimaryContainer = lightScheme.onPrimaryContainer.toArgb(),
-                    secondary = lightScheme.secondary.toArgb(),
-                    onSecondary = lightScheme.onSecondary.toArgb(),
-                    secondaryContainer = lightScheme.secondaryContainer.toArgb(),
-                    onSecondaryContainer = lightScheme.onSecondaryContainer.toArgb(),
-                    tertiary = lightScheme.tertiary.toArgb(),
-                    onTertiary = lightScheme.onTertiary.toArgb(),
-                    tertiaryContainer = lightScheme.tertiaryContainer.toArgb(),
-                    onTertiaryContainer = lightScheme.onTertiaryContainer.toArgb(),
-                    darkPrimary = darkScheme.primary.toArgb(),
-                    darkOnPrimary = darkScheme.onPrimary.toArgb(),
-                    darkPrimaryContainer = darkScheme.primaryContainer.toArgb(),
-                    darkOnPrimaryContainer = darkScheme.onPrimaryContainer.toArgb(),
-                    darkSecondary = darkScheme.secondary.toArgb(),
-                    darkOnSecondary = darkScheme.onSecondary.toArgb(),
-                    darkSecondaryContainer = darkScheme.secondaryContainer.toArgb(),
-                    darkOnSecondaryContainer = darkScheme.onSecondaryContainer.toArgb(),
-                    darkTertiary = darkScheme.tertiary.toArgb(),
-                    darkOnTertiary = darkScheme.onTertiary.toArgb(),
-                    darkTertiaryContainer = darkScheme.tertiaryContainer.toArgb(),
-                    darkOnTertiaryContainer = darkScheme.onTertiaryContainer.toArgb(),
-                    surface = darkScheme.surface.toArgb(),
-                    onSurface = darkScheme.onSurface.toArgb(),
-                    surfaceVariant = darkScheme.surfaceVariant.toArgb(),
-                    onSurfaceVariant = darkScheme.onSurfaceVariant.toArgb()
-                )
+                createDynamicScheme(sourceHct, "CONTENT", false)
             }
+
+            val darkScheme = if (isMonochrome) {
+                createDynamicScheme(sourceHct, "MONOCHROME", true)
+            } else {
+                createDynamicScheme(sourceHct, "CONTENT", true)
+            }
+
+            ExtractedColors(
+                seedColor = seedArgb,
+                isMonochrome = isMonochrome,
+                primary = lightScheme.primary.toArgb(),
+                onPrimary = lightScheme.onPrimary.toArgb(),
+                primaryContainer = lightScheme.primaryContainer.toArgb(),
+                onPrimaryContainer = lightScheme.onPrimaryContainer.toArgb(),
+                secondary = lightScheme.secondary.toArgb(),
+                onSecondary = lightScheme.onSecondary.toArgb(),
+                secondaryContainer = lightScheme.secondaryContainer.toArgb(),
+                onSecondaryContainer = lightScheme.onSecondaryContainer.toArgb(),
+                tertiary = lightScheme.tertiary.toArgb(),
+                onTertiary = lightScheme.onTertiary.toArgb(),
+                tertiaryContainer = lightScheme.tertiaryContainer.toArgb(),
+                onTertiaryContainer = lightScheme.onTertiaryContainer.toArgb(),
+                darkPrimary = darkScheme.primary.toArgb(),
+                darkOnPrimary = darkScheme.onPrimary.toArgb(),
+                darkPrimaryContainer = darkScheme.primaryContainer.toArgb(),
+                darkOnPrimaryContainer = darkScheme.onPrimaryContainer.toArgb(),
+                darkSecondary = darkScheme.secondary.toArgb(),
+                darkOnSecondary = darkScheme.onSecondary.toArgb(),
+                darkSecondaryContainer = darkScheme.secondaryContainer.toArgb(),
+                darkOnSecondaryContainer = darkScheme.onSecondaryContainer.toArgb(),
+                darkTertiary = darkScheme.tertiary.toArgb(),
+                darkOnTertiary = darkScheme.onTertiary.toArgb(),
+                darkTertiaryContainer = darkScheme.tertiaryContainer.toArgb(),
+                darkOnTertiaryContainer = darkScheme.onTertiaryContainer.toArgb(),
+                surface = darkScheme.surface.toArgb(),
+                onSurface = darkScheme.onSurface.toArgb(),
+                surfaceVariant = darkScheme.surfaceVariant.toArgb(),
+                onSurfaceVariant = darkScheme.onSurfaceVariant.toArgb()
+            )
         }.getOrElse {
             android.util.Log.e(TAG, "Failed to generate color scheme", it)
             null
@@ -293,92 +331,18 @@ object ColorExtractor {
      * Resize bitmap for efficient color extraction
      */
     private fun resizeForExtraction(bitmap: Bitmap, maxDimension: Int): Bitmap {
-        if (maxDimension <= 0) return bitmap
-        if (bitmap.width <= maxDimension && bitmap.height <= maxDimension) return bitmap
-
-        val scale = maxDimension.toFloat() / max(bitmap.width, bitmap.height).toFloat()
-        val newWidth = (bitmap.width * scale).roundToInt().coerceAtLeast(1)
-        val newHeight = (bitmap.height * scale).roundToInt().coerceAtLeast(1)
-        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
-    }
-
-    /**
-    * Score quantized colors based on Rhythm's palette algorithm
-     */
-    private fun scoreQuantizedColors(
-        colorsToPopulation: Map<Int, Int>,
-        scoring: ColorScoringConfig,
-        fallbackColorArgb: Int
-    ): List<Int> {
-        if (colorsToPopulation.isEmpty()) return listOf(fallbackColorArgb)
-
-        val colorsHct = ArrayList<Hct>(colorsToPopulation.size)
-        val huePopulation = IntArray(360)
-        var populationSum = 0.0
-
-        // Process colors and build hue population map
-        for ((argb, population) in colorsToPopulation) {
-            if (population <= 0) continue
-            val hct = Hct.fromInt(argb)
-            colorsHct.add(hct)
-            val hue = MathUtils.sanitizeDegreesInt(hct.hue.roundToInt())
-            huePopulation[hue] += population
-            populationSum += population.toDouble()
+        val source = if (bitmap.config == Bitmap.Config.HARDWARE) {
+            bitmap.copy(Bitmap.Config.ARGB_8888, false)
+        } else {
+            bitmap
         }
+        if (maxDimension <= 0) return source
+        if (source.width <= maxDimension && source.height <= maxDimension) return source
 
-        if (populationSum <= 0.0) return listOf(fallbackColorArgb)
-
-        // Calculate excited proportions for each hue
-        val hueExcitedProportions = DoubleArray(360)
-        for (hue in 0 until 360) {
-            val proportion = huePopulation[hue] / populationSum
-            for (neighbor in hue - 14..hue + 15) {
-                val wrappedHue = MathUtils.sanitizeDegreesInt(neighbor)
-                hueExcitedProportions[wrappedHue] += proportion
-            }
-        }
-
-        // Score colors based on proportion and chroma
-        val scoredColors = ArrayList<ScoredHct>(colorsHct.size)
-        for (hct in colorsHct) {
-            val hue = MathUtils.sanitizeDegreesInt(hct.hue.roundToInt())
-            val excitedProportion = hueExcitedProportions[hue]
-
-            if (hct.chroma < scoring.cutoffChroma || excitedProportion <= scoring.cutoffExcitedProportion) {
-                continue
-            }
-
-            val proportionScore = excitedProportion * 100.0 * scoring.weightProportion
-            val chromaWeight = if (hct.chroma < scoring.targetChroma) scoring.weightChromaBelow else scoring.weightChromaAbove
-            val chromaScore = (hct.chroma - scoring.targetChroma) * chromaWeight
-            scoredColors.add(ScoredHct(hct, proportionScore + chromaScore))
-        }
-
-        if (scoredColors.isEmpty()) return listOf(fallbackColorArgb)
-
-        scoredColors.sortByDescending { it.score }
-
-        // Select diverse colors with minimum hue differences
-        val chosen = mutableListOf<Hct>()
-        val maxHueDifference = scoring.maxHueDifference.coerceAtLeast(scoring.minHueDifference)
-        val minHueDifference = scoring.minHueDifference.coerceAtLeast(1)
-        val desiredColorCount = scoring.maxColorCount.coerceAtLeast(1)
-
-        for (differenceDegrees in maxHueDifference downTo minHueDifference) {
-            chosen.clear()
-            for (candidate in scoredColors) {
-                val isDuplicateHue = chosen.any {
-                    MathUtils.differenceDegrees(candidate.hct.hue, it.hue) < differenceDegrees.toDouble()
-                }
-                if (!isDuplicateHue) {
-                    chosen.add(candidate.hct)
-                }
-                if (chosen.size >= desiredColorCount) break
-            }
-            if (chosen.size >= desiredColorCount) break
-        }
-
-        return if (chosen.isEmpty()) listOf(fallbackColorArgb) else chosen.map { it.toInt() }
+        val scale = maxDimension.toFloat() / max(source.width, source.height).toFloat()
+        val newWidth = (source.width * scale).roundToInt().coerceAtLeast(1)
+        val newHeight = (source.height * scale).roundToInt().coerceAtLeast(1)
+        return source.scale(newWidth, newHeight, true)
     }
 
     /**
@@ -395,6 +359,10 @@ object ColorExtractor {
             "EXPRESSIVE" -> SchemeExpressive(sourceHct, isDark, 0.0)
             "FRUIT_SALAD" -> SchemeFruitSalad(sourceHct, isDark, 0.0)
             "CONTENT" -> SchemeContent(sourceHct, isDark, 0.0)
+            "MONOCHROME" -> SchemeMonochrome(sourceHct, isDark, 0.0)
+            "NEUTRAL" -> SchemeNeutral(sourceHct, isDark, 0.0)
+            "FIDELITY" -> SchemeFidelity(sourceHct, isDark, 0.0)
+            "RAINBOW" -> SchemeRainbow(sourceHct, isDark, 0.0)
             else -> SchemeTonalSpot(sourceHct, isDark, 0.0)
         }
 
@@ -451,35 +419,6 @@ object ColorExtractor {
     }
 
     /**
-     * Convert color scheme to grayscale
-     */
-    private fun androidx.compose.material3.ColorScheme.toGrayscaleScheme(): androidx.compose.material3.ColorScheme {
-        fun Color.toGrayscale(): Color {
-            val gray = (red * 0.299f + green * 0.587f + blue * 0.114f)
-            return Color(gray, gray, gray, alpha)
-        }
-
-        return copy(
-            primary = primary.toGrayscale(),
-            onPrimary = onPrimary.toGrayscale(),
-            primaryContainer = primaryContainer.toGrayscale(),
-            onPrimaryContainer = onPrimaryContainer.toGrayscale(),
-            secondary = secondary.toGrayscale(),
-            onSecondary = onSecondary.toGrayscale(),
-            secondaryContainer = secondaryContainer.toGrayscale(),
-            onSecondaryContainer = onSecondaryContainer.toGrayscale(),
-            tertiary = tertiary.toGrayscale(),
-            onTertiary = onTertiary.toGrayscale(),
-            tertiaryContainer = tertiaryContainer.toGrayscale(),
-            onTertiaryContainer = onTertiaryContainer.toGrayscale(),
-            surface = surface.toGrayscale(),
-            onSurface = onSurface.toGrayscale(),
-            surfaceVariant = surfaceVariant.toGrayscale(),
-            onSurfaceVariant = onSurfaceVariant.toGrayscale()
-        )
-    }
-
-    /**
      * Calculate average color from pixels
      */
     private fun averageColorArgb(pixels: IntArray): Int {
@@ -503,9 +442,9 @@ object ColorExtractor {
     }
 
     /**
-     * Check if artwork is mostly neutral (low chroma)
+     * Check if artwork is mostly neutral (low chroma / black & white / grayscale)
      */
-    private fun isMostlyNeutralArtwork(colorsToPopulation: Map<Int, Int>): Boolean {
+    fun isMostlyNeutralArtwork(colorsToPopulation: Map<Int, Int>): Boolean {
         if (colorsToPopulation.isEmpty()) return false
 
         var totalPopulation = 0.0
@@ -516,15 +455,17 @@ object ColorExtractor {
         for ((argb, populationInt) in colorsToPopulation) {
             if (populationInt <= 0) continue
             val population = populationInt.toDouble()
-            val chroma = Hct.fromInt(argb).chroma
+            val hct = Hct.fromInt(argb)
+            val isGrayscale = isArgbNearGrayscale(argb)
+            val chroma = if (isGrayscale) 0.0 else hct.chroma
 
             totalPopulation += population
             weightedChroma += chroma * population
 
-            if (chroma <= NEUTRAL_PIXEL_CHROMA_THRESHOLD) {
+            if (chroma <= 8.0 || isGrayscale) {
                 neutralPopulation += population
             }
-            if (chroma >= HIGH_CHROMA_THRESHOLD) {
+            if (chroma >= 16.0 && !isGrayscale) {
                 highChromaPopulation += population
             }
         }
@@ -535,26 +476,17 @@ object ColorExtractor {
         val highChromaRatio = highChromaPopulation / totalPopulation
         val meanChroma = weightedChroma / totalPopulation
 
-        return neutralRatio >= REQUIRED_NEUTRAL_POPULATION &&
-            highChromaRatio <= MAX_HIGH_CHROMA_POPULATION &&
-            meanChroma <= MAX_WEIGHTED_CHROMA_FOR_NEUTRAL
-    }
-
-    /**
-     * Check if color should use neutral scheme
-     */
-    private fun shouldUseNeutralArtworkScheme(argb: Int, sourceHct: Hct): Boolean {
-        return sourceHct.chroma <= GRAYSCALE_CHROMA_THRESHOLD && isArgbNearGrayscale(argb)
+        return neutralRatio >= 0.82 || (meanChroma <= 8.0 && highChromaRatio <= 0.04)
     }
 
     /**
      * Check if ARGB color is near grayscale
      */
-    private fun isArgbNearGrayscale(argb: Int): Boolean {
+    fun isArgbNearGrayscale(argb: Int): Boolean {
         val red = (argb ushr 16) and 0xFF
         val green = (argb ushr 8) and 0xFF
         val blue = argb and 0xFF
-        return maxOf(abs(red - green), abs(green - blue), abs(red - blue)) <= MAX_GRAYSCALE_CHANNEL_DELTA
+        return maxOf(abs(red - green), abs(green - blue), abs(red - blue)) <= 10
     }
 
     /**

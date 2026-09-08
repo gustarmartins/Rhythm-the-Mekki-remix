@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 // Experimental API opt-ins required for:
 // - Material3 Carousel APIs (HorizontalCenteredHeroCarousel, HorizontalUncontainedCarousel)
 // - ModalBottomSheet, rememberModalBottomSheetState
@@ -11,6 +16,21 @@ import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
 import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
+import chromahub.rhythm.app.features.streaming.presentation.components.StreamingServiceStateCard
+import chromahub.rhythm.app.features.streaming.data.repository.StreamingServiceSession
+import chromahub.rhythm.app.features.streaming.domain.model.StreamingSong
+import chromahub.rhythm.app.features.streaming.domain.model.StreamingAlbum
+import chromahub.rhythm.app.features.streaming.domain.model.StreamingArtist
+import chromahub.rhythm.app.features.streaming.domain.model.StreamingPlaylist
+import chromahub.rhythm.app.features.streaming.domain.model.StreamingServiceId
+import chromahub.rhythm.app.features.streaming.presentation.model.StreamingServiceOptions
+import chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamingMusicViewModel
+import chromahub.rhythm.app.shared.presentation.components.Material3SettingsGroup
+import chromahub.rhythm.app.shared.presentation.components.Material3SettingsItem
+import chromahub.rhythm.app.features.streaming.presentation.screens.toLibrarySong
+import chromahub.rhythm.app.features.streaming.presentation.screens.toLibraryAlbum
+import chromahub.rhythm.app.features.streaming.presentation.screens.toLibraryArtist
+import chromahub.rhythm.app.util.ArtistSeparator
 
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -34,10 +54,6 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.clip
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -59,6 +75,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -71,6 +90,9 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.draw.shadow
 import androidx.compose.material3.carousel.CarouselDefaults
+import androidx.compose.material3.carousel.HorizontalCenteredHeroCarousel
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
 import androidx.compose.material3.carousel.HorizontalUncontainedCarousel
 import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.ui.graphics.RectangleShape
@@ -131,7 +153,6 @@ import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSiz
 import chromahub.rhythm.app.shared.presentation.components.common.CollapsibleHeaderScreen
 import chromahub.rhythm.app.ui.theme.festive.FestiveConfig
 import chromahub.rhythm.app.ui.theme.festive.FestiveThemeEngine
-import chromahub.rhythm.app.ui.theme.festive.FestiveThemeType
 import chromahub.rhythm.app.shared.data.model.AppSettings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -141,12 +162,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -169,7 +190,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import chromahub.rhythm.app.util.performIfEnabled
+import chromahub.rhythm.app.util.PerformIfEnabled
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
 import chromahub.rhythm.app.R
@@ -190,6 +211,8 @@ import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveElev
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapes
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeTarget
 import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShapeFor
+import chromahub.rhythm.app.shared.presentation.theme.ExpressiveMaterialShape
+import chromahub.rhythm.app.shared.presentation.theme.rememberExpressiveShape
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmGroupedButton
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonWeighted
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonSize
@@ -219,6 +242,8 @@ import java.util.Calendar
 import kotlin.random.Random
 import androidx.core.text.HtmlCompat
 import androidx.compose.ui.res.stringResource
+import chromahub.rhythm.app.util.windowScreenWidthDp
+import chromahub.rhythm.app.util.windowScreenHeightDp
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -248,23 +273,44 @@ fun HomeScreen(
     onCreatePlaylist: (String) -> Unit = { _ -> },
     onNavigateToStats: () -> Unit = {},
     onNavigateToRhythmGuard: () -> Unit = {},
-    onNavigateToArtist: (Artist) -> Unit = {}
+    onNavigateToArtist: (Artist) -> Unit = {},
+    isStreamingMode: Boolean = false,
+    streamingViewModel: chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamingMusicViewModel? = null,
+    streamingSongs: List<Song> = emptyList(),
+    streamingAlbums: List<Album> = emptyList(),
+    streamingArtists: List<Artist> = emptyList(),
+    streamingPlaylists: List<chromahub.rhythm.app.shared.data.model.Playlist> = emptyList(),
+    streamingRecentlyPlayed: List<Song> = emptyList(),
+    streamingServiceName: String = "",
+    streamingServiceConnected: Boolean = false,
+    streamingIsLoading: Boolean = false,
+    streamingError: String? = null,
+    onConfigureService: (String) -> Unit = {},
+    onSwitchToLocalMode: () -> Unit = {},
+    onStreamingNavigateToArtist: (chromahub.rhythm.app.features.streaming.domain.model.StreamingArtist) -> Unit = {},
+    onStreamingNavigateToAlbum: (chromahub.rhythm.app.features.streaming.domain.model.StreamingAlbum) -> Unit = {},
+    onStreamingNavigateToPlaylist: (chromahub.rhythm.app.features.streaming.domain.model.StreamingPlaylist) -> Unit = {},
+    onStreamingPlayQueue: (List<chromahub.rhythm.app.features.streaming.domain.model.StreamingSong>, Int, Boolean) -> Unit = { _, _, _ -> },
+    onStreamingShuffleQueue: (List<chromahub.rhythm.app.features.streaming.domain.model.StreamingSong>) -> Unit = {}
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val coroutineScope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
+    val isTablet = windowScreenWidthDp() >= 600
+    val isLandscapeTablet = isTablet && windowScreenWidthDp() > windowScreenHeightDp()
     val appSettings = remember { AppSettings.getInstance(context) }
 
     // Home header customization
     val headerDisplayMode by appSettings.homeHeaderDisplayMode.collectAsState()
     val showAppIcon by appSettings.homeShowAppIcon.collectAsState()
     val iconVisibilityMode by appSettings.homeAppIconVisibility.collectAsState()
+    val floatingNavigationBar by appSettings.floatingNavigationBar.collectAsState()
 
     // State for AddToPlaylist bottom sheet
     var showAddToPlaylistSheet by remember { mutableStateOf(false) }
     var selectedSongForPlaylist by remember { mutableStateOf<Song?>(null) }
-    val addToPlaylistSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
+    val addToPlaylistSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
 
     // Song info bottom sheet state
@@ -272,6 +318,12 @@ fun HomeScreen(
 
     // Home section order bottom sheet state
     var showHomeSectionOrderSheet by remember { mutableStateOf(false) }
+
+    val isLibraryRefreshing by musicViewModel.isLibraryRefreshing.collectAsState()
+    var streamingIsRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(streamingIsLoading) {
+        if (!streamingIsLoading) streamingIsRefreshing = false
+    }
 
     // Pending write request for metadata editing (Android 11+)
     val pendingWriteRequest by musicViewModel.pendingWriteRequest.collectAsState()
@@ -319,9 +371,7 @@ fun HomeScreen(
     }
 
     // Select featured content from all albums (enhanced selection)
-    val featuredContent = remember(albums) {
-        albums.shuffled()
-    }
+    val featuredContent = albums
 
     // Get all unique artists
     val availableArtists = remember(artists) {
@@ -362,12 +412,33 @@ fun HomeScreen(
 
 
 
+    val homeDownloadedSongs = streamingViewModel?.downloadedSongs?.collectAsState()?.value ?: emptyList()
+    val homeDownloadingSongIds = streamingViewModel?.downloadingSongIds?.collectAsState()?.value ?: emptySet()
+    val homeDownloadedSongIds = remember(homeDownloadedSongs) { homeDownloadedSongs.map { it.id }.toSet() }
+
     // Song info bottom sheet
     if (showSongInfoSheet && selectedSongForPlaylist != null) {
+        val songForInfo = selectedSongForPlaylist!!
         SongInfoBottomSheet(
-            song = selectedSongForPlaylist,
+            song = songForInfo,
             onDismiss = { showSongInfoSheet = false },
             appSettings = AppSettings.getInstance(context),
+            isStreamingMode = isStreamingMode,
+            isDownloaded = homeDownloadedSongIds.contains(songForInfo.id),
+            isDownloading = homeDownloadingSongIds.contains(songForInfo.id),
+            onToggleDownload = if (isStreamingMode && streamingViewModel != null) ({
+                if (homeDownloadedSongIds.contains(songForInfo.id)) {
+                    streamingViewModel.removeDownload(songForInfo.id)
+                } else {
+                    val orig = streamingViewModel.allSongs.value.firstOrNull { it.id == songForInfo.id }
+                        ?: streamingViewModel.recommendations.value.firstOrNull { it.id == songForInfo.id }
+                    if (orig != null) {
+                        streamingViewModel.downloadSong(orig)
+                    } else {
+                        streamingViewModel.downloadSongById(songForInfo.id)
+                    }
+                }
+            }) else null,
             onEditSong = { title, artist, album, genre, year, trackNumber, artworkUri, removeArtwork, albumArtist, composer, discNumber, onComplete ->
                 pendingMetadataEditCompleteCallback = onComplete
                 musicViewModel.saveMetadataChanges(
@@ -475,85 +546,816 @@ fun HomeScreen(
     }
 
     if (showHomeSectionOrderSheet) {
-        HomeSectionOrderBottomSheet(
-            onDismiss = { showHomeSectionOrderSheet = false },
-            appSettings = AppSettings.getInstance(context)
-        )
+        if (isStreamingMode) {
+            chromahub.rhythm.app.features.streaming.presentation.components.settings.StreamingHomeSectionOrderBottomSheet(
+                onDismiss = { showHomeSectionOrderSheet = false },
+                appSettings = AppSettings.getInstance(context)
+            )
+        } else {
+            HomeSectionOrderBottomSheet(
+                onDismiss = { showHomeSectionOrderSheet = false },
+                appSettings = AppSettings.getInstance(context)
+            )
+        }
     }
 
     CollapsibleHeaderScreen(
-        title = context.getString(R.string.home_title),
+        title = if (isStreamingMode) context.getString(R.string.streaming_integration_title) else context.getString(R.string.home_title),
         headerDisplayMode = headerDisplayMode,
+        alwaysCollapsed = false,
         showAppIcon = showAppIcon,
         iconVisibilityMode = iconVisibilityMode,
         actions = {
-            ExpressiveFilledTonalIconButton(
-                onClick = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                    showHomeSectionOrderSheet = true
-                },
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                ),
-                modifier = Modifier.padding(end = 8.dp)
-            ) {
-                Icon(
-                    imageVector = MaterialSymbolIcon("reorder", filled = true),
-                    contentDescription = context.getString(R.string.cd_reorder_home_sections),
-                    modifier = Modifier.size(25.dp)
-                )
+            val showReorder = !isLandscapeTablet
+            val showSettings = !isTablet && floatingNavigationBar
+
+            if (showReorder) {
+                ExpressiveFilledTonalIconButton(
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                        showHomeSectionOrderSheet = true
+                    },
+                    colors = IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    ),
+                    modifier = Modifier.padding(end = if (showSettings) 8.dp else 16.dp)
+                ) {
+                    Icon(
+                        imageVector = MaterialSymbolIcon("reorder", filled = true),
+                        contentDescription = context.getString(R.string.cd_reorder_home_sections),
+                        modifier = Modifier.size(25.dp)
+                    )
+                }
             }
-            ExpressiveFilledIconButton(
-                onClick = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                    onSettingsClick()
-                },
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                modifier = Modifier.padding(end = 16.dp)
-            ) {
-                Icon(
-                    imageVector = RhythmIcons.Settings,
-                    contentDescription = context.getString(R.string.home_settings_cd),
-                    modifier = Modifier.size(25.dp)
-                )
+            if (showSettings) {
+                ExpressiveFilledIconButton(
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                        onSettingsClick()
+                    },
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
+                    modifier = Modifier.padding(end = 16.dp)
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.Settings,
+                        contentDescription = context.getString(R.string.home_settings_cd),
+                        modifier = Modifier.size(25.dp)
+                    )
+                }
             }
         }
     ) { modifier ->
-        ModernScrollableContent(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(bottom = if (currentSong != null) 0.dp else 0.dp),
-            featuredContent = featuredContent,
-            albums = albums,
-            topArtists = topArtists,
-            newReleases = currentYearReleases,
-            recentlyAddedSongs = recentlyAddedSongs,
-            recentlyAddedAlbums = recentlyAddedAlbums,
-            recentlyPlayed = recentlyPlayed,
-            songs = songs,
-            onSongClick = onSongClick,
-            onAlbumClick = onAlbumClick,
-            onArtistClick = { artist: Artist ->
-                onNavigateToArtist(artist)
-            },
-            onViewAllSongs = onViewAllSongs,
-            onViewAllAlbums = onViewAllAlbums,
-            onViewAllArtists = onViewAllArtists,
-            onSearchClick = onSearchClick,
-            onSettingsClick = onSettingsClick,
-            onNavigateToLibrary = onNavigateToLibrary,
-            onNavigateToPlaylist = onNavigateToPlaylist,
-            onNavigateToStats = onNavigateToStats,
-            onNavigateToRhythmGuard = onNavigateToRhythmGuard,
-            musicViewModel = musicViewModel,
-            coroutineScope = coroutineScope
-        )
+        if (isStreamingMode) {
+            StreamingHomeBody(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(bottom = if (currentSong != null) 0.dp else 0.dp),
+                streamingViewModel = streamingViewModel,
+                songs = streamingSongs,
+                albums = streamingAlbums,
+                artists = streamingArtists,
+                playlists = streamingPlaylists,
+                recentlyPlayed = if (streamingRecentlyPlayed.isNotEmpty()) streamingRecentlyPlayed else recentlyPlayed,
+                serviceName = streamingServiceName,
+                serviceConnected = streamingServiceConnected,
+                isLoading = streamingIsLoading,
+                errorMessage = streamingError,
+                onConfigureService = onConfigureService,
+                onSwitchToLocalMode = onSwitchToLocalMode,
+                onNavigateToArtist = onStreamingNavigateToArtist,
+                onNavigateToAlbum = onStreamingNavigateToAlbum,
+                onNavigateToPlaylist = onStreamingNavigateToPlaylist,
+                onPlayQueue = onStreamingPlayQueue,
+                onShuffleQueue = onStreamingShuffleQueue,
+                onViewAllArtists = onViewAllArtists,
+                onNavigateToLibrary = onNavigateToLibrary,
+                onSongClick = onSongClick,
+                onNavigateToStats = onNavigateToStats,
+                onNavigateToRhythmGuard = onNavigateToRhythmGuard,
+                musicViewModel = musicViewModel,
+                coroutineScope = coroutineScope,
+                isRefreshing = streamingIsRefreshing,
+                onRefresh = {
+                    streamingIsRefreshing = true
+                    streamingViewModel?.refreshHome()
+                }
+            )
+        } else {
+            ModernScrollableContent(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(bottom = if (currentSong != null) 0.dp else 0.dp),
+                featuredContent = featuredContent,
+                albums = albums,
+                topArtists = topArtists,
+                newReleases = currentYearReleases,
+                recentlyAddedSongs = recentlyAddedSongs,
+                recentlyAddedAlbums = recentlyAddedAlbums,
+                recentlyPlayed = recentlyPlayed,
+                songs = songs,
+                onSongClick = onSongClick,
+                onAlbumClick = onAlbumClick,
+                onArtistClick = { artist: Artist ->
+                    onNavigateToArtist(artist)
+                },
+                onViewAllSongs = onViewAllSongs,
+                onViewAllAlbums = onViewAllAlbums,
+                onViewAllArtists = onViewAllArtists,
+                onSearchClick = onSearchClick,
+                onSettingsClick = onSettingsClick,
+                onNavigateToLibrary = onNavigateToLibrary,
+                onNavigateToPlaylist = onNavigateToPlaylist,
+                onNavigateToStats = onNavigateToStats,
+                onNavigateToRhythmGuard = onNavigateToRhythmGuard,
+                musicViewModel = musicViewModel,
+                coroutineScope = coroutineScope,
+                isRefreshing = isLibraryRefreshing,
+                onRefresh = {
+                    musicViewModel.refreshLibrary(showMediaScanLoader = false)
+                }
+            )
+        }
     }
 }
+
+/**
+ * Go-mode (streaming) home body.
+ *
+ * Renders streaming content through the exact same local Modern* card language:
+ * streaming models are converted to local model types by the caller, and play
+ * actions are routed back to the streaming view model (which hands off to the
+ * shared local player via the playback handler).
+ */
+@Composable
+private fun StreamingHomeBody(
+    modifier: Modifier = Modifier,
+    streamingViewModel: chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamingMusicViewModel?,
+    songs: List<Song>,
+    albums: List<Album>,
+    artists: List<Artist>,
+    playlists: List<chromahub.rhythm.app.shared.data.model.Playlist>,
+    recentlyPlayed: List<Song>,
+    serviceName: String,
+    serviceConnected: Boolean,
+    isLoading: Boolean,
+    errorMessage: String?,
+    onConfigureService: (String) -> Unit,
+    onSwitchToLocalMode: () -> Unit = {},
+    onNavigateToArtist: (chromahub.rhythm.app.features.streaming.domain.model.StreamingArtist) -> Unit,
+    onNavigateToAlbum: (chromahub.rhythm.app.features.streaming.domain.model.StreamingAlbum) -> Unit,
+    onNavigateToPlaylist: (chromahub.rhythm.app.features.streaming.domain.model.StreamingPlaylist) -> Unit,
+    onPlayQueue: (List<chromahub.rhythm.app.features.streaming.domain.model.StreamingSong>, Int, Boolean) -> Unit,
+    onShuffleQueue: (List<chromahub.rhythm.app.features.streaming.domain.model.StreamingSong>) -> Unit,
+    onViewAllArtists: () -> Unit,
+    onNavigateToLibrary: () -> Unit,
+    onSongClick: (Song) -> Unit,
+    onNavigateToStats: () -> Unit = {},
+    onNavigateToRhythmGuard: () -> Unit = {},
+    musicViewModel: chromahub.rhythm.app.viewmodel.MusicViewModel,
+    coroutineScope: CoroutineScope,
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {}
+) {
+    val context = LocalContext.current
+    val windowSizeClass = calculateWindowSizeClass(context as android.app.Activity)
+    val widthSizeClass = windowSizeClass.widthSizeClass
+    val heightSizeClass = windowSizeClass.heightSizeClass
+    val scrollState = rememberScrollState()
+
+    val appSettings = AppSettings.getInstance(context)
+    val showDiscoverCarousel by appSettings.homeShowDiscoverCarousel.collectAsState()
+    val discoverItemCount by appSettings.homeDiscoverItemCount.collectAsState()
+    val discoverShowAlbumName by appSettings.homeDiscoverShowAlbumName.collectAsState()
+    val discoverShowArtistName by appSettings.homeDiscoverShowArtistName.collectAsState()
+    val discoverShowYear by appSettings.homeDiscoverShowYear.collectAsState()
+    val discoverShowPlayButton by appSettings.homeDiscoverShowPlayButton.collectAsState()
+    val discoverShowGradient by appSettings.homeDiscoverShowGradient.collectAsState()
+    val showRhythmGuardSection by appSettings.streamingHomeShowRhythmGuard.collectAsState()
+    val showRhythmStatsSection by appSettings.streamingHomeShowRhythmStats.collectAsState()
+
+    val rhythmGuardMode by appSettings.rhythmGuardMode.collectAsState()
+    val rhythmGuardAge by appSettings.rhythmGuardAge.collectAsState()
+    val rhythmGuardAlertThresholdMinutes by appSettings.rhythmGuardAlertThresholdMinutes.collectAsState()
+    val rhythmGuardTimeoutUntilMs by appSettings.rhythmGuardTimeoutUntilMs.collectAsState()
+    val dailyListeningStats by appSettings.dailyListeningStats.collectAsState()
+    val persistedSongsPlayed by appSettings.songsPlayed.collectAsState()
+    val listeningTimeMs by appSettings.listeningTime.collectAsState()
+
+    val rhythmGuardPolicy = remember(rhythmGuardAge) { appSettings.getRhythmGuardPolicy(rhythmGuardAge) }
+    val rhythmGuardRecommendedMinutes = when (rhythmGuardMode) {
+        AppSettings.RHYTHM_GUARD_MODE_MANUAL -> rhythmGuardAlertThresholdMinutes
+            .takeIf { it > 0 }
+            ?: rhythmGuardPolicy.recommendedDailyMinutes
+        else -> rhythmGuardPolicy.recommendedDailyMinutes
+    }
+    val playbackStatsRepository = remember(context) { PlaybackStatsRepository.getInstance(context) }
+    var todayListeningMinutes by remember { mutableIntStateOf(0) }
+
+    val currentProgress by musicViewModel.progress.collectAsState()
+    val currentDurationMs by musicViewModel.duration.collectAsState()
+    val currentIsPlaying by musicViewModel.isPlaying.collectAsState()
+
+    LaunchedEffect(dailyListeningStats, persistedSongsPlayed, listeningTimeMs, currentProgress, currentDurationMs, currentIsPlaying) {
+        val todaySummary = runCatching {
+            playbackStatsRepository.loadSummary(StatsTimeRange.TODAY)
+        }.getOrNull()
+        val dbDurationMs = todaySummary?.totalDurationMs ?: 0L
+        val activeSessionDurationMs = if (currentIsPlaying && currentDurationMs > 0) {
+            (currentProgress * currentDurationMs).toLong()
+        } else {
+            0L
+        }
+        val totalMs = dbDurationMs + activeSessionDurationMs
+        todayListeningMinutes = (totalMs / 60000L).toInt().coerceAtLeast(0)
+    }
+
+    val horizontalPadding = when (widthSizeClass) {
+        WindowWidthSizeClass.Compact -> 20.dp
+        WindowWidthSizeClass.Medium -> 48.dp
+        WindowWidthSizeClass.Expanded -> 64.dp
+        else -> 20.dp
+    }
+    val sectionSpacing = when (widthSizeClass) {
+        WindowWidthSizeClass.Compact -> when (heightSizeClass) {
+            WindowHeightSizeClass.Compact -> 32.dp
+            else -> 40.dp
+        }
+        WindowWidthSizeClass.Medium -> when (heightSizeClass) {
+            WindowHeightSizeClass.Compact -> 48.dp
+            else -> 56.dp
+        }
+        WindowWidthSizeClass.Expanded -> when (heightSizeClass) {
+            WindowHeightSizeClass.Compact -> 52.dp
+            else -> 64.dp
+        }
+        else -> 40.dp
+    }
+
+    val vm = streamingViewModel
+    val rawAllSongs = vm?.allSongs?.collectAsState()?.value ?: emptyList()
+    val rawRecommendations = vm?.recommendations?.collectAsState()?.value ?: emptyList()
+    val rawNewReleases = vm?.newReleases?.collectAsState()?.value ?: emptyList()
+    val rawArtists = vm?.followedArtists?.collectAsState()?.value ?: emptyList()
+    val rawPlaylists = vm?.savedPlaylists?.collectAsState()?.value ?: emptyList()
+    val rawDownloadedSongs = vm?.downloadedSongs?.collectAsState()?.value ?: emptyList()
+    val rawDownloadedAlbums = vm?.downloadedAlbums?.collectAsState()?.value ?: emptyList()
+    val rawDownloadedArtists = vm?.downloadedArtists?.collectAsState()?.value ?: emptyList()
+    val syncProgress = vm?.syncProgress?.collectAsState()?.value ?: chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamingSyncProgress()
+    val isSyncing = syncProgress.isSyncing
+
+    val streamingSongById = remember(rawAllSongs, rawRecommendations, rawNewReleases, rawDownloadedSongs) {
+        (rawAllSongs + rawRecommendations + rawNewReleases.flatMap { it.tracks } + rawDownloadedSongs)
+            .distinctBy { it.id }
+            .associateBy { it.id }
+    }
+    val streamingAlbumById = remember(rawNewReleases, rawDownloadedAlbums) {
+        (rawNewReleases + rawDownloadedAlbums).distinctBy { it.id }.associateBy { it.id }
+    }
+    val streamingArtistById = remember(rawArtists, rawDownloadedArtists) {
+        (rawArtists + rawDownloadedArtists).distinctBy { it.id }.associateBy { it.id }
+    }
+    val streamingPlaylistById = remember(rawPlaylists) { rawPlaylists.associateBy { it.id } }
+
+    val offlineMode by appSettings.offlineMode.collectAsState()
+    val isVmOnline = vm?.isOnline?.collectAsState()?.value ?: true
+    val isEffectivelyOffline = !serviceConnected || offlineMode || !isVmOnline
+
+    val effectiveSongs = remember(isSyncing, isEffectivelyOffline, rawDownloadedSongs, songs) {
+        if (isSyncing || isEffectivelyOffline) {
+            rawDownloadedSongs.map { it.toLibrarySong() }
+        } else {
+            songs
+        }
+    }
+    val effectiveAlbums = remember(isSyncing, isEffectivelyOffline, rawDownloadedAlbums, albums) {
+        if (isSyncing || isEffectivelyOffline) {
+            rawDownloadedAlbums.map { it.toLibraryAlbum(emptyList()) }
+        } else {
+            albums
+        }
+    }
+    val effectiveArtists = remember(isSyncing, isEffectivelyOffline, rawDownloadedArtists, effectiveSongs, effectiveAlbums, artists) {
+        if (isSyncing || isEffectivelyOffline) {
+            rawDownloadedArtists.map {
+                it.toLibraryArtist(
+                    librarySongs = effectiveSongs,
+                    libraryAlbums = effectiveAlbums,
+                    separatorEnabled = false,
+                    separatorDelimiters = ""
+                )
+            }
+        } else {
+            artists
+        }
+    }
+    val effectiveRecentlyPlayed = remember(isSyncing, isEffectivelyOffline, rawDownloadedSongs, recentlyPlayed) {
+        if (isSyncing || isEffectivelyOffline) {
+            val downloadedIds = rawDownloadedSongs.map { it.id }.toSet()
+            recentlyPlayed.filter { it.id in downloadedIds }
+        } else {
+            recentlyPlayed
+        }
+    }
+    val hasStreamingContent = effectiveSongs.isNotEmpty() ||
+        effectiveAlbums.isNotEmpty() ||
+        effectiveArtists.isNotEmpty() ||
+        effectiveRecentlyPlayed.isNotEmpty()
+
+    val hasLoadedHomeContent = vm?.hasLoadedHomeContent?.collectAsState()?.value ?: false
+    val hasLoadedLibrary = vm?.hasLoadedLibrary?.collectAsState()?.value ?: false
+    LaunchedEffect(vm, hasLoadedHomeContent) {
+        if (vm != null && !hasLoadedHomeContent) {
+            vm.loadHomeContent()
+        }
+    }
+    LaunchedEffect(vm, hasLoadedLibrary) {
+        if (vm != null && !hasLoadedLibrary) {
+            vm.loadLibrary()
+        }
+    }
+
+    val playQueueFromMapped: (List<Song>, Int, Boolean) -> Unit = { mappedSongs, startIndex, shuffle ->
+        val originals = mappedSongs.mapNotNull { streamingSongById[it.id] }
+        if (originals.isNotEmpty()) onPlayQueue(originals, startIndex, shuffle)
+    }
+
+    val serviceSessions = vm?.serviceSessions?.collectAsState()?.value ?: emptyMap()
+    val isAuthenticated = vm?.isAuthenticated?.collectAsState()?.value ?: false
+    val hasOfflineContent = rawDownloadedSongs.isNotEmpty() || rawDownloadedAlbums.isNotEmpty()
+    val hasConfiguredSession = serviceSessions.values.any { it.serverUrl.isNotBlank() }
+
+    if (!hasConfiguredSession && !hasOfflineContent) {
+        StreamingHomeWelcomeContent(
+            modifier = modifier.fillMaxSize(),
+            serviceSessions = serviceSessions,
+            isAuthenticated = isAuthenticated,
+            onConfigureService = onConfigureService,
+            onSwitchToLocalMode = onSwitchToLocalMode
+        )
+        return
+    }
+
+    val pullToRefreshState = rememberPullToRefreshState()
+    val isListAtTop by remember { derivedStateOf { scrollState.value == 0 } }
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        state = pullToRefreshState,
+        enabled = isListAtTop,
+        modifier = modifier.fillMaxSize(),
+        indicator = {
+            PullToRefreshDefaults.LoadingIndicator(
+                state = pullToRefreshState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
+        }
+    ) {
+        if (!hasStreamingContent) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState),
+                contentAlignment = Alignment.Center
+            ) {
+                when {
+                    isEffectivelyOffline || !serviceConnected || errorMessage != null -> {
+                        EmptyState(
+                            message = context.getString(R.string.streaming_home_selected_service_unavailable),
+                            icon = RhythmIcons.Connectivity.WifiOff,
+                            subtitle = errorMessage?.takeIf { it.isNotBlank() }
+                                ?: context.getString(
+                                    R.string.streaming_home_connect_selected_service,
+                                    serviceName.ifBlank { context.getString(R.string.streaming_not_selected) }
+                                ),
+                            actionLabel = context.getString(R.string.streaming_service_setup_reconnect),
+                            onRefresh = { onConfigureService(serviceName) }
+                        )
+                    }
+                    isSyncing || isLoading -> {
+                        EmptyState(
+                            message = context.getString(R.string.streaming_library_syncing),
+                            icon = MaterialSymbolIcon("sync"),
+                            subtitle = context.getString(R.string.streaming_home_no_content_hint),
+                            actionLabel = null,
+                            onRefresh = null
+                        )
+                    }
+                    else -> {
+                        ModernEmptyState(
+                            icon = MaterialSymbolIcon("cloud_sync", filled = true),
+                            title = context.getString(R.string.streaming_home_no_content_title),
+                            subtitle = context.getString(R.string.streaming_home_no_content_hint)
+                        )
+                    }
+                }
+            }
+        } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState),
+            verticalArrangement = Arrangement.spacedBy(sectionSpacing)
+        ) {
+        if (showDiscoverCarousel && effectiveAlbums.isNotEmpty()) {
+            ModernFeaturedSection(
+                albums = effectiveAlbums.take(discoverItemCount),
+                onAlbumClick = { album ->
+                    streamingAlbumById[album.id]?.let(onNavigateToAlbum)
+                },
+                showAlbumName = discoverShowAlbumName,
+                showArtistName = discoverShowArtistName,
+                showYear = discoverShowYear,
+                showPlayButton = discoverShowPlayButton,
+                showGradient = discoverShowGradient,
+                widthSizeClass = widthSizeClass,
+                heightSizeClass = heightSizeClass,
+                onPlayAlbum = { album ->
+                    playQueueFromMapped(album.songs, 0, false)
+                }
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = horizontalPadding),
+            verticalArrangement = Arrangement.spacedBy(sectionSpacing)
+        ) {
+        if (!isEffectivelyOffline && errorMessage != null && !syncProgress.isSyncing && !isLoading) {
+            StreamingServiceStateCard(
+                title = errorMessage,
+                subtitle = context.getString(R.string.streaming_home_widget_empty_hint),
+                actionText = context.getString(R.string.streaming_service_setup_reconnect),
+                onAction = { onConfigureService(serviceName) }
+            )
+        }
+
+        val isTablet = widthSizeClass != WindowWidthSizeClass.Compact || windowScreenWidthDp() >= 600
+        val isLandscapeTablet = isTablet && windowScreenWidthDp() > windowScreenHeightDp()
+        val sectionOrder by appSettings.streamingHomeSectionOrder.collectAsState()
+        val showRecentlyPlayed by appSettings.streamingHomeShowRecentlyPlayed.collectAsState()
+        val showArtists by appSettings.streamingHomeShowArtists.collectAsState()
+        val showNewReleases by appSettings.streamingHomeShowNewReleases.collectAsState()
+        val showRecommended by appSettings.streamingHomeShowRecommended.collectAsState()
+
+        @Composable
+        fun RenderStreamingSection(sectionId: String) {
+            when (sectionId) {
+                "RECENTLY_PLAYED" -> {
+                    if (effectiveRecentlyPlayed.isNotEmpty()) {
+                        ModernRecentlyPlayedSection(
+                            recentlyPlayed = effectiveRecentlyPlayed,
+                            onSongClick = onSongClick,
+                            musicViewModel = musicViewModel,
+                            coroutineScope = coroutineScope,
+                            widthSizeClass = widthSizeClass,
+                            heightSizeClass = heightSizeClass
+                        )
+                    }
+                }
+                "NEW_RELEASES" -> {
+                    if (effectiveAlbums.isNotEmpty()) {
+                        Column {
+                            ModernSectionTitle(
+                                title = if (isSyncing || isEffectivelyOffline) stringResource(R.string.streaming_downloaded_albums) else context.getString(R.string.home_new_releases),
+                                subtitle = if (isSyncing) {
+                                    stringResource(R.string.streaming_syncing_downloads_subtitle)
+                                } else {
+                                    context.getString(
+                                        R.string.streaming_home_widget_new_releases_subtitle,
+                                        serviceName.ifBlank { context.getString(R.string.streaming_not_selected) }
+                                    )
+                                },
+                                onPlayAll = {
+                                    playQueueFromMapped(effectiveAlbums.flatMap { it.songs }, 0, false)
+                                },
+                                onShufflePlay = {
+                                    onShuffleQueue(effectiveAlbums.flatMap { it.songs }.mapNotNull { streamingSongById[it.id] })
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(
+                                    items = effectiveAlbums,
+                                    key = { "streaming_album_${it.id}" }
+                                ) { album ->
+                                    ModernAlbumCard(
+                                        album = album,
+                                        onClick = { clickedAlbum ->
+                                            streamingAlbumById[clickedAlbum.id]?.let { raw ->
+                                                onNavigateToAlbum(raw)
+                                            }
+                                        },
+                                        widthSizeClass = widthSizeClass,
+                                        heightSizeClass = heightSizeClass,
+                                        onPlayClick = { clickedAlbum ->
+                                            playQueueFromMapped(clickedAlbum.songs, 0, false)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                "ARTISTS" -> {
+                    if (effectiveArtists.isNotEmpty()) {
+                        Column {
+                            ModernSectionTitle(
+                                title = context.getString(R.string.home_top_artists),
+                                subtitle = if (isSyncing) stringResource(R.string.streaming_syncing_downloads_subtitle) else context.getString(R.string.home_top_artists_subtitle),
+                                viewAllAction = onViewAllArtists
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(
+                                    items = effectiveArtists,
+                                    key = { "streaming_artist_${it.id}" }
+                                ) { artist ->
+                                    ModernArtistCard(
+                                        artist = artist,
+                                        songs = artist.songs,
+                                        onClick = {
+                                            streamingArtistById[artist.id]?.let { raw ->
+                                                onNavigateToArtist(raw)
+                                            }
+                                        },
+                                        widthSizeClass = widthSizeClass,
+                                        heightSizeClass = heightSizeClass,
+                                        onPlayClick = { clickedArtist ->
+                                            playQueueFromMapped(clickedArtist.songs, 0, false)
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                "RECOMMENDED", "DISCOVER" -> {
+                    if (!isSyncing && effectiveSongs.isNotEmpty()) {
+                        ModernRecommendedSection(
+                            recommendedSongs = effectiveSongs,
+                            artists = effectiveArtists,
+                            onSongClick = { song ->
+                                val index = effectiveSongs.indexOfFirst { it.id == song.id }.coerceAtLeast(0)
+                                playQueueFromMapped(effectiveSongs, index, false)
+                            },
+                            onPlayClick = { songsToPlay ->
+                                playQueueFromMapped(songsToPlay, 0, false)
+                            }
+                        )
+                    }
+                }
+                "RHYTHM_GUARD" -> {
+                    if (hasStreamingContent && showRhythmGuardSection && rhythmGuardMode != AppSettings.RHYTHM_GUARD_MODE_OFF) {
+                        val rhythmGuardTimeoutRemainingMs = (rhythmGuardTimeoutUntilMs - System.currentTimeMillis()).coerceAtLeast(0L)
+                        val isRhythmGuardTimeoutActive = rhythmGuardTimeoutRemainingMs > 0L
+
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            ModernSectionTitle(
+                                title = stringResource(id = R.string.settings_rhythm_guard),
+                                subtitle = stringResource(id = R.string.settings_rhythm_guard_list_desc)
+                            )
+                            RhythmGuardCard(
+                                rhythmGuardMode = rhythmGuardMode,
+                                rhythmGuardRecommendedMinutes = rhythmGuardRecommendedMinutes,
+                                todayListeningMinutes = todayListeningMinutes,
+                                isGuardTimeoutActive = isRhythmGuardTimeoutActive,
+                                guardTimeoutRemainingMs = rhythmGuardTimeoutRemainingMs,
+                                onCardClick = onNavigateToRhythmGuard
+                            )
+                        }
+                    }
+                }
+                "STATS", "RHYTHM_STATS" -> {
+                    if (!isSyncing && hasStreamingContent && showRhythmStatsSection) {
+                        ModernListeningStatsSection(onClick = onNavigateToStats)
+                    }
+                }
+            }
+        }
+
+        fun isStreamingSectionVisible(sectionId: String): Boolean = when (sectionId) {
+            "RECENTLY_PLAYED" -> showRecentlyPlayed && effectiveRecentlyPlayed.isNotEmpty()
+            "NEW_RELEASES" -> showNewReleases && effectiveAlbums.isNotEmpty()
+            "ARTISTS" -> showArtists && effectiveArtists.isNotEmpty()
+            "RECOMMENDED", "DISCOVER" -> showRecommended && !isSyncing && effectiveSongs.isNotEmpty()
+            "RHYTHM_GUARD" -> hasStreamingContent && showRhythmGuardSection && rhythmGuardMode != AppSettings.RHYTHM_GUARD_MODE_OFF
+            "STATS", "RHYTHM_STATS" -> !isSyncing && hasStreamingContent && showRhythmStatsSection
+            else -> false
+        }
+
+        if (isLandscapeTablet) {
+            val visibleSections = sectionOrder.filter { it != "DISCOVER" && isStreamingSectionVisible(it) }
+            val leftSections = visibleSections.filterIndexed { index, _ -> index % 2 == 0 }
+            val rightSections = visibleSections.filterIndexed { index, _ -> index % 2 == 1 }
+
+            if (visibleSections.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(sectionSpacing)
+                    ) {
+                        for (sectionId in leftSections) {
+                            RenderStreamingSection(sectionId)
+                        }
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(sectionSpacing)
+                    ) {
+                        for (sectionId in rightSections) {
+                            RenderStreamingSection(sectionId)
+                        }
+                    }
+                }
+            }
+        } else {
+            for (sectionId in sectionOrder) {
+                if (sectionId != "DISCOVER" && isStreamingSectionVisible(sectionId)) {
+                    RenderStreamingSection(sectionId)
+                }
+            }
+        }
+
+        Spacer(
+            modifier = Modifier.height(24.dp + LocalMiniPlayerPadding.current.calculateBottomPadding())
+        )
+        }
+    }
+    }
+    }
+}
+
+@Composable
+private fun StreamingHomeWelcomeContent(
+    modifier: Modifier = Modifier,
+    serviceSessions: Map<String, StreamingServiceSession>,
+    isAuthenticated: Boolean,
+    onConfigureService: (String) -> Unit,
+    onSwitchToLocalMode: () -> Unit
+) {
+    val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+    val appSettings = remember { AppSettings.getInstance(context) }
+
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        item {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.rhythm_splash_logo),
+                        contentDescription = stringResource(R.string.updates_rhythm_logo_cd),
+                        modifier = Modifier.size(100.dp)
+                    )
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(id = R.string.common_rhythm),
+                            style = MaterialTheme.typography.displayMedium.copy(
+                                fontSize = 42.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onBackground,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        Text(
+                            text = stringResource(R.string.splashscreen_go),
+                            style = MaterialTheme.typography.displayMedium.copy(
+                                fontSize = 42.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            ),
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                Text(
+                    text = if (isAuthenticated) {
+                        stringResource(R.string.streaming_status_ready_to_connect)
+                    } else {
+                        stringResource(R.string.streaming_status_not_connected)
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+
+                Button(
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                        onSwitchToLocalMode()
+                    }
+                ) {
+                    Text(text = stringResource(R.string.streaminghomescreen_leave_go_mode))
+                }
+            }
+        }
+
+        item {
+            val settingsItems = remember(serviceSessions) {
+                StreamingServiceOptions.defaults.map { service ->
+                    val isConnected = serviceSessions[service.id]?.isConnected == true
+
+                    Material3SettingsItem(
+                        leadingContent = {
+                            val providerIconRes = when (service.id) {
+                                StreamingServiceId.SUBSONIC -> R.drawable.ic_subsonic
+                                StreamingServiceId.JELLYFIN -> R.drawable.ic_jellyfin
+                                else -> null
+                            }
+                            if (providerIconRes != null) {
+                                Image(
+                                    painter = painterResource(id = providerIconRes),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        },
+                        title = {
+                            Text(
+                                text = stringResource(id = service.nameRes),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        },
+                        description = {
+                            Text(
+                                text = stringResource(id = service.descriptionRes),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        trailingContent = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                FilledTonalButton(
+                                    onClick = {
+                                        appSettings.setStreamingService(service.id)
+                                        onConfigureService(service.id)
+                                    }
+                                ) {
+                                    Text(
+                                        text = if (isConnected) {
+                                            stringResource(id = R.string.streaming_manage)
+                                        } else {
+                                            stringResource(id = R.string.streaming_connect)
+                                        }
+                                    )
+                                }
+                            }
+                        },
+                        onClick = {
+                            appSettings.setStreamingService(service.id)
+                            onConfigureService(service.id)
+                        }
+                    )
+                }
+            }
+
+            Material3SettingsGroup(items = settingsItems)
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(18.dp))
+        }
+    }
+}
+
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -580,7 +1382,9 @@ private fun ModernScrollableContent(
     onNavigateToStats: () -> Unit = {},
     onNavigateToRhythmGuard: () -> Unit = {},
     musicViewModel: chromahub.rhythm.app.viewmodel.MusicViewModel,
-    coroutineScope: CoroutineScope
+    coroutineScope: CoroutineScope,
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val windowSizeClass = calculateWindowSizeClass(context as android.app.Activity)
@@ -668,26 +1472,56 @@ private fun ModernScrollableContent(
         }
     }
 
-    // Featured albums with auto-refresh
-    var currentFeaturedAlbums by remember(featuredContent, discoverItemCount) {
-        mutableStateOf(
-            if (featuredContent.isEmpty()) listOf()
-            else featuredContent.take(discoverItemCount)
-        )
+    // Featured albums with stable ID preservation across library & background metadata updates
+    var currentFeaturedAlbums by remember { mutableStateOf<List<Album>>(emptyList()) }
+
+    // Synchronize currentFeaturedAlbums when library/albums change without reshuffling
+    LaunchedEffect(albums, discoverItemCount) {
+        if (albums.isEmpty()) {
+            currentFeaturedAlbums = emptyList()
+            return@LaunchedEffect
+        }
+        val targetCount = discoverItemCount.coerceAtLeast(1)
+        if (currentFeaturedAlbums.isEmpty()) {
+            currentFeaturedAlbums = albums.shuffled().take(targetCount)
+        } else {
+            val albumsById = albums.associateBy { it.id }
+            val updated = currentFeaturedAlbums.mapNotNull { albumsById[it.id] }
+            if (updated.size < targetCount && albums.size > updated.size) {
+                val existingIds = updated.map { it.id }.toSet()
+                val remaining = albums.filter { it.id !in existingIds }.shuffled()
+                currentFeaturedAlbums = (updated + remaining).take(targetCount)
+            } else if (updated.size > targetCount) {
+                currentFeaturedAlbums = updated.take(targetCount)
+            } else if (updated.isNotEmpty()) {
+                currentFeaturedAlbums = updated
+            } else {
+                currentFeaturedAlbums = albums.shuffled().take(targetCount)
+            }
+        }
     }
 
-    LaunchedEffect(albums, discoverItemCount) {
+    // Auto-refresh featured content periodically every 45s (stable loop, decoupled from album list emissions)
+    val latestAlbums by rememberUpdatedState(albums)
+    val latestDiscoverItemCount by rememberUpdatedState(discoverItemCount)
+    LaunchedEffect(Unit) {
         while (true) {
             delay(45000)
-            if (albums.size > discoverItemCount) {
-                currentFeaturedAlbums = albums.shuffled().take(discoverItemCount)
-            } else if (albums.isNotEmpty()) {
-                currentFeaturedAlbums = albums.shuffled()
+            val currentList = latestAlbums
+            val targetCount = latestDiscoverItemCount.coerceAtLeast(1)
+            if (currentList.isNotEmpty()) {
+                currentFeaturedAlbums = if (currentList.size > targetCount) {
+                    currentList.shuffled().take(targetCount)
+                } else {
+                    currentList.shuffled()
+                }
             }
         }
     }
 
     val lazyListState = rememberLazyListState()
+    val isTablet = widthSizeClass != WindowWidthSizeClass.Compact || windowScreenWidthDp() >= 600
+    val isLandscapeTablet = isTablet && windowScreenWidthDp() > windowScreenHeightDp()
 
     val horizontalPadding = when (widthSizeClass) {
         WindowWidthSizeClass.Compact -> 20.dp
@@ -695,49 +1529,350 @@ private fun ModernScrollableContent(
         WindowWidthSizeClass.Expanded -> 64.dp
         else -> 20.dp
     }
+    val sectionSpacing = when (widthSizeClass) {
+        WindowWidthSizeClass.Compact -> when (heightSizeClass) {
+            WindowHeightSizeClass.Compact -> 32.dp
+            else -> 40.dp
+        }
+        WindowWidthSizeClass.Medium -> when (heightSizeClass) {
+            WindowHeightSizeClass.Compact -> 48.dp
+            else -> 56.dp
+        }
+        WindowWidthSizeClass.Expanded -> when (heightSizeClass) {
+            WindowHeightSizeClass.Compact -> 52.dp
+            else -> 64.dp
+        }
+        else -> 40.dp
+    }
 
     Surface(
         modifier = modifier,
         color = MaterialTheme.colorScheme.background
     ) {
+        val pullToRefreshState = rememberPullToRefreshState()
+        val isListAtTop by remember { derivedStateOf { lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset == 0 } }
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = onRefresh,
+            state = pullToRefreshState,
+            enabled = isListAtTop,
+            modifier = Modifier.fillMaxSize(),
+            indicator = {
+                PullToRefreshDefaults.LoadingIndicator(
+                    state = pullToRefreshState,
+                    isRefreshing = isRefreshing,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
+            }
+        ) {
         LazyColumn(
             state = lazyListState,
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(when (widthSizeClass) {
-                WindowWidthSizeClass.Compact -> when (heightSizeClass) {
-                    WindowHeightSizeClass.Compact -> 32.dp
-                    else -> 40.dp
-                }
-                WindowWidthSizeClass.Medium -> when (heightSizeClass) {
-                    WindowHeightSizeClass.Compact -> 48.dp
-                    else -> 56.dp
-                }
-                WindowWidthSizeClass.Expanded -> when (heightSizeClass) {
-                    WindowHeightSizeClass.Compact -> 52.dp
-                    else -> 64.dp
-                }
-                else -> 40.dp
-            }),
+            verticalArrangement = Arrangement.spacedBy(sectionSpacing),
             contentPadding = PaddingValues(bottom = 24.dp + LocalMiniPlayerPadding.current.calculateBottomPadding())
         ) {
-            sectionOrder.forEach { sectionId ->
-                when (sectionId) {
-                    "RECENTLY_PLAYED" -> {
-                        if (showRecentlyPlayed) {
-                            item(key = "section_recently_played") {
-                                Box(modifier = Modifier.padding(horizontal = horizontalPadding)) {
-                                    ModernRecentlyPlayedSection(
-                                        recentlyPlayed = recentlyPlayed.take(recentlyPlayedCount),
-                                        onSongClick = onSongClick,
-                                        musicViewModel = musicViewModel,
-                                        coroutineScope = coroutineScope,
-                                        widthSizeClass = widthSizeClass,
-                                        heightSizeClass = heightSizeClass
-                                    )
-                                }
+        @Composable
+        fun RenderLocalSection(sectionId: String) {
+            when (sectionId) {
+                "RECENTLY_PLAYED" -> {
+                    if (showRecentlyPlayed) {
+                        ModernRecentlyPlayedSection(
+                            recentlyPlayed = recentlyPlayed.take(recentlyPlayedCount),
+                            onSongClick = onSongClick,
+                            musicViewModel = musicViewModel,
+                            coroutineScope = coroutineScope,
+                            widthSizeClass = widthSizeClass,
+                            heightSizeClass = heightSizeClass
+                        )
+                    }
+                }
+                "ARTISTS" -> {
+                    if (showArtists) {
+                        if (availableArtists.isNotEmpty()) {
+                            ModernArtistsSection(
+                                artists = availableArtists.take(artistsCount),
+                                songs = allSongs,
+                                onArtistClick = onArtistClick,
+                                onViewAllArtists = onViewAllArtists,
+                                widthSizeClass = widthSizeClass,
+                                heightSizeClass = heightSizeClass
+                            )
+                        } else {
+                            Column {
+                                ModernSectionTitle(
+                                    title = context.getString(R.string.home_artists),
+                                    subtitle = context.getString(R.string.home_explore_musicians),
+                                    viewAllAction = onViewAllArtists
+                                )
+                                Spacer(modifier = Modifier.height(20.dp))
+                                ModernEmptyState(
+                                    icon = RhythmIcons.ArtistFilled,
+                                    title = context.getString(R.string.home_no_artists),
+                                    subtitle = context.getString(R.string.home_no_artists_desc),
+                                    iconSize = 32.dp
+                                )
                             }
                         }
                     }
+                }
+                "NEW_RELEASES" -> {
+                    if (showNewReleases) {
+                        Column {
+                            ModernSectionTitle(
+                                title = context.getString(R.string.home_new_releases),
+                                subtitle = context.getString(R.string.home_fresh_music),
+                                onPlayAll = {
+                                    coroutineScope.launch {
+                                        val allNewReleaseSongs = newReleases.flatMap { album ->
+                                            musicViewModel.getMusicRepository().getSongsForAlbumLocal(album.id)
+                                        }
+                                        if (allNewReleaseSongs.isNotEmpty()) {
+                                            musicViewModel.playSongs(allNewReleaseSongs)
+                                        }
+                                    }
+                                },
+                                onShufflePlay = {
+                                    coroutineScope.launch {
+                                        val allNewReleaseSongs = newReleases.flatMap { album ->
+                                            musicViewModel.getMusicRepository().getSongsForAlbumLocal(album.id)
+                                        }
+                                        if (allNewReleaseSongs.isNotEmpty()) {
+                                            musicViewModel.playShuffled(allNewReleaseSongs)
+                                        }
+                                    }
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            if (newReleases.isNotEmpty()) {
+                                val newReleasesListState = rememberLazyListState()
+                                LazyRow(
+                                    state = newReleasesListState,
+                                    contentPadding = PaddingValues(horizontal = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    items(
+                                        items = newReleases.take(newReleasesCount),
+                                        key = { "newrelease_${it.id}" },
+                                        contentType = { "album" }
+                                    ) { album ->
+                                        ModernAlbumCard(
+                                            album = album,
+                                            onClick = { onAlbumClick(album) },
+                                            widthSizeClass = widthSizeClass,
+                                            heightSizeClass = heightSizeClass
+                                        )
+                                    }
+                                }
+                            } else {
+                                ModernEmptyState(
+                                    icon = MaterialSymbolIcon("new_releases", filled = true),
+                                    title = context.getString(R.string.home_no_new_releases),
+                                    subtitle = context.getString(R.string.home_no_new_releases_desc),
+                                    iconSize = 32.dp
+                                )
+                            }
+                        }
+                    }
+                }
+                "RECENTLY_ADDED" -> {
+                    if (showRecentlyAdded) {
+                        Column {
+                            ModernSectionTitle(
+                                title = context.getString(R.string.home_recently_added),
+                                subtitle = context.getString(R.string.home_latest_additions),
+                                onPlayAll = {
+                                    if (recentlyAddedSongs.isNotEmpty()) {
+                                        musicViewModel.playSongs(recentlyAddedSongs)
+                                    }
+                                },
+                                onShufflePlay = {
+                                    if (recentlyAddedSongs.isNotEmpty()) {
+                                        musicViewModel.playShuffled(recentlyAddedSongs)
+                                    }
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            if (recentlyAddedAlbums.isNotEmpty()) {
+                                val recentlyAddedListState = rememberLazyListState()
+                                LazyRow(
+                                    state = recentlyAddedListState,
+                                    contentPadding = PaddingValues(horizontal = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    items(
+                                        items = recentlyAddedAlbums.take(recentlyAddedCount),
+                                        key = { "recentalbum_${it.id}" },
+                                        contentType = { "album" }
+                                    ) { album ->
+                                        ModernAlbumCard(
+                                            album = album,
+                                            onClick = { onAlbumClick(album) },
+                                            widthSizeClass = widthSizeClass,
+                                            heightSizeClass = heightSizeClass
+                                        )
+                                    }
+                                }
+                            } else {
+                                ModernEmptyState(
+                                    icon = MaterialSymbolIcon("library_add", filled = true),
+                                    title = context.getString(R.string.home_no_recently_added),
+                                    subtitle = context.getString(R.string.home_no_recently_added_desc),
+                                    iconSize = 32.dp
+                                )
+                            }
+                        }
+                    }
+                }
+                "RECOMMENDED" -> {
+                    if (showRecommended) {
+                        val favoriteSongsState = musicViewModel.favoriteSongs.collectAsState()
+                        val recommendedSongs = remember(recentlyPlayed, songs, recommendedCount, favoriteSongsState.value) {
+                            val favoriteIds = favoriteSongsState.value
+                            val favoriteSongsList = songs.filter { it.id in favoriteIds }
+
+                            var result = if (recentlyPlayed.isNotEmpty()) {
+                                val playedArtists = recentlyPlayed.map { it.artist }.distinct()
+                                val playedAlbums = recentlyPlayed.map { it.album }.distinct()
+
+                                songs.filter { song ->
+                                    (song.artist in playedArtists || song.album in playedAlbums) &&
+                                            !recentlyPlayed.contains(song)
+                                }.shuffled()
+                            } else {
+                                emptyList()
+                            }
+
+                            if (result.isEmpty() && recentlyPlayed.isNotEmpty()) {
+                                val playedArtists = recentlyPlayed.map { it.artist }.distinct()
+                                val playedAlbums = recentlyPlayed.map { it.album }.distinct()
+                                result = songs.filter { song ->
+                                    song.artist in playedArtists || song.album in playedAlbums
+                                }.shuffled()
+                            }
+
+                            if (result.isEmpty()) {
+                                result = favoriteSongsList.shuffled()
+                            }
+
+                            if (result.isEmpty()) {
+                                result = songs.shuffled()
+                            }
+
+                            result.take(recommendedCount)
+                        }
+
+                        ModernRecommendedSection(
+                            recommendedSongs = recommendedSongs,
+                            artists = availableArtists,
+                            onSongClick = onSongClick,
+                            onPlayClick = { songsToPlay ->
+                                musicViewModel.playSongs(songsToPlay)
+                            }
+                        )
+                    }
+                }
+                "RHYTHM_GUARD" -> {
+                    if (showRhythmGuardWidget && rhythmGuardMode != AppSettings.RHYTHM_GUARD_MODE_OFF) {
+                        val rhythmGuardTimeoutRemainingMs = (rhythmGuardTimeoutUntilMs - System.currentTimeMillis()).coerceAtLeast(0L)
+                        val isRhythmGuardTimeoutActive = rhythmGuardTimeoutRemainingMs > 0L
+
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            ModernSectionTitle(
+                                title = stringResource(id = R.string.settings_rhythm_guard),
+                                subtitle = stringResource(id = R.string.settings_rhythm_guard_list_desc)
+                            )
+                            RhythmGuardCard(
+                                rhythmGuardMode = rhythmGuardMode,
+                                rhythmGuardRecommendedMinutes = rhythmGuardRecommendedMinutes,
+                                todayListeningMinutes = todayListeningMinutes,
+                                isGuardTimeoutActive = isRhythmGuardTimeoutActive,
+                                guardTimeoutRemainingMs = rhythmGuardTimeoutRemainingMs,
+                                onCardClick = onNavigateToRhythmGuard
+                            )
+                        }
+                    }
+                }
+                "STATS" -> {
+                    if (showListeningStats) {
+                        ModernListeningStatsSection(onClick = onNavigateToStats)
+                    }
+                }
+            }
+        }
+
+        fun isLocalSectionVisible(sectionId: String): Boolean = when (sectionId) {
+            "RECENTLY_PLAYED" -> showRecentlyPlayed
+            "ARTISTS" -> showArtists
+            "NEW_RELEASES" -> showNewReleases
+            "RECENTLY_ADDED" -> showRecentlyAdded
+            "RECOMMENDED" -> showRecommended
+            "RHYTHM_GUARD" -> showRhythmGuardWidget && rhythmGuardMode != AppSettings.RHYTHM_GUARD_MODE_OFF
+            "STATS" -> showListeningStats
+            else -> false
+        }
+
+        if (isLandscapeTablet) {
+            if (showDiscoverCarousel && sectionOrder.contains("DISCOVER")) {
+                item(key = "section_discover") {
+                    if (currentFeaturedAlbums.isNotEmpty()) {
+                        ModernFeaturedSection(
+                            albums = currentFeaturedAlbums,
+                            onAlbumClick = onAlbumClick,
+                            showAlbumName = discoverShowAlbumName,
+                            showArtistName = discoverShowArtistName,
+                            showYear = discoverShowYear,
+                            showPlayButton = discoverShowPlayButton,
+                            showGradient = discoverShowGradient,
+                            widthSizeClass = widthSizeClass,
+                            heightSizeClass = heightSizeClass
+                        )
+                    } else {
+                        Box(modifier = Modifier.padding(horizontal = horizontalPadding)) {
+                            ModernEmptyState(
+                                icon = RhythmIcons.AlbumFilled,
+                                title = context.getString(R.string.home_no_featured_albums),
+                                subtitle = context.getString(R.string.home_no_featured_albums_desc),
+                                iconSize = 32.dp
+                            )
+                        }
+                    }
+                }
+            }
+
+            val visibleSections = sectionOrder.filter { it != "DISCOVER" && isLocalSectionVisible(it) }
+            val leftSections = visibleSections.filterIndexed { index, _ -> index % 2 == 0 }
+            val rightSections = visibleSections.filterIndexed { index, _ -> index % 2 == 1 }
+
+            if (visibleSections.isNotEmpty()) {
+                item(key = "two_column_home_sections") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = horizontalPadding),
+                        horizontalArrangement = Arrangement.spacedBy(24.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(sectionSpacing)
+                        ) {
+                            for (sectionId in leftSections) {
+                                RenderLocalSection(sectionId)
+                            }
+                        }
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(sectionSpacing)
+                        ) {
+                            for (sectionId in rightSections) {
+                                RenderLocalSection(sectionId)
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            sectionOrder.forEach { sectionId ->
+                when (sectionId) {
                     "DISCOVER" -> {
                         if (showDiscoverCarousel) {
                             item(key = "section_discover") {
@@ -760,7 +1895,7 @@ private fun ModernScrollableContent(
                                                 icon = RhythmIcons.AlbumFilled,
                                                 title = context.getString(R.string.home_no_featured_albums),
                                                 subtitle = context.getString(R.string.home_no_featured_albums_desc),
-                                                iconSize = 48.dp
+                                                iconSize = 32.dp
                                             )
                                         }
                                     }
@@ -768,490 +1903,23 @@ private fun ModernScrollableContent(
                             }
                         }
                     }
-                    "ARTISTS" -> {
-                        if (showArtists) {
-                            item(key = "section_artists") {
+                    else -> {
+                        if (isLocalSectionVisible(sectionId)) {
+                            item(key = "section_${sectionId.lowercase()}") {
                                 Box(modifier = Modifier.padding(horizontal = horizontalPadding)) {
-                                    if (availableArtists.isNotEmpty()) {
-                                        ModernArtistsSection(
-                                            artists = availableArtists.take(artistsCount),
-                                            songs = allSongs,
-                                            onArtistClick = onArtistClick,
-                                            onViewAllArtists = onViewAllArtists,
-                                            widthSizeClass = widthSizeClass,
-                                            heightSizeClass = heightSizeClass
-                                        )
-                                    } else {
-                                        Column {
-                                            ModernSectionTitle(
-                                                title = context.getString(R.string.home_artists),
-                                                subtitle = context.getString(R.string.home_explore_musicians),
-                                                viewAllAction = onViewAllArtists
-                                            )
-                                            Spacer(modifier = Modifier.height(20.dp))
-                                            ModernEmptyState(
-                                                icon = RhythmIcons.ArtistFilled,
-                                                title = context.getString(R.string.home_no_artists),
-                                                subtitle = context.getString(R.string.home_no_artists_desc),
-                                                iconSize = 48.dp
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    "NEW_RELEASES" -> {
-                        if (showNewReleases) {
-                            item(key = "section_new_releases") {
-                                Box(modifier = Modifier.padding(horizontal = horizontalPadding)) {
-                                    Column {
-                                        ModernSectionTitle(
-                                            title = context.getString(R.string.home_new_releases),
-                                            subtitle = context.getString(R.string.home_fresh_music),
-                                            onPlayAll = {
-                                                coroutineScope.launch {
-                                                    val allNewReleaseSongs = newReleases.flatMap { album ->
-                                                        musicViewModel.getMusicRepository().getSongsForAlbumLocal(album.id)
-                                                    }
-                                                    if (allNewReleaseSongs.isNotEmpty()) {
-                                                        musicViewModel.playSongs(allNewReleaseSongs)
-                                                    }
-                                                }
-                                            },
-                                            onShufflePlay = {
-                                                coroutineScope.launch {
-                                                    val allNewReleaseSongs = newReleases.flatMap { album ->
-                                                        musicViewModel.getMusicRepository().getSongsForAlbumLocal(album.id)
-                                                    }
-                                                    if (allNewReleaseSongs.isNotEmpty()) {
-                                                        musicViewModel.playShuffled(allNewReleaseSongs)
-                                                    }
-                                                }
-                                            }
-                                        )
-                                        Spacer(modifier = Modifier.height(20.dp))
-                                        if (newReleases.isNotEmpty()) {
-                                            val isTablet = widthSizeClass != WindowWidthSizeClass.Compact
-                                            if (isTablet) {
-                                                val gridColumns = when (widthSizeClass) {
-                                                    WindowWidthSizeClass.Medium -> 3
-                                                    WindowWidthSizeClass.Expanded -> 4
-                                                    else -> 2
-                                                }
-                                                val gridState = rememberLazyGridState()
-                                                val estimatedRows = (newReleases.take(newReleasesCount).size + gridColumns - 1) / gridColumns
-                                                val cardHeight = when (widthSizeClass) {
-                                                    WindowWidthSizeClass.Medium -> 300.dp
-                                                    WindowWidthSizeClass.Expanded -> 330.dp
-                                                    else -> 240.dp
-                                                }
-                                                val gridHeight = (cardHeight.value * minOf(estimatedRows, 2) + 20f * (minOf(estimatedRows, 2) - 1)).dp
-
-                                                LazyVerticalGrid(
-                                                    columns = GridCells.Fixed(gridColumns),
-                                                    state = gridState,
-                                                    horizontalArrangement = Arrangement.spacedBy(24.dp),
-                                                    verticalArrangement = Arrangement.spacedBy(24.dp),
-                                                    modifier = Modifier.height(gridHeight),
-                                                    contentPadding = PaddingValues(horizontal = 8.dp)
-                                                ) {
-                                                    items(
-                                                        items = newReleases.take(newReleasesCount),
-                                                        key = { "newrelease_${it.id}" },
-                                                        contentType = { "album" }
-                                                    ) { album ->
-                                                        ModernAlbumCard(
-                                                            album = album,
-                                                            onClick = { onAlbumClick(album) },
-                                                            widthSizeClass = widthSizeClass,
-                                                            heightSizeClass = heightSizeClass
-                                                        )
-                                                    }
-                                                }
-                                            } else {
-                                                val newReleasesListState = rememberLazyListState()
-                                                LazyRow(
-                                                    state = newReleasesListState,
-                                                    contentPadding = PaddingValues(horizontal = 8.dp),
-                                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                                ) {
-                                                    items(
-                                                        items = newReleases.take(newReleasesCount),
-                                                        key = { "newrelease_${it.id}" },
-                                                        contentType = { "album" }
-                                                    ) { album ->
-                                                        ModernAlbumCard(
-                                                            album = album,
-                                                            onClick = { onAlbumClick(album) },
-                                                            widthSizeClass = widthSizeClass,
-                                                            heightSizeClass = heightSizeClass
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        } else {
-                                            ModernEmptyState(
-                                                icon = MaterialSymbolIcon("new_releases", filled = true),
-                                                title = context.getString(R.string.home_no_new_releases),
-                                                subtitle = context.getString(R.string.home_no_new_releases_desc),
-                                                iconSize = 48.dp
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    "RECENTLY_ADDED" -> {
-                        if (showRecentlyAdded) {
-                            item(key = "section_recently_added") {
-                                Box(modifier = Modifier.padding(horizontal = horizontalPadding)) {
-                                    Column {
-                                        ModernSectionTitle(
-                                            title = context.getString(R.string.home_recently_added),
-                                            subtitle = context.getString(R.string.home_latest_additions),
-                                            onPlayAll = {
-                                                if (recentlyAddedSongs.isNotEmpty()) {
-                                                    musicViewModel.playSongs(recentlyAddedSongs)
-                                                }
-                                            },
-                                            onShufflePlay = {
-                                                if (recentlyAddedSongs.isNotEmpty()) {
-                                                    musicViewModel.playShuffled(recentlyAddedSongs)
-                                                }
-                                            }
-                                        )
-                                        Spacer(modifier = Modifier.height(20.dp))
-                                        if (recentlyAddedAlbums.isNotEmpty()) {
-                                            val isTablet = widthSizeClass != WindowWidthSizeClass.Compact
-                                            if (isTablet) {
-                                                val gridColumns = when (widthSizeClass) {
-                                                    WindowWidthSizeClass.Medium -> 3
-                                                    WindowWidthSizeClass.Expanded -> 4
-                                                    else -> 2
-                                                }
-                                                val gridState = rememberLazyGridState()
-                                                val estimatedRows = (recentlyAddedAlbums.take(recentlyAddedCount).size + gridColumns - 1) / gridColumns
-                                                val cardHeight = when (widthSizeClass) {
-                                                    WindowWidthSizeClass.Medium -> 300.dp
-                                                    WindowWidthSizeClass.Expanded -> 330.dp
-                                                    else -> 240.dp
-                                                }
-                                                val gridHeight = (cardHeight.value * minOf(estimatedRows, 2) + 24f * (minOf(estimatedRows, 2) - 1)).dp
-
-                                                LazyVerticalGrid(
-                                                    columns = GridCells.Fixed(gridColumns),
-                                                    state = gridState,
-                                                    horizontalArrangement = Arrangement.spacedBy(24.dp),
-                                                    verticalArrangement = Arrangement.spacedBy(24.dp),
-                                                    modifier = Modifier.height(gridHeight),
-                                                    contentPadding = PaddingValues(horizontal = 8.dp)
-                                                ) {
-                                                    items(
-                                                        items = recentlyAddedAlbums.take(recentlyAddedCount),
-                                                        key = { "recentalbum_${it.id}" },
-                                                        contentType = { "album" }
-                                                    ) { album ->
-                                                        ModernAlbumCard(
-                                                            album = album,
-                                                            onClick = { onAlbumClick(album) },
-                                                            widthSizeClass = widthSizeClass,
-                                                            heightSizeClass = heightSizeClass
-                                                        )
-                                                    }
-                                                }
-                                            } else {
-                                                val recentlyAddedListState = rememberLazyListState()
-                                                LazyRow(
-                                                    state = recentlyAddedListState,
-                                                    contentPadding = PaddingValues(horizontal = 8.dp),
-                                                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                                                ) {
-                                                    items(
-                                                        items = recentlyAddedAlbums.take(recentlyAddedCount),
-                                                        key = { "recentalbum_${it.id}" },
-                                                        contentType = { "album" }
-                                                    ) { album ->
-                                                        ModernAlbumCard(
-                                                            album = album,
-                                                            onClick = { onAlbumClick(album) },
-                                                            widthSizeClass = widthSizeClass,
-                                                            heightSizeClass = heightSizeClass
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        } else {
-                                            ModernEmptyState(
-                                                icon = MaterialSymbolIcon("library_add", filled = true),
-                                                title = context.getString(R.string.home_no_recently_added),
-                                                subtitle = context.getString(R.string.home_no_recently_added_desc),
-                                                iconSize = 48.dp
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    "RECOMMENDED" -> {
-                        if (showRecommended) {
-                            item(key = "section_recommended") {
-                                Box(modifier = Modifier.padding(horizontal = horizontalPadding)) {
-                                    val favoriteSongsState = musicViewModel.favoriteSongs.collectAsState()
-                                    val recommendedSongs = remember(recentlyPlayed, songs, recommendedCount, favoriteSongsState.value) {
-                                        val favoriteIds = favoriteSongsState.value
-                                        val favoriteSongsList = songs.filter { it.id in favoriteIds }
-
-                                        var result = if (recentlyPlayed.isNotEmpty()) {
-                                            val playedArtists = recentlyPlayed.map { it.artist }.distinct()
-                                            val playedAlbums = recentlyPlayed.map { it.album }.distinct()
-
-                                            songs.filter { song ->
-                                                (song.artist in playedArtists || song.album in playedAlbums) &&
-                                                        !recentlyPlayed.contains(song)
-                                            }.shuffled()
-                                        } else {
-                                            emptyList()
-                                        }
-
-                                        if (result.isEmpty() && recentlyPlayed.isNotEmpty()) {
-                                            val playedArtists = recentlyPlayed.map { it.artist }.distinct()
-                                            val playedAlbums = recentlyPlayed.map { it.album }.distinct()
-                                            result = songs.filter { song ->
-                                                song.artist in playedArtists || song.album in playedAlbums
-                                            }.shuffled()
-                                        }
-
-                                        if (result.isEmpty()) {
-                                            result = favoriteSongsList.shuffled()
-                                        }
-
-                                        if (result.isEmpty()) {
-                                            result = songs.shuffled()
-                                        }
-
-                                        result.take(recommendedCount)
-                                    }
-
-                                    ModernRecommendedSection(
-                                        recommendedSongs = recommendedSongs,
-                                        artists = availableArtists,
-                                        onSongClick = onSongClick,
-                                        onPlayClick = { songsToPlay ->
-                                            musicViewModel.playSongs(songsToPlay)
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    "RHYTHM_GUARD" -> {
-                        if (showRhythmGuardWidget && rhythmGuardMode != AppSettings.RHYTHM_GUARD_MODE_OFF) {
-                            val rhythmGuardTimeoutRemainingMs = (rhythmGuardTimeoutUntilMs - System.currentTimeMillis()).coerceAtLeast(0L)
-                            val isRhythmGuardTimeoutActive = rhythmGuardTimeoutRemainingMs > 0L
-
-                            item(key = "section_rhythm_guard") {
-                                Box(modifier = Modifier.padding(horizontal = horizontalPadding)) {
-                                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                        ModernSectionTitle(
-                                            title = stringResource(id = R.string.settings_rhythm_guard),
-                                            subtitle = stringResource(id = R.string.settings_rhythm_guard_list_desc)
-                                        )
-                                        RhythmGuardCard(
-                                            rhythmGuardMode = rhythmGuardMode,
-                                            rhythmGuardRecommendedMinutes = rhythmGuardRecommendedMinutes,
-                                            todayListeningMinutes = todayListeningMinutes,
-                                            isGuardTimeoutActive = isRhythmGuardTimeoutActive,
-                                            guardTimeoutRemainingMs = rhythmGuardTimeoutRemainingMs,
-                                            onCardClick = onNavigateToRhythmGuard
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    "STATS" -> {
-                        if (showListeningStats) {
-                            item(key = "section_stats") {
-                                Box(modifier = Modifier.padding(horizontal = horizontalPadding)) {
-                                    ModernListeningStatsSection(onClick = onNavigateToStats)
+                                    RenderLocalSection(sectionId)
                                 }
                             }
                         }
                     }
                 }
             }
+        }
 
             item {
                 Spacer(modifier = Modifier.height(30.dp))
             }
         }
-    }
-}
-
-@Composable
-private fun ModernWelcomeSection(
-    greeting: String,
-    festiveTheme: FestiveThemeType = FestiveThemeType.NONE,
-    onSearchClick: () -> Unit
-) {
-    val context = LocalContext.current
-    val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
-    val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
-    val haptic = LocalHapticFeedback.current
-
-    val timeBasedQuote = remember {
-        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        when {
-            hour in 0..4 -> listOf(
-                context.getString(R.string.home_quote_late_night_1),
-                context.getString(R.string.home_quote_late_night_2),
-                context.getString(R.string.home_quote_late_night_3),
-                context.getString(R.string.home_quote_late_night_4)
-            )
-            hour in 5..11 -> listOf(
-                context.getString(R.string.home_quote_morning_1),
-                context.getString(R.string.home_quote_morning_2),
-                context.getString(R.string.home_quote_morning_3),
-                context.getString(R.string.home_quote_morning_4)
-            )
-            hour in 12..16 -> listOf(
-                context.getString(R.string.home_quote_afternoon_1),
-                context.getString(R.string.home_quote_afternoon_2),
-                context.getString(R.string.home_quote_afternoon_3),
-                context.getString(R.string.home_quote_afternoon_4)
-            )
-            hour in 17..20 -> listOf(
-                context.getString(R.string.home_quote_evening_1),
-                context.getString(R.string.home_quote_evening_2),
-                context.getString(R.string.home_quote_evening_3),
-                context.getString(R.string.home_quote_evening_4)
-            )
-            else -> listOf(
-                context.getString(R.string.home_quote_night_1),
-                context.getString(R.string.home_quote_night_2),
-                context.getString(R.string.home_quote_night_3),
-                context.getString(R.string.home_quote_night_4)
-            )
-        }.random()
-    }
-
-    val timeBasedTheme = remember(festiveTheme) {
-        when (festiveTheme) {
-            FestiveThemeType.CHRISTMAS -> Triple("🎄", "christmas", "🎅")
-            FestiveThemeType.NEW_YEAR -> Triple("🎉", "new_year", "🥳")
-            FestiveThemeType.HALLOWEEN -> Triple("🎃", "halloween", "👻")
-            FestiveThemeType.VALENTINES -> Triple("💝", "valentines", "💕")
-            else -> {
-                val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-                when {
-                    hour in 0..4 -> Triple("🌙", "late_night", "⭐")
-                    hour in 5..11 -> Triple("☀️", "morning", "🌻")
-                    hour in 12..16 -> Triple("🌤️", "afternoon", "⚡")
-                    hour in 17..20 -> Triple("🌅", "evening", "✨")
-                    else -> Triple("🌙", "night", "🌟")
-                }
-            }
-        }
-    }
-
-    ExpressiveCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
-                onSearchClick()
-            },
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
-        ),
-        shape = ExpressiveShapes.ExtraLarge
-    ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(18.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                repeat(3) {
-                    Text(
-                        text = timeBasedTheme.third,
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.alpha(0.12f)
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(bottom = 0.dp)
-                ) {
-                    val infiniteTransition = rememberInfiniteTransition(label = "emoji_pulse")
-                    val emojiScale by infiniteTransition.animateFloat(
-                        initialValue = 1f,
-                        targetValue = 1.1f,
-                        animationSpec = infiniteRepeatable(
-                            animation = tween(2000),
-                            repeatMode = RepeatMode.Reverse
-                        ),
-                        label = "emoji_scale"
-                    )
-
-                    Text(
-                        text = timeBasedTheme.first,
-                        style = MaterialTheme.typography.headlineLarge,
-                        modifier = Modifier
-                            .padding(end = 12.dp)
-                            .graphicsLayer {
-                                scaleX = emojiScale
-                                scaleY = emojiScale
-                            }
-                    )
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = greeting,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-
-                        Text(
-                            text = timeBasedQuote,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
-                            modifier = Modifier.padding(top = 5.dp)
-                        )
-                    }
-
-                    ExpressiveFilledIconButton(
-                        onClick = {
-                            HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
-                            onSearchClick()
-                        },
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        modifier = Modifier.size(46.dp)
-                    ) {
-                        Icon(
-                            imageVector = RhythmIcons.SearchFilled,
-                            contentDescription = context.getString(R.string.cd_search),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-            }
         }
     }
 }
@@ -1347,7 +2015,7 @@ private fun ModernRecentlyPlayedSection(
                 icon = MaterialSymbolIcon("history", filled = true),
                 title = context.getString(R.string.home_no_recent_activity),
                 subtitle = context.getString(R.string.home_no_recent_activity_desc),
-                iconSize = 48.dp
+                iconSize = 32.dp
             )
         }
     }
@@ -1557,184 +2225,359 @@ private fun ModernFeaturedSection(
     showPlayButton: Boolean = true,
     showGradient: Boolean = true,
     widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact,
-    heightSizeClass: WindowHeightSizeClass = WindowHeightSizeClass.Medium
+    heightSizeClass: WindowHeightSizeClass = WindowHeightSizeClass.Medium,
+    onPlayAlbum: ((Album) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
 
-    val configuration = LocalConfiguration.current
-    val screenWidth = configuration.screenWidthDp.dp
-
-    // Perfect fit for any display size
-    val headerHeight = when (heightSizeClass) {
-        WindowHeightSizeClass.Compact -> 280.dp
-        else -> when (widthSizeClass) {
-            WindowWidthSizeClass.Medium -> 500.dp
-            WindowWidthSizeClass.Expanded -> 600.dp
-            else -> screenWidth
-        }
-    }
-
-    val carouselState = rememberCarouselState { albums.size }
+    val screenWidth = windowScreenWidthDp().dp
+    val isTablet = widthSizeClass != WindowWidthSizeClass.Compact
     val coroutineScope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                if (albums.isNotEmpty() && !carouselState.isScrollInProgress) {
-                    coroutineScope.launch {
-                        carouselState.scrollToItem(carouselState.currentItem.coerceIn(0, albums.lastIndex))
+    if (isTablet) {
+        val carouselState = rememberCarouselState { albums.size }
+
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    if (albums.isNotEmpty() && !carouselState.isScrollInProgress) {
+                        coroutineScope.launch {
+                            carouselState.scrollToItem(carouselState.currentItem.coerceIn(0, albums.lastIndex))
+                        }
+                    }
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        }
+
+        LaunchedEffect(albums.size) {
+            if (albums.size > 1) {
+                while (true) {
+                    delay(4500)
+                    if (!carouselState.isScrollInProgress) {
+                        val nextItem = (carouselState.currentItem + 1) % albums.size
+                        carouselState.animateScrollToItem(
+                            nextItem,
+                            animationSpec = tween(durationMillis = 800)
+                        )
                     }
                 }
             }
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
+
+        val carouselHeight = when (heightSizeClass) {
+            WindowHeightSizeClass.Compact -> 240.dp
+            else -> 280.dp
         }
-    }
-
-    // Auto-scroll one album at a time so the active item always snaps correctly.
-    LaunchedEffect(albums.size) {
-        if (albums.size > 1) {
-            if (!carouselState.isScrollInProgress) {
-                carouselState.scrollToItem(carouselState.currentItem.coerceIn(0, albums.lastIndex))
-            }
-            while (true) {
-                delay(4500)
-                if (!carouselState.isScrollInProgress) {
-                    val currentItem = carouselState.currentItem
-                    val nextItem = (currentItem + 1) % albums.size
-                    carouselState.animateScrollToItem(
-                        nextItem,
-                        animationSpec = tween(durationMillis = 900)
-                    )
-                }
-            }
+        val preferredItemWidth = when (widthSizeClass) {
+            WindowWidthSizeClass.Expanded -> 360.dp
+            else -> 280.dp
         }
-    }
+        val horizontalPadding = when (widthSizeClass) {
+            WindowWidthSizeClass.Expanded -> 32.dp
+            else -> 16.dp
+        }
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(headerHeight)
-    ) {
-        HorizontalUncontainedCarousel(
-            state = carouselState,
-            itemWidth = screenWidth,
-            itemSpacing = 0.dp,
-            contentPadding = PaddingValues(0.dp),
-            flingBehavior = CarouselDefaults.singleAdvanceFlingBehavior(state = carouselState),
-            modifier = Modifier.fillMaxSize()
-        ) { page ->
-            val album = albums[page]
-
-            Box(
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 32.dp, bottom = 8.dp)
+        ) {
+            HorizontalMultiBrowseCarousel(
+                state = carouselState,
+                preferredItemWidth = preferredItemWidth,
+                itemSpacing = 16.dp,
+                contentPadding = PaddingValues(horizontal = horizontalPadding),
+                minSmallItemWidth = 48.dp,
+                maxSmallItemWidth = 140.dp,
                 modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RectangleShape)
-                    .clickable {
+                    .fillMaxWidth()
+                    .height(carouselHeight)
+            ) { page ->
+                val album = albums.getOrNull(page) ?: return@HorizontalMultiBrowseCarousel
+                Card(
+                    onClick = {
                         HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                         onAlbumClick(album)
-                    }
-            ) {
-                // Background Artwork
-                                M3ImageUtils.AlbumArt(
-                                    imageUrl = album.artworkUri,
-                                    albumName = album.title,
-                                    modifier = Modifier.fillMaxSize(),
-                                    applyExpressiveShape = false
-                                )
-
-                // Heavy gradient using theme background
-                if (showGradient) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.background, // Blend top edge
-                                        MaterialTheme.colorScheme.background.copy(alpha = 0.6f),
-                                        Color.Transparent,
-                                        Color.Transparent,
-                                        MaterialTheme.colorScheme.background.copy(alpha = 0.6f),
-                                        MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
-                                        MaterialTheme.colorScheme.background // Blend bottom edge
-                                    ),
-                                    startY = 0f,
-                                    endY = Float.POSITIVE_INFINITY
-                                )
-                            )
-                    )
-                }
-
-                // Bottom Content Overlays using theme typography colors
-                Column(
+                    },
                     modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        .padding(24.dp)
+                        .fillMaxSize()
+                        .maskClip(MaterialTheme.shapes.extraLarge),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                    )
                 ) {
-                    if (showAlbumName) {
-                        Text(
-                            text = album.title,
-                            style = MaterialTheme.typography.displaySmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        M3ImageUtils.AlbumArt(
+                            imageUrl = album.artworkUri,
+                            albumName = album.title,
+                            modifier = Modifier.fillMaxSize(),
+                            applyExpressiveShape = false
                         )
-                    }
 
-                    if (showArtistName) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = album.artist,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Row to handle Play Button on the left and Year on the right
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-
-                        if (showPlayButton) {
-                            Button(
-                                onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
-                                    viewModel.playAlbum(album)
-                                },
-                                shape = RoundedCornerShape(percent = 50),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                ),
-                                contentPadding = PaddingValues(horizontal = 32.dp, vertical = 16.dp),
-                                modifier = Modifier.height(56.dp)
-                            ) {
-                                Text(
-                                    text = context.getString(R.string.action_play),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            }
-                        } else {
-                            // Empty spacer to push year to the right if the play button is hidden
-                            Spacer(modifier = Modifier.width(8.dp))
+                        if (showGradient) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(
+                                                Color.Transparent,
+                                                Color.Transparent,
+                                                MaterialTheme.colorScheme.surface.copy(alpha = 0.35f),
+                                                MaterialTheme.colorScheme.surface.copy(alpha = 0.75f),
+                                                MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                                            ),
+                                            startY = 0f,
+                                            endY = Float.POSITIVE_INFINITY
+                                        )
+                                    )
+                            )
                         }
 
-                            // Display Year and audio quality icon on the bottom right
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
+                            if (showAlbumName) {
+                                Text(
+                                    text = album.title,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            if (showArtistName) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = album.artist,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (showPlayButton) {
+                                    Button(
+                                        onClick = {
+                                            HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
+                                            if (onPlayAlbum != null) onPlayAlbum(album) else viewModel.playAlbum(album)
+                                        },
+                                        shape = RoundedCornerShape(percent = 50),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
+                                        modifier = Modifier.height(44.dp)
+                                    ) {
+                                        Text(
+                                            text = context.getString(R.string.action_play),
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                } else {
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    if (showYear && album.year > 0) {
+                                        Text(
+                                            text = album.year.toString(),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                                            modifier = Modifier.padding(end = 4.dp)
+                                        )
+                                    }
+                                    album.songs.firstOrNull()?.let { firstSong ->
+                                        AudioQualityIcon(song = firstSong)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        val carouselState = rememberCarouselState { albums.size }
+
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    if (albums.isNotEmpty() && !carouselState.isScrollInProgress) {
+                        coroutineScope.launch {
+                            carouselState.scrollToItem(carouselState.currentItem.coerceIn(0, albums.lastIndex))
+                        }
+                    }
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        }
+
+        LaunchedEffect(albums.size) {
+            if (albums.size > 1) {
+                if (!carouselState.isScrollInProgress) {
+                    carouselState.scrollToItem(carouselState.currentItem.coerceIn(0, albums.lastIndex))
+                }
+                while (true) {
+                    delay(4500)
+                    if (!carouselState.isScrollInProgress) {
+                        val currentItem = carouselState.currentItem
+                        val nextItem = (currentItem + 1) % albums.size
+                        carouselState.animateScrollToItem(
+                            nextItem,
+                            animationSpec = tween(durationMillis = 900)
+                        )
+                    }
+                }
+            }
+        }
+        val headerHeight = when (heightSizeClass) {
+            WindowHeightSizeClass.Compact -> 280.dp
+            else -> screenWidth
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(headerHeight)
+        ) {
+            HorizontalUncontainedCarousel(
+                state = carouselState,
+                itemWidth = screenWidth,
+                itemSpacing = 0.dp,
+                contentPadding = PaddingValues(0.dp),
+                flingBehavior = CarouselDefaults.singleAdvanceFlingBehavior(state = carouselState),
+                modifier = Modifier.fillMaxSize()
+            ) { page ->
+                val album = albums.getOrNull(page) ?: return@HorizontalUncontainedCarousel
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RectangleShape)
+                        .clickable {
+                            HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                            onAlbumClick(album)
+                        }
+                ) {
+                    M3ImageUtils.AlbumArt(
+                        imageUrl = album.artworkUri,
+                        albumName = album.title,
+                        modifier = Modifier.fillMaxSize(),
+                        applyExpressiveShape = false
+                    )
+
+                    if (showGradient) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            MaterialTheme.colorScheme.background,
+                                            MaterialTheme.colorScheme.background.copy(alpha = 0.6f),
+                                            Color.Transparent,
+                                            Color.Transparent,
+                                            MaterialTheme.colorScheme.background.copy(alpha = 0.6f),
+                                            MaterialTheme.colorScheme.background.copy(alpha = 0.95f),
+                                            MaterialTheme.colorScheme.background
+                                        ),
+                                        startY = 0f,
+                                        endY = Float.POSITIVE_INFINITY
+                                    )
+                                )
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .fillMaxWidth()
+                            .padding(24.dp)
+                    ) {
+                        if (showAlbumName) {
+                            Text(
+                                text = album.title,
+                                style = MaterialTheme.typography.displaySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        if (showArtistName) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = album.artist,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (showPlayButton) {
+                                Button(
+                                    onClick = {
+                                        HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
+                                        if (onPlayAlbum != null) onPlayAlbum(album) else viewModel.playAlbum(album)
+                                    },
+                                    shape = RoundedCornerShape(percent = 50),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    ),
+                                    contentPadding = PaddingValues(horizontal = 32.dp, vertical = 16.dp),
+                                    modifier = Modifier.height(56.dp)
+                                ) {
+                                    Text(
+                                        text = context.getString(R.string.action_play),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+                            } else {
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1752,6 +2595,7 @@ private fun ModernFeaturedSection(
                                     AudioQualityIcon(song = firstSong)
                                 }
                             }
+                        }
                     }
                 }
             }
@@ -1780,55 +2624,24 @@ private fun ModernArtistsSection(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        val isTablet = widthSizeClass != WindowWidthSizeClass.Compact
-        if (isTablet) {
-            val gridColumns = when (widthSizeClass) {
-                WindowWidthSizeClass.Medium -> 4
-                WindowWidthSizeClass.Expanded -> 6
-                else -> 3
-            }
-            val gridState = rememberLazyGridState()
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(gridColumns),
-                state = gridState,
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-                modifier = Modifier.height(320.dp)
-            ) {
-                items(
-                    items = artists,
-                    key = { "artist_${it.id}" },
-                    contentType = { "artist" }
-                ) { artist ->
-                    ModernArtistCard(
-                        artist = artist,
-                        songs = songs,
-                        onClick = { onArtistClick(artist) },
-                        widthSizeClass = widthSizeClass,
-                        heightSizeClass = heightSizeClass
-                    )
-                }
-            }
-        } else {
-            val artistsListState = rememberLazyListState()
-            LazyRow(
-                state = artistsListState,
-                contentPadding = PaddingValues(horizontal = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(
-                    items = artists,
-                    key = { "artist_${it.id}" },
-                    contentType = { "artist" }
-                ) { artist ->
-                    ModernArtistCard(
-                        artist = artist,
-                        songs = songs,
-                        onClick = { onArtistClick(artist) },
-                        widthSizeClass = widthSizeClass,
-                        heightSizeClass = heightSizeClass
-                    )
-                }
+        val artistsListState = rememberLazyListState()
+        LazyRow(
+            state = artistsListState,
+            contentPadding = PaddingValues(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            items(
+                items = artists,
+                key = { "artist_${it.id}" },
+                contentType = { "artist" }
+            ) { artist ->
+                ModernArtistCard(
+                    artist = artist,
+                    songs = songs,
+                    onClick = { onArtistClick(artist) },
+                    widthSizeClass = widthSizeClass,
+                    heightSizeClass = heightSizeClass
+                )
             }
         }
     }
@@ -1840,11 +2653,13 @@ private fun ModernArtistCard(
     songs: List<Song>,
     onClick: () -> Unit,
     widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact,
-    heightSizeClass: WindowHeightSizeClass = WindowHeightSizeClass.Medium
+    heightSizeClass: WindowHeightSizeClass = WindowHeightSizeClass.Medium,
+    onPlayClick: ((Artist) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     val haptic = LocalHapticFeedback.current
+    val handleArtistPlayClick = onPlayClick ?: { artistToPlay -> viewModel.playArtist(artistToPlay) }
 
     val cardSize = when (widthSizeClass) {
         WindowWidthSizeClass.Compact -> when (heightSizeClass) {
@@ -1862,22 +2677,12 @@ private fun ModernArtistCard(
         else -> 120.dp
     }
 
-    val isTablet = widthSizeClass != WindowWidthSizeClass.Compact
-    val columnModifier = if (isTablet) {
-        Modifier
-            .fillMaxWidth()
-            .clickable {
-                HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
-                onClick()
-            }
-    } else {
-        Modifier
-            .width(cardSize)
-            .clickable {
-                HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
-                onClick()
-            }
-    }
+    val columnModifier = Modifier
+        .width(cardSize)
+        .clickable {
+            HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+            onClick()
+        }
 
     Column(
         modifier = columnModifier,
@@ -1893,7 +2698,7 @@ private fun ModernArtistCard(
             ExpressiveFilledIconButton(
                 onClick = {
                     HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
-                    viewModel.playArtist(artist)
+                    handleArtistPlayClick(artist)
                     onClick()
                 },
                 colors = IconButtonDefaults.filledIconButtonColors(
@@ -1934,11 +2739,13 @@ private fun ModernAlbumCard(
     album: Album,
     onClick: (Album) -> Unit,
     widthSizeClass: WindowWidthSizeClass = WindowWidthSizeClass.Compact,
-    heightSizeClass: WindowHeightSizeClass = WindowHeightSizeClass.Medium
+    heightSizeClass: WindowHeightSizeClass = WindowHeightSizeClass.Medium,
+    onPlayClick: ((Album) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val viewModel = viewModel<chromahub.rhythm.app.viewmodel.MusicViewModel>()
     val haptic = LocalHapticFeedback.current
+    val handlePlayClick = onPlayClick ?: { albumToPlay -> viewModel.playAlbum(albumToPlay) }
 
     val (cardWidth, cardHeight) = when (widthSizeClass) {
         WindowWidthSizeClass.Compact -> when (heightSizeClass) {
@@ -2002,7 +2809,7 @@ private fun ModernAlbumCard(
                     ExpressiveFilledIconButton(
                         onClick = {
                             HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
-                            viewModel.playAlbum(album)
+                            handlePlayClick(album)
                         },
                         modifier = Modifier.size(
                             when (widthSizeClass) {
@@ -2082,76 +2889,6 @@ private fun ModernAlbumCard(
                         WindowWidthSizeClass.Expanded -> MaterialTheme.typography.bodyMedium
                         else -> MaterialTheme.typography.bodySmall
                     },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ModernSongCard(
-    song: Song,
-    onClick: () -> Unit
-) {
-    val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
-
-    ExpressiveCard(
-        onClick = {
-            HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
-            onClick()
-        },
-        modifier = Modifier
-            .width(190.dp)
-            .height(270.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        ),
-        shape = ExpressiveShapes.SquircleLarge
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Surface(
-                shape = ExpressiveShapes.SquircleMedium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                color = MaterialTheme.colorScheme.surfaceVariant
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    M3ImageUtils.TrackImage(
-                        imageUrl = song.artworkUri,
-                        trackName = song.title,
-                        modifier = Modifier.fillMaxSize(),
-                        applyExpressiveShape = true
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier.height(60.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = song.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    lineHeight = 16.sp
-                )
-
-                Text(
-                    text = song.artist,
-                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -2317,6 +3054,10 @@ private fun ModernRecommendedSection(
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
+    val appSettings = remember { AppSettings.getInstance(context) }
+    val artistSeparatorEnabled by appSettings.artistSeparatorEnabled.collectAsState()
+    val artistSeparatorDelimiters by appSettings.artistSeparatorDelimiters.collectAsState()
+    val effectiveDelimiters = artistSeparatorDelimiters.ifBlank { AppSettings.DEFAULT_ARTIST_SEPARATOR_DELIMITERS }
 
     Column(
         modifier = Modifier.fillMaxWidth()
@@ -2330,12 +3071,24 @@ private fun ModernRecommendedSection(
 
         if (recommendedSongs.isNotEmpty()) {
             val firstSong = recommendedSongs.firstOrNull()
-            val artistName = firstSong?.artist ?: "Unknown Artist"
+            val rawArtist = firstSong?.artist ?: "Unknown Artist"
 
-            val recommendedArtist = remember(artistName, artists) {
-                artists.find { it.name.equals(artistName, ignoreCase = true) }
+            val splitNames = remember(rawArtist, effectiveDelimiters, artistSeparatorEnabled) {
+                ArtistSeparator.splitArtistNames(
+                    artistName = rawArtist,
+                    delimiters = effectiveDelimiters,
+                    enabled = artistSeparatorEnabled
+                )
+            }
+            val primaryArtistName = splitNames.firstOrNull() ?: rawArtist
+
+            val recommendedArtist = remember(splitNames, primaryArtistName, artists) {
+                artists.find { artist ->
+                    splitNames.any { splitName -> artist.name.equals(splitName, ignoreCase = true) }
+                } ?: artists.find { it.name.equals(primaryArtistName, ignoreCase = true) }
             }
 
+            val artistName = recommendedArtist?.name ?: primaryArtistName
             val artistArtworkUri = recommendedArtist?.artworkUri ?: firstSong?.artworkUri
             val cardBgColor = MaterialTheme.colorScheme.surfaceContainerHigh
             val onCardBgColor = MaterialTheme.colorScheme.onSurface
@@ -2375,8 +3128,8 @@ private fun ModernRecommendedSection(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .padding(top = 20.dp, bottom = 40.dp)
-                            .fillMaxWidth(0.55f)
                             .fillMaxHeight(0.72f)
+                            .aspectRatio(1f)
                     ) {
                         M3ImageUtils.ArtistImage(
                             imageUrl = artistArtworkUri,
@@ -2446,7 +3199,7 @@ private fun ModernRecommendedSection(
                 icon = MaterialSymbolIcon("tips_and_updates", filled = true),
                 title = context.getString(R.string.home_no_recommendations),
                 subtitle = context.getString(R.string.home_no_recommendations_desc),
-                iconSize = 48.dp
+                iconSize = 32.dp
             )
         }
     }
@@ -2585,29 +3338,29 @@ private fun ModernEmptyState(
     icon: MaterialSymbolIcon,
     title: String,
     subtitle: String,
-    iconSize: Dp = 64.dp
+    iconSize: Dp = 32.dp
 ) {
+    val cookieShape = rememberExpressiveShape(ExpressiveMaterialShape.COOKIE_12)
     ExpressiveCard(
         modifier = Modifier
             .fillMaxWidth()
-            .height(220.dp)
             .padding(horizontal = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
         shape = ExpressiveShapes.SquircleLarge
     ) {
-        Column(
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Surface(
-                shape = ExpressiveShapes.SquircleMedium,
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                modifier = Modifier.size(iconSize + 24.dp)
+                shape = cookieShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(iconSize + 16.dp)
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -2616,29 +3369,30 @@ private fun ModernEmptyState(
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         modifier = Modifier.size(iconSize)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
 
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+                Spacer(modifier = Modifier.height(4.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }

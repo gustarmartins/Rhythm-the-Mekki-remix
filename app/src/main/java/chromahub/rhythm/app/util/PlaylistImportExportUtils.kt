@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.util
 
 import android.content.Context
@@ -616,7 +621,8 @@ object PlaylistImportExportUtils {
             val commonPrefixes = listOf(
                 "/storage/emulated/0",
                 "/storage/sdcard0",
-                "/sdcard",
+                // /sdcard is a legacy symlink to the primary external storage dir
+                // (resolved below via Environment), so it is not listed explicitly
                 android.os.Environment.getExternalStorageDirectory().absolutePath
             )
             

@@ -16,8 +16,7 @@ Internal API reference for developers working with Rhythm's codebase. This cover
 | `chromahub.rhythm.app.features.local` | Local playback feature |
 | `chromahub.rhythm.app.features.streaming` | Streaming playback feature |
 | `chromahub.rhythm.app.shared` | Shared utilities, themes, navigation |
-| `chromahub.rhythm.app.infrastructure` | Player service, widgets, workers, network |
-| `chromahub.rhythm.app.network` | Retrofit API client configuration |
+| `chromahub.rhythm.app.infrastructure` | Player engine, audio processors, service, widgets, workers, network |
 
 ---
 
@@ -27,7 +26,7 @@ Internal API reference for developers working with Rhythm's codebase. This cover
 
 **File:** `infrastructure/service/player/RhythmPlayerEngine.kt`
 
-The core playback engine using Media3 ExoPlayer with a custom `DefaultRenderersFactory` that enables the FFmpeg decoder extension:
+The core playback engine using Media3 ExoPlayer with a custom `DefaultRenderersFactory` that enables the FFmpeg decoder extension and chains the app's audio processors (Replay Gain, Bass Boost, Virtualizer, Mono downmix):
 
 ```kotlin
 val renderersFactory = object : DefaultRenderersFactory(context) {
@@ -46,11 +45,12 @@ val renderersFactory = object : DefaultRenderersFactory(context) {
 }
 ```
 
-**Service:** `infrastructure/service/player/MediaPlaybackService.kt` extends `MediaLibraryService` and manages:
+**Service:** `infrastructure/service/MediaPlaybackService.kt` extends `MediaLibraryService` and manages:
 - `MediaLibrarySession` for external control
 - `Player` instance via `RhythmPlayerEngine`
 - Media notification with playback controls
 - Audio focus handling
+- Mono audio downmix state (`RhythmMonoAudioProcessor`) toggled via the device configuration sheet
 
 ---
 
@@ -163,17 +163,23 @@ All flags are `true` for both `fdroid` and `github` flavors:
 | `ENABLE_LYRICALLY_API` | Lyricall API for lyrics |
 | `ENABLE_DEEZER` | Deezer artwork search |
 | `ENABLE_LRCLIB` | LRCLib synchronized lyrics |
+| `ENABLE_BETTERLYRICS` | BetterLyrics multi-source lyrics fallback |
+| `ENABLE_WIKIPEDIA` | Wikipedia artist bio lookup |
+| `FLAVOR` | Distribution channel (`fdroid` / `github`) |
+| `IS_NIGHTLY` | Nightly vs stable channel |
+| `APPLE_MUSIC_FALLBACK_TOKEN` | Apple Music artwork token (env/`local.properties`) |
 
 ### Dependency Versions
 
 | Dependency | Version |
 |:---|:---|
-| AGP | `9.2.1` |
-| Kotlin | `2.4.0` |
-| Compose BOM | `2026.06.00` |
-| Material3 | `1.5.0-alpha22` |
-| Media3 | `1.10.1` |
-| FFmpeg Decoder | `1.9.0+1` (JellyFin fork) |
+| AGP | `9.3.1` |
+| Kotlin | `2.4.10` |
+| Compose BOM | `2026.06.01` |
+| Material3 | `1.5.0-alpha25` |
+| Media3 | `1.11.0` |
+| FFmpeg Decoder | `1.9.0+1` (Jellyfin fork) |
+| Gradle | `9.6.1` |
 
 ---
 

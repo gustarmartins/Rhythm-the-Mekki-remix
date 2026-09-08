@@ -24,7 +24,7 @@ body:
       label: Steps to Reproduce
       description: Explain the steps required to trigger the bug.
       placeholder: |
-        1. Open Settings -> Lyrics and enable ...
+        1. Open Settings -> Audio & Effects -> Lyrics and enable ...
         2. Go to the Player Screen
         3. Play a local track with format ...
         4. See error/unexpected behavior
@@ -49,7 +49,8 @@ body:
       description: Which area of the app is affected by this bug?
       options:
         - Local Playback (Engine)
-        - Online Streaming (YouTube Music / Apple Music fallbacks)
+        - Go Mode Streaming (Subsonic / Navidrome / Jellyfin)
+        - Online Integrations & Fallbacks (Better Lyrics / Deezer / Lyrically / YouTube Music)
         - Lyrics (Synced, Word-by-Word, Translations)
         - Audio Effects (Replay Gain / Equalizer / Speed & Pitch)
         - User Interface & Themes (Aesthetics)
@@ -73,7 +74,11 @@ body:
         - MP3
         - M4A (AAC / ALAC)
         - OGG (Vorbis / Opus)
+        - OPUS / OPA
+        - MKA (Matroska audio)
+        - MP4 / MKV (video containers)
         - WAV
+        - WMA / AAC / APE
         - Other (e.g. TAK, TTA, AIFF)
 
   - type: dropdown
@@ -87,6 +92,7 @@ body:
         - Embedded Tags (metadata)
         - Online API (LrcLib)
         - Online API (Lyrically)
+        - Online API (BetterLyrics)
         - Plain Text Lyrics
 
   - type: checkboxes
@@ -97,20 +103,19 @@ body:
       options:
         - label: Auto Word Sync (Formatting and Behaviors)
         - label: Bluetooth Lyrics (Broadcaster / AVRCP)
-        - label: Permanent Shuffle Mode
-        - label: Queue Persistence
-        - label: Lossless Artwork extraction
+        - label: Persist Shuffle Mode
+        - label: Persist Queue
+        - label: Lossless Artwork
         - label: Replay Gain enabled
         - label: Auto EQ enabled
         - label: Pitch or Speed modification active
         - label: Custom Artist Separators enabled
-        - label: Last.fm / Scrobbling active
 
   - type: input
     id: app_version
     attributes:
       label: App Version
-      placeholder: "e.g., 5.3.429.1123 Beta (look in Settings -> About)"
+      placeholder: "e.g., 5.4.456.1196 Beta (look in Settings -> Updates & Info -> About)"
     validations:
       required: true
 

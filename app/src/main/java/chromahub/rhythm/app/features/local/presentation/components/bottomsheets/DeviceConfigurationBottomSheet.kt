@@ -1,6 +1,16 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class)
 
 package chromahub.rhythm.app.shared.presentation.components.bottomsheets
+
+import androidx.compose.foundation.lazy.rememberLazyListState
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
@@ -9,6 +19,7 @@ import chromahub.rhythm.app.shared.presentation.components.common.RhythmGroupedB
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonWeighted
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonSize
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonType
+import chromahub.rhythm.app.shared.presentation.screens.settings.TunerAnimatedSwitch
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -104,6 +115,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import chromahub.rhythm.app.R
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.core.net.toUri
 
 @Composable
 fun DeviceConfigurationBottomSheet(
@@ -113,32 +126,6 @@ fun DeviceConfigurationBottomSheet(
     val bottomSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
-    
-    // Animation state
-    var showContent by remember { mutableStateOf(false) }
-    
-    val contentAlpha by animateFloatAsState(
-        targetValue = if (showContent) 1f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "contentAlpha"
-    )
-    
-    val contentTranslation by animateFloatAsState(
-        targetValue = if (showContent) 0f else 30f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "contentTranslation"
-    )
-    
-    LaunchedEffect(Unit) {
-        delay(100)
-        showContent = true
-    }
     
     // States
     val userDevicesJson by musicViewModel.appSettings.userAudioDevices.collectAsState()
@@ -185,7 +172,8 @@ fun DeviceConfigurationBottomSheet(
         }
     }
     
-    ModalBottomSheet(
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
         onDismissRequest = onDismiss,
         sheetState = bottomSheetState,
@@ -194,49 +182,21 @@ fun DeviceConfigurationBottomSheet(
                 color = MaterialTheme.colorScheme.primary
             )
         },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer
     ) {
+        StandardBottomSheetHeader(
+            title = stringResource(R.string.autoeq_manage),
+            subtitle = pluralStringResource(R.plurals.device_configuration_devices_configured, userDevices.size, userDevices.size),
+            visible = true
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 24.dp)
-                .graphicsLayer(alpha = contentAlpha)
         ) {
-            // Header - Placeholder Screen Style
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 0.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(
-                        text = stringResource(R.string.autoeq_manage),
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 6.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                shape = CircleShape
-                            )
-                    ) {
-                        Text(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            text = stringResource(R.string.device_configuration_devices_configured, userDevices.size),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
             
             Column {
                 // Description text
@@ -391,33 +351,43 @@ fun DeviceConfigurationBottomSheet(
                         }
                     }
                 } else {
-                    LazyColumn(
-                        contentPadding = PaddingValues(vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(userDevices, key = { it.id }) { device ->
-                            DeviceCard(
-                                device = device,
-                                isActive = device.autoEQProfileName == currentAutoEQProfile && currentAutoEQProfile.isNotEmpty(),
-                                onSelect = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                    musicViewModel.setActiveAudioDevice(device)
-                                },
-                                onEdit = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                    deviceToEdit = device
-                                    showAddDeviceDialog = true
-                                },
-                                onDelete = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                    showDeleteConfirmDialog = device
-                                },
-                                onConfigureAutoEQ = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                    deviceForAutoEQ = device
-                                    showAutoEQSelector = true
-                                }
-                            )
+                    val deviceListState = rememberLazyListState()
+
+                    AdaptiveSheetScrollContainer(
+                        lazyListState = deviceListState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                    ) { endPadding ->
+                        LazyColumn(
+                            state = deviceListState,
+                            contentPadding = PaddingValues(end = endPadding, top = 8.dp, bottom = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(userDevices, key = { it.id }) { device ->
+                                DeviceCard(
+                                    device = device,
+                                    isActive = device.autoEQProfileName == currentAutoEQProfile && currentAutoEQProfile.isNotEmpty(),
+                                    onSelect = {
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                                        musicViewModel.setActiveAudioDevice(device)
+                                    },
+                                    onEdit = {
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                        deviceToEdit = device
+                                        showAddDeviceDialog = true
+                                    },
+                                    onDelete = {
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                                        showDeleteConfirmDialog = device
+                                    },
+                                    onConfigureAutoEQ = {
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                        deviceForAutoEQ = device
+                                        showAutoEQSelector = true
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -603,7 +573,7 @@ fun DeviceConfigurationBottomSheet(
                     
                     FilledTonalButton(
                         onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://autoeq.app"))
+                            val intent = Intent(Intent.ACTION_VIEW, ("https://autoeq.app").toUri())
                             context.startActivity(intent)
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -763,7 +733,7 @@ fun DeviceConfigurationBottomSheet(
                         ) {
                             FilledTonalButton(
                                 onClick = {
-                                    clipboardManager.setPrimaryClip(ClipData.newPlainText("exported text", exportText))
+                                    clipboardManager.setPrimaryClip(ClipData.newPlainText(context.getString(R.string.deviceconfiguration_clip_label), exportText))
                                     Toast.makeText(context, R.string.deviceconfigurationbottomsheet_copied_to_clipboard, Toast.LENGTH_SHORT).show()
                                 },
                                 modifier = Modifier.weight(1f),
@@ -828,14 +798,14 @@ private fun DeviceCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = if (isActive)
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
             else
                 MaterialTheme.colorScheme.surfaceContainerHighest
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (isActive) 0.dp else 0.dp
         ),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(24.dp),
 //        border = if (isActive) {
 //            androidx.compose.foundation.BorderStroke(
 //                1.dp,
@@ -886,7 +856,7 @@ private fun DeviceCard(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = if (isActive)
-                            MaterialTheme.colorScheme.onPrimaryContainer
+                            MaterialTheme.colorScheme.primaryContainer
                         else
                             MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
@@ -919,6 +889,19 @@ private fun DeviceCard(
                                     .rhythmMarquee()
                             )
                         }
+                        if (device.monoAudioEnabled) {
+                            Text(
+                                text = "•",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_mono_audio),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
                 
@@ -933,8 +916,8 @@ private fun DeviceCard(
                     ) {
                         Icon(
                             imageVector = RhythmIcons.Check,
-                            contentDescription = stringResource(R.string.bottomsheet_active_device),
-                            tint = MaterialTheme.colorScheme.onPrimary,
+                        contentDescription = stringResource(R.string.bottomsheet_active_device),
+                        tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -1026,6 +1009,7 @@ private fun AddEditDeviceDialog(
     var deviceName by remember { mutableStateOf(existingDevice?.name ?: "") }
     var deviceBrand by remember { mutableStateOf(existingDevice?.brand ?: "") }
     var selectedType by remember { mutableStateOf(existingDevice?.type ?: UserAudioDevice.DeviceType.HEADPHONES) }
+    var monoAudioEnabled by remember { mutableStateOf(existingDevice?.monoAudioEnabled ?: false) }
     
     val isEditing = existingDevice != null
     
@@ -1106,6 +1090,34 @@ private fun AddEditDeviceDialog(
                         )
                     }
                 }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.device_mono_audio_title),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = stringResource(R.string.device_mono_audio_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TunerAnimatedSwitch(
+                        checked = monoAudioEnabled,
+                        onCheckedChange = { monoAudioEnabled = it }
+                    )
+                }
             }
         },
         confirmButton = {
@@ -1116,13 +1128,15 @@ private fun AddEditDeviceDialog(
                             existingDevice.copy(
                                 name = deviceName,
                                 brand = deviceBrand,
-                                type = selectedType
+                                type = selectedType,
+                                monoAudioEnabled = monoAudioEnabled
                             )
                         } else {
                             UserAudioDevice(
                                 name = deviceName,
                                 brand = deviceBrand,
-                                type = selectedType
+                                type = selectedType,
+                                monoAudioEnabled = monoAudioEnabled
                             )
                         }
                         onSave(device)
@@ -1266,89 +1280,13 @@ private fun DeviceAutoEQSelector(
                     singleLine = true
                 )
                 
-                // Filter Chips
-//                if (brands.isNotEmpty() || types.isNotEmpty()) {
-//                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-//                        if (brands.isNotEmpty()) {
-//                            Text(
-//                                text = "Brand",
-//                                style = MaterialTheme.typography.labelSmall,
-//                                color = MaterialTheme.colorScheme.onSurfaceVariant
-//                            )
-//                            LazyRow(
-//                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-//                                modifier = Modifier.fillMaxWidth()
-//                            ) {
-//                                item {
-//                                    FilterChip(
-//                                        selected = selectedBrand == null,
-//                                        onClick = { selectedBrand = null },
-//                                        label = { Text("All") },
-//                                        colors = FilterChipDefaults.filterChipColors(
-//                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-//                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-//                                        )
-//                                    )
-//                                }
-//                                items(brands) { brand ->
-//                                    FilterChip(
-//                                        selected = selectedBrand == brand,
-//                                        onClick = { selectedBrand = brand },
-//                                        label = { Text(brand) },
-//                                        colors = FilterChipDefaults.filterChipColors(
-//                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-//                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-//                                        )
-//                                    )
-//                                }
-//                            }
-//                        }
-//
-//                        if (types.isNotEmpty()) {
-//                            Text(
-//                                text = "Type",
-//                                style = MaterialTheme.typography.labelSmall,
-//                                color = MaterialTheme.colorScheme.onSurfaceVariant
-//                            )
-//                            LazyRow(
-//                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-//                                modifier = Modifier.fillMaxWidth()
-//                            ) {
-//                                item {
-//                                    FilterChip(
-//                                        selected = selectedType == null,
-//                                        onClick = { selectedType = null },
-//                                        label = { Text("All") },
-//                                        colors = FilterChipDefaults.filterChipColors(
-//                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-//                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-//                                        )
-//                                    )
-//                                }
-//                                items(types) { type ->
-//                                    FilterChip(
-//                                        selected = selectedType == type,
-//                                        onClick = { selectedType = type },
-//                                        label = { Text(type) },
-//                                        colors = FilterChipDefaults.filterChipColors(
-//                                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-//                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-//                                        )
-//                                    )
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-                
-                // Results Count
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = stringResource(R.string.device_configuration_profiles_available, filteredProfiles.size),
+                        text = pluralStringResource(R.plurals.device_configuration_profiles_available, filteredProfiles.size, filteredProfiles.size),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
@@ -1440,17 +1378,17 @@ private fun EQProfileCard(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp)),
+            .clip(RoundedCornerShape(20.dp)),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected)
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
             else
                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (isSelected) 0.dp else 0.dp
         ),
-        shape = RoundedCornerShape(14.dp)
+        shape = RoundedCornerShape(20.dp)
     ) {
         Row(
             modifier = Modifier
@@ -1464,27 +1402,15 @@ private fun EQProfileCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f)
             ) {
-                // Icon
-                Surface(
-                    shape = CircleShape,
-                    color = if (isSelected)
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                Icon(
+                    imageVector = MaterialSymbolIcon("headset_mic", filled = true),
+                    contentDescription = null,
+                    tint = if (isSelected)
+                        MaterialTheme.colorScheme.primaryContainer
                     else
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = MaterialSymbolIcon("headset_mic", filled = true),
-                            contentDescription = null,
-                            tint = if (isSelected)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
+                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(if (isSelected) 30.dp else 26.dp)
+                )
                 
                 // Info
                 Column(modifier = Modifier.weight(1f)) {
@@ -1493,7 +1419,7 @@ private fun EQProfileCard(
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                         color = if (isSelected)
-                            MaterialTheme.colorScheme.onPrimaryContainer
+                            MaterialTheme.colorScheme.primaryContainer
                         else
                             MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
@@ -1509,7 +1435,7 @@ private fun EQProfileCard(
                                 text = profile.brand,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (isSelected)
-                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                                 else
                                     MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1526,7 +1452,7 @@ private fun EQProfileCard(
                                 text = profile.type,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (isSelected)
-                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                                 else
                                     MaterialTheme.colorScheme.onSurfaceVariant
                             )

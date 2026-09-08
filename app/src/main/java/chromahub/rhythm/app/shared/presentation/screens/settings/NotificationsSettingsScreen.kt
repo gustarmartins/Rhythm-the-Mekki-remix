@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
@@ -26,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,6 +69,8 @@ fun NotificationsSettingsScreen(onBackClick: () -> Unit) {
     val rhythmGuardTimerNotificationsEnabled by appSettings.rhythmGuardTimerNotificationsEnabled.collectAsState()
     val rhythmPulseNotificationsEnabled by appSettings.rhythmPulseNotificationsEnabled.collectAsState()
     val rhythmPulseNotificationIntervalHours by appSettings.rhythmPulseNotificationIntervalHours.collectAsState()
+    val broadcastStatusEnabled by appSettings.broadcastStatusEnabled.collectAsState()
+    val bluetoothLyricsEnabled by appSettings.bluetoothLyricsEnabled.collectAsState()
 
     var showPulseIntervalDialog by remember { mutableStateOf(false) }
 
@@ -86,18 +94,12 @@ fun NotificationsSettingsScreen(onBackClick: () -> Unit) {
         24 -> context.getString(R.string.settings_interval_once_a_day)
         48 -> context.getString(R.string.settings_interval_every_48_hours)
         72 -> context.getString(R.string.settings_interval_every_72_hours)
-        else -> context.getString(R.string.settings_check_interval_value, rhythmPulseNotificationIntervalHours)
+        else -> pluralStringResource(R.plurals.settings_check_interval_value, rhythmPulseNotificationIntervalHours, rhythmPulseNotificationIntervalHours)
     }
 
     fun openSystemNotificationSettings() {
-        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-            }
-        } else {
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", context.packageName, null)
-            }
+        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
         }
         context.startActivity(intent)
     }
@@ -121,24 +123,24 @@ fun NotificationsSettingsScreen(onBackClick: () -> Unit) {
                 )
             ),
             SettingGroup(
-                title = "Sleep Timer",
+                title = stringResource(R.string.sleep_timer),
                 items = listOf(
                     SettingItem(
                         RhythmIcons.AccessTime,
-                        "Sleep Timer Status",
-                        "Show notification countdown and controls when sleep timer is active",
+                        stringResource(R.string.notifications_sleep_timer_status),
+                        stringResource(R.string.notifications_sleep_timer_status_desc),
                         toggleState = sleepTimerNotificationsEnabled,
                         onToggleChange = { appSettings.setSleepTimerNotificationsEnabled(it) }
                     )
                 )
             ),
             SettingGroup(
-                title = "Cloud & Streaming",
+                title = stringResource(R.string.notifications_cloud_streaming),
                 items = listOf(
                     SettingItem(
                         MaterialSymbolIcon("cloud"),
-                        "Cloud Sync Alerts",
-                        "Show notifications for streaming service connection and sync progress",
+                        stringResource(R.string.notifications_cloud_sync_alerts),
+                        stringResource(R.string.notifications_cloud_sync_alerts_desc),
                         toggleState = streamingNotificationsEnabled,
                         onToggleChange = { appSettings.setStreamingNotificationsEnabled(it) }
                     )
@@ -200,6 +202,25 @@ fun NotificationsSettingsScreen(onBackClick: () -> Unit) {
             SettingGroup(
                 title = stringResource(R.string.settings_notifications_system_group),
                 items = listOf(
+                    SettingItem(
+                        icon = MaterialSymbolIcon("wifi"),
+                        title = stringResource(R.string.broadcast_status_enabled),
+                        description = stringResource(R.string.broadcast_status_desc),
+                        toggleState = broadcastStatusEnabled,
+                        onToggleChange = { appSettings.setBroadcastStatusEnabled(it) }
+                    ),
+                    SettingItem(
+                        icon = MaterialSymbolIcon("lyrics"),
+                        title = stringResource(R.string.bluetooth_lyrics_enabled),
+                        description = stringResource(R.string.bluetooth_lyrics_desc),
+                        toggleState = bluetoothLyricsEnabled,
+                        onToggleChange = {
+                            appSettings.setBluetoothLyricsEnabled(it)
+                            if (it && !broadcastStatusEnabled) {
+                                appSettings.setBroadcastStatusEnabled(true)
+                            }
+                        }
+                    ),
                     SettingItem(
                         RhythmIcons.Settings,
                         stringResource(R.string.settings_system_notification_channels),

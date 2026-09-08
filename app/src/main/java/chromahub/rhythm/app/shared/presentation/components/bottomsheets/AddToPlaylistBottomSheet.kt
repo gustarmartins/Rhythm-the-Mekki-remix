@@ -1,4 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.bottomsheets
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
@@ -28,6 +34,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetDefaults
@@ -76,6 +83,7 @@ import chromahub.rhythm.app.shared.presentation.components.common.rememberExpres
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 
 private fun groupedPlaylistItemShape(index: Int, totalCount: Int): RoundedCornerShape {
@@ -96,39 +104,20 @@ fun AddToPlaylistBottomSheet(
     onDismissRequest: () -> Unit,
     onAddToPlaylist: (Playlist) -> Unit,
     onCreateNewPlaylist: () -> Unit,
-    sheetState: androidx.compose.material3.SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
+    sheetState: androidx.compose.material3.SheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
+    )
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     
-    // Animation states
-    var showContent by remember { mutableStateOf(false) }
-    
-    val contentAlpha by animateFloatAsState(
-        targetValue = if (showContent) 1f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "contentAlpha"
-    )
-    
-    val contentTranslation by animateFloatAsState(
-        targetValue = if (showContent) 0f else 50f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "contentTranslation"
-    )
+    val playlistListState = rememberLazyListState()
 
-    LaunchedEffect(Unit) {
-        delay(100)
-        showContent = true
-    }
-
-    ModalBottomSheet(
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
+        lazyListState = playlistListState,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
@@ -137,6 +126,7 @@ fun AddToPlaylistBottomSheet(
                 color = MaterialTheme.colorScheme.primary
             )
         },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onBackground,
         tonalElevation = 0.dp
@@ -147,70 +137,62 @@ fun AddToPlaylistBottomSheet(
                 .padding(bottom = 24.dp)
         ) {
             // Header with title and song info
-            AnimatedVisibility(
-                visible = showContent,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it }
-            ) {
-                AddToPlaylistHeader(
-                    song = song,
-                    totalPlaylists = playlists.size
-                )
-            }
+            AddToPlaylistHeader(
+                song = song,
+                totalPlaylists = playlists.size
+            )
             
             Spacer(modifier = Modifier.height(16.dp))
 
             // Create new playlist button
-            AnimatedVisibility(
-                visible = showContent,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it }
-            ) {
-                CreateNewPlaylistCard(
-                    onClick = {
-                        HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                        scope.launch { sheetState.hide() }.invokeOnCompletion {
-                            if (!sheetState.isVisible) {
-                                onCreateNewPlaylist()
-                            }
+            CreateNewPlaylistCard(
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                    scope.launch { sheetState.hide() }.invokeOnCompletion {
+                        if (!sheetState.isVisible) {
+                            onCreateNewPlaylist()
                         }
                     }
-                )
-            }
+                }
+            )
 
             if (playlists.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 // Playlists section
-                AnimatedVisibility(
-                    visible = showContent,
-                    enter = fadeIn() + slideInVertically { it },
-                    exit = fadeOut() + slideOutVertically { it }
-                ) {
-                    Column {
-                        // List of existing playlists
-                        LazyColumn(
-                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            itemsIndexed(
-                                items = playlists,
-                                key = { _, playlist -> "playlist_${playlist.id}" },
-                                contentType = { _, _ -> "playlist" }
-                            ) { index, playlist ->
-                                PlaylistCard(
-                                    playlist = playlist,
-                                    itemShape = groupedPlaylistItemShape(index, playlists.size),
-                                    onClick = {
-                                        HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                        scope.launch { sheetState.hide() }.invokeOnCompletion {
-                                            if (!sheetState.isVisible) {
-                                                onAddToPlaylist(playlist)
-                                            }
+                AdaptiveSheetScrollContainer(
+                    lazyListState = playlistListState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                ) { endPadding ->
+                    LazyColumn(
+                        state = playlistListState,
+                        contentPadding = PaddingValues(
+                            start = 24.dp,
+                            end = 24.dp + endPadding,
+                            top = 8.dp,
+                            bottom = 8.dp
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        itemsIndexed(
+                            items = playlists,
+                            key = { _, playlist -> "playlist_${playlist.id}" },
+                            contentType = { _, _ -> "playlist" }
+                        ) { index, playlist ->
+                            PlaylistCard(
+                                playlist = playlist,
+                                itemShape = groupedPlaylistItemShape(index, playlists.size),
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                                    scope.launch { sheetState.hide() }.invokeOnCompletion {
+                                        if (!sheetState.isVisible) {
+                                            onAddToPlaylist(playlist)
                                         }
                                     }
-                                )
-                            }
+                                }
+                            )
                         }
                     }
                 }
@@ -218,13 +200,7 @@ fun AddToPlaylistBottomSheet(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 // Empty state
-                AnimatedVisibility(
-                    visible = showContent,
-                    enter = fadeIn() + slideInVertically { it },
-                    exit = fadeOut() + slideOutVertically { it }
-                ) {
-                    EmptyPlaylistsState()
-                }
+                EmptyPlaylistsState()
             }
         }
     }
@@ -255,7 +231,7 @@ private fun AddToPlaylistHeader(
             )
             if (totalPlaylists > 0) {
                 Text(
-                    text = context.getString(R.string.playlist_count_format, totalPlaylists),
+                    text = pluralStringResource(R.plurals.playlist_count_format, totalPlaylists, totalPlaylists),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier
@@ -423,9 +399,9 @@ private fun CreateNewPlaylistCard(
 @Composable
 private fun PlaylistCard(
     playlist: Playlist,
-    itemShape: RoundedCornerShape = RoundedCornerShape(16.dp),
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    itemShape: RoundedCornerShape = RoundedCornerShape(16.dp)
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
@@ -516,7 +492,7 @@ private fun PlaylistCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (playlist.songs.size == 1) context.getString(R.string.ui_song_count) else context.getString(R.string.ui_songs_count, playlist.songs.size),
+                        text = pluralStringResource(R.plurals.ui_songs_count, playlist.songs.size, playlist.songs.size),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.data.model
 
 import androidx.compose.runtime.Immutable
@@ -15,6 +20,7 @@ data class UserAudioDevice(
     val brand: String = "",
     val autoEQProfileName: String? = null, // Reference to AutoEQ profile
     val customBandLevels: List<Float>? = null, // Custom EQ if not using AutoEQ
+    val monoAudioEnabled: Boolean = false, // Single earpiece mono audio downmix
     val isDefault: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 ) {

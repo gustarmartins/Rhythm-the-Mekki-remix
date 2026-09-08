@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.util
 
 import android.content.Context
@@ -172,14 +177,14 @@ object AudioFormatDetector {
             mime.contains("vorbis", ignoreCase = true) -> "Vorbis"
             // Enhanced Dolby detection
             mime.contains("truehd", ignoreCase = true) -> "TrueHD"
-            mime.contains("atmos", ignoreCase = true) -> "Dolby Atmos"
+            mime.contains("eac3-joc", ignoreCase = true) || mime.contains("atmos", ignoreCase = true) -> "Dolby Atmos"
             mime.contains("mlp", ignoreCase = true) -> "TrueHD" // MLP is TrueHD
             mime.contains("ac4", ignoreCase = true) -> "AC-4"
-            mime.contains("eac3", ignoreCase = true) || mime.contains("ec-3", ignoreCase = true) -> "E-AC-3"
+            mime.contains("eac3", ignoreCase = true) || mime.contains("ec-3", ignoreCase = true) || mime.contains("eac", ignoreCase = true) -> "E-AC-3"
             mime.contains("ac3", ignoreCase = true) || mime.contains("ac-3", ignoreCase = true) -> "AC-3"
             // Enhanced DTS detection
             mime.contains("dts-x", ignoreCase = true) || mime.contains("dtsx", ignoreCase = true) -> "DTS:X"
-            mime.contains("dts-hd", ignoreCase = true) || mime.contains("dtshd", ignoreCase = true) -> "DTS-HD MA"
+            mime.contains("dts-hd", ignoreCase = true) || mime.contains("dts.hd", ignoreCase = true) || mime.contains("dtshd", ignoreCase = true) -> "DTS-HD MA"
             mime.contains("dts", ignoreCase = true) -> "DTS"
             // DSD support
             mime.contains("dsd", ignoreCase = true) || mime.contains("x-dsd", ignoreCase = true) -> "DSD"
@@ -192,7 +197,7 @@ object AudioFormatDetector {
             mime.contains("midi", ignoreCase = true) || mime.contains("mid", ignoreCase = true) -> "MIDI"
             mime.contains("mp2", ignoreCase = true) -> "MP2"
             mime.contains("amr", ignoreCase = true) -> "AMR"
-            mime.contains("mpegh", ignoreCase = true) || mime.contains("mpeg-h", ignoreCase = true) -> "MPEG-H"
+            mime.contains("mpegh", ignoreCase = true) || mime.contains("mpeg-h", ignoreCase = true) || mime.contains("mhm1", ignoreCase = true) -> "MPEG-H"
             mime.contains("lc3", ignoreCase = true) -> "LC3"
             mime.contains("celt", ignoreCase = true) -> "CELT"
             mime.contains("dra", ignoreCase = true) -> "DRA"
@@ -313,7 +318,9 @@ object AudioFormatDetector {
             retriever.setDataSource(context, uri)
             
             val mime = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE)
-            val sampleRate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)?.toIntOrNull() ?: 0
+            val sampleRate = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)?.toIntOrNull() ?: 0
+            } else 0
             val bitDepth = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                 retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITS_PER_SAMPLE)?.toIntOrNull() ?: 0
             } else 0
@@ -324,21 +331,33 @@ object AudioFormatDetector {
                 path.endsWith(".dsf") || path.endsWith(".dff") -> "DSD"
                 mime?.contains("alac", ignoreCase = true) == true -> "ALAC"
                 mime?.contains("flac", ignoreCase = true) == true -> "FLAC"
+                mime?.contains("truehd", ignoreCase = true) == true || mime?.contains("mlp", ignoreCase = true) == true -> "TrueHD"
+                mime?.contains("atmos", ignoreCase = true) == true -> "Dolby Atmos"
+                mime?.contains("ac4", ignoreCase = true) == true -> "AC-4"
+                mime?.contains("eac3", ignoreCase = true) == true || mime?.contains("ec-3", ignoreCase = true) == true || mime?.contains("eac", ignoreCase = true) == true -> "E-AC-3"
+                mime?.contains("ac3", ignoreCase = true) == true || mime?.contains("ac-3", ignoreCase = true) == true -> "AC-3"
+                mime?.contains("dts-x", ignoreCase = true) == true || mime?.contains("dtsx", ignoreCase = true) == true -> "DTS:X"
+                mime?.contains("dts-hd", ignoreCase = true) == true || mime?.contains("dts.hd", ignoreCase = true) == true || mime?.contains("dtshd", ignoreCase = true) == true -> "DTS-HD MA"
+                mime?.contains("dts", ignoreCase = true) == true -> "DTS"
                 mime?.contains("dsd", ignoreCase = true) == true || mime?.contains("x-dsd", ignoreCase = true) == true -> "DSD"
-                mime?.contains("mp4", ignoreCase = true) == true -> "AAC" // Could be ALAC in MP4 container
+                mime?.contains("mp4", ignoreCase = true) == true || path.endsWith(".mp4") || path.endsWith(".m4a") -> "AAC"
+                path.endsWith(".mka") -> "MKA"
                 mime?.contains("mpeg", ignoreCase = true) == true -> "MP3"
                 mime?.contains("ogg", ignoreCase = true) == true -> "OGG Vorbis"
+                mime?.contains("mpegh", ignoreCase = true) == true || mime?.contains("mpeg-h", ignoreCase = true) == true || mime?.contains("mhm1", ignoreCase = true) == true -> "MPEG-H"
                 else -> "Unknown"
             }
             
-            val isLossless = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "DSD")
+            val isLossless = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "DSD", "TrueHD", "Dolby Atmos", "DTS-HD MA", "DTS:X")
+            val isDolby = codec in listOf("AC-3", "AC-4", "E-AC-3", "TrueHD", "Dolby Atmos")
+            val isDTS = codec.contains("DTS", ignoreCase = true)
             val isHiRes = sampleRate >= 48000 || isLossless
             
             return AudioFormatInfo(
                 codec = codec,
                 isLossless = isLossless,
-                isDolby = false,
-                isDTS = false,
+                isDolby = isDolby,
+                isDTS = isDTS,
                 isHiRes = isHiRes,
                 bitDepth = bitDepth,
                 sampleRateHz = sampleRate,

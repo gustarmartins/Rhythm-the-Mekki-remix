@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.util
 
 import android.bluetooth.BluetoothAdapter
@@ -28,11 +33,7 @@ class AudioDeviceManager(private val context: Context) {
     private val TAG = "AudioDeviceManager"
     
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-    private val bluetoothManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-    } else {
-        null
-    }
+    private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
     
     private val bluetoothAdapter = bluetoothManager?.adapter
     
@@ -84,41 +85,39 @@ class AudioDeviceManager(private val context: Context) {
         }
         
         // Register AudioDeviceCallback for reactive device change detection (API 23+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            audioManager.registerAudioDeviceCallback(object : android.media.AudioDeviceCallback() {
-                override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
-                    addedDevices?.let { devices ->
-                        for (device in devices) {
-                            if (device.isSink && recentlyDisconnectedDeviceTypes.remove(device.type)) {
-                                val deviceName = when (device.type) {
-                                    AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth"
-                                    AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "Wired"
-                                    else -> "Audio"
-                                }
-                                Log.d(TAG, "Device reconnected: $deviceName (type=${device.type})")
-                                _deviceReconnected.tryEmit(deviceName)
+        audioManager.registerAudioDeviceCallback(object : android.media.AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+                addedDevices?.let { devices ->
+                    for (device in devices) {
+                        if (device.isSink && recentlyDisconnectedDeviceTypes.remove(device.type)) {
+                            val deviceName = when (device.type) {
+                                AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth"
+                                AudioDeviceInfo.TYPE_WIRED_HEADSET, AudioDeviceInfo.TYPE_WIRED_HEADPHONES -> "Wired"
+                                else -> "Audio"
                             }
+                            Log.d(TAG, "Device reconnected: $deviceName (type=${device.type})")
+                            _deviceReconnected.tryEmit(deviceName)
                         }
                     }
-                    refreshDevices()
                 }
-                override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
-                    removedDevices?.let { devices ->
-                        for (device in devices) {
-                            if (device.isSink && device.type != AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
-                                recentlyDisconnectedDeviceTypes.add(device.type)
-                                Log.d(TAG, "Device disconnected: type=${device.type}")
-                            }
+                refreshDevices()
+            }
+            override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+                removedDevices?.let { devices ->
+                    for (device in devices) {
+                        if (device.isSink && device.type != AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
+                            recentlyDisconnectedDeviceTypes.add(device.type)
+                            Log.d(TAG, "Device disconnected: type=${device.type}")
                         }
                     }
-                    // Clear stale entries after 5 minutes
-                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                        recentlyDisconnectedDeviceTypes.clear()
-                    }, 5 * 60 * 1000L)
-                    refreshDevices()
                 }
-            }, android.os.Handler(android.os.Looper.getMainLooper()))
-        }
+                // Clear stale entries after 5 minutes
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    recentlyDisconnectedDeviceTypes.clear()
+                }, 5 * 60 * 1000L)
+                refreshDevices()
+            }
+        }, android.os.Handler(android.os.Looper.getMainLooper()))
     }
     
     /**
@@ -308,17 +307,9 @@ class AudioDeviceManager(private val context: Context) {
      * Check if a wired headset is connected
      */
     private fun isWiredHeadsetConnected(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // Use AudioDeviceInfo for Android 6.0+
-            val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-            devices.any { 
-                it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || 
-                it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES
-            }
-        } else {
-            // Fall back to deprecated method for older versions
-            @Suppress("DEPRECATION")
-            audioManager.isWiredHeadsetOn
+        return audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any {
+            it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+            it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES
         }
     }
     
@@ -691,43 +682,6 @@ class AudioDeviceManager(private val context: Context) {
                 Log.e(TAG, "Error broadcasting audio route change: ${e.message}", e)
             }
             
-            // For some devices, we need to explicitly set the stream type
-            try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    val playbackAttributes = android.media.AudioAttributes.Builder()
-                        .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .build()
-                    
-                    // This is a private API but sometimes helps force routing
-                    val audioSystemClass = Class.forName("android.media.AudioSystem")
-                    val setForceUseMethod = audioSystemClass.getMethod(
-                        "setForceUse", 
-                        Int::class.java, 
-                        Int::class.java
-                    )
-                    
-                    // Constants from AudioSystem
-                    val FOR_MEDIA = 1
-                    val FORCE_NONE = 0
-                    val FORCE_SPEAKER = 1
-                    val FORCE_HEADPHONES = 2
-                    val FORCE_BT_A2DP = 4
-                    
-                    when {
-                        device.id.startsWith(DEVICE_BLUETOOTH_PREFIX) -> 
-                            setForceUseMethod.invoke(null, FOR_MEDIA, FORCE_BT_A2DP)
-                        device.id == DEVICE_WIRED_HEADSET -> 
-                            setForceUseMethod.invoke(null, FOR_MEDIA, FORCE_HEADPHONES)
-                        device.id == DEVICE_SPEAKER -> 
-                            setForceUseMethod.invoke(null, FOR_MEDIA, FORCE_SPEAKER)
-                    }
-                }
-            } catch (e: Exception) {
-                // This is expected to fail on many devices
-                Log.d(TAG, "Could not use AudioSystem.setForceUse: ${e.message}")
-            }
-            
             // Log the final state
             Log.d(TAG, "Audio routing complete. Selected device: ${device.name}")
         } catch (e: Exception) {
@@ -743,67 +697,44 @@ class AudioDeviceManager(private val context: Context) {
         try {
             var focusGranted = false
             
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                // For Android 8.0+, use the newer audio focus API
-                val audioAttributes = android.media.AudioAttributes.Builder()
-                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build()
-                
-                // Create a focus change listener to handle focus changes
-                val focusChangeListener = android.media.AudioManager.OnAudioFocusChangeListener { focusChange ->
-                    when (focusChange) {
-                        android.media.AudioManager.AUDIOFOCUS_GAIN -> {
-                            Log.d(TAG, "Audio focus gained")
-                            // We have full focus now
-                        }
-                        android.media.AudioManager.AUDIOFOCUS_LOSS -> {
-                            Log.d(TAG, "Audio focus lost")
-                            // We've lost focus, but we'll handle this elsewhere
-                        }
-                        android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
-                            Log.d(TAG, "Audio focus lost temporarily")
-                            // We've lost focus temporarily
-                        }
+            // For Android 8.0+, use the newer audio focus API
+            val audioAttributes = android.media.AudioAttributes.Builder()
+                .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+            
+            // Create a focus change listener to handle focus changes
+            val focusChangeListener = android.media.AudioManager.OnAudioFocusChangeListener { focusChange ->
+                when (focusChange) {
+                    android.media.AudioManager.AUDIOFOCUS_GAIN -> {
+                        Log.d(TAG, "Audio focus gained")
+                        // We have full focus now
+                    }
+                    android.media.AudioManager.AUDIOFOCUS_LOSS -> {
+                        Log.d(TAG, "Audio focus lost")
+                        // We've lost focus, but we'll handle this elsewhere
+                    }
+                    android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                        Log.d(TAG, "Audio focus lost temporarily")
+                        // We've lost focus temporarily
                     }
                 }
-                
-                val focusRequest = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
-                    .setAudioAttributes(audioAttributes)
-                    .setAcceptsDelayedFocusGain(true)
-                    .setOnAudioFocusChangeListener(focusChangeListener)
-                    .build()
-                
-                val result = audioManager.requestAudioFocus(focusRequest)
-                Log.d(TAG, "Audio focus request result: $result")
-                
-                focusGranted = result == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-                
-                // Store the focus request for later abandonment
-                if (focusGranted) {
-                    this.focusRequest = focusRequest
-                }
-            } else {
-                // For older versions, use the deprecated method
-                @Suppress("DEPRECATION")
-                val result = audioManager.requestAudioFocus(
-                    { focusChange ->
-                        // Simple focus change listener
-                        when (focusChange) {
-                            android.media.AudioManager.AUDIOFOCUS_GAIN -> {
-                                Log.d(TAG, "Audio focus gained (legacy)")
-                            }
-                            android.media.AudioManager.AUDIOFOCUS_LOSS -> {
-                                Log.d(TAG, "Audio focus lost (legacy)")
-                            }
-                        }
-                    },
-                    android.media.AudioManager.STREAM_MUSIC,
-                    android.media.AudioManager.AUDIOFOCUS_GAIN
-                )
-                Log.d(TAG, "Audio focus request result (legacy): $result")
-                
-                focusGranted = result == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            }
+            
+            val focusRequest = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(audioAttributes)
+                .setAcceptsDelayedFocusGain(true)
+                .setOnAudioFocusChangeListener(focusChangeListener)
+                .build()
+            
+            val result = audioManager.requestAudioFocus(focusRequest)
+            Log.d(TAG, "Audio focus request result: $result")
+            
+            focusGranted = result == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            
+            // Store the focus request for later abandonment
+            if (focusGranted) {
+                this.focusRequest = focusRequest
             }
             
             return focusGranted
@@ -865,23 +796,19 @@ class AudioDeviceManager(private val context: Context) {
             // Track if we successfully routed audio
             var routingSuccess = false
             
-            // Try to use reflection to access hidden APIs that might help with routing
+            // Try to force a Bluetooth A2DP route using the public (deprecated) API
             try {
-                // Try to use AudioService's setBluetoothA2dpOn method via reflection
-                val audioServiceClass = Class.forName("android.media.AudioService")
-                val audioServiceObj = audioServiceClass.getMethod("getService").invoke(null)
-                val setBluetoothA2dpOnMethod = audioServiceClass.getMethod("setBluetoothA2dpOn", Boolean::class.java)
-                
-                // Turn off and then on to force a reset
-                setBluetoothA2dpOnMethod.invoke(audioServiceObj, false)
+                @Suppress("DEPRECATION")
+                audioManager.setBluetoothA2dpOn(false)
                 Thread.sleep(100)
-                setBluetoothA2dpOnMethod.invoke(audioServiceObj, true)
+                @Suppress("DEPRECATION")
+                audioManager.setBluetoothA2dpOn(true)
                 
-                Log.d(TAG, "Successfully used reflection to call setBluetoothA2dpOn")
+                Log.d(TAG, "Successfully used setBluetoothA2dpOn")
                 routingSuccess = true
             } catch (e: Exception) {
                 // This is expected to fail on most devices due to security restrictions
-                Log.d(TAG, "Could not use reflection to set Bluetooth A2DP: ${e.message}")
+                Log.d(TAG, "Could not set Bluetooth A2DP: ${e.message}")
             }
             
             // On Android 12+, we can use the communication device APIs
@@ -1405,36 +1332,34 @@ class AudioDeviceManager(private val context: Context) {
             val deviceNameSet = mutableSetOf<String>()
             
             // Get active Bluetooth devices from AudioManager first (more reliable for currently active devices)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                try {
-                    val audioDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-                    val activeBluetoothDevices = audioDevices.filter { 
-                        (it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || 
-                         it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO) && 
-                        it.isSink
+            try {
+                val audioDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                val activeBluetoothDevices = audioDevices.filter { 
+                    (it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || 
+                     it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO) && 
+                    it.isSink
+                }
+                
+                for (device in activeBluetoothDevices) {
+                    val deviceName = device.productName?.toString() ?: "Bluetooth Audio"
+                    
+                    // Skip if we already have a similar device name
+                    if (isDuplicateDeviceName(deviceName, deviceNameSet)) {
+                        Log.d(TAG, "Skipping duplicate active Bluetooth device: $deviceName")
+                        continue
                     }
                     
-                    for (device in activeBluetoothDevices) {
-                        val deviceName = device.productName?.toString() ?: "Bluetooth Audio"
-                        
-                        // Skip if we already have a similar device name
-                        if (isDuplicateDeviceName(deviceName, deviceNameSet)) {
-                            Log.d(TAG, "Skipping duplicate active Bluetooth device: $deviceName")
-                            continue
-                        }
-                        
-                        // Add to our tracking set
-                        deviceNameSet.add(deviceName.lowercase())
-                        
-                        // Create a unique ID that includes "active" to prioritize this device
-                        val deviceId = "${DEVICE_BLUETOOTH_PREFIX}active_${deviceName.replace(" ", "_").lowercase()}"
-                        
-                        devices.add(Pair(deviceName, deviceId))
-                        Log.d(TAG, "Found active Bluetooth device via AudioManager: $deviceName")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error getting active audio devices from AudioManager: ${e.message}", e)
+                    // Add to our tracking set
+                    deviceNameSet.add(deviceName.lowercase())
+                    
+                    // Create a unique ID that includes "active" to prioritize this device
+                    val deviceId = "${DEVICE_BLUETOOTH_PREFIX}active_${deviceName.replace(" ", "_").lowercase()}"
+                    
+                    devices.add(Pair(deviceName, deviceId))
+                    Log.d(TAG, "Found active Bluetooth device via AudioManager: $deviceName")
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error getting active audio devices from AudioManager: ${e.message}", e)
             }
             
             // Get bonded devices safely
@@ -1474,22 +1399,16 @@ class AudioDeviceManager(private val context: Context) {
                     // Add to our tracking set
                     deviceNameSet.add(deviceName.lowercase())
                     
-                    // For Android 8.0+
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        // Check if it's an audio device (A2DP)
-                        val deviceClass = try {
-                            device.bluetoothClass?.majorDeviceClass
-                        } catch (e: SecurityException) {
-                            null
-                        }
-                        
-                        if (deviceClass == BluetoothClass.Device.Major.AUDIO_VIDEO) {
-                            devices.add(Pair(deviceName, "${DEVICE_BLUETOOTH_PREFIX}${deviceAddress}"))
-                            Log.d(TAG, "Found Bluetooth audio device: $deviceName")
-                        }
-                    } else {
-                        // For older Android versions - include all paired devices as we can't easily filter
+                    // Check if it's an audio device (A2DP)
+                    val deviceClass = try {
+                        device.bluetoothClass?.majorDeviceClass
+                    } catch (e: SecurityException) {
+                        null
+                    }
+                    
+                    if (deviceClass == BluetoothClass.Device.Major.AUDIO_VIDEO) {
                         devices.add(Pair(deviceName, "${DEVICE_BLUETOOTH_PREFIX}${deviceAddress}"))
+                        Log.d(TAG, "Found Bluetooth audio device: $deviceName")
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error processing Bluetooth device: ${e.message}", e)
@@ -1497,7 +1416,7 @@ class AudioDeviceManager(private val context: Context) {
             }
             
             // Alternative approach using AudioManager (Android 6.0+) if we haven't found any devices yet
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && devices.isEmpty()) {
+            if (devices.isEmpty()) {
                 try {
                     val audioDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
                     for (device in audioDevices) {
@@ -1617,48 +1536,18 @@ class AudioDeviceManager(private val context: Context) {
      */
     fun isBluetoothActive(): Boolean {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                // For Android 6.0+ we can check the active audio devices
-                val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-                
-                // Check if any Bluetooth device is active
-                val isBluetoothActive = devices.any { 
-                    (it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || 
-                     it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO) && 
-                    it.isSink
-                }
-                
-                Log.d(TAG, "Bluetooth active check (API ${Build.VERSION.SDK_INT}): $isBluetoothActive")
-                return isBluetoothActive
-            } else {
-                // For older Android versions, check if Bluetooth A2DP is connected
-                val bluetoothAdapter = this.bluetoothAdapter ?: return false
-                
-                if (!bluetoothAdapter.isEnabled) {
-                    return false
-                }
-                
-                // Check for required permissions
-                val hasPermission = context.checkSelfPermission(Manifest.permission.BLUETOOTH) == PackageManager.PERMISSION_GRANTED
-                
-                if (!hasPermission) {
-                    Log.w(TAG, "Missing required Bluetooth permission")
-                    return false
-                }
-                
-                // Check if any A2DP profile is connected
-                try {
-                    val a2dpProfile = bluetoothAdapter.getProfileConnectionState(BluetoothProfile.A2DP)
-                    val isA2dpConnected = a2dpProfile == BluetoothAdapter.STATE_CONNECTED
-                    
-                    Log.d(TAG, "Bluetooth active check (legacy): A2DP=$isA2dpConnected")
-                    
-                    return isA2dpConnected
-                } catch (e: SecurityException) {
-                    Log.e(TAG, "Security exception checking Bluetooth profile state", e)
-                    return false
-                }
+            // For Android 6.0+ we can check the active audio devices
+            val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            
+            // Check if any Bluetooth device is active
+            val isBluetoothActive = devices.any { 
+                (it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || 
+                 it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO) && 
+                it.isSink
             }
+            
+            Log.d(TAG, "Bluetooth active check (API ${Build.VERSION.SDK_INT}): $isBluetoothActive")
+            return isBluetoothActive
         } catch (e: Exception) {
             Log.e(TAG, "Error checking Bluetooth active status: ${e.message}", e)
             return false
@@ -1676,35 +1565,33 @@ class AudioDeviceManager(private val context: Context) {
         }
         
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                // For Android 6.0+ we can check the active audio devices
-                val audioDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            // For Android 6.0+ we can check the active audio devices
+            val audioDevices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            
+            // Find active Bluetooth devices
+            val activeBluetoothDevices = audioDevices.filter { 
+                (it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || 
+                 it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO) && 
+                it.isSink
+            }
+            
+            if (activeBluetoothDevices.isNotEmpty()) {
+                // Get the name of the active Bluetooth device
+                val activeDeviceName = activeBluetoothDevices.first().productName?.toString()
                 
-                // Find active Bluetooth devices
-                val activeBluetoothDevices = audioDevices.filter { 
-                    (it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || 
-                     it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO) && 
-                    it.isSink
-                }
-                
-                if (activeBluetoothDevices.isNotEmpty()) {
-                    // Get the name of the active Bluetooth device
-                    val activeDeviceName = activeBluetoothDevices.first().productName?.toString()
+                if (activeDeviceName != null) {
+                    Log.d(TAG, "Active Bluetooth device from AudioManager: $activeDeviceName")
                     
-                    if (activeDeviceName != null) {
-                        Log.d(TAG, "Active Bluetooth device from AudioManager: $activeDeviceName")
-                        
-                        // Try to find a matching device in our list by name
-                        val matchingDevice = bluetoothDevices.find { 
-                            it.name.equals(activeDeviceName, ignoreCase = true) ||
-                            it.name.contains(activeDeviceName, ignoreCase = true) ||
-                            activeDeviceName.contains(it.name, ignoreCase = true)
-                        }
-                        
-                        if (matchingDevice != null) {
-                            Log.d(TAG, "Found matching Bluetooth device: ${matchingDevice.name}")
-                            return matchingDevice
-                        }
+                    // Try to find a matching device in our list by name
+                    val matchingDevice = bluetoothDevices.find { 
+                        it.name.equals(activeDeviceName, ignoreCase = true) ||
+                        it.name.contains(activeDeviceName, ignoreCase = true) ||
+                        activeDeviceName.contains(it.name, ignoreCase = true)
+                    }
+                    
+                    if (matchingDevice != null) {
+                        Log.d(TAG, "Found matching Bluetooth device: ${matchingDevice.name}")
+                        return matchingDevice
                     }
                 }
             }
@@ -1783,33 +1670,28 @@ class AudioDeviceManager(private val context: Context) {
             }
             
             // Release audio focus
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                try {
-                    // Use the stored focus request if available
-                    if (focusRequest != null) {
-                        audioManager.abandonAudioFocusRequest(focusRequest!!)
-                        Log.d(TAG, "Abandoned stored audio focus request")
-                    } else {
-                        // Create a new request to abandon if we don't have one stored
-                        val audioAttributes = android.media.AudioAttributes.Builder()
-                            .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-                            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .build()
-                        
-                        val tempFocusRequest = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
-                            .setAudioAttributes(audioAttributes)
-                            .setAcceptsDelayedFocusGain(true)
-                            .setOnAudioFocusChangeListener { }
-                            .build()
-                        
-                        audioManager.abandonAudioFocusRequest(tempFocusRequest)
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error abandoning audio focus request: ${e.message}", e)
+            try {
+                // Use the stored focus request if available
+                if (focusRequest != null) {
+                    audioManager.abandonAudioFocusRequest(focusRequest!!)
+                    Log.d(TAG, "Abandoned stored audio focus request")
+                } else {
+                    // Create a new request to abandon if we don't have one stored
+                    val audioAttributes = android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                    
+                    val tempFocusRequest = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
+                        .setAudioAttributes(audioAttributes)
+                        .setAcceptsDelayedFocusGain(true)
+                        .setOnAudioFocusChangeListener { }
+                        .build()
+                    
+                    audioManager.abandonAudioFocusRequest(tempFocusRequest)
                 }
-            } else {
-                @Suppress("DEPRECATION")
-                audioManager.abandonAudioFocus(null)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error abandoning audio focus request: ${e.message}", e)
             }
             
             // Stop Bluetooth SCO if active

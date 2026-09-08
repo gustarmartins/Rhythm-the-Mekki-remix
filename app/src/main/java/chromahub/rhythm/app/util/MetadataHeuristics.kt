@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.util
 
 import android.content.Context
@@ -7,6 +12,7 @@ import chromahub.rhythm.app.shared.data.model.LyricsData
 import java.io.File
 import java.io.ByteArrayOutputStream
 import java.io.RandomAccessFile
+import java.util.Locale
 
 object MetadataHeuristics {
     private const val TAG = "MetadataHeuristics"
@@ -142,6 +148,21 @@ object MetadataHeuristics {
         return null
     }
 
+    fun parseYear(dateOrYearStr: String?): Int {
+        if (dateOrYearStr.isNullOrBlank()) return 0
+        val regex = Regex("""\b(18|19|20|21)\d{2}\b""")
+        val match = regex.find(dateOrYearStr)
+        if (match != null) {
+            return match.value.toIntOrNull() ?: 0
+        }
+        val cleanDigits = dateOrYearStr.filter { it.isDigit() }
+        if (cleanDigits.length >= 4) {
+            val potentialYear = cleanDigits.take(4).toIntOrNull() ?: 0
+            if (potentialYear in 1800..2100) return potentialYear
+        }
+        return dateOrYearStr.trim().toIntOrNull() ?: 0
+    }
+
     fun normalizeMetadataText(value: String?): String? {
         val raw = value?.trim() ?: return value
         if (raw.isBlank()) return raw
@@ -149,7 +170,9 @@ object MetadataHeuristics {
         val hasCommonUtf8MojibakeMarkers =
             raw.contains('Ã') ||
                 raw.contains('Â') ||
-                raw.contains("\u00E2\u20AC")
+                raw.contains("\u00E2\u20AC") ||
+                raw.contains('ï') ||
+                raw.contains('½')
         if (!hasCommonUtf8MojibakeMarkers) return raw
 
         val hasNonLatin1CodePoints = raw.any { it.code > 0xFF }
@@ -158,12 +181,29 @@ object MetadataHeuristics {
             return raw
         }
 
-        return runCatching {
+        val repairedWin1252 = runCatching {
             val repaired = String(raw.toByteArray(java.nio.charset.Charset.forName("windows-1252")), Charsets.UTF_8)
             val repairedHasMoreReplacementChars =
                 repaired.count { it == '\uFFFD' } > raw.count { it == '\uFFFD' }
-            if (repaired.isBlank() || repairedHasMoreReplacementChars) raw else repaired
-        }.getOrDefault(raw)
+            if (repaired.isBlank() || repairedHasMoreReplacementChars) null else repaired
+        }.getOrNull()
+
+        if (repairedWin1252 != null && repairedWin1252 != raw && !repairedWin1252.contains('Ã') && !repairedWin1252.contains('Â')) {
+            return repairedWin1252
+        }
+
+        val repairedIso88591 = runCatching {
+            val repaired = String(raw.toByteArray(Charsets.ISO_8859_1), Charsets.UTF_8)
+            val repairedHasMoreReplacementChars =
+                repaired.count { it == '\uFFFD' } > raw.count { it == '\uFFFD' }
+            if (repaired.isBlank() || repairedHasMoreReplacementChars) null else repaired
+        }.getOrNull()
+
+        if (repairedIso88591 != null && repairedIso88591 != raw && !repairedIso88591.contains('Ã') && !repairedIso88591.contains('Â')) {
+            return repairedIso88591
+        }
+
+        return repairedWin1252 ?: repairedIso88591 ?: raw
     }
 
     fun titleFromDisplayName(displayName: String?): String? {
@@ -426,6 +466,55 @@ object MetadataHeuristics {
         }
 
         Log.d(TAG, "Parsing lyrics data: ${lyrics.take(200)}${if (lyrics.length > 200) "..." else ""}")
+
+        val trimmedInput = lyrics.trim()
+        val isWordByWordJson = (trimmedInput.startsWith("[") || trimmedInput.startsWith("{")) && 
+            (trimmedInput.contains("\"timestamp\"") || trimmedInput.contains("\"words\""))
+            
+        if (isWordByWordJson) {
+            try {
+                val parsed = RhythmLyricsParser.parseWordByWordLyrics(lyrics)
+                if (parsed.isNotEmpty()) {
+                    val plainText = try {
+                        RhythmLyricsParser.toPlainText(parsed)
+                    } catch (e: Exception) {
+                        null
+                    }
+                    val syncedLrc = try {
+                        RhythmLyricsParser.toLRCFormat(parsed)
+                    } catch (e: Exception) {
+                        null
+                    }
+                    Log.d(TAG, "Successfully parsed embedded word-by-word JSON lyrics")
+                    return LyricsData(plainText, syncedLrc, lyrics)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error parsing embedded word-by-word JSON", e)
+            }
+        }
+
+        if (RhythmLyricsParser.isTtmlContent(lyrics)) {
+            try {
+                val parsedLines = RhythmLyricsParser.parseTtmlLyrics(lyrics)
+                if (parsedLines.isNotEmpty()) {
+                    val wordByWordJson = com.google.gson.Gson().toJson(parsedLines)
+                    val parsedWordByWordLines = RhythmLyricsParser.parseWordByWordLyrics(wordByWordJson)
+                    val lrc = RhythmLyricsParser.toLRCFormat(parsedWordByWordLines)
+                    val plain = RhythmLyricsParser.toPlainText(parsedWordByWordLines)
+                    val hasWordTiming = RhythmLyricsParser.hasWordTiming(parsedWordByWordLines)
+                    Log.d(TAG, "Successfully parsed embedded TTML lyrics (${parsedLines.size} lines, hasWordTiming=$hasWordTiming)")
+                    return LyricsData(
+                        plainLyrics = plain,
+                        syncedLyrics = lrc,
+                        wordByWordLyrics = if (hasWordTiming) wordByWordJson else null,
+                        source = "Embedded",
+                        isCorrected = true
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error parsing embedded TTML lyrics", e)
+            }
+        }
 
         val cleanedLyrics = sanitizeLyricsText(lyrics)
 
@@ -724,7 +813,7 @@ object MetadataHeuristics {
         val minutes = totalSeconds / 60
         val seconds = totalSeconds % 60
         val millis = (milliseconds % 1000) / 10
-        return String.format("%02d:%02d.%02d", minutes, seconds, millis)
+        return String.format(Locale.ROOT, "%02d:%02d.%02d", minutes, seconds, millis)
     }
 
     fun exportToEnhancedLRC(lyricsData: LyricsData): String? {

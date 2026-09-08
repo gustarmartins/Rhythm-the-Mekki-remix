@@ -157,8 +157,7 @@ You can grant access to only selected photos/media instead of full library acces
 - Update widget content in background
 
 **Where Used:**
-- Legacy RemoteViews widgets
-- Modern Glance widgets
+- Glance widgets (Music, Cookie, Stats, Lyrics)
 - Real-time playback state
 - Background widget updates via WorkManager
 

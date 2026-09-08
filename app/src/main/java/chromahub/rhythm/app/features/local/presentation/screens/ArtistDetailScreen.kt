@@ -1,9 +1,17 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.features.local.presentation.screens
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import chromahub.rhythm.app.shared.presentation.components.dialogs.CustomizeArtistImageDialog
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -30,8 +38,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -57,9 +67,11 @@ import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
 import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel
 import chromahub.rhythm.app.shared.data.model.Album
 import chromahub.rhythm.app.shared.data.model.AppSettings
+import chromahub.rhythm.app.shared.data.model.ArtistArtworkSource
 import chromahub.rhythm.app.shared.data.model.Artist
 import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.shared.presentation.components.common.M3PlaceholderType
+import chromahub.rhythm.app.shared.presentation.components.common.M3CircularLoader
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeTarget
 import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShapeFor
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmSongMenuContent
@@ -76,6 +88,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import chromahub.rhythm.app.util.windowScreenWidthDp
+import chromahub.rhythm.app.util.windowScreenHeightDp
 
 private enum class ArtistSortOrder {
     DEFAULT,
@@ -95,6 +109,7 @@ fun ArtistDetailScreen(
     artistName: String,
     onBack: () -> Unit,
     onSongClick: (Song) -> Unit,
+    onSongClickInContext: (Song, List<Song>) -> Unit = { song, _ -> onSongClick(song) },
     onAlbumClick: (Album) -> Unit,
     onPlayAll: (List<Song>) -> Unit,
     onShufflePlay: (List<Song>) -> Unit,
@@ -121,9 +136,8 @@ fun ArtistDetailScreen(
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
-    val configuration = LocalConfiguration.current
-    val isTablet = configuration.screenWidthDp >= 600
-    val isLandscapeTablet = isTablet && configuration.screenWidthDp > configuration.screenHeightDp
+    val isTablet = windowScreenWidthDp() >= 600
+    val isLandscapeTablet = isTablet && windowScreenWidthDp() > windowScreenHeightDp()
 
     val appSettings = remember { AppSettings.getInstance(context) }
     val groupByAlbumArtist by appSettings.groupByAlbumArtist.collectAsState()
@@ -138,10 +152,38 @@ fun ArtistDetailScreen(
     val allAlbums by viewModel.albums.collectAsState()
     val allArtists by viewModel.artists.collectAsState()
     
-    // Find the artist
     val artist = remember(allArtists, artistName, artistOverride) {
-        artistOverride ?: allArtists.find { it.name == artistName }
+        artistOverride ?: allArtists.find { it.name.equals(artistName, ignoreCase = true) }
     }
+
+    var currentArtworkUri by remember(artist?.id, artist?.artworkUri) {
+        mutableStateOf(artist?.artworkUri)
+    }
+    var showCustomizeImageDialog by remember { mutableStateOf(false) }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null && artist != null) {
+            viewModel.updateArtistArtwork(artist, uri) {
+                currentArtworkUri = uri
+            }
+        }
+    }
+
+    if (showCustomizeImageDialog && artist != null) {
+        CustomizeArtistImageDialog(
+            artistName = artist.name,
+            onDismiss = { showCustomizeImageDialog = false },
+            onSelectImage = { imagePickerLauncher.launch("image/*") },
+            onResetImage = {
+                viewModel.updateArtistArtwork(artist, null) {
+                    currentArtworkUri = null
+                }
+            }
+        )
+    }
+
 
     val artistContent by produceState<ArtistDetailContent?>(
         initialValue = if (songsOverride != null && albumsOverride != null) {
@@ -249,7 +291,8 @@ fun ArtistDetailScreen(
     }
 
     val totalDuration = remember(rawArtistSongs) { rawArtistSongs.sumOf { it.duration } }
-    val displayArtworkUri = artist?.artworkUri
+    val artistArtworkSource by appSettings.artistArtworkSource.collectAsState()
+    val displayArtworkUri = if (artistArtworkSource == ArtistArtworkSource.DISABLED) null else (currentArtworkUri ?: rawArtistSongs.firstNotNullOfOrNull { it.artworkUri })
     val backgroundColor = MaterialTheme.colorScheme.background
 
     if (isLandscapeTablet) {
@@ -377,7 +420,7 @@ fun ArtistDetailScreen(
                                 ) {
                                     Icon(
                                         imageVector = RhythmIcons.Back,
-                                        contentDescription = "Back",
+                                        contentDescription = stringResource(R.string.cd_back),
                                         tint = MaterialTheme.colorScheme.onSurface,
                                         modifier = Modifier.size(25.dp)
                                     )
@@ -391,26 +434,62 @@ fun ArtistDetailScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
-                                Surface(
-                                    modifier = Modifier.size(280.dp),
-                                    shape = RoundedCornerShape(32.dp),
-                                    shadowElevation = 12.dp
+                                Box(
+                                    contentAlignment = Alignment.BottomEnd,
+                                    modifier = Modifier.size(280.dp)
                                 ) {
-                                    AsyncImage(
-                                        model = ImageRequest.Builder(context)
-                                            .apply(
-                                                ImageUtils.buildImageRequest(
-                                                    artist?.artworkUri,
-                                                    artistName,
-                                                    context.cacheDir,
-                                                    M3PlaceholderType.ARTIST
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clickable {
+                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                                showCustomizeImageDialog = true
+                                            },
+                                        shape = RoundedCornerShape(32.dp),
+                                        shadowElevation = 12.dp
+                                    ) {
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(context)
+                                                .apply(
+                                                    ImageUtils.buildImageRequest(
+                                                        displayArtworkUri,
+                                                        artistName,
+                                                        context.cacheDir,
+                                                        M3PlaceholderType.ARTIST
+                                                    )
                                                 )
+                                                .build(),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+
+                                    Surface(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .padding(8.dp)
+                                            .clickable {
+                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                                showCustomizeImageDialog = true
+                                            },
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        border = BorderStroke(2.dp, MaterialTheme.colorScheme.surface),
+                                        shadowElevation = 4.dp
+                                    ) {
+                                        Box(
+                                            contentAlignment = Alignment.Center,
+                                            modifier = Modifier.fillMaxSize()
+                                        ) {
+                                            Icon(
+                                                imageVector = RhythmIcons.Edit,
+                                                contentDescription = stringResource(R.string.content_desc_edit_image),
+                                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                modifier = Modifier.size(18.dp)
                                             )
-                                            .build(),
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
+                                        }
+                                    }
                                 }
 
                                 Spacer(modifier = Modifier.height(28.dp))
@@ -467,7 +546,7 @@ fun ArtistDetailScreen(
                                             .padding(vertical = 24.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                                        M3CircularLoader(modifier = Modifier.size(48.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 4f)
                                     }
                                 } else {
                                     ArtistActionButtons(
@@ -533,7 +612,7 @@ fun ArtistDetailScreen(
                                             totalCount = artistSongs.size,
                                             onClick = {
                                                 HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                                onSongClick(song)
+                                                onSongClickInContext(song, artistSongs)
                                                 onPlayerClick()
                                             },
                                             onAddToQueue = {
@@ -592,49 +671,56 @@ fun ArtistDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(450.dp)
+                        .clipToBounds()
                         .graphicsLayer {
                             alpha = expandedAlpha
                             scaleX = 1f + collapsedFraction * 0.15f
                             scaleY = 1f + collapsedFraction * 0.15f
                         }
                 ) {
-                    if (displayArtworkUri != null) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .apply(ImageUtils.buildImageRequest(displayArtworkUri, artistName, context.cacheDir, M3PlaceholderType.ARTIST))
-                                .build(),
-                            contentDescription = stringResource(R.string.artist_artwork_description, artistName),
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                    ) {
+                        if (displayArtworkUri != null) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .apply(ImageUtils.buildImageRequest(displayArtworkUri, artistName, context.cacheDir, M3PlaceholderType.ARTIST))
+                                    .build(),
+                                contentDescription = stringResource(R.string.artist_artwork_description, artistName),
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.linearGradient(
+                                            colors = listOf(
+                                                MaterialTheme.colorScheme.primaryContainer,
+                                                MaterialTheme.colorScheme.tertiaryContainer
+                                            )
+                                        )
+                                    )
+                            )
+                        }
+
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(
-                                    Brush.linearGradient(
+                                    Brush.verticalGradient(
                                         colors = listOf(
-                                            MaterialTheme.colorScheme.primaryContainer,
-                                            MaterialTheme.colorScheme.tertiaryContainer
+                                            Color.Transparent,
+                                            backgroundColor.copy(alpha = 0.6f),
+                                            backgroundColor
                                         )
                                     )
                                 )
                         )
                     }
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        backgroundColor.copy(alpha = 0.6f),
-                                        backgroundColor
-                                    )
-                                )
-                            )
-                    )
 
                     // Hero Artist Details - bottom aligned cleanly without raw chips
                     Column(
@@ -676,7 +762,7 @@ fun ArtistDetailScreen(
 
             if (isArtistContentLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    M3CircularLoader(modifier = Modifier.size(56.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 5f)
                 }
                 FilledIconButton(
                     onClick = onBack,
@@ -776,6 +862,26 @@ fun ArtistDetailScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.padding(end = 12.dp)
                                 ) {
+                                    FilledIconButton(
+                                        onClick = {
+                                            HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                            showCustomizeImageDialog = true
+                                        },
+                                        modifier = Modifier.size(40.dp),
+                                        colors = IconButtonDefaults.filledIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                            contentColor = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = RhythmIcons.Edit,
+                                            contentDescription = stringResource(R.string.content_desc_customize_artwork),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+
                                     Box {
                                         FilledIconButton(
                                             onClick = { showSortMenu = true },
@@ -842,7 +948,7 @@ fun ArtistDetailScreen(
                 val collapsedTopPadding = paddingValues.calculateTopPadding()
                 val dynamicTopPadding = 450.dp + (collapsedTopPadding - 450.dp) * collapsedFraction
 
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = dynamicTopPadding)
@@ -926,7 +1032,7 @@ fun ArtistDetailScreen(
                                             totalCount = artistSongs.size,
                                             onClick = {
                                                 HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                                onSongClick(song)
+                                                onSongClickInContext(song, artistSongs)
                                                 onPlayerClick()
                                             },
                                             onAddToQueue = {
@@ -965,6 +1071,29 @@ fun ArtistDetailScreen(
                             }
                         }
                     }
+
+                    val headerBlendAlpha by animateFloatAsState(
+                        targetValue = ((collapsedFraction - 0.65f) / 0.35f).coerceIn(0f, 1f),
+                        animationSpec = tween(250),
+                        label = "artistHeaderBlendAlpha"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .height(24.dp)
+                            .graphicsLayer { alpha = headerBlendAlpha }
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        backgroundColor,
+                                        backgroundColor.copy(alpha = 0.72f),
+                                        backgroundColor.copy(alpha = 0.32f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                    )
                 }
             }
         }
@@ -987,7 +1116,7 @@ private fun AboutArtistSection(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "About Artist",
+                text = stringResource(R.string.artistdetail_about_artist),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary

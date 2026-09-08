@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher picker preview for the Rhythm Cookie widget.
+     Framework-safe only (android:* attributes, no app: namespace). The cookie
+     art is a white vector tinted with android:tint so launchers render it dark. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="UseAppTint,UseCompoundDrawables"
+    android:layout_width="110dp"
+    android:layout_height="110dp">
+
+    <!-- Cookie background -->
+    <ImageView
+        android:importantForAccessibility="no"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/widget_preview_cookie"
+        android:tint="@color/widget_preview_surface" />
+
+    <!-- Rhythm app logo mark (notification icon) -->
+    <ImageView
+        android:importantForAccessibility="no"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_gravity="center"
+        android:src="@drawable/ic_notification"
+        android:tint="@color/widget_preview_on_primary_container" />
+
+    <!-- Play/Pause - sunny badge, top-right corner (rim) -->
+    <FrameLayout
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="4dp">
+
+        <ImageView
+            android:importantForAccessibility="no"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/widget_preview_sunny"
+            android:tint="@color/widget_preview_primary" />
+
+        <ImageView
+            android:importantForAccessibility="no"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_play_arrow"
+            android:tint="@color/widget_preview_on_primary" />
+    </FrameLayout>
+
+    <!-- Previous - circle badge, bottom-left corner -->
+    <FrameLayout
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="6dp"
+        android:layout_marginBottom="6dp">
+
+        <ImageView
+            android:importantForAccessibility="no"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/widget_preview_circle"
+            android:tint="@color/widget_preview_tertiary" />
+
+        <ImageView
+            android:importantForAccessibility="no"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_skip_previous"
+            android:tint="@color/widget_preview_on_tertiary" />
+    </FrameLayout>
+
+    <!-- Next - circle badge, bottom-right corner -->
+    <FrameLayout
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="6dp"
+        android:layout_marginBottom="6dp">
+
+        <ImageView
+            android:importantForAccessibility="no"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:src="@drawable/widget_preview_circle"
+            android:tint="@color/widget_preview_tertiary" />
+
+        <ImageView
+            android:importantForAccessibility="no"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_skip_next"
+            android:tint="@color/widget_preview_on_tertiary" />
+    </FrameLayout>
+</FrameLayout>

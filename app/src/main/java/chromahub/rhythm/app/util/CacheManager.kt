@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.util
 
 import android.content.Context
@@ -15,7 +20,9 @@ object CacheManager {
     private const val TAG = "CacheManager"
     
     /**
-     * Gets the current cache usage in bytes
+     * Gets the current cache usage in bytes (reported to the settings screen).
+     * Includes the stable embedded-artwork cache in filesDir so the number
+     * reflects what the user actually sees under Android Settings.
      */
     suspend fun getCacheSize(context: Context): Long = withContext(Dispatchers.IO) {
         var totalSize = 0L
@@ -23,6 +30,12 @@ object CacheManager {
         try {
             // Internal cache
             totalSize += calculateDirectorySize(context.cacheDir)
+            
+            // Embedded artwork extracted during scans lives in filesDir (counts as
+            // App data in Android settings, not cache). It is reported here but NOT
+            // auto-trimmed — it self-bounds at extraction time and is stable so the
+            // app never re-extracts the whole library on every launch.
+            totalSize += getEmbeddedArtworkCacheSize(context.filesDir)
             
             // External cache
             context.externalCacheDir?.let { externalCache ->
@@ -33,6 +46,19 @@ object CacheManager {
         }
         
         return@withContext totalSize
+    }
+    
+    /**
+     * Size of the volatile caches only (cacheDir + externalCacheDir). This is what
+     * auto-trim actually manages — the stable filesDir artwork cache is deliberately
+     * excluded so trimming it doesn't force a full re-extraction on next launch.
+     */
+    private suspend fun getTrimDecisionSize(context: Context): Long = withContext(Dispatchers.IO) {
+        var size = calculateDirectorySize(context.cacheDir)
+        context.externalCacheDir?.let { externalCache ->
+            size += calculateDirectorySize(externalCache)
+        }
+        size
     }
     
     /**
@@ -65,7 +91,7 @@ object CacheManager {
      */
     suspend fun cleanCacheIfNeeded(context: Context, maxSizeBytes: Long): Boolean = withContext(Dispatchers.IO) {
         try {
-            val currentSize = getCacheSize(context)
+            val currentSize = getTrimDecisionSize(context)
             Log.d(TAG, "Current cache size: ${currentSize / (1024 * 1024)}MB, limit: ${maxSizeBytes / (1024 * 1024)}MB")
             
             if (currentSize > maxSizeBytes) {
@@ -94,7 +120,7 @@ object CacheManager {
      */
     suspend fun autoTrimCache(context: Context, maxSizeBytes: Long): Boolean = withContext(Dispatchers.IO) {
         try {
-            val currentSize = getCacheSize(context)
+            val currentSize = getTrimDecisionSize(context)
             val threshold = (maxSizeBytes * 0.9).toLong()
             Log.d(TAG, "Current cache size: ${currentSize / (1024 * 1024)}MB, 90% threshold: ${threshold / (1024 * 1024)}MB")
             
@@ -119,7 +145,9 @@ object CacheManager {
         try {
             val cacheFiles = mutableListOf<File>()
             
-            // Collect all cache files with their modification times
+            // Collect all cache files with their modification times. The stable
+            // filesDir embedded-artwork cache is intentionally NOT included — it is
+            // self-bounding and evicting it would trigger full re-extraction later.
             collectCacheFiles(context.cacheDir, cacheFiles)
             context.externalCacheDir?.let { 
                 collectCacheFiles(it, cacheFiles) 
@@ -202,6 +230,13 @@ object CacheManager {
             
             // Clear internal cache directory
             clearCacheDirectory(context.cacheDir)
+            
+            // Clear scan-time embedded artwork from filesDir (regenerable from tags)
+            clearCacheDirectory(File(context.filesDir, "embedded_artwork"))
+            context.filesDir.listFiles { file ->
+                file.isFile &&
+                    (file.name.startsWith("embedded_art_") || file.name.startsWith("embedded_art_lossless_"))
+            }?.forEach { file -> file.delete() }
             
             // Clear external cache directory if available
             context.externalCacheDir?.let { externalCache ->
@@ -300,6 +335,9 @@ object CacheManager {
 
             details["Internal Cache (Other)"] = nonArtworkInternalSize
             details["Embedded Artwork Cache"] = embeddedArtworkSize
+
+            // Scan-time artwork is written to filesDir (counts as App data)
+            details["Embedded Artwork (App Data)"] = getEmbeddedArtworkCacheSize(context.filesDir)
             
             // External cache size
             context.externalCacheDir?.let { externalCache ->
@@ -316,23 +354,31 @@ object CacheManager {
     }
 
     private fun getEmbeddedArtworkCacheSize(cacheDir: File): Long {
-        val files = mutableListOf<File>()
-
-        val artworkCacheDir = File(cacheDir, "embedded_artwork")
-        artworkCacheDir.listFiles { file -> file.isFile }?.let { files.addAll(it) }
-
-        cacheDir.listFiles { file ->
-            file.isFile &&
-                (file.name.startsWith("embedded_art_") || file.name.startsWith("embedded_art_lossless_"))
-        }?.let { files.addAll(it) }
-
-        return files.sumOf { file ->
+        return collectEmbeddedArtworkFiles(cacheDir).sumOf { file ->
             try {
                 file.length()
             } catch (_: Exception) {
                 0L
             }
         }
+    }
+
+    /**
+     * Collects embedded artwork files in a base dir: the `embedded_artwork`
+     * subdir plus any legacy `embedded_art_*` files directly in the base dir.
+     */
+    private fun collectEmbeddedArtworkFiles(baseDir: File): List<File> {
+        val files = mutableListOf<File>()
+
+        val artworkCacheDir = File(baseDir, "embedded_artwork")
+        artworkCacheDir.listFiles { file -> file.isFile }?.let { files.addAll(it) }
+
+        baseDir.listFiles { file ->
+            file.isFile &&
+                (file.name.startsWith("embedded_art_") || file.name.startsWith("embedded_art_lossless_"))
+        }?.let { files.addAll(it) }
+
+        return files
     }
     
     /**

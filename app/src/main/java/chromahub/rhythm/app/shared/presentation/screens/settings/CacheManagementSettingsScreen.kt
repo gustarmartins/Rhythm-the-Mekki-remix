@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
@@ -84,7 +89,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -134,6 +138,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import android.widget.TextView
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.core.text.HtmlCompat
 import chromahub.rhythm.app.shared.presentation.components.common.M3FourColorCircularLoader
@@ -163,8 +168,8 @@ data class ArtworkCacheStats(
     val fileCount: Int
 )
 
-const val ARTWORK_CACHE_TRIM_MAX_BYTES = 256L * 1024 * 1024
-const val ARTWORK_CACHE_TRIM_MAX_FILES = 1200
+const val ARTWORK_CACHE_TRIM_MAX_BYTES = 96L * 1024 * 1024
+const val ARTWORK_CACHE_TRIM_MAX_FILES = 600
 
 fun collectArtworkCacheFiles(cacheDir: File): MutableList<File> {
     val artworkCacheDir = File(cacheDir, "embedded_artwork")
@@ -181,9 +186,19 @@ fun collectArtworkCacheFiles(cacheDir: File): MutableList<File> {
         ?.toList()
         .orEmpty()
 
+    // Scan-time artwork is also written to filesDir/embedded_artwork (counts as
+    // App data in Android settings) — include it so stats and trim cover it too.
+    val filesDir = cacheDir.parentFile?.let { File(it, "files") }
+    val filesDirArtwork = filesDir
+        ?.let { dir -> File(dir, "embedded_artwork") }
+        ?.listFiles { file -> file.isFile }
+        ?.toList()
+        .orEmpty()
+
     return mutableListOf<File>().apply {
         addAll(currentArtworkFiles)
         addAll(legacyArtworkFiles)
+        addAll(filesDirArtwork)
     }
 }
 
@@ -246,7 +261,7 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
 
 
     // Local states
-    var currentCacheSize by remember { mutableStateOf(0L) }
+    var currentCacheSize by remember { mutableLongStateOf(0L) }
     var isCalculatingSize by remember { mutableStateOf(false) }
     var isClearingCache by remember { mutableStateOf(false) }
     var showCacheSizeDialog by remember { mutableStateOf(false) }
@@ -255,7 +270,7 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
     var restartDialogMessage by remember { mutableStateOf("") }
     var cacheDetails by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
     var isRebuildingRoom by remember { mutableStateOf(false) }
-    var roomSongCount by remember { mutableStateOf(-1) }
+    var roomSongCount by remember { mutableIntStateOf(-1) }
 
     val refreshCacheStats: suspend () -> Unit = {
         isCalculatingSize = true
@@ -423,7 +438,7 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
                             } else {
                                 // Fallback empty state
                                 Surface(
-                                    shape = RoundedCornerShape(18.dp),
+                                    shape = RoundedCornerShape(24.dp),
                                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                                     modifier = Modifier.fillMaxSize()
                                 ) {}
@@ -514,7 +529,7 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
                             item = SettingItem(
                                 icon = MaterialSymbolIcon("data_usage", filled = true),
                                 title = context.getString(R.string.cache_max_size),
-                                description = "${String.format("%.1f", maxCacheSize / (1024f * 1024f))} MB",
+                                description = context.getString(R.string.settings_cache_size_mb, String.format(Locale.ROOT, "%.1f", maxCacheSize / (1024f * 1024f))),
                                 onClick = { showCacheSizeDialog = true }
                             )
                         ),
@@ -596,6 +611,11 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
                                         chromahub.rhythm.app.util.CacheManager.clearAllCache(context, null)
                                         musicViewModel.getMusicRepository().clearInMemoryCaches()
                                         musicViewModel.getMusicRepository().clearSongCacheData()
+                                        // Schedule a one-time full rescan on the next launch so embedded
+                                        // artwork (which lives in filesDir and was just cleared) is
+                                        // re-extracted from the audio files. This runs once after the
+                                        // explicit clear, not on every app start.
+                                        appSettings.requestFullMediaRescanOnNextLaunch(reason = "cache_cleared")
                                         refreshCacheStats()
                                         showClearCacheSuccess = true
                                         restartDialogMessage = context.getString(R.string.settings_cache_restart_required)
@@ -634,7 +654,7 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
                             description = {
                                 Text(
                                     if (roomSongCount >= 0) {
-                                        context.getString(R.string.settings_storage_song_count, roomSongCount)
+                                        pluralStringResource(R.plurals.settings_storage_song_count, roomSongCount, roomSongCount)
                                     } else {
                                         context.getString(R.string.settings_storage_not_available)
                                     }
@@ -689,9 +709,9 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
             item {
                 Card(
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
                     ),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(24.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -702,7 +722,8 @@ fun CacheManagementSettingsScreen(onBackClick: () -> Unit) {
                             modifier = Modifier.padding(bottom = 12.dp)
                         ) {
                             Icon(
-                                imageVector = RhythmIcons.Info,
+                                imageVector = MaterialSymbolIcon("lightbulb", filled = true),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 contentDescription = null,
                                 modifier = Modifier.size(24.dp)
                             )

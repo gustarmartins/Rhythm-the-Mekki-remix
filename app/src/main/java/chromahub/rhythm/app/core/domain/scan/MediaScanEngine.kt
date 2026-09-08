@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.core.domain.scan
 
 import android.content.Context
@@ -21,6 +26,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.yield
 import kotlinx.coroutines.withContext
+import java.io.File
+import androidx.core.net.toUri
+import androidx.core.content.edit
 
 /**
  * Centralized, High-Performance Media Scanning Engine for Rhythm.
@@ -37,6 +45,15 @@ class MediaScanEngine(
     companion object {
         private const val TAG = "MediaScanEngine"
         private const val BATCH_SIZE = 100
+
+        fun mediaScanSelection(minimumDuration: Long = 0L): String {
+            val baseSelection = "(${MediaStore.Audio.Media.IS_MUSIC} = 1 OR ${MediaStore.Audio.Media.MIME_TYPE} LIKE 'audio/%' OR ${MediaStore.Audio.Media.MIME_TYPE} = 'video/mp4' OR ${MediaStore.Audio.Media.MIME_TYPE} = 'video/x-matroska' OR ${MediaStore.Audio.Media.MIME_TYPE} = 'application/x-matroska')"
+            return if (minimumDuration > 0L) {
+                "$baseSelection AND ${MediaStore.Audio.Media.DURATION} >= $minimumDuration"
+            } else {
+                baseSelection
+            }
+        }
     }
 
     private val _scanProgress = MutableStateFlow(ScanProgress(0, 0, ScanPhase.Idle))
@@ -51,7 +68,7 @@ class MediaScanEngine(
         minimumDuration: Long = 0L
     ): List<Song> = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
-        Log.d(TAG, "Starting media scan (forceRefresh=$forceRefresh)")
+        Log.d(TAG, "Starting media scan (forceRefresh=$forceRefresh, minimumDuration=${minimumDuration}ms)")
         _scanProgress.value = ScanProgress(0, 0, ScanPhase.Songs, 0)
 
         // Query existing DB entries into an O(1) Map by ID
@@ -63,9 +80,21 @@ class MediaScanEngine(
 
         val mediaScanMode = appSettings.mediaScanMode.value
         val whitelistedFolders = appSettings.whitelistedFolders.value
+        val whitelistedSongs = appSettings.whitelistedSongs.value
         val blacklistedFolders = appSettings.blacklistedFolders.value
         val blacklistedSongs = appSettings.blacklistedSongs.value
         val preferSongArtwork = appSettings.preferSongArtwork.value
+
+        if (mediaScanMode == MediaScanMode.WHITELIST && whitelistedFolders.isEmpty() && whitelistedSongs.isEmpty()) {
+            Log.d(TAG, "Whitelist mode active with no whitelisted folders or songs; skipping MediaStore scan")
+            database.withTransaction {
+                if (forceRefresh) {
+                    database.songDao().replaceAll(emptyList())
+                }
+            }
+            _scanProgress.value = ScanProgress(0, 0, ScanPhase.Complete, 0)
+            return@withContext emptyList()
+        }
 
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
@@ -91,10 +120,12 @@ class MediaScanEngine(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 add(MediaStore.Audio.Media.GENRE)
                 add(MediaStore.Audio.Media.ALBUM_ARTIST)
+                add(MediaStore.Audio.Media.DISC_NUMBER)
+                add(MediaStore.Audio.Media.CD_TRACK_NUMBER)
             }
         }.toTypedArray()
 
-        val selection = "(${MediaStore.Audio.Media.IS_MUSIC} = 1 OR ${MediaStore.Audio.Media.MIME_TYPE} LIKE 'audio/%') AND ${MediaStore.Audio.Media.DURATION} > 10000"
+        val selection = mediaScanSelection(minimumDuration)
         val sortOrder = "${MediaStore.Audio.Media.DATE_ADDED} DESC"
 
         val scannedSongs = mutableListOf<SongEntity>()
@@ -121,8 +152,10 @@ class MediaScanEngine(
                 val colDateAdded = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
                 val colDateModified = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
                 val colData = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
-                val colGenre = cursor.getColumnIndex(MediaStore.Audio.Media.GENRE)
+                val colGenre = cursor.getColumnIndex("genre") // MediaStore.Audio.AudioColumns.GENRE (API 30+)
                 val colAlbumArtist = cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ARTIST)
+                val colDiscNumber = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) cursor.getColumnIndex(MediaStore.Audio.Media.DISC_NUMBER) else -1
+                val colCdTrackNumber = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) cursor.getColumnIndex(MediaStore.Audio.Media.CD_TRACK_NUMBER) else -1
 
             var processed = 0
             var lastProgressEmitTime = 0L
@@ -142,9 +175,12 @@ class MediaScanEngine(
                             if (ext.isNotEmpty() && !allowedFormats.contains(ext)) continue
                         }
 
-                        if (mediaScanMode == MediaScanMode.WHITELIST && whitelistedFolders.isNotEmpty()) {
-                            val isWhitelisted = whitelistedFolders.any { normPath.startsWith(it.lowercase()) }
-                            if (!isWhitelisted) continue
+                        if (mediaScanMode == MediaScanMode.WHITELIST) {
+                            val isFolderWhitelisted = whitelistedFolders.isNotEmpty() &&
+                                whitelistedFolders.any { normPath.startsWith(it.lowercase()) }
+                            val isSongWhitelisted = whitelistedSongs.isNotEmpty() &&
+                                whitelistedSongs.contains(id)
+                            if (!isFolderWhitelisted && !isSongWhitelisted) continue
                         }
 
                         if (mediaScanMode == MediaScanMode.BLACKLIST && blacklistedFolders.isNotEmpty()) {
@@ -158,33 +194,153 @@ class MediaScanEngine(
                     val duration = cursor.getLong(colDuration)
                     if (minimumDuration > 0 && duration < minimumDuration) continue
 
-                    val dateModified = cursor.getLong(colDateModified)
+                    val rawDateModified = cursor.getLong(colDateModified)
+                    val dateModified = if (rawDateModified in 1..99_999_999_999L) rawDateModified * 1000L else rawDateModified
 
-                    // Differential check: reuse existing DB record if unmodified.
-                    // Keep scanning metadata-only: opening audio files here used to make a
-                    // large library scan compete with MediaProvider/FUSE for dozens of files.
-                    // Embedded artwork is handled by the bounded deferred worker instead.
+                    val preferSongArtwork = appSettings.preferSongArtwork.value
+                    val losslessArtwork = appSettings.isLosslessArtworkActive.value
+
+                    // Differential check: reuse existing DB record if unmodified and timestamps are in ms
                     val existing = existingDbSongs[id]
 
-                    if (existing != null && existing.dateModified == dateModified) {
-                        scannedSongs.add(existing)
+                    if (existing != null && existing.dateModified == dateModified && existing.dateAdded >= 100_000_000_000L) {
+                        val existingArt = if (preferSongArtwork) {
+                            chromahub.rhythm.app.util.MediaUtils.getCachedEmbeddedAlbumArtUri(
+                                cacheDir = context.filesDir,
+                                songUri = (existing.uri).toUri(),
+                                lossless = losslessArtwork,
+                                exactMatchOnly = false
+                            )?.toString() ?: (existing.artworkUri ?: Uri.withAppendedPath(
+                                ("content://media/external/audio/albumart").toUri(),
+                                existing.albumId
+                            ).toString())
+                        } else {
+                            existing.artworkUri ?: Uri.withAppendedPath(
+                                ("content://media/external/audio/albumart").toUri(),
+                                existing.albumId
+                            ).toString()
+                        }
+                        scannedSongs.add(existing.copy(artworkUri = existingArt))
                         seenIds.add(id)
                     } else {
-                        val title = cursor.getString(colTitle) ?: "Unknown Title"
-                        val artist = cursor.getString(colArtist) ?: "<unknown>"
-                        val album = cursor.getString(colAlbum) ?: "Unknown Album"
+                        val rawTitle = cursor.getString(colTitle) ?: "Unknown Title"
+                        val rawArtist = cursor.getString(colArtist) ?: "<unknown>"
+                        val rawAlbum = cursor.getString(colAlbum) ?: "Unknown Album"
                         val albumId = cursor.getLong(colAlbumId).toString()
-                        val trackNumber = cursor.getInt(colTrack)
-                        val year = cursor.getInt(colYear)
-                        val dateAdded = cursor.getLong(colDateAdded)
-                        val genre = if (colGenre >= 0) cursor.getString(colGenre) else null
-                        val albumArtist = if (colAlbumArtist >= 0) cursor.getString(colAlbumArtist) else null
+                        val rawTrack = cursor.getInt(colTrack)
+                        val cdTrack = if (colCdTrackNumber >= 0) cursor.getInt(colCdTrackNumber) else 0
+                        val discFromStore = if (colDiscNumber >= 0) cursor.getInt(colDiscNumber) else 0
+                        val rawYear = cursor.getInt(colYear)
+                        val rawDateAdded = cursor.getLong(colDateAdded)
+                        val dateAdded = if (rawDateAdded in 1..99_999_999_999L) {
+                            rawDateAdded * 1000L
+                        } else if (rawDateAdded > 0L) {
+                            rawDateAdded
+                        } else {
+                            System.currentTimeMillis()
+                        }
+                        val finalDateModified = dateModified.takeIf { it > 0L } ?: dateAdded
+                        val rawGenre = if (colGenre >= 0) cursor.getString(colGenre) else null
+                        val rawAlbumArtist = if (colAlbumArtist >= 0) cursor.getString(colAlbumArtist) else null
+
+                        var title = chromahub.rhythm.app.util.MetadataHeuristics.normalizeMetadataText(rawTitle) ?: rawTitle
+                        var artist = chromahub.rhythm.app.util.MetadataHeuristics.normalizeMetadataText(rawArtist) ?: rawArtist
+                        var album = chromahub.rhythm.app.util.MetadataHeuristics.normalizeMetadataText(rawAlbum) ?: rawAlbum
+                        var genre = rawGenre?.let { chromahub.rhythm.app.util.MetadataHeuristics.normalizeMetadataText(it) }
+                        var albumArtist = rawAlbumArtist?.let { chromahub.rhythm.app.util.MetadataHeuristics.normalizeMetadataText(it) }
+
+                        var discNumber = when {
+                            discFromStore > 0 -> discFromStore
+                            rawTrack >= 1000 -> rawTrack / 1000
+                            else -> 1
+                        }
+
+                        var trackNumber = when {
+                            rawTrack >= 1000 -> rawTrack % 1000
+                            rawTrack > 0 -> rawTrack
+                            cdTrack > 0 -> cdTrack
+                            else -> 0
+                        }
+
+                        var year = rawYear
+
+                        // Fallback tag extraction for missing year or FLAC/audio files where MediaStore failed
+                        if ((year == 0 || trackNumber == 0 || albumArtist.isNullOrBlank() || path?.lowercase()?.endsWith(".flac") == true) && !path.isNullOrBlank()) {
+                            try {
+                                val file = File(path)
+                                if (file.exists() && file.canRead()) {
+                                    android.os.ParcelFileDescriptor.open(file, android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+                                        val metadata = com.kyant.taglib.TagLib.getMetadata(fd.detachFd())
+                                        val propertyMap = metadata?.propertyMap ?: emptyMap()
+                                        if (year == 0) {
+                                            val dateValues = propertyMap["DATE"] ?: propertyMap["YEAR"]
+                                            if (!dateValues.isNullOrEmpty() && dateValues[0].isNotBlank()) {
+                                                year = chromahub.rhythm.app.util.MetadataHeuristics.parseYear(dateValues[0])
+                                            }
+                                        }
+                                        if (trackNumber == 0) {
+                                            val trackValues = propertyMap["TRACKNUMBER"]
+                                            if (!trackValues.isNullOrEmpty() && trackValues[0].isNotBlank()) {
+                                                val parsedTrackStr = trackValues[0].substringBefore('/')
+                                                val parsedInt = parsedTrackStr.toIntOrNull() ?: 0
+                                                if (parsedInt >= 1000) {
+                                                    discNumber = parsedInt / 1000
+                                                    trackNumber = parsedInt % 1000
+                                                } else if (parsedInt > 0) {
+                                                    trackNumber = parsedInt
+                                                }
+                                            }
+                                        }
+                                        if (discNumber <= 1) {
+                                            val discValues = propertyMap["DISCNUMBER"]
+                                            if (!discValues.isNullOrEmpty() && discValues[0].isNotBlank()) {
+                                                val parsedDisc = discValues[0].substringBefore('/').toIntOrNull() ?: 1
+                                                if (parsedDisc > 0) discNumber = parsedDisc
+                                            }
+                                        }
+                                        val tagTitle = propertyMap["TITLE"]?.firstOrNull()?.trim()
+                                        if (!tagTitle.isNullOrBlank() && (title == "Unknown Title" || chromahub.rhythm.app.util.MetadataHeuristics.isLikelyCorruptedMetadata(title))) {
+                                            title = chromahub.rhythm.app.util.MetadataHeuristics.normalizeMetadataText(tagTitle) ?: tagTitle
+                                        }
+                                        val tagArtist = propertyMap["ARTIST"]?.firstOrNull()?.trim()
+                                        if (!tagArtist.isNullOrBlank() && (artist == "<unknown>" || chromahub.rhythm.app.util.MetadataHeuristics.isLikelyCorruptedMetadata(artist))) {
+                                            artist = chromahub.rhythm.app.util.MetadataHeuristics.normalizeMetadataText(tagArtist) ?: tagArtist
+                                        }
+                                        val tagAlbum = propertyMap["ALBUM"]?.firstOrNull()?.trim()
+                                        if (!tagAlbum.isNullOrBlank() && (album == "Unknown Album" || chromahub.rhythm.app.util.MetadataHeuristics.isLikelyCorruptedMetadata(album))) {
+                                            album = chromahub.rhythm.app.util.MetadataHeuristics.normalizeMetadataText(tagAlbum) ?: tagAlbum
+                                        }
+                                        val tagAlbumArtist = (propertyMap["ALBUMARTIST"] ?: propertyMap["ALBUM ARTIST"] ?: propertyMap["ALBUM_ARTIST"])?.firstOrNull()?.trim()
+                                        if (!tagAlbumArtist.isNullOrBlank() && (albumArtist.isNullOrBlank() || chromahub.rhythm.app.util.MetadataHeuristics.isLikelyCorruptedMetadata(albumArtist))) {
+                                            albumArtist = chromahub.rhythm.app.util.MetadataHeuristics.normalizeMetadataText(tagAlbumArtist) ?: tagAlbumArtist
+                                        }
+                                        val tagGenre = propertyMap["GENRE"]?.firstOrNull()?.trim()
+                                        if (!tagGenre.isNullOrBlank() && (genre.isNullOrBlank() || chromahub.rhythm.app.util.MetadataHeuristics.isLikelyCorruptedMetadata(genre))) {
+                                            genre = chromahub.rhythm.app.util.MetadataHeuristics.normalizeMetadataText(tagGenre) ?: tagGenre
+                                        }
+                                    }
+                                }
+                            } catch (_: Throwable) {
+                                // TagLib fallback non-fatal
+                            }
+                        }
 
                         val contentUri = Uri.withAppendedPath(collection, id).toString()
                         val defaultArtworkUri = Uri.withAppendedPath(
-                            Uri.parse("content://media/external/audio/albumart"),
+                            ("content://media/external/audio/albumart").toUri(),
                             albumId
                         ).toString()
+
+                        val initialArtworkUri = if (preferSongArtwork) {
+                            chromahub.rhythm.app.util.MediaUtils.getCachedEmbeddedAlbumArtUri(
+                                cacheDir = context.filesDir,
+                                songUri = (contentUri).toUri(),
+                                lossless = losslessArtwork,
+                                exactMatchOnly = false
+                            )?.toString() ?: defaultArtworkUri
+                        } else {
+                            defaultArtworkUri
+                        }
 
                         val entity = SongEntity(
                             id = id,
@@ -194,18 +350,18 @@ class MediaScanEngine(
                             albumId = albumId,
                             duration = duration,
                             uri = contentUri,
-                            artworkUri = defaultArtworkUri,
+                            artworkUri = initialArtworkUri,
                             trackNumber = trackNumber,
                             year = year,
                             genre = genre,
                             dateAdded = dateAdded,
-                            dateModified = dateModified,
+                            dateModified = finalDateModified,
                             albumArtist = albumArtist,
                             bitrate = null,
                             sampleRate = null,
                             channels = null,
                             codec = null,
-                            discNumber = 1,
+                            discNumber = discNumber,
                             path = path
                         )
                         scannedSongs.add(entity)
@@ -226,12 +382,20 @@ class MediaScanEngine(
             database.withTransaction {
                 if (forceRefresh) {
                     database.songDao().replaceAll(scannedSongs)
+                    database.artistDao().deleteAll()
+                    database.songArtistDao().deleteAll()
                 } else {
                     val staleSongIds = existingDbSongs.keys - seenIds
+                    val newSongIds = seenIds - existingDbSongs.keys
                     if (staleSongIds.isNotEmpty()) {
                         database.songDao().deleteByIds(staleSongIds.toList())
+                        database.songArtistDao().deleteBySongIds(staleSongIds.toList())
                     }
                     database.songDao().upsertAll(scannedSongs)
+                    if (staleSongIds.isNotEmpty() || newSongIds.isNotEmpty()) {
+                        database.artistDao().deleteAll()
+                        database.songArtistDao().deleteAll()
+                    }
                 }
             }
 
@@ -247,9 +411,7 @@ class MediaScanEngine(
             }
             try {
                 context.getSharedPreferences("library_scan_metadata", Context.MODE_PRIVATE)
-                    .edit()
-                    .putInt("last_scan_mediastore_count", rawMediaStoreCount)
-                    .apply()
+                    .edit { putInt("last_scan_mediastore_count", rawMediaStoreCount) }
                 Log.d(TAG, "Saved MediaStore count ($rawMediaStoreCount) to library_scan_metadata")
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to save MediaStore count", e)
@@ -267,8 +429,8 @@ class MediaScanEngine(
                     album = entity.album,
                     albumId = entity.albumId,
                     duration = entity.duration,
-                    uri = Uri.parse(entity.uri),
-                    artworkUri = entity.artworkUri?.let { Uri.parse(it) },
+                    uri = (entity.uri).toUri(),
+                    artworkUri = entity.artworkUri?.let { (it).toUri() },
                     trackNumber = entity.trackNumber,
                     year = entity.year,
                     genre = entity.genre,

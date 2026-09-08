@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.local.presentation.screens
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
@@ -38,6 +43,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import chromahub.rhythm.app.shared.presentation.components.dialogs.CustomizePlaylistImageDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -88,7 +94,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.derivedStateOf
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel
@@ -130,6 +135,9 @@ import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
 import chromahub.rhythm.app.util.M3ImageUtils
 import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShapeFor
+import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveFilledButton
+import chromahub.rhythm.app.shared.presentation.theme.ExpressiveMaterialShape
+import chromahub.rhythm.app.shared.presentation.theme.rememberExpressiveShape
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeTarget
 import chromahub.rhythm.app.shared.presentation.components.common.DragDropLazyColumn
 import chromahub.rhythm.app.shared.presentation.components.player.formatDuration
@@ -138,7 +146,6 @@ import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SongInfo
 import kotlinx.coroutines.delay // Import delay
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -156,6 +163,9 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import chromahub.rhythm.app.util.windowScreenWidthDp
+import chromahub.rhythm.app.util.windowScreenHeightDp
 
 // Playlist sort order enum
 enum class PlaylistSortOrder {
@@ -202,8 +212,8 @@ fun PlaylistDetailScreen(
 ) {
     // Screen size detection for responsive UI
     val configuration = LocalConfiguration.current
-    val screenWidthDp = configuration.screenWidthDp
-    val screenHeightDp = configuration.screenHeightDp
+    val screenWidthDp = windowScreenWidthDp()
+    val screenHeightDp = windowScreenHeightDp()
     val isExtraSmallWidth = screenWidthDp < 360
     val isCompactWidth = screenWidthDp < 400
     val isMidWidth = screenWidthDp in 400..499
@@ -225,8 +235,6 @@ fun PlaylistDetailScreen(
     var searchQuery by remember { mutableStateOf("") }
     var showSearchBar by remember { mutableStateOf(false) }
     val searchFocusRequester = remember { FocusRequester() }
-    var showQueueOptionsDialog by remember { mutableStateOf(false) }
-    var selectedSongForQueue by remember { mutableStateOf<Song?>(null) }
     var isReorderMode by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
     
@@ -237,6 +245,34 @@ fun PlaylistDetailScreen(
     var showPlaylistSelector by remember { mutableStateOf(false) }
     var selectedSongForInfo by remember { mutableStateOf<Song?>(null) }
     var showSongInfo by remember { mutableStateOf(false) }
+
+    var currentArtworkUri by remember(playlist.id, playlist.artworkUri) {
+        mutableStateOf(playlist.artworkUri)
+    }
+    var showCustomizeImageDialog by remember { mutableStateOf(false) }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            musicViewModel.updatePlaylistArtwork(playlist.id, uri) {
+                currentArtworkUri = uri
+            }
+        }
+    }
+
+    if (showCustomizeImageDialog) {
+        CustomizePlaylistImageDialog(
+            playlistName = playlist.name,
+            onDismiss = { showCustomizeImageDialog = false },
+            onSelectImage = { imagePickerLauncher.launch("image/*") },
+            onResetImage = {
+                musicViewModel.updatePlaylistArtwork(playlist.id, null) {
+                    currentArtworkUri = null
+                }
+            }
+        )
+    }
     
     // Multi-select mode state
     var isMultiSelectMode by remember { mutableStateOf(false) }
@@ -247,7 +283,7 @@ fun PlaylistDetailScreen(
     val coroutineScope = rememberCoroutineScope()
     val allSongs by musicViewModel.filteredSongs.collectAsState()
     var showSongPicker by remember { mutableStateOf(false) }
-    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
+    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
 
     val haptics = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -276,7 +312,6 @@ fun PlaylistDetailScreen(
             Toast.makeText(context, R.string.localnavigation_permission_denied_changes_saved, Toast.LENGTH_LONG).show()
         }
     }
-    val playlistClickBehavior by appSettings.playlistClickBehavior.collectAsState(initial = "ask")
     val useHoursFormat by appSettings.useHoursInTimeFormat.collectAsState()
     val canEditPlaylist = !isStreamingPlaylist
     
@@ -290,164 +325,6 @@ fun PlaylistDetailScreen(
     }
     
 
-    if (showQueueOptionsDialog && selectedSongForQueue != null) {
-        AlertDialog(
-            onDismissRequest = { 
-                showQueueOptionsDialog = false
-                selectedSongForQueue = null
-            },
-            icon = {
-                Icon(
-                    imageVector = RhythmIcons.Queue,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
-                )
-            },
-            title = { 
-                Text(
-                    "Play from Playlist",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Song info
-                    Text(
-                        selectedSongForQueue!!.title,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        "${selectedSongForQueue!!.artist} • ${playlist.name}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    
-                    Spacer(modifier = Modifier.height(4.dp))
-                    
-                    // Option 1: Load Playlist & Play
-                    Surface(
-                        onClick = {
-                            HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                            onPlaySongFromPlaylist?.invoke(selectedSongForQueue!!, playlist.songs)
-                            showQueueOptionsDialog = false
-                            selectedSongForQueue = null
-                        },
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Queue,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "Load Playlist & Play",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                                Text(
-                                    "Replace queue with playlist",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                                )
-                            }
-                        }
-                    }
-                    
-                    // Option 2: Play This Song Only
-                    Surface(
-                        onClick = {
-                            HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                            onSongClick(selectedSongForQueue!!)
-                            showQueueOptionsDialog = false
-                            selectedSongForQueue = null
-                        },
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Play,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSecondary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "Play This Song Only",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    "Don't change the queue",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                OutlinedButton(
-                    onClick = {
-                        HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                        showQueueOptionsDialog = false
-                        selectedSongForQueue = null
-                    }
-                ) {
-                    Icon(
-                        imageVector = RhythmIcons.Close,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.ui_cancel))
-                }
-            },
-            shape = RoundedCornerShape(24.dp)
-        )
-    }
-    
     if (showRenameDialog) {
         AlertDialog(
             onDismissRequest = { showRenameDialog = false },
@@ -567,8 +444,8 @@ fun PlaylistDetailScreen(
                     modifier = Modifier.size(28.dp)
                 )
             },
-            title = { Text(stringResource(R.string.playlist_remove_songs_count, selectedSongs.size)) },
-            text = { Text(stringResource(R.string.playlist_remove_songs_confirm, selectedSongs.size)) },
+            title = { Text(pluralStringResource(R.plurals.playlist_remove_songs_count, selectedSongs.size, selectedSongs.size)) },
+            text = { Text(pluralStringResource(R.plurals.playlist_remove_songs_confirm, selectedSongs.size, selectedSongs.size)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -665,7 +542,6 @@ fun PlaylistDetailScreen(
         )
     }
     
-    // Song Options Bottom Sheet - matching search screen
     if (showSongOptionsSheet && selectedSongForOptions != null) {
         PlaylistSongOptionsBottomSheet(
             song = selectedSongForOptions!!,
@@ -705,7 +581,13 @@ fun PlaylistDetailScreen(
                 onGoToArtist(selectedSongForOptions!!)
                 showSongOptionsSheet = false
             },
-            showRemoveFromPlaylist = canEditPlaylist,
+            showRemoveFromPlaylist = canEditPlaylist || isStreamingPlaylist,
+            showAddToPlaylist = false,
+            isStreamingMode = isStreamingPlaylist,
+            onDeleteSong = {
+                musicViewModel.deleteSong(selectedSongForOptions!!)
+                showSongOptionsSheet = false
+            },
             haptics = haptics
         )
     }
@@ -877,7 +759,7 @@ fun PlaylistDetailScreen(
                 }
             }
             
-            if (canEditPlaylist) {
+            if (canEditPlaylist || isStreamingPlaylist) {
                 FilledIconButton(
                     onClick = {
                         HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
@@ -1082,6 +964,49 @@ fun PlaylistDetailScreen(
                         }
                     }
                     
+                    // Customize playlist image option (local playlists only)
+                    if (canEditPlaylist) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Customize image",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            },
+                            leadingIcon = {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Image,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(6.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                showMenu = false
+                                showCustomizeImageDialog = true
+                            }
+                        )
+                    }
+                    }
+
                     // Rename playlist option
                     if (!isDefault) {
                         Surface(
@@ -1336,7 +1261,7 @@ fun PlaylistDetailScreen(
                         isFirst = true,
                         isLast = false,
                         icon = RhythmIcons.Play,
-                        text = "Play All",
+                        text = stringResource(R.string.action_play_all),
                         fontWeight = FontWeight.Bold
                     )
                     
@@ -1375,36 +1300,80 @@ fun PlaylistDetailScreen(
 
                     // Playlist artwork
                     val playlistArtSize = 180.dp
-                    Surface(
-                        modifier = Modifier.size(playlistArtSize),
-                        shape = rememberExpressiveShapeFor(
-                            ExpressiveShapeTarget.PLAYLIST_ART,
-                            fallbackShape = RoundedCornerShape(32.dp)
-                        ),
-                        tonalElevation = 8.dp,
-                        shadowElevation = 0.dp
+                    Box(
+                        contentAlignment = Alignment.BottomEnd,
+                        modifier = Modifier.size(playlistArtSize)
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            if (playlist.artworkUri != null) {
-                                M3ImageUtils.PlaylistImage(
-                                    imageUrl = playlist.artworkUri,
-                                    playlistName = playlist.name,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            } else {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .then(
+                                    if (canEditPlaylist) {
+                                        Modifier.clickable {
+                                            HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                            showCustomizeImageDialog = true
+                                        }
+                                    } else {
+                                        Modifier
+                                    }
+                                ),
+                            shape = rememberExpressiveShapeFor(
+                                ExpressiveShapeTarget.PLAYLIST_ART,
+                                fallbackShape = RoundedCornerShape(32.dp)
+                            ),
+                            tonalElevation = 8.dp,
+                            shadowElevation = 0.dp
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                if (currentArtworkUri != null) {
+                                    M3ImageUtils.PlaylistImage(
+                                        imageUrl = currentArtworkUri,
+                                        playlistName = playlist.name,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                MaterialTheme.colorScheme.primaryContainer,
+                                                RoundedCornerShape(32.dp)
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = RhythmIcons.PlaylistFilled,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(90.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        if (canEditPlaylist) {
+                            Surface(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .padding(4.dp)
+                                    .clickable {
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                        showCustomizeImageDialog = true
+                                    },
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                border = BorderStroke(2.dp, MaterialTheme.colorScheme.surface),
+                                shadowElevation = 4.dp
+                            ) {
                                 Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(
-                                            MaterialTheme.colorScheme.primaryContainer,
-                                            RoundedCornerShape(32.dp)
-                                        ),
-                                    contentAlignment = Alignment.Center
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier.fillMaxSize()
                                 ) {
                                     Icon(
-                                        imageVector = RhythmIcons.PlaylistFilled,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(90.dp)
+                                        imageVector = RhythmIcons.Edit,
+                                        contentDescription = stringResource(R.string.content_desc_edit_image),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
                             }
@@ -1433,7 +1402,7 @@ fun PlaylistDetailScreen(
                                         onPlayAll()
                                     },
                                     icon = RhythmIcons.Play,
-                                    text = "Play All",
+                                    text = stringResource(R.string.action_play_all),
                                     fontWeight = FontWeight.Normal
                                 )
 
@@ -1473,7 +1442,7 @@ fun PlaylistDetailScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    "Add Songs",
+                                    stringResource(R.string.playlist_add_songs_button),
                                     style = MaterialTheme.typography.titleMedium
                                 )
                             }
@@ -1639,37 +1608,80 @@ fun PlaylistDetailScreen(
                                         .fillParentMaxHeight(),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(32.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    Surface(
-                                        modifier = Modifier.size(80.dp),
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.surfaceVariant,
-                                        tonalElevation = 4.dp
+                                    val cookieShape = rememberExpressiveShape(ExpressiveMaterialShape.COOKIE_12)
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 20.dp),
+                                        shape = RoundedCornerShape(28.dp),
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                                        )
                                     ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                imageVector = RhythmIcons.MusicNote,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(40.dp)
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 28.dp, vertical = 32.dp)
+                                        ) {
+                                            Surface(
+                                                shape = cookieShape,
+                                                color = MaterialTheme.colorScheme.primaryContainer,
+                                                modifier = Modifier.size(72.dp)
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Icon(
+                                                        imageVector = RhythmIcons.MusicNote,
+                                                        contentDescription = null,
+                                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                        modifier = Modifier.size(34.dp)
+                                                    )
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(16.dp))
+
+                                            Text(
+                                                text = if (searchQuery.isNotEmpty()) context.getString(R.string.nav_no_matching_songs) else context.getString(R.string.playlist_no_songs_yet),
+                                                style = MaterialTheme.typography.titleLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                textAlign = TextAlign.Center
                                             )
+
+                                            Spacer(modifier = Modifier.height(6.dp))
+
+                                            Text(
+                                                text = if (searchQuery.isNotEmpty()) context.getString(R.string.playlist_search_no_matches_desc) else context.getString(R.string.playlist_no_songs_yet_desc),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                textAlign = TextAlign.Center,
+                                                lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.3
+                                            )
+
+                                            if (searchQuery.isEmpty()) {
+                                                Spacer(modifier = Modifier.height(20.dp))
+                                                ExpressiveFilledButton(
+                                                    onClick = {
+                                                        HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                                        showSongPicker = true
+                                                    },
+                                                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = RhythmIcons.Add,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text(stringResource(R.string.playlist_add_songs_button))
+                                                }
+                                            }
                                         }
                                     }
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Text(
-                                        text = if (searchQuery.isNotEmpty()) context.getString(R.string.nav_no_matching_songs) else context.getString(R.string.playlist_no_songs_yet),
-                                        style = MaterialTheme.typography.headlineSmall,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
                                 }
                             }
                         } else {
@@ -1730,18 +1742,7 @@ fun PlaylistDetailScreen(
                                                     return@PlaylistSongItem
                                                 }
                                                 HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                                when (playlistClickBehavior) {
-                                                    "play_all" -> {
-                                                        onPlaySongFromPlaylist?.invoke(song, playlist.songs) ?: onSongClick(song)
-                                                    }
-                                                    "play_one" -> {
-                                                        onSongClick(song)
-                                                    }
-                                                    else -> {
-                                                        selectedSongForQueue = song
-                                                        showQueueOptionsDialog = true
-                                                    }
-                                                }
+                                                onPlaySongFromPlaylist?.invoke(song, playlist.songs) ?: onSongClick(song)
                                             },
                                             onRemove = { message -> onRemoveSong(song, message) },
                                             currentSong = currentSong,
@@ -2103,74 +2104,80 @@ fun PlaylistDetailScreen(
                                 .fillParentMaxHeight(),
                             contentAlignment = Alignment.Center
                         ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            // Empty state icon
-                            Surface(
-                                modifier = Modifier.size(80.dp),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                tonalElevation = 4.dp
+                            val cookieShape = rememberExpressiveShape(ExpressiveMaterialShape.COOKIE_12)
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp),
+                                shape = RoundedCornerShape(28.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                                )
                             ) {
-                                Box(
-                                    contentAlignment = Alignment.Center
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 28.dp, vertical = 32.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.MusicNote,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(40.dp)
+                                    Surface(
+                                        shape = cookieShape,
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        modifier = Modifier.size(72.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = RhythmIcons.MusicNote,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                modifier = Modifier.size(34.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Text(
+                                        text = if (searchQuery.isNotEmpty()) context.getString(R.string.nav_no_matching_songs) else context.getString(R.string.playlist_no_songs_yet),
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        textAlign = TextAlign.Center
                                     )
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    Text(
+                                        text = if (searchQuery.isNotEmpty()) context.getString(R.string.playlist_search_no_matches_desc) else context.getString(R.string.playlist_no_songs_yet_desc),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center,
+                                        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.3
+                                    )
+
+                                    if (searchQuery.isEmpty()) {
+                                        Spacer(modifier = Modifier.height(20.dp))
+                                        ExpressiveFilledButton(
+                                            onClick = {
+                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                                showSongPicker = true
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = RhythmIcons.Add,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(stringResource(R.string.playlist_add_songs_button))
+                                        }
+                                    }
                                 }
                             }
-
-                            Spacer(modifier = Modifier.height(24.dp))
-
-                            // Empty state text
-                            Text(
-                                text = if (searchQuery.isNotEmpty()) context.getString(R.string.nav_no_matching_songs) else context.getString(R.string.playlist_no_songs_yet),
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            Text(
-                                text = if (searchQuery.isNotEmpty()) "Try a different search query" else "Start building your playlist by adding some songs",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                                textAlign = TextAlign.Center
-                            )
-
-                            Spacer(modifier = Modifier.height(24.dp))
-
-                            // Call-to-action button
-                            Button(
-                                onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                    showSongPicker = true
-                                },
-                                shape = RoundedCornerShape(24.dp),
-                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
-                            ) {
-                                Icon(
-                                    imageVector = RhythmIcons.Add,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    "Add Songs",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                            }
-                        }
                         }
                     }
                 } else {
@@ -2382,21 +2389,7 @@ fun PlaylistDetailScreen(
                                             return@PlaylistSongItem
                                         }
                                         HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                        when (playlistClickBehavior) {
-                                            "play_all" -> {
-                                                // Load entire playlist and play from selected song
-                                                onPlaySongFromPlaylist?.invoke(song, playlist.songs) ?: onSongClick(song)
-                                            }
-                                            "play_one" -> {
-                                                // Play only this song
-                                                onSongClick(song)
-                                            }
-                                            else -> {
-                                                // "ask" - Show dialog
-                                                selectedSongForQueue = song
-                                                showQueueOptionsDialog = true
-                                            }
-                                        }
+                                        onPlaySongFromPlaylist?.invoke(song, playlist.songs) ?: onSongClick(song)
                                     },
                                     onRemove = { message -> onRemoveSong(song, message) },
                                     currentSong = currentSong,

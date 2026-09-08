@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.activities
 
 import android.content.Intent
@@ -56,6 +61,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import androidx.compose.ui.res.stringResource
+import java.util.Locale
 
 /**
  * Compact bottom sheet activity for playing external audio files.
@@ -156,6 +162,7 @@ class ExternalPlaybackActivity : ComponentActivity() {
                 uri.toString().let { uriStr ->
                     uriStr.endsWith(".mp3", ignoreCase = true) ||
                         uriStr.endsWith(".m4a", ignoreCase = true) ||
+                        uriStr.endsWith(".mp4", ignoreCase = true) ||
                         uriStr.endsWith(".alac", ignoreCase = true) ||
                         uriStr.endsWith(".wav", ignoreCase = true) ||
                         uriStr.endsWith(".ogg", ignoreCase = true) ||
@@ -167,7 +174,11 @@ class ExternalPlaybackActivity : ComponentActivity() {
                         uriStr.endsWith(".mkv", ignoreCase = true) ||
                         uriStr.endsWith(".mka", ignoreCase = true) ||
                         uriStr.endsWith(".ac3", ignoreCase = true) ||
+                        uriStr.endsWith(".eac", ignoreCase = true) ||
+                        uriStr.endsWith(".eac3", ignoreCase = true) ||
                         uriStr.endsWith(".ac4", ignoreCase = true) ||
+                        uriStr.endsWith(".mhm", ignoreCase = true) ||
+                        uriStr.endsWith(".mhm1", ignoreCase = true) ||
                         uriStr.endsWith(".oga", ignoreCase = true) ||
                         uriStr.endsWith(".mid", ignoreCase = true) ||
                         uriStr.endsWith(".midi", ignoreCase = true) ||
@@ -239,7 +250,7 @@ fun ExternalPlaybackBottomSheet(
     var showContent by remember { mutableStateOf(false) }
     var awaitingSong by remember { mutableStateOf(true) }
     var isScrubbing by remember { mutableStateOf(false) }
-    var scrubProgress by remember { mutableStateOf(0f) }
+    var scrubProgress by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(Unit) {
         delay(100)
@@ -681,5 +692,5 @@ private fun formatTime(milliseconds: Long): String {
     val totalSeconds = milliseconds / 1000
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
-    return String.format("%02d:%02d", minutes, seconds)
+    return String.format(Locale.ROOT, "%02d:%02d", minutes, seconds)
 }

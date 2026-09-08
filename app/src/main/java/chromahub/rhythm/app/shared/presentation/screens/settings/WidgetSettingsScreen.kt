@@ -1,4 +1,17 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.screens.settings
+
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.StandardBottomSheetHeader
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.groupedBottomSheetItemShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 
 import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
@@ -18,7 +31,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
@@ -55,16 +67,22 @@ fun WidgetSettingsScreen(
     val appSettings = AppSettings.getInstance(context)
     
     // Collect widget settings
-    val showAlbumArt by appSettings.widgetShowAlbumArt.collectAsState()
     val showArtist by appSettings.widgetShowArtist.collectAsState()
     val showAlbum by appSettings.widgetShowAlbum.collectAsState()
     val showFavoriteButton by appSettings.widgetShowFavoriteButton.collectAsState()
     val cornerRadius by appSettings.widgetCornerRadius.collectAsState()
-    val autoUpdate by appSettings.widgetAutoUpdate.collectAsState()
     val widgetTheme by appSettings.widgetTheme.collectAsState()
+    val cookieBottomLeft by appSettings.widgetCookieBottomLeft.collectAsState()
+    val cookieBottomRight by appSettings.widgetCookieBottomRight.collectAsState()
+    val statsRange by appSettings.widgetStatsRange.collectAsState()
+    val statsGem by appSettings.widgetStatsGem.collectAsState()
     
     var showCornerRadiusSheet by remember { mutableStateOf(false) }
     var showWidgetThemeSheet by remember { mutableStateOf(false) }
+    var showCookieLeftSheet by remember { mutableStateOf(false) }
+    var showCookieRightSheet by remember { mutableStateOf(false) }
+    var showStatsRangeSheet by remember { mutableStateOf(false) }
+    var showStatsGemSheet by remember { mutableStateOf(false) }
 
     fun buildToggleSettingsItem(
         icon: MaterialSymbolIcon,
@@ -81,7 +99,6 @@ fun WidgetSettingsScreen(
                 TunerAnimatedSwitch(
                     checked = checked,
                     onCheckedChange = {
-                        HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
                         onToggle(it)
                     }
                 )
@@ -114,16 +131,6 @@ fun WidgetSettingsScreen(
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 val displayItems = listOf(
-                    buildToggleSettingsItem(
-                        icon = RhythmIcons.Image,
-                        title = stringResource(R.string.onboarding_widget_album_art),
-                        description = stringResource(R.string.widget_show_album_art_desc),
-                        checked = showAlbumArt,
-                        onToggle = {
-                            appSettings.setWidgetShowAlbumArt(it)
-                            updateAllWidgets(context)
-                        }
-                    ),
                     buildToggleSettingsItem(
                         icon = RhythmIcons.Artist,
                         title = stringResource(R.string.onboarding_widget_artist),
@@ -214,6 +221,91 @@ fun WidgetSettingsScreen(
                 )
             }
             
+            // Rhythm Cookie Widget — corner action customization
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                Material3SettingsGroup(
+                    title = stringResource(R.string.widget_cookie_section_title),
+                    items = listOf(
+                        Material3SettingsItem(
+                            icon = cookieActionIcon(cookieBottomLeft, isLeft = true),
+                            title = { Text(stringResource(R.string.widget_cookie_bottom_left)) },
+                            description = { Text(cookieActionLabel(cookieBottomLeft)) },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = RhythmIcons.Forward,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
+                                showCookieLeftSheet = true
+                            }
+                        ),
+                        Material3SettingsItem(
+                            icon = cookieActionIcon(cookieBottomRight, isLeft = false),
+                            title = { Text(stringResource(R.string.widget_cookie_bottom_right)) },
+                            description = { Text(cookieActionLabel(cookieBottomRight)) },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = RhythmIcons.Forward,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
+                                showCookieRightSheet = true
+                            }
+                        )
+                    ),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            }
+
+            // Rhythm Stats Widget — hero range + gem content customization
+            item {
+                Spacer(modifier = Modifier.height(24.dp))
+                Material3SettingsGroup(
+                    title = stringResource(R.string.widget_stats_section_title),
+                    items = listOf(
+                        Material3SettingsItem(
+                            icon = statsRangeIcon(statsRange),
+                            title = { Text(stringResource(R.string.widget_stats_time_range)) },
+                            description = { Text(statsRangeLabel(statsRange)) },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = RhythmIcons.Forward,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
+                                showStatsRangeSheet = true
+                            }
+                        ),
+                        Material3SettingsItem(
+                            icon = statsGemIcon(statsGem),
+                            title = { Text(stringResource(R.string.widget_stats_gem)) },
+                            description = { Text(statsGemLabel(statsGem)) },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = RhythmIcons.Forward,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
+                                showStatsGemSheet = true
+                            }
+                        )
+                    ),
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            }
 
             
             // Tips Card
@@ -221,7 +313,7 @@ fun WidgetSettingsScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
                     )
@@ -249,12 +341,12 @@ fun WidgetSettingsScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                         
                         WidgetTipItem(
-                            icon = MaterialSymbolIcon("apps"),
-                            text = stringResource(R.string.widgetsettingsscreen_rhythm_uses_material_3)
+                            icon = MaterialSymbolIcon("cookie"),
+                            text = stringResource(R.string.widget_tip_cookie_corners)
                         )
                         WidgetTipItem(
-                            icon = MaterialSymbolIcon("widgets"),
-                            text = stringResource(R.string.widgetsettingsscreen_widget_adapts_from_1x1)
+                            icon = MaterialSymbolIcon("auto_graph"),
+                            text = stringResource(R.string.widget_tip_stats_widget)
                         )
                         WidgetTipItem(
                             icon = MaterialSymbolIcon("touch_app"),
@@ -262,7 +354,7 @@ fun WidgetSettingsScreen(
                         )
                         WidgetTipItem(
                             icon = MaterialSymbolIcon("grid_on"),
-                            text = stringResource(R.string.widgetsettingsscreen_longpress_and_resize_for)
+                            text = stringResource(R.string.widget_tip_resize_settings)
                         )
                     }
                 }
@@ -272,289 +364,289 @@ fun WidgetSettingsScreen(
         
         // Corner Radius Slider Sheet
         if (showCornerRadiusSheet) {
-            val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
-            var tempRadius by remember { mutableIntStateOf(cornerRadius) }
-            
-            ModalBottomSheet(
-                onDismissRequest = { showCornerRadiusSheet = false },
-                sheetState = sheetState,
-                dragHandle = { 
-                    BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary)
-                },
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .padding(bottom = 24.dp)
-                ) {
-                    // Header
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 0.dp, vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = stringResource(R.string.settings_miniplayer_corner_radius),
-                                style = MaterialTheme.typography.displayMedium,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .padding(top = 6.dp)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        shape = CircleShape
-                                    )
-                            ) {
-                                Text(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    text = stringResource(R.string.unit_dp, tempRadius),
-                                    overflow = TextOverflow.Ellipsis,
-                                    maxLines = 1,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Slider(
-                        value = tempRadius.toFloat(),
-                        onValueChange = { tempRadius = it.toInt() },
-                        onValueChangeFinished = {
-                            HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.HEAVY)
-                            appSettings.setWidgetCornerRadius(tempRadius)
-                            updateAllWidgets(context)
-                        },
-                        valueRange = 0f..60f,
-                        steps = 59,
-                        colors = SliderDefaults.colors(
-                            thumbColor = MaterialTheme.colorScheme.primary,
-                            activeTrackColor = MaterialTheme.colorScheme.primary
-                        )
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // Info card
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = RhythmIcons.Info,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = stringResource(R.string.widgetsettingsscreen_applies_to_glance_widgets),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-            }
+            WidgetCornerRadiusSheet(
+                currentRadius = cornerRadius,
+                onDismiss = { showCornerRadiusSheet = false },
+                appSettings = appSettings
+            )
         }
         
         // Widget Theme Selection Sheet
         if (showWidgetThemeSheet) {
-            val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
-            
-            // Animation states
-            var showContent by remember { mutableStateOf(false) }
-            val contentAlpha by animateFloatAsState(
-                targetValue = if (showContent) 1f else 0f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
+            WidgetThemeSheet(
+                currentTheme = widgetTheme,
+                onDismiss = { showWidgetThemeSheet = false },
+                appSettings = appSettings
+            )
+        }
+        
+        // Rhythm Cookie — Bottom Left Action Sheet
+        if (showCookieLeftSheet) {
+            ActionPickerSheet(
+                title = stringResource(R.string.widget_cookie_bottom_left),
+                selectedValue = cookieBottomLeft,
+                options = listOf(
+                    PickerOption(0, stringResource(R.string.widget_cookie_action_skip), stringResource(R.string.widget_cookie_action_skip_left_desc), MaterialSymbolIcon("skip_previous")),
+                    PickerOption(1, stringResource(R.string.widget_cookie_action_shuffle), stringResource(R.string.widget_cookie_action_shuffle_desc), MaterialSymbolIcon("shuffle")),
+                    PickerOption(2, stringResource(R.string.widget_cookie_action_repeat), stringResource(R.string.widget_cookie_action_repeat_desc), MaterialSymbolIcon("repeat")),
+                    PickerOption(3, stringResource(R.string.widget_cookie_action_favorite), stringResource(R.string.widget_cookie_action_favorite_desc), MaterialSymbolIcon("favorite")),
+                    PickerOption(4, stringResource(R.string.widget_cookie_action_none), stringResource(R.string.widget_cookie_action_none_desc), MaterialSymbolIcon("block"))
                 ),
-                label = "contentAlpha"
+                onDismiss = { showCookieLeftSheet = false },
+                onSelect = { value ->
+                    appSettings.setWidgetCookieBottomLeft(value)
+                    updateAllWidgets(context)
+                    showCookieLeftSheet = false
+                }
             )
-
-            LaunchedEffect(Unit) {
-                delay(100)
-                showContent = true
-            }
-
-            val themes = listOf(
-                Triple(0, stringResource(R.string.widget_theme_dynamic_system), stringResource(R.string.widget_theme_dynamic_desc)),
-                Triple(1, stringResource(R.string.widget_theme_solid_dark), stringResource(R.string.widget_theme_solid_dark_desc)),
-                Triple(2, stringResource(R.string.widget_theme_translucent_dark), stringResource(R.string.widget_theme_translucent_dark_desc)),
-                Triple(3, stringResource(R.string.widget_theme_solid_purple_signature), stringResource(R.string.widget_theme_solid_purple_desc))
+        }
+        
+        // Rhythm Cookie — Bottom Right Action Sheet
+        if (showCookieRightSheet) {
+            ActionPickerSheet(
+                title = stringResource(R.string.widget_cookie_bottom_right),
+                selectedValue = cookieBottomRight,
+                options = listOf(
+                    PickerOption(0, stringResource(R.string.widget_cookie_action_skip), stringResource(R.string.widget_cookie_action_skip_right_desc), MaterialSymbolIcon("skip_next")),
+                    PickerOption(1, stringResource(R.string.widget_cookie_action_shuffle), stringResource(R.string.widget_cookie_action_shuffle_desc), MaterialSymbolIcon("shuffle")),
+                    PickerOption(2, stringResource(R.string.widget_cookie_action_repeat), stringResource(R.string.widget_cookie_action_repeat_desc), MaterialSymbolIcon("repeat")),
+                    PickerOption(3, stringResource(R.string.widget_cookie_action_favorite), stringResource(R.string.widget_cookie_action_favorite_desc), MaterialSymbolIcon("favorite")),
+                    PickerOption(4, stringResource(R.string.widget_cookie_action_none), stringResource(R.string.widget_cookie_action_none_desc), MaterialSymbolIcon("block"))
+                ),
+                onDismiss = { showCookieRightSheet = false },
+                onSelect = { value ->
+                    appSettings.setWidgetCookieBottomRight(value)
+                    updateAllWidgets(context)
+                    showCookieRightSheet = false
+                }
             )
-            
-            ModalBottomSheet(
-                onDismissRequest = { showWidgetThemeSheet = false },
-                sheetState = sheetState,
-                dragHandle = { 
-                    BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary)
-                },
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()
+        }
+        
+        // Rhythm Stats — Time Range Sheet
+        if (showStatsRangeSheet) {
+            ActionPickerSheet(
+                title = stringResource(R.string.widget_stats_time_range),
+                selectedValue = statsRange,
+                options = listOf(
+                    PickerOption(0, stringResource(R.string.widget_stats_range_all_time), stringResource(R.string.widget_stats_range_all_time_desc), MaterialSymbolIcon("all_inclusive")),
+                    PickerOption(1, stringResource(R.string.widget_stats_range_today), stringResource(R.string.widget_stats_range_today_desc), MaterialSymbolIcon("today")),
+                    PickerOption(2, stringResource(R.string.widget_stats_range_week), stringResource(R.string.widget_stats_range_week_desc), MaterialSymbolIcon("date_range")),
+                    PickerOption(3, stringResource(R.string.widget_stats_range_month), stringResource(R.string.widget_stats_range_month_desc), MaterialSymbolIcon("calendar_month"))
+                ),
+                onDismiss = { showStatsRangeSheet = false },
+                onSelect = { value ->
+                    appSettings.setWidgetStatsRange(value)
+                    updateAllWidgets(context)
+                    showStatsRangeSheet = false
+                }
+            )
+        }
+        
+        // Rhythm Stats — Gem Content Sheet
+        if (showStatsGemSheet) {
+            ActionPickerSheet(
+                title = stringResource(R.string.widget_stats_gem),
+                selectedValue = statsGem,
+                options = listOf(
+                    PickerOption(0, stringResource(R.string.widget_stats_gem_longest_streak), stringResource(R.string.widget_stats_gem_longest_streak_desc), MaterialSymbolIcon("workspace_premium")),
+                    PickerOption(1, stringResource(R.string.widget_stats_gem_current_streak), stringResource(R.string.widget_stats_gem_current_streak_desc), MaterialSymbolIcon("local_fire_department")),
+                    PickerOption(2, stringResource(R.string.widget_stats_gem_active_days), stringResource(R.string.widget_stats_gem_active_days_desc), MaterialSymbolIcon("event_available")),
+                    PickerOption(3, stringResource(R.string.widget_stats_gem_sessions), stringResource(R.string.widget_stats_gem_sessions_desc), MaterialSymbolIcon("history"))
+                ),
+                onDismiss = { showStatsGemSheet = false },
+                onSelect = { value ->
+                    appSettings.setWidgetStatsGem(value)
+                    updateAllWidgets(context)
+                    showStatsGemSheet = false
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun cookieActionLabel(value: Int): String {
+    return when (value) {
+        1 -> stringResource(R.string.widget_cookie_action_shuffle)
+        2 -> stringResource(R.string.widget_cookie_action_repeat)
+        3 -> stringResource(R.string.widget_cookie_action_favorite)
+        4 -> stringResource(R.string.widget_cookie_action_none)
+        else -> stringResource(R.string.widget_cookie_action_skip)
+    }
+}
+
+fun cookieActionIcon(value: Int, isLeft: Boolean): MaterialSymbolIcon {
+    return when (value) {
+        1 -> MaterialSymbolIcon("shuffle")
+        2 -> MaterialSymbolIcon("repeat")
+        3 -> MaterialSymbolIcon("favorite")
+        4 -> MaterialSymbolIcon("block")
+        else -> if (isLeft) MaterialSymbolIcon("skip_previous") else MaterialSymbolIcon("skip_next")
+    }
+}
+
+fun statsRangeIcon(value: Int): MaterialSymbolIcon {
+    return when (value) {
+        1 -> MaterialSymbolIcon("today")
+        2 -> MaterialSymbolIcon("date_range")
+        3 -> MaterialSymbolIcon("calendar_month")
+        else -> MaterialSymbolIcon("all_inclusive")
+    }
+}
+
+fun statsGemIcon(value: Int): MaterialSymbolIcon {
+    return when (value) {
+        1 -> MaterialSymbolIcon("local_fire_department")
+        2 -> MaterialSymbolIcon("event_available")
+        3 -> MaterialSymbolIcon("history")
+        else -> MaterialSymbolIcon("workspace_premium")
+    }
+}
+
+@Composable
+fun statsRangeLabel(value: Int): String {
+    return when (value) {
+        1 -> stringResource(R.string.widget_stats_range_today)
+        2 -> stringResource(R.string.widget_stats_range_week)
+        3 -> stringResource(R.string.widget_stats_range_month)
+        else -> stringResource(R.string.widget_stats_range_all_time)
+    }
+}
+
+@Composable
+fun statsGemLabel(value: Int): String {
+    return when (value) {
+        1 -> stringResource(R.string.widget_stats_gem_current_streak)
+        2 -> stringResource(R.string.widget_stats_gem_active_days)
+        3 -> stringResource(R.string.widget_stats_gem_sessions)
+        else -> stringResource(R.string.widget_stats_gem_longest_streak)
+    }
+}
+
+/**
+ * A selectable option inside [ActionPickerSheet].
+ */
+data class PickerOption(
+    val value: Int,
+    val name: String,
+    val desc: String,
+    val icon: MaterialSymbolIcon
+)
+
+/**
+ * Reusable bottom sheet with a list of option cards, each with its own icon.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ActionPickerSheet(
+    title: String,
+    selectedValue: Int,
+    options: List<PickerOption>,
+    onDismiss: () -> Unit,
+    onSelect: (Int) -> Unit
+) {
+    val context = LocalContext.current
+    val hapticFeedback = LocalHapticFeedback.current
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
+    )
+    
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.COMPACT_DIALOG,
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        dragHandle = {
+            BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary)
+        },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()
+    ) {
+        StandardBottomSheetHeader(
+            title = title,
+            subtitle = "",
+            visible = true
+        )
+
+        val scrollState = rememberScrollState()
+
+        AdaptiveSheetScrollContainer(
+            scrollState = scrollState,
+            modifier = Modifier.fillMaxWidth()
+        ) { endPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState)
+                    .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .padding(bottom = 24.dp)
-                        .graphicsLayer(alpha = contentAlpha)
-                ) {
-                    // Header
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 0.dp, vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                options.forEachIndexed { index, option ->
+                    val isSelected = selectedValue == option.value
+                    Card(
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
+                            onSelect(option.value)
+                        },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected)
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            else
+                                MaterialTheme.colorScheme.surfaceContainerHigh
+                        ),
+                        shape = groupedBottomSheetItemShape(index, options.size),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column {
-                            Text(
-                                text = stringResource(R.string.widgetsettingsscreen_widget_theme),
-                                style = MaterialTheme.typography.displayMedium,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = option.icon,
+                                contentDescription = null,
+                                tint = if (isSelected)
+                                    MaterialTheme.colorScheme.primaryContainer
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(if (isSelected) 30.dp else 26.dp)
                             )
-                            Box(
-                                modifier = Modifier
-                                    .padding(top = 6.dp)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        shape = CircleShape
-                                    )
-                            ) {
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    text = stringResource(R.string.widgetsettingsscreen_personalize_home_screen_widgets),
-                                    overflow = TextOverflow.Ellipsis,
-                                    maxLines = 1,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    text = option.name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isSelected)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = option.desc,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isSelected)
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = RhythmIcons.CheckCircle,
+                                    contentDescription = stringResource(R.string.streaming_selected),
+                                    tint = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.size(28.dp)
                                 )
                             }
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        themes.forEach { (value, name, desc) ->
-                            val isSelected = widgetTheme == value
-                            val icon = when (value) {
-                                1 -> MaterialSymbolIcon("dark_mode", filled = true)
-                                2 -> MaterialSymbolIcon("opacity")
-                                3 -> MaterialSymbolIcon("palette")
-                                else -> MaterialSymbolIcon("auto_awesome")
-                            }
-                            
-                            Card(
-                                onClick = {
-                                    HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
-                                    appSettings.setWidgetTheme(value)
-                                    updateAllWidgets(context)
-                                    showWidgetThemeSheet = false
-                                },
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isSelected)
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.surfaceContainerHigh
-                                ),
-                                shape = RoundedCornerShape(16.dp),
-                                border = if (isSelected) {
-                                    BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                                } else {
-                                    null
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(20.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Surface(
-                                        shape = CircleShape,
-                                        color = if (isSelected)
-                                            MaterialTheme.colorScheme.primary
-                                        else
-                                            MaterialTheme.colorScheme.surfaceVariant,
-                                        modifier = Modifier.size(44.dp)
-                                    ) {
-                                        Box(
-                                            contentAlignment = Alignment.Center,
-                                            modifier = Modifier.fillMaxSize()
-                                        ) {
-                                            Icon(
-                                                imageVector = icon,
-                                                contentDescription = null,
-                                                tint = if (isSelected)
-                                                    MaterialTheme.colorScheme.onPrimary
-                                                else
-                                                    MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(22.dp)
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.width(16.dp))
-
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = name,
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = if (isSelected)
-                                                MaterialTheme.colorScheme.onPrimaryContainer
-                                            else
-                                                MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = desc,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = if (isSelected)
-                                                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                            else
-                                                MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-
-                                    if (isSelected) {
-                                        Icon(
-                                            imageVector = RhythmIcons.CheckCircle,
-                                            contentDescription = stringResource(R.string.streaming_selected),
-                                            modifier = Modifier.size(28.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }
@@ -595,4 +687,219 @@ fun updateAllWidgets(context: Context) {
     glanceIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, glanceIds)
     context.sendBroadcast(glanceIntent)
     GlanceWidgetUpdater.forceUpdateAll(context)
+}
+/**
+ * Bottom sheet for choosing the widget corner radius (shared with the onboarding tour).
+ */
+@Composable
+fun WidgetCornerRadiusSheet(
+    currentRadius: Int,
+    onDismiss: () -> Unit,
+    appSettings: AppSettings
+) {
+    val context = LocalContext.current
+    val hapticFeedback = LocalHapticFeedback.current
+    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
+    var tempRadius by remember { mutableIntStateOf(currentRadius) }
+
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.COMPACT_DIALOG,
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        dragHandle = {
+            BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary)
+        },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()
+    ) {
+        StandardBottomSheetHeader(
+            title = stringResource(R.string.settings_miniplayer_corner_radius),
+            subtitle = stringResource(R.string.unit_dp, tempRadius),
+            visible = true
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 24.dp)
+        ) {
+            Slider(
+                value = tempRadius.toFloat(),
+                onValueChange = { tempRadius = it.toInt() },
+                onValueChangeFinished = {
+                    HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
+                    appSettings.setWidgetCornerRadius(tempRadius)
+                    updateAllWidgets(context)
+                },
+                valueRange = 0f..60f,
+                steps = 59,
+                colors = SliderDefaults.colors(
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary
+                )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.tertiary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = stringResource(R.string.widgetsettingsscreen_applies_to_glance_widgets),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+/**
+ * Bottom sheet for choosing the widget theme (shared with the onboarding tour).
+ */
+@Composable
+fun WidgetThemeSheet(
+    currentTheme: Int,
+    onDismiss: () -> Unit,
+    appSettings: AppSettings
+) {
+    val context = LocalContext.current
+    val hapticFeedback = LocalHapticFeedback.current
+    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
+
+    val themes = listOf(
+        Triple(0, stringResource(R.string.widget_theme_dynamic_system), stringResource(R.string.widget_theme_dynamic_desc)),
+        Triple(1, stringResource(R.string.widget_theme_solid_dark), stringResource(R.string.widget_theme_solid_dark_desc)),
+        Triple(2, stringResource(R.string.widget_theme_translucent_dark), stringResource(R.string.widget_theme_translucent_dark_desc)),
+        Triple(3, stringResource(R.string.widget_theme_solid_purple_signature), stringResource(R.string.widget_theme_solid_purple_desc))
+    )
+
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.COMPACT_DIALOG,
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        dragHandle = {
+            BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary)
+        },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()
+    ) {
+        StandardBottomSheetHeader(
+            title = stringResource(R.string.widgetsettingsscreen_widget_theme),
+            subtitle = stringResource(R.string.widgetsettingsscreen_personalize_home_screen_widgets),
+            visible = true
+        )
+
+        val scrollState = rememberScrollState()
+
+        AdaptiveSheetScrollContainer(
+            scrollState = scrollState,
+            modifier = Modifier.fillMaxWidth()
+        ) { endPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState)
+                    .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                themes.forEachIndexed { index, (value, name, desc) ->
+                    val isSelected = currentTheme == value
+                    val icon = when (value) {
+                        1 -> MaterialSymbolIcon("dark_mode", filled = true)
+                        2 -> MaterialSymbolIcon("opacity")
+                        3 -> MaterialSymbolIcon("palette")
+                        else -> MaterialSymbolIcon("auto_awesome")
+                    }
+
+                    Card(
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
+                            appSettings.setWidgetTheme(value)
+                            updateAllWidgets(context)
+                            onDismiss()
+                        },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected)
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            else
+                                MaterialTheme.colorScheme.surfaceContainerHigh
+                        ),
+                        shape = groupedBottomSheetItemShape(index, themes.size),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = if (isSelected)
+                                    MaterialTheme.colorScheme.primaryContainer
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(if (isSelected) 30.dp else 26.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = name,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isSelected)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = desc,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isSelected)
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = RhythmIcons.CheckCircle,
+                                    contentDescription = stringResource(R.string.streaming_selected),
+                                    tint = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

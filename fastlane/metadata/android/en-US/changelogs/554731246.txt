@@ -1,0 +1,10 @@
+Rhythm v5.5 - Beta Update
+
+• Customizable bottom player buttons & reordering
+• Adaptive bottom sheet layouts & fluid scrollbar gestures
+• TTML & Enhanced LRC (.elrc) export, editing & discovery
+• Preserved queue order under Shuffle Engine & DB migrations
+• Theme improvements with Material 3
+• Tablet Mode improvements
+
+Thanks for using Rhythm ;)

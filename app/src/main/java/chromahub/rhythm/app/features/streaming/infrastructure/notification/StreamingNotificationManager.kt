@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.streaming.infrastructure.notification
 
 import android.app.NotificationChannel
@@ -42,33 +47,31 @@ class StreamingNotificationManager(private val context: Context) {
     }
     
     private fun ensureNotificationChannels() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Main streaming notifications channel
-            val streamingChannel = NotificationChannel(
-                STREAMING_CHANNEL_ID,
-                context.getString(R.string.notification_streaming_channel_name),
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
-                description = context.getString(R.string.notification_streaming_channel_desc)
-                enableLights(true)
-                lightColor = 0xFF5B21B6.toInt() // Purple accent
-                setShowBadge(true)
-            }
-            
-            // Auth-specific channel for immediate notifications
-            val authChannel = NotificationChannel(
-                STREAMING_AUTH_CHANNEL_ID,
-                context.getString(R.string.notification_streaming_channel_name),
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Authentication and connection status"
-                enableVibration(true)
-                setShowBadge(true)
-            }
-            
-            notificationManager.createNotificationChannel(streamingChannel)
-            notificationManager.createNotificationChannel(authChannel)
+        // Main streaming notifications channel
+        val streamingChannel = NotificationChannel(
+            STREAMING_CHANNEL_ID,
+            context.getString(R.string.notification_streaming_channel_name),
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = context.getString(R.string.notification_streaming_channel_desc)
+            enableLights(true)
+            lightColor = 0xFF5B21B6.toInt() // Purple accent
+            setShowBadge(true)
         }
+
+        // Auth-specific channel for immediate notifications
+        val authChannel = NotificationChannel(
+            STREAMING_AUTH_CHANNEL_ID,
+            context.getString(R.string.notification_streaming_channel_name),
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = context.getString(R.string.notification_streaming_auth_channel_desc)
+            enableVibration(true)
+            setShowBadge(true)
+        }
+
+        notificationManager.createNotificationChannel(streamingChannel)
+        notificationManager.createNotificationChannel(authChannel)
     }
     
     // ========== Authentication Notifications ==========
@@ -158,9 +161,17 @@ class StreamingNotificationManager(private val context: Context) {
     // ========== Library Sync Notifications ==========
     
     /**
+     * Cancel any active sync notification
+     */
+    fun cancelSyncNotification() {
+        notificationManager.cancel(NOTIFICATION_ID_SYNC)
+    }
+
+    /**
      * Show notification when library sync starts
      */
     fun notifySyncStarted(serviceName: String) {
+        if (!isNotificationsEnabled()) return
         val notification = NotificationCompat.Builder(context, STREAMING_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.notification_streaming_sync_title))
@@ -179,24 +190,35 @@ class StreamingNotificationManager(private val context: Context) {
     /**
      * Update sync progress notification
      */
-    fun updateSyncProgress(songCount: Int, albumCount: Int, artistCount: Int) {
+    fun updateSyncProgress(
+        songCount: Int,
+        albumCount: Int,
+        artistCount: Int,
+        current: Int = 0,
+        total: Int = 0
+    ) {
+        if (!isNotificationsEnabled()) return
         val notification = NotificationCompat.Builder(context, STREAMING_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.notification_streaming_sync_title))
-            .setContentText(context.getString(
-                R.string.notification_streaming_sync_progress,
-                songCount, albumCount, artistCount
+            .setContentText(context.resources.getQuantityString(
+                R.plurals.notification_streaming_sync_progress,
+                songCount, songCount, albumCount, artistCount
             ))
             .setStyle(NotificationCompat.BigTextStyle().bigText(
-                context.getString(
-                    R.string.notification_streaming_sync_progress,
-                    songCount, albumCount, artistCount
+                context.resources.getQuantityString(
+                    R.plurals.notification_streaming_sync_progress,
+                    songCount, songCount, albumCount, artistCount
                 )
             ))
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
-            .setProgress(100, 50, false) // Determinate if we can calculate
+            .setProgress(
+                if (total > 0) total else 100,
+                if (total > 0) current else 0,
+                total <= 0
+            )
             .setOnlyAlertOnce(true)
             .setSilent(true)
             .build()
@@ -208,6 +230,10 @@ class StreamingNotificationManager(private val context: Context) {
      * Show notification when sync completes successfully
      */
     fun notifySyncComplete(songCount: Int, serviceName: String) {
+        if (!isNotificationsEnabled()) {
+            cancelSyncNotification()
+            return
+        }
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("navigate_to", "streaming_library")
@@ -220,9 +246,9 @@ class StreamingNotificationManager(private val context: Context) {
         val notification = NotificationCompat.Builder(context, STREAMING_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.notification_streaming_sync_title))
-            .setContentText(context.getString(R.string.notification_streaming_sync_complete, songCount, serviceName))
+            .setContentText(context.resources.getQuantityString(R.plurals.notification_streaming_sync_complete, songCount, songCount, serviceName))
             .setStyle(NotificationCompat.BigTextStyle().bigText(
-                context.getString(R.string.notification_streaming_sync_complete, songCount, serviceName)
+                context.resources.getQuantityString(R.plurals.notification_streaming_sync_complete, songCount, songCount, serviceName)
             ))
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
@@ -243,6 +269,10 @@ class StreamingNotificationManager(private val context: Context) {
      * Show notification when sync fails
      */
     fun notifySyncFailed(error: String? = null) {
+        if (!isNotificationsEnabled()) {
+            cancelSyncNotification()
+            return
+        }
         val notification = NotificationCompat.Builder(context, STREAMING_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.notification_streaming_sync_title))
@@ -256,6 +286,12 @@ class StreamingNotificationManager(private val context: Context) {
             .build()
         
         notificationManager.notify(NOTIFICATION_ID_SYNC, notification)
+        
+        // Auto-dismiss after 5 seconds
+        scope.launch {
+            delay(5000)
+            notificationManager.cancel(NOTIFICATION_ID_SYNC)
+        }
     }
     
     // ========== Liked Songs Notifications ==========
@@ -525,7 +561,7 @@ class StreamingNotificationManager(private val context: Context) {
         val notification = NotificationCompat.Builder(context, STREAMING_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.notification_streaming_offline_title))
-            .setContentText(context.getString(R.string.notification_streaming_offline_sync_complete, songCount))
+            .setContentText(context.resources.getQuantityString(R.plurals.notification_streaming_offline_sync_complete, songCount, songCount))
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.icons
 
 import android.content.Context
@@ -78,7 +83,7 @@ private object RhythmIconFontCache {
                 manufacturer.contains("redmi") ||
                 manufacturer.contains("poco")
 
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || isXiaomiDevice) {
+        if (isXiaomiDevice) {
             return getFallbackFontFamily(context)
         }
 

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.screens.player
 
 import android.os.Build
@@ -53,7 +58,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Surface
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
-import androidx.compose.foundation.layout.fillMaxSize
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
@@ -65,12 +69,13 @@ import chromahub.rhythm.app.shared.presentation.components.bottomsheets.ArtistCh
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.ExtraControlBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AddToPlaylistBottomSheet
 
-import chromahub.rhythm.app.shared.presentation.components.bottomsheets.ArtistBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.PlaybackBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.QueueBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SongInfoBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.dialogs.PlaybackPitchDialog
 import chromahub.rhythm.app.shared.presentation.components.dialogs.PlaybackSpeedDialog
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.PlaybackSpeedAndPitchBottomSheet
+import chromahub.rhythm.app.shared.presentation.components.player.ExpressiveBottomButtonsOrderBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.player.SleepTimerBottomSheetNew
 import chromahub.rhythm.app.shared.presentation.components.lyrics.LyricsEditorBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.player.formatDuration
@@ -101,16 +106,20 @@ fun PlayerScreen(
     isPlaying: Boolean,
     progress: () -> Float,
     location: PlaybackLocation?,
-    queuePosition: Int = 1,
-    queueTotal: Int = 1,
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
     onSeek: (Float) -> Unit,
-    onLyricsSeek: ((Long) -> Unit)? = null,
     onBack: () -> Unit,
     onLocationClick: () -> Unit,
     onQueueClick: () -> Unit,
+    appSettings: AppSettings,
+    musicViewModel: MusicViewModel,
+    navController: NavController,
+    modifier: Modifier = Modifier,
+    queuePosition: Int = 1,
+    queueTotal: Int = 1,
+    onLyricsSeek: ((Long) -> Unit)? = null,
     locations: List<PlaybackLocation> = emptyList(),
     onLocationSelect: (PlaybackLocation) -> Unit = {},
     volume: Float = 0.7f,
@@ -152,7 +161,6 @@ fun PlayerScreen(
     isMediaLoading: Boolean = false,
     isSeeking: Boolean = false,
     onShowAlbumBottomSheet: () -> Unit = {},
-    onShowArtistBottomSheet: () -> Unit = {},
     songs: List<Song> = emptyList(),
     albums: List<Album> = emptyList(),
     artists: List<Artist> = emptyList(),
@@ -160,18 +168,14 @@ fun PlayerScreen(
     onShuffleAlbumSongs: (List<Song>) -> Unit = {},
     onPlayArtistSongs: (List<Song>) -> Unit = {},
     onShuffleArtistSongs: (List<Song>) -> Unit = {},
-    appSettings: AppSettings,
-    musicViewModel: MusicViewModel,
-    navController: NavController,
     isStreamingMode: Boolean = false,
     swipeToDismissEnabled: Boolean = true,
-    expansionFraction: Float = 1f,
-    modifier: Modifier = Modifier
+    expansionFraction: Float = 1f
 ) {
     val playerThemeId by appSettings.playerThemeId.collectAsState()
     var showFullScreenLyrics by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = showFullScreenLyrics || (expansionFraction > 0.5f && Build.VERSION.SDK_INT < 34)) {
+    BackHandler(enabled = showFullScreenLyrics || expansionFraction > 0.5f) {
         if (showFullScreenLyrics) {
             showFullScreenLyrics = false
         } else {
@@ -232,25 +236,44 @@ fun PlayerScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (playerThemeId == "EXPRESSIVE") {
+        if (playerThemeId != "MATERIAL") {
         val haptic = LocalHapticFeedback.current
         val useHoursFormat by appSettings.useHoursInTimeFormat.collectAsState()
+        val showRemainingTime by appSettings.showRemainingTime.collectAsState()
         val progressValue = progress().coerceIn(0f, 1f)
-        val totalTimeMs = song?.duration ?: 0L
+        val vmDurationMs by musicViewModel.duration.collectAsState()
+        val totalTimeMs = song?.duration?.takeIf { it > 0 } ?: vmDurationMs.takeIf { it > 0 } ?: 0L
         val currentTimeMs = (progressValue * totalTimeMs).toLong()
+
+        val currentSeconds = currentTimeMs / 1000
+        val totalSeconds = totalTimeMs / 1000
+        val remainingSeconds = (totalSeconds - currentSeconds).coerceAtLeast(0L)
+        
+        val currentTimeStr = remember(currentSeconds, useHoursFormat) {
+            formatDuration(currentSeconds * 1000, useHoursFormat)
+        }
+        val totalTimeFormatted = remember(totalTimeMs, useHoursFormat) {
+            formatDuration(totalSeconds * 1000, useHoursFormat)
+        }
+        val totalTimeStr = if (showRemainingTime) {
+            remember(remainingSeconds, useHoursFormat) {
+                "-" + formatDuration(remainingSeconds * 1000, useHoursFormat)
+            }
+        } else {
+            totalTimeFormatted
+        }
 
         var showQueueSheet by remember { mutableStateOf(false) }
         var showSongInfoSheet by remember { mutableStateOf(false) }
         var showMoreSheet by remember { mutableStateOf(false) }
+        var showExpressiveBottomButtonsSheet by remember { mutableStateOf(false) }
         var showDeviceOutputSheet by remember { mutableStateOf(false) }
         var showAddToPlaylistSheetInternal by remember { mutableStateOf(false) }
         var showPlaybackSpeedDialog by remember { mutableStateOf(false) }
         var showPlaybackPitchDialog by remember { mutableStateOf(false) }
         var showSleepTimerBottomSheet by remember { mutableStateOf(false) }
         var showAlbumSheet by remember { mutableStateOf(false) }
-        var showArtistSheet by remember { mutableStateOf(false) }
         var selectedAlbum by remember { mutableStateOf<Album?>(null) }
-        var selectedArtist by remember { mutableStateOf<Artist?>(null) }
         var selectedSongForPlaylist by remember { mutableStateOf<Song?>(null) }
         var showLyricsView by remember { mutableStateOf(false) }
         var showArtistChooserSheet by remember { mutableStateOf(false) }
@@ -264,10 +287,12 @@ fun PlayerScreen(
         val equalizerEnabled by musicViewModel.equalizerEnabled.collectAsState()
         val hiddenChips by appSettings.hiddenPlayerChips.collectAsState()
         val syncSpeedAndPitch by appSettings.syncSpeedAndPitch.collectAsState()
+        val playerMergeControlsToBottom by appSettings.playerMergeControlsToBottom.collectAsState()
         val artistSeparatorEnabled by appSettings.artistSeparatorEnabled.collectAsState()
         val artistSeparatorDelimiters by appSettings.artistSeparatorDelimiters.collectAsState()
+        val gesturePlayerSwipeDismiss by appSettings.gesturePlayerSwipeDismiss.collectAsState()
 
-        val splitArtistNames: (String) -> List<String> = remember {
+        val splitArtistNames: (String) -> List<String> = remember(artistSeparatorDelimiters, artistSeparatorEnabled) {
             { artistName ->
                 chromahub.rhythm.app.util.ArtistSeparator.splitArtistNames(
                     artistName = artistName,
@@ -337,14 +362,7 @@ fun PlayerScreen(
 
         val queueSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
         val deviceOutputSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
-        val addToPlaylistSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
-        val albumBottomSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
-        val artistBottomSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
-        val currentSongAlbumForSheet = remember(song, albums, songs) {
-            song?.let { currentSong ->
-                resolveAlbumForSong(currentSong)
-            }
-        }
+        val addToPlaylistSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
         val currentSongArtistForSheet = remember(song, artists) {
             song?.let { currentSong ->
                 resolveArtistForSong(currentSong)
@@ -356,8 +374,9 @@ fun PlayerScreen(
             isPlaying = isPlaying,
             isFavorite = isFavorite,
             progress = { progressValue },
-            currentTimeStr = formatDuration(currentTimeMs, useHoursFormat),
-            totalTimeStr = formatDuration(totalTimeMs, useHoursFormat),
+            currentTimeStr = currentTimeStr,
+            totalTimeStr = totalTimeStr,
+            onTotalTimeClick = { appSettings.setShowRemainingTime(!showRemainingTime) },
             queuePosition = queuePosition,
             queueTotal = queueTotal,
             isShuffleEnabled = isShuffleEnabled,
@@ -371,6 +390,17 @@ fun PlayerScreen(
             onRetryLyrics = onRetryLyrics,
             onShowLyricsEditor = { showLyricsEditorDialog = true },
             onPickLyricsFile = onPickLyricsFile,
+            onNavigateToLyricsSettings = {
+                try {
+                    navController.navigate(Screen.TunerLyrics.route) {
+                        popUpTo(Screen.Player.route) {
+                            inclusive = true
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("PlayerScreen", "Failed to navigate to lyrics settings", e)
+                }
+            },
             isMediaLoading = isMediaLoading,
             isSeeking = isSeeking,
             onPlayPause = onPlayPause,
@@ -406,14 +436,13 @@ fun PlayerScreen(
                     }
                 }
             },
-            onShowArtistBottomSheet = {
+            onShowArtist = {
                 song?.let { currentSong ->
                     val artistNames = splitArtistNames(currentSong.artist)
 
                     if (artistNames.size <= 1) {
                         currentSongArtistForSheet?.let { artist ->
-                            selectedArtist = artist
-                            showArtistSheet = true
+                            navController.navigate(Screen.ArtistDetail.createRoute(artist.name))
                         }
                     } else {
                         val resolvedCandidates = artistNames.map { name ->
@@ -431,12 +460,43 @@ fun PlayerScreen(
             },
             onDeviceClick = { showDeviceOutputSheet = true },
             onQueueClick = { showQueueSheet = true },
+            onPlaybackSpeed = { showPlaybackSpeedDialog = true },
+            onPlaybackPitch = { showPlaybackPitchDialog = true },
+            onEqualizer = {
+                try {
+                    navController.navigate(Screen.Equalizer.route) {
+                        popUpTo(Screen.Player.route) {
+                            inclusive = true
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("PlayerScreen", "Failed to navigate to equalizer", e)
+                }
+            },
+            onSleepTimer = { showSleepTimerBottomSheet = true },
+            onAddToPlaylist = { showAddToPlaylistSheetInternal = true },
+            onShareFile = {
+                song?.let { currentSong ->
+                    try {
+                        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "audio/*"
+                            putExtra(android.content.Intent.EXTRA_STREAM, currentSong.uri)
+                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(android.content.Intent.createChooser(shareIntent, "Share ${currentSong.title}"))
+                    } catch (_: Exception) {
+                        Toast.makeText(context, R.string.materialplayerscreen_unable_to_share_file, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            },
             onBack = onBack,
             location = location,
             appSettings = appSettings,
+            musicViewModel = musicViewModel,
+            isStreamingMode = isStreamingMode,
             canvasArtwork = if (showFullScreenLyrics) null else canvasArtwork,
             canvasLoading = if (showFullScreenLyrics) false else canvasLoading,
-            swipeToDismissEnabled = swipeToDismissEnabled,
+            swipeToDismissEnabled = swipeToDismissEnabled && gesturePlayerSwipeDismiss,
             expansionFraction = expansionFraction,
             modifier = modifier
         )
@@ -466,19 +526,27 @@ fun PlayerScreen(
                 appSettings = appSettings,
                 onNavigateToSettings = {
                     showDeviceOutputSheet = false
+                    try {
                     navController.navigate(Screen.TunerPlayback.route) {
                         popUpTo(Screen.Player.route) {
                             inclusive = true
                         }
                     }
+                    } catch (e: Exception) {
+                        android.util.Log.e("PlayerScreen", "Failed to navigate to playback settings", e)
+                    }
                 },
                 onNavigateToGoMode = null,
                 onNavigateToEqualizer = {
                     showDeviceOutputSheet = false
+                    try {
                     navController.navigate(Screen.Equalizer.route) {
                         popUpTo(Screen.Player.route) {
                             inclusive = true
                         }
+                    }
+                    } catch (e: Exception) {
+                        android.util.Log.e("PlayerScreen", "Failed to navigate to equalizer", e)
                     }
                 },
                 sheetState = deviceOutputSheetState
@@ -509,7 +577,6 @@ fun PlayerScreen(
                 },
                 onClearQueue = {
                     onClearQueue()
-                    showQueueSheet = false
                 },
                 onToggleShuffle = onToggleShuffle,
                 onToggleRepeat = onToggleRepeat,
@@ -588,16 +655,19 @@ fun PlayerScreen(
                 sleepTimerActive = sleepTimerActive,
                 sleepTimerRemainingSeconds = sleepTimerRemainingSeconds,
                 lyrics = lyrics,
-                isFavorite = isFavorite,
                 onAddToPlaylist = { showAddToPlaylistSheetInternal = true },
-                onToggleFavorite = onToggleFavorite,
+                onEditControls = { showExpressiveBottomButtonsSheet = true },
                 onPlaybackSpeed = { showPlaybackSpeedDialog = true },
                 onPlaybackPitch = { showPlaybackPitchDialog = true },
                 onEqualizer = {
+                    try {
                     navController.navigate(Screen.Equalizer.route) {
                         popUpTo(Screen.Player.route) {
                             inclusive = true
                         }
+                    }
+                    } catch (e: Exception) {
+                        android.util.Log.e("PlayerScreen", "Failed to navigate to equalizer", e)
                     }
                 },
                 onSleepTimer = { showSleepTimerBottomSheet = true },
@@ -631,8 +701,7 @@ fun PlayerScreen(
 
                         if (artistNames.size <= 1) {
                             currentSongArtistForSheet?.let { artist ->
-                                selectedArtist = artist
-                                showArtistSheet = true
+                                navController.navigate(Screen.ArtistDetail.createRoute(artist.name))
                             }
                         } else {
                             candidateArtists = artistNames.map { name ->
@@ -664,6 +733,15 @@ fun PlayerScreen(
             )
         }
 
+        if (showExpressiveBottomButtonsSheet) {
+            ExpressiveBottomButtonsOrderBottomSheet(
+                onDismiss = { showExpressiveBottomButtonsSheet = false },
+                appSettings = appSettings,
+                haptics = haptic,
+                initialModeIndex = if (playerMergeControlsToBottom) 1 else 0
+            )
+        }
+
         if (showAddToPlaylistSheetInternal && song != null) {
             AddToPlaylistBottomSheet(
                 song = selectedSongForPlaylist ?: song,
@@ -684,34 +762,24 @@ fun PlayerScreen(
             )
         }
 
-        if (showPlaybackSpeedDialog) {
-            PlaybackSpeedDialog(
+        if (showPlaybackSpeedDialog || showPlaybackPitchDialog) {
+            PlaybackSpeedAndPitchBottomSheet(
                 currentSpeed = playbackSpeed,
-                syncEnabled = syncSpeedAndPitch,
-                onSyncChange = { appSettings.setSyncSpeedAndPitch(it) },
-                onDismiss = { showPlaybackSpeedDialog = false },
-                onSave = { speed ->
-                    musicViewModel.setPlaybackSpeed(speed)
-                    if (syncSpeedAndPitch) {
-                        musicViewModel.setPlaybackPitch(speed)
-                    }
-                    showPlaybackSpeedDialog = false
-                }
-            )
-        }
-
-        if (showPlaybackPitchDialog) {
-            PlaybackPitchDialog(
                 currentPitch = playbackPitch,
                 syncEnabled = syncSpeedAndPitch,
                 onSyncChange = { appSettings.setSyncSpeedAndPitch(it) },
-                onDismiss = { showPlaybackPitchDialog = false },
-                onSave = { pitch ->
-                    musicViewModel.setPlaybackPitch(pitch)
-                    if (syncSpeedAndPitch) {
-                        musicViewModel.setPlaybackSpeed(pitch)
-                    }
+                onDismiss = {
+                    showPlaybackSpeedDialog = false
                     showPlaybackPitchDialog = false
+                },
+                onSave = { speed, pitch ->
+                    musicViewModel.setPlaybackSpeed(speed)
+                    musicViewModel.setPlaybackPitch(pitch)
+                    showPlaybackSpeedDialog = false
+                    showPlaybackPitchDialog = false
+                },
+                onSetDefaultSpeed = { speed ->
+                    musicViewModel.setDefaultPlaybackSpeed(speed)
                 }
             )
         }
@@ -727,47 +795,13 @@ fun PlayerScreen(
 
 
 
-        if (showArtistSheet && selectedArtist != null && song != null) {
-            ArtistBottomSheet(
-                artist = selectedArtist!!,
-                onDismiss = { showArtistSheet = false },
-                onSongClick = onSongClick,
-                onAlbumClick = { album ->
-                    showArtistSheet = false
-                    if (isStreamingMode) {
-                        navController.navigate("streaming_album/${android.net.Uri.encode(album.id)}?albumName=${android.net.Uri.encode(album.title)}")
-                    } else {
-                        navController.navigate(Screen.AlbumDetail.createRoute(album.id, album.title))
-                    }
-                },
-                onPlayAll = onPlayArtistSongs,
-                onShufflePlay = onShuffleArtistSongs,
-                onAddToQueue = { onAddSongsToQueue() },
-                onAddToQueueAll = { songs -> musicViewModel.addSongsToQueue(songs) },
-                onAddSongToPlaylist = { track ->
-                    selectedSongForPlaylist = track
-                    showAddToPlaylistSheetInternal = true
-                },
-                onPlayerClick = { showArtistSheet = false },
-                sheetState = artistBottomSheetState,
-                haptics = LocalHapticFeedback.current,
-                onToggleFavorite = { onToggleFavorite() },
-                onShowSongInfo = { showSongInfoSheet = true },
-                currentSong = song,
-                isPlaying = isPlaying,
-                songs = songs,
-                albums = albums
-            )
-        }
-
         if (showArtistChooserSheet) {
             ArtistChooserBottomSheet(
                 candidateArtists = candidateArtists,
                 onDismiss = { showArtistChooserSheet = false },
                 onArtistSelected = { artist ->
-                    selectedArtist = artist
                     showArtistChooserSheet = false
-                    showArtistSheet = true
+                    navController.navigate(Screen.ArtistDetail.createRoute(artist.name))
                 },
                 haptic = haptic
             )
@@ -829,7 +863,6 @@ fun PlayerScreen(
             isMediaLoading = isMediaLoading,
             isSeeking = isSeeking,
             onShowAlbumBottomSheet = onShowAlbumBottomSheet,
-            onShowArtistBottomSheet = onShowArtistBottomSheet,
             songs = songs,
             albums = albums,
             artists = artists,
@@ -857,7 +890,8 @@ fun PlayerScreen(
         modifier = Modifier.fillMaxSize()
     ) {
         val progressValue = progress().coerceIn(0f, 1f)
-        val totalTimeMs = song?.duration ?: 0L
+        val vmDurationMs by musicViewModel.duration.collectAsState()
+        val totalTimeMs = song?.duration?.takeIf { it > 0 } ?: vmDurationMs.takeIf { it > 0 } ?: 0L
         val currentTimeMs = (progressValue * totalTimeMs).toLong()
 
         FullScreenLyricsView(
@@ -875,10 +909,14 @@ fun PlayerScreen(
             onClose = { showFullScreenLyrics = false },
             onShowLyricsEditor = { showLyricsEditorDialog = true },
             onNavigateToLyricsSettings = {
+                try {
                 navController.navigate(Screen.TunerLyrics.route) {
                     popUpTo(Screen.Player.route) {
                         inclusive = true
                     }
+                }
+                } catch (e: Exception) {
+                    android.util.Log.e("PlayerScreen", "Failed to navigate to lyrics settings", e)
                 }
             },
             canvasArtwork = canvasArtwork,
@@ -890,9 +928,10 @@ fun PlayerScreen(
     if (showLyricsEditorDialog) {
         LyricsEditorBottomSheet(
             lyricsData = lyrics,
-            songTitle = song?.title ?: stringResource(R.string.rating_unknown),
+            songTitle = song?.title ?: stringResource(R.string.common_unknown),
             initialTimeOffset = lyricsTimeOffset,
             song = song,
+            isStreamingMode = isStreamingMode,
             onDismiss = { showLyricsEditorDialog = false },
             onSave = { editedLyrics, timeOffset, format ->
                 musicViewModel.saveEditedLyrics(editedLyrics, timeOffset, format)

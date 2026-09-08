@@ -65,11 +65,11 @@ Yes! Gapless playback works for FLAC, MP3, AAC, and Opus formats.
 
 ### What is Replay Gain?
 
-Replay Gain normalizes the perceived loudness of your music. Choose **Album Gain** to maintain dynamic range within albums, or **Track Gain** for consistent loudness across all songs. Configure in Settings → Audio → Replay Gain.
+Replay Gain normalizes the perceived loudness of your music. Choose **Album Gain** to maintain dynamic range within albums, or **Track Gain** for consistent loudness across all songs. Configure in Settings → Queue & Playback → Playback → Replay Gain.
 
 ### Does Rhythm support crossfade?
 
-Yes! Crossfade smoothly blends the end of one track into the start of the next with an adjustable duration of 1–12 seconds. Configure in Settings → Audio → Crossfade.
+Yes! Crossfade smoothly blends the end of one track into the start of the next with an adjustable duration of 1–12 seconds. Configure in Settings → Queue & Playback → Playback → Crossfade.
 
 ### Can I use the equalizer?
 
@@ -82,7 +82,7 @@ Yes! Rhythm includes:
 ### Does Rhythm support USB DACs / bit-perfect playback?
 
 Yes! Rhythm supports USB DACs natively:
-- **Android 14+ (Bit-Perfect Mode):** If you enable **App** routing under Settings → Audio, Rhythm requests exclusive bit-perfect USB routing via the native Android `setPreferredMixerAttributes` API on supported devices.
+- **Android 14+ (Bit-Perfect Mode):** Rhythm requests exclusive bit-perfect USB routing via the native Android `setPreferredMixerAttributes` API on supported devices when `App` routing is enabled.
 - **Why is there no USB popup?** Rhythm plays audio through the Android system's native high-resolution audio pathways rather than bypassing the OS with a custom user-space driver. Since it goes through official APIs, the DAC is connected automatically and silently without displaying a USB permission dialog.
 
 ---
@@ -95,7 +95,7 @@ Rhythm fetches lyrics from:
 1. **LRCLib** (online, community-driven)
 2. **Embedded lyrics** (from audio file metadata)
 
-Enable in: Settings → Lyrics → Enable synced lyrics
+Enable in: Settings → Audio & Effects → Lyrics
 
 ### Lyrics are out of sync. How do I fix them?
 
@@ -115,9 +115,9 @@ Yes! Use a metadata editor like Mp3tag to embed `.lrc` format lyrics into your a
 
 Solutions:
 1. **Embed artwork** in audio files using Mp3tag
-2. **Enable online fetch**: Settings → Online Features → Fetch artwork
+2. **Enable online fetch**: Settings → Notifications & Services → API Management (Deezer, YouTube Music)
 3. **Clear cache**: Settings → Apps → Rhythm → Storage → Clear cache
-4. **Rescan library**: Settings → Library → Rescan Media
+4. **Rescan library**: Settings → Library & Media → Media Scan
 
 ### Can I edit song metadata?
 
@@ -127,7 +127,7 @@ Yes! Rhythm supports full metadata editing:
 - Album artwork
 - Batch operations
 
-Long-press song → Edit Info
+Long-press song → Song info → Edit
 
 Requires storage write permission.
 
@@ -193,9 +193,7 @@ Yes! Android Auto is supported in Rhythm.
 ### Is there a widget?
 
 Yes! Multiple widgets available:
-- **Glance widgets**: 6 responsive Material 3 layouts (2x1 to 4x4)
-- **Legacy widgets**: 7 RemoteViews layouts (2x1 to 5x5)
-- **Lyrics widget**: Display current song lyrics on home screen
+- **Glance widgets**: Music, Cookie, Stats, and Lyrics widgets with adaptive responsive sizes
 - **Real-time updates**
 - **Playback controls**
 - **Customizable appearance**
@@ -216,7 +214,7 @@ Yes! When your library exceeds a threshold, an alphabetical scroll bar appears o
 
 ### What is Rhythm Go?
 
-Rhythm Go lets you download tracks from your streaming server (Subsonic, Navidrome, Jellyfin) for offline playback. Downloaded tracks appear in a dedicated section and work without internet access. Configure in Settings → Streaming → Rhythm Go.
+Go Mode lets you connect Rhythm to a streaming server (Subsonic, Navidrome, Jellyfin). Rhythm Go lets you download tracks from your streaming server for offline playback. Configure in Settings → Advanced → Experimental Features → Go Mode.
 
 ---
 
@@ -233,9 +231,9 @@ Rhythm Go lets you download tracks from your streaming server (Subsonic, Navidro
 ### Music library is empty after scanning?
 
 1. Grant storage permission: Settings → Apps → Rhythm → Permissions
-2. Check blacklist/whitelist: Rhythm Settings → Library → Filters
+2. Check blacklist/whitelist: Rhythm Settings → Library & Media → Media Scan
 3. Verify music location (standard folders like /Music)
-4. Rescan media: Settings → Library → Rescan Media
+4. Rescan media: Settings → Library & Media → Media Scan
 
 ### Widget not updating?
 
@@ -246,7 +244,7 @@ Rhythm Go lets you download tracks from your streaming server (Subsonic, Navidro
 
 ### Bluetooth auto-play not working?
 
-1. Enable: Rhythm Settings → Playback → Resume on Bluetooth
+1. Enable: Rhythm Settings → Queue & Playback → Playback → Resume on Device Reconnect
 2. Grant Bluetooth permission
 3. Ensure device is properly paired
 4. Check device-specific settings
@@ -279,7 +277,7 @@ You can block internet (via firewall) for completely offline use.
 
 ### How do I backup my playlists?
 
-Settings → Backup & Restore → Create Backup
+Settings → Data & Storage → Backup & Restore → Create Backup to File
 
 Or export individual playlists as M3U/PLS files.
 
@@ -298,7 +296,7 @@ Always install updates over existing app (don't uninstall first).
 1. Backup on old device
 2. Copy backup file to new device
 3. Install Rhythm on new device
-4. Settings → Backup & Restore → Restore from Backup
+4. Settings → Data & Storage → Backup & Restore → Restore from File
 
 ---
 

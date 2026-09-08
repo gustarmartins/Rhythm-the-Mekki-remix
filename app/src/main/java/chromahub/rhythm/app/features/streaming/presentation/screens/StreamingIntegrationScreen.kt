@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.streaming.presentation.screens
 
 import androidx.compose.foundation.Image
@@ -30,8 +35,8 @@ import chromahub.rhythm.app.features.streaming.presentation.model.StreamingServi
  */
 @Composable
 fun StreamingIntegrationScreen(
-    integrationServices: List<String> = emptyList(),
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    integrationServices: List<String> = emptyList()
 ) {
     val defaultServices = StreamingServiceOptions.defaults.map { option ->
         stringResource(id = option.nameRes)

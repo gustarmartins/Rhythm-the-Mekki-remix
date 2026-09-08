@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
@@ -83,7 +88,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -166,15 +170,24 @@ fun ExperimentalFeaturesScreen(
     onNavigateTo: (String) -> Unit = {},
     onNavigateToGoSettings: (() -> Unit)? = null
 ) {
+    LabsSettingsScreen(
+        onBackClick = onBackClick,
+        onNavigateTo = onNavigateTo,
+        onNavigateToGoSettings = onNavigateToGoSettings
+    )
+}
+
+@Composable
+fun LabsSettingsScreen(
+    onBackClick: () -> Unit,
+    onNavigateTo: (String) -> Unit = {},
+    onNavigateToGoSettings: (() -> Unit)? = null
+) {
     val context = LocalContext.current
     val appSettings = AppSettings.getInstance(context)
     val appMode by appSettings.appMode.collectAsState()
     val hapticFeedbackEnabled by appSettings.hapticFeedbackEnabled.collectAsState()
     val enableAlbumEditing by appSettings.enableAlbumEditing.collectAsState()
-    val skipSilenceEnabled by appSettings.skipSilenceEnabled.collectAsState()
-    val replayGain by appSettings.replayGain.collectAsState()
-    val isAudioOffloadActive by appSettings.isAudioOffloadActive.collectAsState()
-    val audioRoutingMode by appSettings.audioRoutingMode.collectAsState()
     val haptic = LocalHapticFeedback.current
     
     // Third-party integrations states
@@ -188,9 +201,7 @@ fun ExperimentalFeaturesScreen(
     val bluetoothLyricsMinChunkHoldMs by appSettings.bluetoothLyricsMinChunkHoldMs.collectAsState()
     val bluetoothLyricsMetadataUpdateIntervalMs by
         appSettings.bluetoothLyricsMetadataUpdateIntervalMs.collectAsState()
-    
     val forcePlayerCompactMode by appSettings.forcePlayerCompactMode.collectAsState()
-    val useExperimentalPlayerUi by appSettings.useExperimentalPlayerUi.collectAsState()
     
     val updaterViewModel: AppUpdaterViewModel = viewModel()
     val latestVersion by updaterViewModel.latestVersion.collectAsState()
@@ -201,32 +212,11 @@ fun ExperimentalFeaturesScreen(
     var showBluetoothLyricsTextModeDialog by remember { mutableStateOf(false) }
 
     CollapsibleHeaderScreen(
-        title = context.getString(R.string.settings_experimental),
+        title = context.getString(R.string.settings_labs),
         showBackButton = true,
         onBackClick = onBackClick
     ) { modifier ->
         val settingGroups = buildList {
-            add(
-                SettingGroup(
-                    title = context.getString(R.string.settings_audio_effects),
-                    items = listOf(
-                        SettingItem(
-                            MaterialSymbolIcon("hearing"),
-                            context.getString(R.string.settings_skip_silence),
-                            if (isAudioOffloadActive) "Disabled while Audio Offload is active" else context.getString(R.string.settings_skip_silence_desc),
-                            toggleState = if (isAudioOffloadActive) false else skipSilenceEnabled,
-                            onToggleChange = {
-                                if (!isAudioOffloadActive) {
-                                    appSettings.setSkipSilenceEnabled(it)
-                                }
-                            },
-                            enabled = !isAudioOffloadActive
-                        )
-                    )
-                )
-            )
-
-
             add(
                 SettingGroup(
                     title = context.getString(R.string.settings_metadata_editing),
@@ -267,12 +257,6 @@ fun ExperimentalFeaturesScreen(
                             context.getString(R.string.exp_audio_device_logging_desc),
                             toggleState = appSettings.audioDeviceLoggingEnabled.collectAsState().value,
                             onToggleChange = { appSettings.setAudioDeviceLoggingEnabled(it) }
-                        ),
-                        SettingItem(
-                            MaterialSymbolIcon("restart_alt"),
-                            context.getString(R.string.exp_launch_onboarding),
-                            context.getString(R.string.exp_launch_onboarding_desc),
-                            onClick = { appSettings.setOnboardingCompleted(false) }
                         ),
                         SettingItem(
                             RhythmIcons.BugReport,
@@ -381,30 +365,34 @@ fun ExperimentalFeaturesScreen(
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 Card(
-                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp)
                 ) {
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(16.dp)
+                            verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = MaterialSymbolIcon("science"),
+                                imageVector = MaterialSymbolIcon("lightbulb", filled = true),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = context.getString(R.string.updates_experimental_coming),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
                 }
+            }
             }
 
             item { Spacer(modifier = Modifier.height(40.dp)) }
@@ -987,7 +975,6 @@ fun DecorationToggleCard(
             TunerAnimatedSwitch(
                 checked = isEnabled,
                 onCheckedChange = {
-                    HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
                     onToggle(it)
                 }
             )

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
@@ -83,7 +88,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -170,9 +174,9 @@ fun PlaceholderSettingsScreen() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Large settings icon
+        val cookieShape = rememberExpressiveShape("COOKIE_12")
         Surface(
-            shape = RoundedCornerShape(55.dp),
+            shape = cookieShape,
             color = MaterialTheme.colorScheme.primaryContainer,
             modifier = Modifier.size(120.dp)
         ) {
@@ -198,17 +202,6 @@ fun PlaceholderSettingsScreen() {
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             fontWeight = FontWeight.SemiBold
         )
-
-//        Spacer(modifier = Modifier.height(16.dp))
-//
-//        // Description
-//        Text(
-//            text = context.getString(R.string.settings_select_option_desc),
-//            style = MaterialTheme.typography.bodyLarge,
-//            color = MaterialTheme.colorScheme.onSurfaceVariant,
-//            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-//            lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.2f
-//        )
 
         Spacer(modifier = Modifier.height(48.dp))
 

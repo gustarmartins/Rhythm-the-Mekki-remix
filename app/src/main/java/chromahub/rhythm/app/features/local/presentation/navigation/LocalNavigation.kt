@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.local.presentation.navigation
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
@@ -9,6 +14,8 @@ import android.net.Uri
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -18,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +39,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.ime
@@ -38,6 +48,11 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -98,6 +113,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.viewmodel.compose.viewModel
 import chromahub.rhythm.app.R
+import chromahub.rhythm.app.shared.data.model.AppSettings
+import chromahub.rhythm.app.util.DevicePosture
+import chromahub.rhythm.app.util.rememberDevicePosture
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -106,7 +124,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AddToPlaylistBottomSheet
 
-import chromahub.rhythm.app.shared.presentation.components.bottomsheets.ArtistBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SongInfoBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.UpdateBottomSheet
 import chromahub.rhythm.app.features.local.presentation.screens.AddToPlaylistScreen
@@ -127,6 +144,23 @@ import chromahub.rhythm.app.features.local.presentation.screens.ArtistDetailScre
 import chromahub.rhythm.app.features.local.presentation.screens.AlbumDetailScreen
 import chromahub.rhythm.app.shared.presentation.screens.settings.SettingsScreenWrapper
 import chromahub.rhythm.app.shared.presentation.screens.settings.*
+import chromahub.rhythm.app.features.streaming.presentation.screens.StreamingServiceSetupScreen
+import chromahub.rhythm.app.features.streaming.presentation.screens.GoSettingsScreen
+import chromahub.rhythm.app.features.streaming.presentation.screens.toLibraryAlbum
+import chromahub.rhythm.app.features.streaming.presentation.screens.toLibraryArtist
+import chromahub.rhythm.app.features.streaming.presentation.screens.toLibraryPlaylist
+import chromahub.rhythm.app.features.streaming.presentation.screens.toLibrarySong
+import chromahub.rhythm.app.features.streaming.presentation.model.StreamingServiceOptions
+import chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamingMusicViewModel
+import androidx.core.net.toUri
+import chromahub.rhythm.app.features.streaming.domain.model.StreamingArtist
+import chromahub.rhythm.app.features.streaming.domain.model.StreamingAlbum
+import chromahub.rhythm.app.features.streaming.domain.model.StreamingPlaylist
+import chromahub.rhythm.app.features.streaming.domain.model.StreamingSong
+import chromahub.rhythm.app.shared.data.model.Album
+import chromahub.rhythm.app.shared.data.model.Artist
+import chromahub.rhythm.app.shared.data.model.Playlist
+import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.shared.data.model.PlaybackLocation
 import chromahub.rhythm.app.shared.data.model.findAlbumForSong
 import chromahub.rhythm.app.shared.presentation.components.MediaScanLoader // Add MediaScanLoader import
@@ -181,13 +215,8 @@ import androidx.compose.ui.unit.sp
 import chromahub.rhythm.app.features.local.presentation.screens.LibraryTab
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.foundation.shape.CircleShape
@@ -213,12 +242,16 @@ sealed class Screen(val route: String) {
         fun createRoute(artistName: String) = "artist/${Uri.encode(artistName)}"
     }
     object AlbumDetail : Screen("album/{albumId}?albumName={albumName}") {
-        fun createRoute(albumId: String, albumName: String) = "album/${Uri.encode(albumId)}?albumName=${Uri.encode(albumName)}"
+        fun createRoute(albumId: String, albumName: String): String {
+            val safeId = if (albumId.contains('/')) albumId.replace('/', '_') else albumId
+            return "album/${Uri.encode(safeId)}?albumName=${Uri.encode(albumName)}"
+        }
     }
     
     // Tuner Settings Subroutes
     object TunerNotifications : Screen("tuner_notifications_settings")
-    object TunerExperimentalFeatures : Screen("tuner_experimental_features_settings")
+    object TunerLabs : Screen("tuner_labs_settings")
+    val TunerExperimentalFeatures = TunerLabs
     object TunerAbout : Screen("tuner_about_screen")
     object TunerUpdates : Screen("tuner_updates_screen")
     object TunerMediaScan : Screen("tuner_media_scan_settings")
@@ -226,7 +259,6 @@ sealed class Screen(val route: String) {
     object TunerApiManagement : Screen("tuner_api_management_settings")
     object TunerCacheManagement : Screen("tuner_cache_management_settings")
     object TunerBackupRestore : Screen("tuner_backup_restore_settings")
-    object TunerLibraryTabOrder : Screen("tuner_library_tab_order_settings")
     object TunerThemeCustomization : Screen("tuner_theme_customization_settings")
     object TunerEqualizer : Screen("tuner_equalizer_settings")
     object TunerSleepTimer : Screen("tuner_sleep_timer_settings")
@@ -245,10 +277,108 @@ sealed class Screen(val route: String) {
     object TunerWidget : Screen("tuner_widget_settings")
     object TunerArtistSeparators : Screen("tuner_artist_separators_settings")
     object TunerGoSettings : Screen("tuner_go_settings")
+    object TunerReplayGain : Screen("tuner_replay_gain_settings")
     
     // Stats Screen
     object RhythmStats : Screen("rhythm_stats")
     object Equalizer : Screen("equalizer")
+}
+
+// Streaming detail/service routes hosted inside the unified navigation shell.
+private object StreamingRoutes {
+    const val ArtistDetail = "streaming_artist/{artistId}?artistName={artistName}"
+    const val AlbumDetail = "streaming_album/{albumId}?albumName={albumName}"
+    const val PlaylistDetail = "streaming_playlist/{playlistId}"
+    const val ServiceSetup = "streaming_service_setup/{serviceId}"
+    const val GoSettings = "streaming_go_settings"
+
+    fun artist(artistId: String, artistName: String): String =
+        "streaming_artist/${Uri.encode(artistId)}?artistName=${Uri.encode(artistName)}"
+    fun album(albumId: String, albumName: String): String =
+        "streaming_album/${Uri.encode(albumId)}?albumName=${Uri.encode(albumName)}"
+    fun playlist(playlistId: String): String =
+        "streaming_playlist/${Uri.encode(playlistId)}"
+    fun serviceSetup(serviceId: String): String =
+        "streaming_service_setup/${Uri.encode(serviceId)}"
+}
+
+private fun StreamingSong.toLocalSong(): Song? {
+    val playbackUri = when {
+        !streamingUrl.isNullOrBlank() -> (streamingUrl).toUri()
+        !previewUrl.isNullOrBlank() -> (previewUrl).toUri()
+        else -> ("streaming://track/$id").toUri()
+    }
+
+    return Song(
+        id = id,
+        title = title,
+        artist = artist,
+        album = album,
+        albumId = albumId.orEmpty(),
+        duration = duration,
+        uri = playbackUri,
+        artworkUri = artworkUri?.takeIf { it.isNotBlank() }?.let(Uri::parse),
+        albumArtist = albumArtist,
+        trackNumber = trackNumber ?: 0,
+        year = year ?: 0,
+        genre = genre,
+        bitrate = bitrate,
+        sampleRate = sampleRate,
+        channels = channels,
+        codec = codec
+    )
+}
+
+private fun StreamingSong.toDisplaySong(): Song {
+    val playbackUri = when {
+        !streamingUrl.isNullOrBlank() -> (streamingUrl).toUri()
+        !previewUrl.isNullOrBlank() -> (previewUrl).toUri()
+        else -> ("streaming://track/$id").toUri()
+    }
+
+    return Song(
+        id = id,
+        title = title,
+        artist = artist,
+        album = album,
+        albumId = albumId.orEmpty(),
+        duration = duration,
+        uri = playbackUri,
+        artworkUri = artworkUri?.takeIf { it.isNotBlank() }?.let(Uri::parse),
+        albumArtist = albumArtist,
+        trackNumber = trackNumber ?: 0,
+        year = year ?: 0,
+        genre = genre,
+        bitrate = bitrate,
+        sampleRate = sampleRate,
+        channels = channels,
+        codec = codec
+    )
+}
+
+private fun StreamingArtist.toDisplayArtist(
+    fallbackName: String,
+    songs: List<Song>,
+    albums: List<Album>
+): Artist {
+    return Artist(
+        id = id,
+        name = name.ifBlank { fallbackName.ifBlank { "Artist" } },
+        artworkUri = artworkUri?.takeIf { it.isNotBlank() }?.let(Uri::parse),
+        albums = albums,
+        songs = songs,
+        numberOfAlbums = if (albumCount > 0) albumCount else albums.size,
+        numberOfTracks = if (songCount > 0) songCount else songs.size
+    )
+}
+
+private fun StreamingPlaylist.toDisplayPlaylist(displaySongs: List<Song>): Playlist {
+    return Playlist(
+        id = id,
+        name = name,
+        songs = displaySongs,
+        artworkUri = artworkUri?.takeIf { it.isNotBlank() }?.let(Uri::parse)
+    )
 }
 
 @Composable
@@ -293,9 +423,11 @@ fun LocalNavigation(
     navController: NavHostController = rememberNavController(),
     viewModel: MusicViewModel = viewModel(),
     themeViewModel: ThemeViewModel = viewModel(),
-    appSettings: chromahub.rhythm.app.shared.data.model.AppSettings // Add appSettings parameter
+    appSettings: chromahub.rhythm.app.shared.data.model.AppSettings,
+    streamingMusicViewModel: StreamingMusicViewModel = viewModel()
 ) {
     val miniPlayerThemeId by appSettings.miniPlayerThemeId.collectAsState()
+    val respectAlbumOnPlay by appSettings.respectAlbumOnPlay.collectAsState()
     // Update monitoring
     val updaterViewModel: AppUpdaterViewModel = rememberAppUpdaterViewModel()
     val updateAvailable by updaterViewModel.updateAvailable.collectAsState()
@@ -365,6 +497,7 @@ fun LocalNavigation(
     
     // Default landing screen
     val defaultScreen by appSettings.defaultScreen.collectAsState()
+    val floatingNavigationBar by appSettings.floatingNavigationBar.collectAsState()
     val startDestination = when (defaultScreen) {
         "library" -> Screen.Library.createRoute(firstVisibleLibraryTab)
         else -> Screen.Home.route
@@ -375,16 +508,17 @@ fun LocalNavigation(
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val windowSizeClass = calculateWindowSizeClass(context as android.app.Activity)
-    val isTablet = windowSizeClass.widthSizeClass >= WindowWidthSizeClass.Medium
+    val postureState by rememberDevicePosture()
+    val isTablet = windowSizeClass.widthSizeClass >= WindowWidthSizeClass.Medium || postureState is DevicePosture.Book || postureState is DevicePosture.Separated
 
     val onPlayPause = { viewModel.togglePlayPause() }
     val onSkipNext = { viewModel.skipToNext() }
     val onSkipPrevious = { viewModel.skipToPrevious() }
     val onSeek = { value: Float -> viewModel.seekTo(value) }
     val onLyricsSeek: (Long) -> Unit = { timestampMs ->
-        // Use the timestamp-based seekTo method directly for lyrics
+        // Use the timestamp-based seekTo method directly for lyrics and auto-play if paused
         Log.d("RhythmNavigation", "Lyrics seek: timestampMs=$timestampMs")
-        viewModel.seekTo(timestampMs)
+        viewModel.seekTo(timestampMs, autoPlayIfPaused = true)
     }
     val onPlaySong = { song: chromahub.rhythm.app.shared.data.model.Song -> viewModel.playSong(song) }
     val onPlayAlbum = { album: chromahub.rhythm.app.shared.data.model.Album -> viewModel.playAlbum(album) }
@@ -429,7 +563,12 @@ fun LocalNavigation(
                 pendingRoute == Screen.RhythmStats.route ||
                 pendingRoute.startsWith(Screen.Library.route.substringBefore("?")) ||
                 pendingRoute.startsWith("playlist/") ||
-                pendingRoute.startsWith("artist/")
+                pendingRoute.startsWith("artist/") ||
+                pendingRoute.startsWith("streaming_artist/") ||
+                pendingRoute.startsWith("streaming_album/") ||
+                pendingRoute.startsWith("streaming_playlist/") ||
+                pendingRoute.startsWith("streaming_service_setup/") ||
+                pendingRoute == StreamingRoutes.GoSettings
 
             if (isValidLocalRoute) {
                 navController.navigate(pendingRoute) {
@@ -464,20 +603,32 @@ fun LocalNavigation(
             currentRoute == Screen.Settings.route ||
             currentRoute == Screen.RhythmStats.route
     }
-    val showBottomNav = remember(currentRoute) {
-        currentRoute == Screen.Home.route || isLibraryRoute
+    val showBottomNav = remember(currentRoute, floatingNavigationBar) {
+        if (floatingNavigationBar) {
+            currentRoute == Screen.Home.route || isLibraryRoute
+        } else {
+            currentRoute == Screen.Home.route ||
+                isLibraryRoute ||
+                currentRoute == Screen.Settings.route
+        }
     }
     
     val systemNavBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    // Calculate content bottom padding based on visible UI elements
-    // System insets are handled separately via windowInsetsPadding on the bottomBar
     val miniPlayerBottomPadding by animateDpAsState(
         targetValue = if (!isTablet) {
             val miniPlayerHeight = if (miniPlayerThemeId == "EXPRESSIVE") 84.dp else 96.dp
-            val bottomNavigationHeight = MusicDimensions.bottomNavigationHeight
+            val bottomNavigationHeight = if (floatingNavigationBar) MusicDimensions.bottomNavigationHeight else 80.dp
             val basePadding = when {
-                showBottomNav && showMiniPlayer -> bottomNavigationHeight + 16.dp + miniPlayerHeight + 16.dp
-                showBottomNav -> bottomNavigationHeight + 16.dp
+                showBottomNav && showMiniPlayer -> {
+                    if (floatingNavigationBar) {
+                        bottomNavigationHeight + 16.dp + miniPlayerHeight + 16.dp
+                    } else {
+                        bottomNavigationHeight + miniPlayerHeight + 16.dp
+                    }
+                }
+                showBottomNav -> {
+                    if (floatingNavigationBar) bottomNavigationHeight + 16.dp else bottomNavigationHeight
+                }
                 showMiniPlayer -> miniPlayerHeight + 16.dp
                 else -> 0.dp
             }
@@ -496,10 +647,12 @@ fun LocalNavigation(
         ),
         label = "local_miniplayer_bottom_padding"
     )
-    val miniPlayerPaddingValues = PaddingValues(bottom = miniPlayerBottomPadding.coerceAtLeast(0.dp))
-
     val tabletContentStartPadding by animateDpAsState(
-        targetValue = if (showNavBar) 96.dp else 0.dp,
+        targetValue = if (isTablet && showNavBar) {
+            if (floatingNavigationBar) 96.dp else 84.dp
+        } else {
+            0.dp
+        },
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness = Spring.StiffnessLow
@@ -509,53 +662,27 @@ fun LocalNavigation(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    val miniPlayerPaddingValues = PaddingValues(bottom = miniPlayerBottomPadding.coerceAtLeast(0.dp))
 
     CompositionLocalProvider(LocalMiniPlayerPadding provides miniPlayerPaddingValues) {
         if (isTablet) {
-            // Tablet layout with NavigationRail
-            Box(modifier = Modifier.fillMaxSize()) {
-                // Navigation rail for tablets
-                AnimatedVisibility(
-                    visible = showNavBar,
-                    enter = slideInHorizontally(
-                        initialOffsetX = { -it / 2 },
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        )
-                    ) + fadeIn(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        )
-                    ),
-                    exit = slideOutHorizontally(
-                        targetOffsetX = { -it / 2 },
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessLow
-                        )
-                    ) + fadeOut(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessLow
-                        )
-                    )
-                ) {
-                    LocalNavigationRail(
-                        currentRoute = currentRoute,
-                        navController = navController,
-                        firstVisibleLibraryTab = firstVisibleLibraryTab,
-                        context = context,
-                        haptic = haptic
-                    )
-                }
-                
+            val showDockedRail = showNavBar && !floatingNavigationBar
+            val tabletContainerColor = MaterialTheme.colorScheme.surfaceContainer
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(if (showDockedRail) tabletContainerColor else Color.Transparent)
+            ) {
                 // Main content wrapped in Scaffold (without bottom nav)
                 LocalNavigationContent(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(start = tabletContentStartPadding),
+                        .padding(start = tabletContentStartPadding)
+                        .then(
+                            if (showDockedRail) {
+                                Modifier.clip(RoundedCornerShape(topStart = 24.dp, bottomStart = 24.dp))
+                            } else Modifier
+                        ),
                     navController = navController,
                     viewModel = viewModel,
                     themeViewModel = themeViewModel,
@@ -578,7 +705,7 @@ fun LocalNavigation(
                         viewModel.clearQueue()
                     },
                     showMiniPlayer = showMiniPlayer,
-                    showBottomNav = false, // Hide nav bar in content for tablet
+                    showBottomNav = false,
                     isTablet = true,
                     startDestination = startDestination,
                     songs = songs,
@@ -613,12 +740,51 @@ fun LocalNavigation(
                     onToggleRepeat = onToggleRepeat,
                     onToggleFavorite = onToggleFavorite,
                     onSeek = onSeek,
-                    onLyricsSeek = onLyricsSeek
+                    onLyricsSeek = onLyricsSeek,
+                    streamingMusicViewModel = streamingMusicViewModel
                 )
+
+                AnimatedVisibility(
+                    visible = showNavBar,
+                    enter = slideInHorizontally(
+                        initialOffsetX = { -it },
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
+                    ) + fadeIn(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
+                    ),
+                    exit = slideOutHorizontally(
+                        targetOffsetX = { -it },
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
+                    ) + fadeOut(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioNoBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
+                    )
+                ) {
+                    LocalNavigationRail(
+                        currentRoute = currentRoute,
+                        navController = navController,
+                        firstVisibleLibraryTab = firstVisibleLibraryTab,
+                        context = context,
+                        haptic = haptic,
+                        isFloating = floatingNavigationBar
+                    )
+                }
             }
         } else {
-            // Phone layout with original bottom navigation
+            // Main content wrapped in Scaffold for phone
             LocalNavigationContent(
+                modifier = Modifier.fillMaxSize(),
                 navController = navController,
                 viewModel = viewModel,
                 themeViewModel = themeViewModel,
@@ -633,13 +799,13 @@ fun LocalNavigation(
                 onPlayerClick = onPlayerClick,
                 onSkipNext = onSkipNext,
                 onSkipPrevious = onSkipPrevious,
-                    onMiniPlayerDismiss = {
-                        isMiniPlayerDismissed = true
-                        if (isPlaying) {
-                            onPlayPause()
-                        }
-                        viewModel.clearQueue()
-                    },
+                onMiniPlayerDismiss = {
+                    isMiniPlayerDismissed = true
+                    if (isPlaying) {
+                        onPlayPause()
+                    }
+                    viewModel.clearQueue()
+                },
                 showMiniPlayer = showMiniPlayer,
                 showBottomNav = showBottomNav,
                 isTablet = false,
@@ -662,7 +828,7 @@ fun LocalNavigation(
                 isMediaScanning = isMediaScanning,
                 useSystemTheme = useSystemTheme,
                 darkMode = darkMode,
-                    useExperimentalPlayerUi = useExperimentalPlayerUi,
+                useExperimentalPlayerUi = useExperimentalPlayerUi,
                 libraryTabOrder = libraryTabOrder,
                 hiddenLibraryTabs = hiddenLibraryTabs,
                 firstVisibleLibraryTab = firstVisibleLibraryTab,
@@ -676,7 +842,8 @@ fun LocalNavigation(
                 onToggleRepeat = onToggleRepeat,
                 onToggleFavorite = onToggleFavorite,
                 onSeek = onSeek,
-                onLyricsSeek = onLyricsSeek
+                onLyricsSeek = onLyricsSeek,
+                streamingMusicViewModel = streamingMusicViewModel
             )
         }
     }
@@ -752,10 +919,204 @@ private fun LocalNavigationContent(
     onToggleRepeat: () -> Unit,
     onToggleFavorite: () -> Unit,
     onSeek: (Float) -> Unit,
-    onLyricsSeek: (Long) -> Unit
+    onLyricsSeek: (Long) -> Unit,
+    streamingMusicViewModel: StreamingMusicViewModel
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+
+    val appMode by appSettings.appMode.collectAsState()
+    val isStreamingMode = appMode == "STREAMING"
+    val floatingNavigationBar by appSettings.floatingNavigationBar.collectAsState()
+    val streamingSessions by streamingMusicViewModel.serviceSessions.collectAsState()
+    val streamingLikedSongs by streamingMusicViewModel.likedSongs.collectAsState()
+    val streamingSavedPlaylists by streamingMusicViewModel.savedPlaylists.collectAsState()
+    val streamingSavedAlbums by streamingMusicViewModel.savedAlbums.collectAsState()
+    val streamingNewReleases by streamingMusicViewModel.newReleases.collectAsState()
+    val streamingRecommendations by streamingMusicViewModel.recommendations.collectAsState()
+    val streamingDownloadedSongs by streamingMusicViewModel.downloadedSongs.collectAsState()
+    val streamingDownloadedAlbums by streamingMusicViewModel.downloadedAlbums.collectAsState()
+    val streamingDownloadedArtists by streamingMusicViewModel.downloadedArtists.collectAsState()
+    val streamingAllSongs by streamingMusicViewModel.allSongs.collectAsState()
+    val streamingDownloadingSongIds by streamingMusicViewModel.downloadingSongIds.collectAsState()
+    val streamingFollowedArtists by streamingMusicViewModel.followedArtists.collectAsState()
+    val streamingCurrentSong by streamingMusicViewModel.currentSong.collectAsState()
+    val streamingLikedSongIds = remember(streamingLikedSongs) {
+        streamingLikedSongs.map { it.id }.toSet()
+    }
+    val streamingDownloadedSongIds = remember(streamingDownloadedSongs) {
+        streamingDownloadedSongs.map { it.id }.toSet()
+    }
+    val streamingAlbumCatalog = remember(streamingSavedAlbums, streamingNewReleases, streamingDownloadedAlbums) {
+        (streamingSavedAlbums + streamingNewReleases + streamingDownloadedAlbums).distinctBy { it.id }
+    }
+    val playbackStatsSummary by viewModel.playbackStatsSummary.collectAsState()
+    val listeningTime by viewModel.listeningTime.collectAsState()
+
+    var showStreamingAddToPlaylist by remember { mutableStateOf(false) }
+    var selectedStreamingSongForPlaylist by remember { mutableStateOf<StreamingSong?>(null) }
+    val onStreamingAddSongToPlaylist: (StreamingSong) -> Unit = { song ->
+        selectedStreamingSongForPlaylist = song
+        showStreamingAddToPlaylist = true
+    }
+
+    val streamingIsLoading by streamingMusicViewModel.isLoading.collectAsState()
+    val streamingError by streamingMusicViewModel.error.collectAsState()
+    val selectedStreamingService by appSettings.streamingService.collectAsState()
+    val streamingServiceId = remember(selectedStreamingService) {
+        StreamingServiceOptions.defaults.firstOrNull { it.id == selectedStreamingService }?.id
+            ?: selectedStreamingService
+    }
+    val streamingServiceName = remember(streamingServiceId) {
+        StreamingServiceOptions.defaults.firstOrNull { it.id == streamingServiceId }
+            ?.let { context.getString(it.nameRes) }
+            ?: streamingServiceId
+    }
+    val streamingIsAuthenticated by streamingMusicViewModel.isAuthenticated.collectAsState()
+    val streamingIsOnline by streamingMusicViewModel.isOnline.collectAsState()
+    val offlineMode by appSettings.offlineMode.collectAsState()
+    val isEffectivelyOffline = !streamingIsOnline || !streamingIsAuthenticated || offlineMode
+    val streamingServiceConnected = remember(streamingSessions, streamingServiceId, isEffectivelyOffline) {
+        streamingSessions[streamingServiceId]?.isConnected == true && !isEffectivelyOffline
+    }
+    val streamingSongById = remember(streamingAllSongs, streamingRecommendations, streamingLikedSongs, streamingDownloadedSongs) {
+        (streamingAllSongs + streamingRecommendations + streamingLikedSongs + streamingDownloadedSongs)
+            .distinctBy { it.id }
+            .associateBy { it.id }
+    }
+    val playStreamingMappedQueue: (List<chromahub.rhythm.app.shared.data.model.Song>, Int, Boolean) -> Unit =
+        { mappedSongs, startIndex, shuffle ->
+            val originals = mappedSongs.mapNotNull { streamingSongById[it.id] }
+            if (originals.isNotEmpty()) {
+                streamingMusicViewModel.playQueue(originals, startIndex, shuffle, pinStartIndex = shuffle)
+            }
+        }
+    val streamingMappedSongs = remember(streamingServiceConnected, streamingAllSongs, streamingRecommendations, streamingLikedSongs, streamingDownloadedSongs) {
+        val base = if (!streamingServiceConnected) {
+            streamingDownloadedSongs
+        } else if (streamingAllSongs.isNotEmpty()) {
+            (streamingAllSongs + streamingDownloadedSongs).distinctBy { it.id }
+        } else {
+            (streamingRecommendations + streamingLikedSongs + streamingDownloadedSongs).distinctBy { it.id }
+        }
+        base.map { it.toLibrarySong() }
+    }
+    val streamingMappedAlbums = remember(streamingServiceConnected, streamingSavedAlbums, streamingNewReleases, streamingDownloadedAlbums) {
+        val base = if (!streamingServiceConnected) {
+            streamingDownloadedAlbums
+        } else {
+            (streamingSavedAlbums + streamingNewReleases + streamingDownloadedAlbums).distinctBy { it.id }
+        }
+        base.map { it.toLibraryAlbum(emptyList()) }
+    }
+    val streamingMappedArtists = remember(streamingServiceConnected, streamingFollowedArtists, streamingAllSongs, streamingDownloadedArtists, streamingDownloadedSongs) {
+        val baseArtists = if (!streamingServiceConnected) {
+            streamingDownloadedArtists
+        } else if (streamingFollowedArtists.isNotEmpty() || streamingDownloadedArtists.isNotEmpty()) {
+            (streamingFollowedArtists + streamingDownloadedArtists).distinctBy { it.id }
+        } else {
+            val allSongsPool = (streamingAllSongs + streamingDownloadedSongs).distinctBy { it.id }
+            val artistNames = allSongsPool.mapNotNull { it.artist.takeIf { a -> a.isNotBlank() } }.distinct()
+            artistNames.map { name ->
+                val fallbackArt = allSongsPool.firstOrNull { it.artist.equals(name, ignoreCase = true) }?.artworkUri
+                StreamingArtist(
+                    id = "derived::$name",
+                    name = name,
+                    artworkUri = fallbackArt,
+                    songCount = allSongsPool.count { it.artist.equals(name, ignoreCase = true) },
+                    albumCount = allSongsPool.filter { it.artist.equals(name, ignoreCase = true) }.map { it.album }.distinct().size,
+                    sourceType = streamingMusicViewModel.currentService.value
+                )
+            }
+        }
+        baseArtists.map {
+            it.toLibraryArtist(
+                librarySongs = emptyList(),
+                libraryAlbums = emptyList(),
+                separatorEnabled = false,
+                separatorDelimiters = ""
+            )
+        }
+    }
+    val streamingMappedPlaylists = remember(streamingServiceConnected, streamingSavedPlaylists) {
+        if (!streamingServiceConnected) emptyList() else streamingSavedPlaylists.map { it.toLibraryPlaylist(context) }
+    }
+
+    // Route streaming playback through the shared local player (streaming songs map to local songs).
+    LaunchedEffect(streamingMusicViewModel, viewModel, navController) {
+        streamingMusicViewModel.setPlaybackHandler { streamingQueue, startIndex ->
+            val mappedQueue = streamingQueue.mapNotNull { it.toLocalSong() }
+            if (mappedQueue.isEmpty()) {
+                streamingMusicViewModel.reportError(
+                    "Playback failed: Unable to convert streaming songs for playback. " +
+                        "Try reconnecting to your service."
+                )
+                return@setPlaybackHandler
+            }
+            if (streamingQueue.size != mappedQueue.size) {
+                streamingMusicViewModel.reportWarning(
+                    "Some songs in queue couldn't be loaded for playback."
+                )
+            }
+            val safeIndex = startIndex.coerceIn(0, mappedQueue.lastIndex)
+            viewModel.playSongFromSearch(mappedQueue[safeIndex], mappedQueue)
+            navController.navigate(Screen.Player.route) {
+                launchSingleTop = true
+            }
+        }
+        streamingMusicViewModel.setSeekHandlers(
+            progressHandler = { progress -> viewModel.seekTo(progress) },
+            positionHandler = { positionMs -> viewModel.seekTo(positionMs) }
+        )
+    }
+
+    if (showStreamingAddToPlaylist && selectedStreamingSongForPlaylist != null) {
+        val displaySong = remember(selectedStreamingSongForPlaylist) {
+            selectedStreamingSongForPlaylist!!.toDisplaySong()
+        }
+        val displayPlaylists = remember(streamingSavedPlaylists) {
+            streamingSavedPlaylists.map { it.toLibraryPlaylist(context) }
+        }
+        var showCreateStreamingPlaylistDialog by remember { mutableStateOf(false) }
+
+        if (showCreateStreamingPlaylistDialog) {
+            CreatePlaylistDialog(
+                onDismiss = { showCreateStreamingPlaylistDialog = false },
+                onConfirm = { name ->
+                    streamingMusicViewModel.createPlaylist(name)
+                    showCreateStreamingPlaylistDialog = false
+                },
+                song = selectedStreamingSongForPlaylist?.toLocalSong(),
+                onConfirmWithSong = { name ->
+                    selectedStreamingSongForPlaylist?.let { streamingSong ->
+                        streamingMusicViewModel.createPlaylist(name, listOf(streamingSong))
+                    } ?: run {
+                        streamingMusicViewModel.createPlaylist(name)
+                    }
+                    showCreateStreamingPlaylistDialog = false
+                }
+            )
+        }
+
+        AddToPlaylistBottomSheet(
+            song = displaySong,
+            playlists = displayPlaylists,
+            onDismissRequest = {
+                showStreamingAddToPlaylist = false
+                selectedStreamingSongForPlaylist = null
+            },
+            onAddToPlaylist = { playlist ->
+                selectedStreamingSongForPlaylist?.let { song ->
+                    streamingMusicViewModel.addSongToPlaylist(playlist.id, song)
+                }
+                showStreamingAddToPlaylist = false
+                selectedStreamingSongForPlaylist = null
+            },
+            onCreateNewPlaylist = {
+                showCreateStreamingPlaylistDialog = true
+            }
+        )
+    }
 
     val showAddToPlaylistSheet = remember { mutableStateOf(false) }
     val showCreatePlaylistDialog = remember { mutableStateOf(false) }
@@ -818,6 +1179,7 @@ private fun LocalNavigationContent(
 
 
     val miniPlayerThemeId by appSettings.miniPlayerThemeId.collectAsState()
+    val respectAlbumOnPlay by appSettings.respectAlbumOnPlay.collectAsState()
 
     Scaffold(
         modifier = modifier,
@@ -829,11 +1191,12 @@ private fun LocalNavigationContent(
                 animationSpec = tween(durationMillis = 220),
                 label = "local_bottom_chrome_alpha"
             )
+            val systemNavBarPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
             val miniPlayerBottomOffset by animateDpAsState(
                 targetValue = when {
-                    showBottomNav -> MusicDimensions.bottomNavigationHeight + 12.dp
-                    currentRoute == Screen.Search.route -> 88.dp // Height of search bar + padding
-                    else -> 8.dp
+                    showBottomNav -> MusicDimensions.bottomNavigationHeight + 12.dp + systemNavBarPadding
+                    currentRoute == Screen.Search.route -> 88.dp + systemNavBarPadding
+                    else -> 8.dp + systemNavBarPadding
                 },
                 animationSpec = spring(
                     dampingRatio = Spring.DampingRatioNoBouncy,
@@ -885,7 +1248,6 @@ private fun LocalNavigationContent(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.navigationBars)
                         .align(Alignment.BottomCenter)
                 ) {
 
@@ -896,10 +1258,22 @@ private fun LocalNavigationContent(
                     RhythmPlayerSheet(
                         isExpanded = currentRoute == Screen.Player.route,
                         onExpand = {
-                            navController.navigate(Screen.Player.route)
+                            navController.navigate(Screen.Player.route) {
+                                launchSingleTop = true
+                            }
                         },
                         onCollapse = {
-                            navigateBackOrToLanding()
+                            try {
+                                val hasPlayerEntry = try {
+                                    navController.getBackStackEntry(Screen.Player.route)
+                                    true
+                                } catch (_: IllegalArgumentException) {
+                                    false
+                                }
+                                if (hasPlayerEntry) {
+                                    navController.popBackStack(Screen.Player.route, inclusive = true)
+                                }
+                            } catch (_: Exception) { }
                         },
                         onMiniPlayerDismiss = {
                             onMiniPlayerDismiss()
@@ -925,8 +1299,17 @@ private fun LocalNavigationContent(
                         },
                         isShuffleEnabled = isShuffleEnabled,
                         repeatMode = repeatMode,
-                        isFavorite = isFavorite,
-                        onToggleFavorite = onToggleFavorite,
+                        isFavorite = if (isStreamingMode) streamingCurrentSong?.let { streamingLikedSongIds.contains(it.id) } ?: false else isFavorite,
+                        onToggleFavorite = if (isStreamingMode) {
+                            {
+                                val s = streamingCurrentSong
+                                if (s != null) {
+                                    val isLiked = streamingLikedSongIds.contains(s.id)
+                                    if (isLiked) streamingMusicViewModel.unlikeSong(s)
+                                    else streamingMusicViewModel.likeSong(s)
+                                }
+                            }
+                        } else onToggleFavorite,
                         onToggleShuffle = onToggleShuffle,
                         onToggleRepeat = onToggleRepeat,
                         onAddToPlaylist = { showAddToPlaylistSheet.value = true },
@@ -1016,6 +1399,7 @@ private fun LocalNavigationContent(
                         appSettings = appSettings,
                         musicViewModel = viewModel,
                         navController = navController,
+                        isStreamingMode = isStreamingMode,
                         miniPlayerBottomOffset = miniPlayerBottomOffset
                     )
                 }
@@ -1049,250 +1433,378 @@ private fun LocalNavigationContent(
                         )
                     )
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp, bottom = 8.dp)
-                    ) {
-                        Row(
+                    if (floatingNavigationBar) {
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .align(Alignment.BottomCenter),
-                            verticalAlignment = Alignment.Bottom
+                                .windowInsetsPadding(WindowInsets.navigationBars)
+                                .padding(top = 8.dp, bottom = 8.dp)
                         ) {
-                            // Expressive Navigation bar Surface with pill shape
-                            Surface(
-                                color = MaterialTheme.colorScheme.surfaceContainer,
-                                shape = ExpressiveShapes.Full, // Full pill shape for expressive design
-                                tonalElevation = 3.dp,
-                                shadowElevation = 0.dp,
+                            Row(
                                 modifier = Modifier
-                                    .height(MusicDimensions.bottomNavigationHeight)
-                                    .weight(1f) // Make it take up available space
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                                    .align(Alignment.BottomCenter),
+                                verticalAlignment = Alignment.Bottom
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxSize(),
-                                    horizontalArrangement = Arrangement.SpaceEvenly,
-                                    verticalAlignment = Alignment.CenterVertically
+                                // Expressive Navigation bar Surface with pill shape
+                                Surface(
+                                    color = MaterialTheme.colorScheme.surfaceContainer,
+                                    shape = ExpressiveShapes.Full, // Full pill shape for expressive design
+                                    tonalElevation = 3.dp,
+                                    shadowElevation = 0.dp,
+                                    modifier = Modifier
+                                        .height(MusicDimensions.bottomNavigationHeight)
+                                        .weight(1f) // Make it take up available space
                                 ) {
-                                    // Use first visible library tab based on user's tab order
-                                    val libraryRoute =
-                                        Screen.Library.createRoute(firstVisibleLibraryTab)
-                                    val items = listOf(
-                                         Triple(
-                                             Screen.Home.route, context.getString(R.string.common_home),
-                                             Pair(RhythmIcons.HomeFilled, RhythmIcons.Home)
-                                         ),
-                                         Triple(
-                                             libraryRoute, context.getString(R.string.common_library),
-                                             Pair(RhythmIcons.Navigation.Library, RhythmIcons.Navigation.LibraryOutlined)
+                                    Row(
+                                        modifier = Modifier.fillMaxSize(),
+                                        horizontalArrangement = Arrangement.SpaceEvenly,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Use first visible library tab based on user's tab order
+                                        val libraryRoute =
+                                            Screen.Library.createRoute(firstVisibleLibraryTab)
+                                        val items = listOf(
+                                             Triple(
+                                                 Screen.Home.route, context.getString(R.string.common_home),
+                                                 Pair(RhythmIcons.HomeFilled, RhythmIcons.Home)
+                                             ),
+                                             Triple(
+                                                 libraryRoute, context.getString(R.string.common_library),
+                                                 Pair(RhythmIcons.Navigation.Library, RhythmIcons.Navigation.LibraryOutlined)
+                                             )
                                          )
-                                     )
 
-                                     items.forEachIndexed { index, (route, title, icons) ->
-                                         val isSelected = when (route) {
-                                             Screen.Home.route -> currentRoute == Screen.Home.route
-                                             libraryRoute -> currentRoute.startsWith("library")
-                                             else -> false
-                                         }
+                                         items.forEachIndexed { index, (route, title, icons) ->
+                                             val isSelected = when (route) {
+                                                 Screen.Home.route -> currentRoute == Screen.Home.route
+                                                 libraryRoute -> currentRoute.startsWith("library")
+                                                 else -> false
+                                             }
 
-                                        val (selectedIcon, unselectedIcon) = icons
+                                            val (selectedIcon, unselectedIcon) = icons
 
-                                        // Enhanced animation values with spring physics
-                                        val animatedScale by animateFloatAsState(
-                                            targetValue = if (isSelected) 1.05f else 1.0f,
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessLow
-                                            ),
-                                            label = "scale_$title"
-                                        )
+                                            // Enhanced animation values with spring physics
+                                            val animatedScale by animateFloatAsState(
+                                                targetValue = if (isSelected) 1.05f else 1.0f,
+                                                animationSpec = spring(
+                                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                    stiffness = Spring.StiffnessLow
+                                                ),
+                                                label = "scale_$title"
+                                            )
 
-                                        val animatedAlpha by animateFloatAsState(
-                                            targetValue = if (isSelected) 1f else 0.7f,
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioNoBouncy,
-                                                stiffness = Spring.StiffnessLow
-                                            ),
-                                            label = "alpha_$title"
-                                        )
+                                            val animatedAlpha by animateFloatAsState(
+                                                targetValue = if (isSelected) 1f else 0.7f,
+                                                animationSpec = spring(
+                                                    dampingRatio = Spring.DampingRatioNoBouncy,
+                                                    stiffness = Spring.StiffnessLow
+                                                ),
+                                                label = "alpha_$title"
+                                            )
 
-                                        // Background pill animation with spring
-                                        val pillWidth by animateDpAsState(
-                                            targetValue = if (isSelected) 120.dp else 0.dp,
-                                            animationSpec = spring(
-                                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                stiffness = Spring.StiffnessLow
-                                            ),
-                                            label = "pillWidth_$title"
-                                        )
+                                            // Background pill animation with spring
+                                            val pillWidth by animateDpAsState(
+                                                targetValue = if (isSelected) 120.dp else 0.dp,
+                                                animationSpec = spring(
+                                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                    stiffness = Spring.StiffnessLow
+                                                ),
+                                                label = "pillWidth_$title"
+                                            )
 
-                                        // Icon color animation
-                                        val iconColor by animateColorAsState(
-                                            targetValue = if (isSelected)
-                                                MaterialTheme.colorScheme.onPrimaryContainer
-                                            else
-                                                MaterialTheme.colorScheme.onSurfaceVariant,
-                                            animationSpec = tween(300),
-                                            label = "iconColor_$title"
-                                        )
+                                            // Icon color animation
+                                            val iconColor by animateColorAsState(
+                                                targetValue = if (isSelected)
+                                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                                else
+                                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                                animationSpec = tween(300),
+                                                label = "iconColor_$title"
+                                            )
 
-                                        val haptic = LocalHapticFeedback.current
+                                            val haptic = LocalHapticFeedback.current
 
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .fillMaxHeight()
-                                                .clickable {
-                                                    HapticUtils.performHapticFeedback(
-                                                        context,
-                                                        haptic,
-                                                        HapticType.HEAVY
-                                                    )
-                                                    navController.navigate(route) {
-                                                        popUpTo(navController.graph.findStartDestination().id) {
-                                                            saveState = true
-                                                        }
-                                                        launchSingleTop = true
-                                                        restoreState = true
-                                                    }
-                                                },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            // Horizontal layout for icon and text with animated pill background
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.Center,
+                                            Box(
                                                 modifier = Modifier
-                                                    .graphicsLayer {
-                                                        scaleX = animatedScale
-                                                        scaleY = animatedScale
-                                                        alpha = animatedAlpha
-                                                    }
-                                                    .then(
-                                                        if (isSelected) Modifier
-                                                            .clip(ExpressiveShapes.Full) // Expressive pill shape
-                                                            .background(MaterialTheme.colorScheme.primaryContainer)
-                                                            .height(48.dp)
-                                                            .widthIn(min = pillWidth) // Animated width
-                                                            .padding(horizontal = 18.dp)
-                                                        else Modifier.padding(horizontal = 16.dp)
-                                                    )
+                                                    .weight(1f)
+                                                    .fillMaxHeight()
+                                                    .clickable {
+                                                        HapticUtils.performHapticFeedback(
+                                                            context,
+                                                            haptic,
+                                                            HapticType.HEAVY
+                                                        )
+                                                        navController.navigate(route) {
+                                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                                saveState = true
+                                                            }
+                                                            launchSingleTop = true
+                                                            restoreState = true
+                                                        }
+                                                    },
+                                                contentAlignment = Alignment.Center
                                             ) {
-                                                // Animated icon with crossfade
-                                                androidx.compose.animation.Crossfade(
-                                                    targetState = isSelected,
-                                                    animationSpec = spring(
-                                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                        stiffness = Spring.StiffnessVeryLow
-                                                    ),
-                                                    label = "iconCrossfade_$title"
-                                                ) { selected ->
-                                                    Icon(
-                                                        imageVector = if (selected) selectedIcon else unselectedIcon,
-                                                        contentDescription = title,
-                                                        tint = iconColor,
-                                                        modifier = Modifier.size(24.dp)
-                                                    )
-                                                }
-
-                                                AnimatedVisibility(
-                                                    visible = isSelected,
-                                                    enter = fadeIn(
-                                                        animationSpec = spring(
-                                                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                            stiffness = Spring.StiffnessMedium
+                                                // Horizontal layout for icon and text with animated pill background
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.Center,
+                                                    modifier = Modifier
+                                                        .graphicsLayer {
+                                                            scaleX = animatedScale
+                                                            scaleY = animatedScale
+                                                            alpha = animatedAlpha
+                                                        }
+                                                        .then(
+                                                            if (isSelected) Modifier
+                                                                .clip(ExpressiveShapes.Full) // Expressive pill shape
+                                                                .background(MaterialTheme.colorScheme.primaryContainer)
+                                                                .height(48.dp)
+                                                                .widthIn(min = pillWidth) // Animated width
+                                                                .padding(horizontal = 18.dp)
+                                                            else Modifier.padding(horizontal = 16.dp)
                                                         )
-                                                    ) + expandHorizontally(
-                                                        animationSpec = spring(
-                                                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                                                            stiffness = Spring.StiffnessLow
-                                                        )
-                                                    ),
-                                                    exit = fadeOut(
-                                                        animationSpec = spring(
-                                                            dampingRatio = Spring.DampingRatioNoBouncy,
-                                                            stiffness = Spring.StiffnessLow
-                                                        )
-                                                    ) + shrinkHorizontally(
-                                                        animationSpec = spring(
-                                                            dampingRatio = Spring.DampingRatioNoBouncy,
-                                                            stiffness = Spring.StiffnessLow
-                                                        )
-                                                    )
                                                 ) {
-                                                    Row {
-                                                        Spacer(modifier = Modifier.width(8.dp))
-                                                        Text(
-                                                            text = title,
-                                                            style = MaterialTheme.typography.labelMedium,
-                                                            color = iconColor,
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis
+                                                    // Animated icon with crossfade
+                                                    androidx.compose.animation.Crossfade(
+                                                        targetState = isSelected,
+                                                        animationSpec = spring(
+                                                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                            stiffness = Spring.StiffnessVeryLow
+                                                        ),
+                                                        label = "iconCrossfade_$title"
+                                                    ) { selected ->
+                                                        Icon(
+                                                            imageVector = if (selected) selectedIcon else unselectedIcon,
+                                                            contentDescription = title,
+                                                            tint = iconColor,
+                                                            modifier = Modifier.size(24.dp)
                                                         )
+                                                    }
+
+                                                    AnimatedVisibility(
+                                                        visible = isSelected,
+                                                        enter = fadeIn(
+                                                            animationSpec = spring(
+                                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                                stiffness = Spring.StiffnessMedium
+                                                            )
+                                                        ) + expandHorizontally(
+                                                            animationSpec = spring(
+                                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                                stiffness = Spring.StiffnessLow
+                                                            )
+                                                        ),
+                                                        exit = fadeOut(
+                                                            animationSpec = spring(
+                                                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                                                stiffness = Spring.StiffnessLow
+                                                            )
+                                                        ) + shrinkHorizontally(
+                                                            animationSpec = spring(
+                                                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                                                stiffness = Spring.StiffnessLow
+                                                            )
+                                                        )
+                                                    ) {
+                                                        Row {
+                                                            Spacer(modifier = Modifier.width(8.dp))
+                                                            Text(
+                                                                text = title,
+                                                                style = MaterialTheme.typography.labelMedium,
+                                                                color = iconColor,
+                                                                maxLines = 1,
+                                                                overflow = TextOverflow.Ellipsis
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
                                     }
                                 }
+
+                                Spacer(modifier = Modifier.width(12.dp)) // Gap between nav bar and search icon
+
+                                // Expressive Search Icon Button with bouncy animation
+                                val searchInteractionSource = remember { MutableInteractionSource() }
+                                val isSearchPressed by searchInteractionSource.collectIsPressedAsState()
+                                val searchScale by animateFloatAsState(
+                                    targetValue = if (isSearchPressed) 0.88f else 1f,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    ),
+                                    label = "search_scale"
+                                )
+                                
+                                FilledIconButton(
+                                    onClick = {
+                                        HapticUtils.performHapticFeedback(
+                                            context,
+                                            haptic,
+                                            HapticType.HEAVY
+                                        )
+                                        navController.navigate(Screen.Search.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    ),
+                                    shape = ExpressiveShapes.Full,
+                                    interactionSource = searchInteractionSource,
+                                    modifier = Modifier
+                                        .size(MusicDimensions.bottomNavigationHeight) // Match height of navigation bar
+                                        .graphicsLayer {
+                                            scaleX = searchScale
+                                            scaleY = searchScale
+                                        }
+                                ) {
+                                    Icon(
+                                        imageVector = RhythmIcons.Search,
+                                        contentDescription = stringResource(R.string.cd_search),
+                                        modifier = Modifier.size(25.dp)
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        // Docked navigation bar
+                        val libraryRoute = Screen.Library.createRoute(firstVisibleLibraryTab)
+                        val dockedItems = listOf(
+                            Triple(
+                                Screen.Home.route,
+                                context.getString(R.string.common_home),
+                                Pair(RhythmIcons.HomeFilled, RhythmIcons.Home)
+                            ),
+                            Triple(
+                                libraryRoute,
+                                context.getString(R.string.common_library),
+                                Pair(RhythmIcons.Navigation.Library, RhythmIcons.Navigation.LibraryOutlined)
+                            ),
+                            Triple(
+                                Screen.Search.route,
+                                stringResource(R.string.cd_search),
+                                Pair(RhythmIcons.SearchFilled, RhythmIcons.Search)
+                            ),
+                            Triple(
+                                Screen.Settings.route,
+                                context.getString(R.string.settings_title),
+                                Pair(RhythmIcons.SettingsFilled, RhythmIcons.Settings)
+                            )
+                        )
+
+                        val navContainerColor = MaterialTheme.colorScheme.surfaceContainer
+                        val cornerRadius = 24.dp
+
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            // Left inverted corner fillet
+                            Canvas(
+                                modifier = Modifier
+                                    .size(cornerRadius)
+                                    .align(Alignment.TopStart)
+                                    .offset(y = -cornerRadius)
+                            ) {
+                                val path = Path().apply {
+                                    moveTo(0f, 0f)
+                                    lineTo(0f, size.height)
+                                    lineTo(size.width, size.height)
+                                    arcTo(
+                                        rect = Rect(0f, -size.height, size.width * 2, size.height),
+                                        startAngleDegrees = 90f,
+                                        sweepAngleDegrees = 90f,
+                                        forceMoveTo = false
+                                    )
+                                    close()
+                                }
+                                drawPath(path, color = navContainerColor)
                             }
 
-                            Spacer(modifier = Modifier.width(12.dp)) // Gap between nav bar and search icon
-
-                            // Expressive Search Icon Button with bouncy animation
-                            val searchInteractionSource = remember { MutableInteractionSource() }
-                            val isSearchPressed by searchInteractionSource.collectIsPressedAsState()
-                            val searchScale by animateFloatAsState(
-                                targetValue = if (isSearchPressed) 0.88f else 1f,
-                                animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessMedium
-                                ),
-                                label = "search_scale"
-                            )
-                            
-                            FilledIconButton(
-                                onClick = {
-                                    HapticUtils.performHapticFeedback(
-                                        context,
-                                        haptic,
-                                        HapticType.HEAVY
-                                    )
-                                    navController.navigate(Screen.Search.route) {
-                                        popUpTo(navController.graph.findStartDestination().id) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                },
-                                colors = IconButtonDefaults.filledIconButtonColors(
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    contentColor = MaterialTheme.colorScheme.onPrimary
-                                ),
-                                shape = ExpressiveShapes.Full,
-                                interactionSource = searchInteractionSource,
+                            // Right inverted corner fillet
+                            Canvas(
                                 modifier = Modifier
-                                    .size(MusicDimensions.bottomNavigationHeight) // Match height of navigation bar
-                                    .graphicsLayer {
-                                        scaleX = searchScale
-                                        scaleY = searchScale
-                                    }
+                                    .size(cornerRadius)
+                                    .align(Alignment.TopEnd)
+                                    .offset(y = -cornerRadius)
                             ) {
-                                Icon(
-                                    imageVector = RhythmIcons.Search,
-                                    contentDescription = stringResource(R.string.cd_search),
-                                    modifier = Modifier.size(25.dp)
-                                )
+                                val path = Path().apply {
+                                    moveTo(size.width, 0f)
+                                    lineTo(size.width, size.height)
+                                    lineTo(0f, size.height)
+                                    arcTo(
+                                        rect = Rect(-size.width, -size.height, size.width, size.height),
+                                        startAngleDegrees = 90f,
+                                        sweepAngleDegrees = -90f,
+                                        forceMoveTo = false
+                                    )
+                                    close()
+                                }
+                                drawPath(path, color = navContainerColor)
+                            }
+
+                            NavigationBar(
+                                modifier = Modifier.fillMaxWidth(),
+                                containerColor = navContainerColor,
+                                windowInsets = WindowInsets.navigationBars
+                            ) {
+                                Spacer(Modifier.width(8.dp))
+                                dockedItems.forEach { (route, title, icons) ->
+                                    val isSelected = when (route) {
+                                        Screen.Home.route -> currentRoute == Screen.Home.route
+                                        libraryRoute -> currentRoute.startsWith("library")
+                                        Screen.Search.route -> currentRoute == Screen.Search.route
+                                        Screen.Settings.route -> currentRoute == Screen.Settings.route
+                                        else -> false
+                                    }
+                                    val (selectedIcon, unselectedIcon) = icons
+
+                                    NavigationBarItem(
+                                        selected = isSelected,
+                                        onClick = {
+                                            HapticUtils.performHapticFeedback(
+                                                context,
+                                                haptic,
+                                                HapticType.HEAVY
+                                            )
+                                            navController.navigate(route) {
+                                                popUpTo(navController.graph.findStartDestination().id) {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
+                                        },
+                                        icon = {
+                                            Icon(
+                                                imageVector = if (isSelected) selectedIcon else unselectedIcon,
+                                                contentDescription = title,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        },
+                                        label = {
+                                            Text(
+                                                text = title,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    )
+                                }
+                                Spacer(Modifier.width(8.dp))
                             }
                         }
                     }
                 }
-                }
             }
         }
+    }
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
             // Main content
@@ -1300,7 +1812,63 @@ private fun LocalNavigationContent(
                 navController = navController,
                 startDestination = startDestination,
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxSize(),
+                predictivePopEnterTransition = { swipeEdge ->
+                    when {
+                        targetState.destination.route == Screen.Player.route -> {
+                            EnterTransition.None
+                        }
+                        targetState.destination.route?.startsWith("home") == true &&
+                            initialState.destination.route?.startsWith("library") == true -> {
+                            fadeIn(animationSpec = tween(300)) +
+                                slideInHorizontally(
+                                    initialOffsetX = { -it },
+                                    animationSpec = tween(350, easing = EaseInOutQuart)
+                                )
+                        }
+                        targetState.destination.route?.startsWith("library") == true &&
+                            initialState.destination.route?.startsWith("home") == true -> {
+                            fadeIn(animationSpec = tween(300)) +
+                                slideInHorizontally(
+                                    initialOffsetX = { it },
+                                    animationSpec = tween(350, easing = EaseInOutQuart)
+                                )
+                        }
+                        else -> {
+                            fadeIn(animationSpec = tween(250))
+                        }
+                    }
+                },
+                predictivePopExitTransition = { swipeEdge ->
+                    when {
+                        initialState.destination.route == Screen.Player.route -> {
+                            ExitTransition.None
+                        }
+                        initialState.destination.route?.startsWith("library") == true &&
+                            targetState.destination.route?.startsWith("home") == true -> {
+                            fadeOut(animationSpec = tween(300)) +
+                                slideOutHorizontally(
+                                    targetOffsetX = { if (swipeEdge == 0) it else -it },
+                                    animationSpec = tween(350, easing = EaseInOutQuart)
+                                )
+                        }
+                        initialState.destination.route?.startsWith("home") == true &&
+                            targetState.destination.route?.startsWith("library") == true -> {
+                            fadeOut(animationSpec = tween(300)) +
+                                slideOutHorizontally(
+                                    targetOffsetX = { if (swipeEdge == 0) it else -it },
+                                    animationSpec = tween(350, easing = EaseInOutQuart)
+                                )
+                        }
+                        else -> {
+                            fadeOut(animationSpec = tween(300)) +
+                                slideOutVertically(
+                                    targetOffsetY = { it / 4 },
+                                    animationSpec = tween(350, easing = EaseInOutQuart)
+                                )
+                        }
+                    }
+                }
             ) {
                 composable(
                     route = Screen.Home.route,
@@ -1361,92 +1929,137 @@ private fun LocalNavigationContent(
                     }
                 ) {
                     HomeScreen(
-                        musicViewModel = viewModel,
-                        songs = songs,
-                        albums = albums,
-                        artists = artists,
-                        recentlyPlayed = recentlyPlayed,
-                        currentSong = currentSong,
-                        isPlaying = isPlaying,
-                        onSongClick = onPlaySong,
-                        onAlbumClick = { album ->
-                            navController.navigate(Screen.AlbumDetail.createRoute(album.id, album.title))
-                        },
-                        onArtistClick = onPlayArtist,
-                        onPlayPause = onPlayPause,
-                        onPlayerClick = {
-                            navController.navigate(Screen.Player.route)
-                        },
-                        onViewAllSongs = {
-                            // Navigate to songs screen
-                            navController.navigate(Screen.Library.createRoute(LibraryTab.SONGS)) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                            musicViewModel = viewModel,
+                            songs = songs,
+                            albums = albums,
+                            artists = artists,
+                            recentlyPlayed = recentlyPlayed,
+                            currentSong = currentSong,
+                            isPlaying = isPlaying,
+                            onSongClick = onPlaySong,
+                            onAlbumClick = { album ->
+                                navController.navigate(Screen.AlbumDetail.createRoute(album.id, album.title))
+                            },
+                            onArtistClick = onPlayArtist,
+                            onPlayPause = onPlayPause,
+                            onPlayerClick = {
+                                navController.navigate(Screen.Player.route)
+                            },
+                            onViewAllSongs = {
+                                // Navigate to songs screen
+                                navController.navigate(Screen.Library.createRoute(LibraryTab.SONGS)) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        onViewAllAlbums = {
-                            navController.navigate(Screen.Library.createRoute(LibraryTab.ALBUMS)) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                            },
+                            onViewAllAlbums = {
+                                navController.navigate(Screen.Library.createRoute(LibraryTab.ALBUMS)) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        onViewAllArtists = {
-                            navController.navigate(Screen.Library.createRoute(LibraryTab.ARTISTS)) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                            },
+                            onViewAllArtists = {
+                                navController.navigate(Screen.Library.createRoute(LibraryTab.ARTISTS)) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        onSkipNext = onSkipNext,
-                        onSearchClick = {
-                            navigateToTopLevel(Screen.Search.route)
-                        },
-                        onSettingsClick = {
-                            // Navigate to the settings screen
-                            navigateToTopLevel(Screen.Settings.route)
-                        },
-                        onNavigateToLibrary = {
-                            // Navigate to library with playlists tab selected
-                            navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS)) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                            },
+                            onSkipNext = onSkipNext,
+                            onSearchClick = {
+                                navigateToTopLevel(Screen.Search.route)
+                            },
+                            onSettingsClick = {
+                                // Navigate to the settings screen
+                                navigateToTopLevel(Screen.Settings.route)
+                            },
+                            onNavigateToLibrary = {
+                                // Navigate to library with playlists tab selected
+                                navController.navigate(Screen.Library.createRoute(LibraryTab.PLAYLISTS)) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
+                            },
+                            onNavigateToPlaylist = { playlistId ->
+                                // Navigate to the specified playlist
+                                // For "favorites", we'll use the ID "1" which is the favorites playlist
+                                val id = if (playlistId == "favorites") "1" else playlistId
+                                navController.navigate(Screen.PlaylistDetail.createRoute(id))
+                            },
+                            onAddToQueue = { song ->
+                                viewModel.addSongToQueue(song)
+                            },
+                            onAddSongToPlaylist = { song, playlistId ->
+                                viewModel.addSongToPlaylist(song, playlistId) { message ->
+                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            onNavigateToStats = {
+                                navigateToTopLevel(Screen.RhythmStats.route)
+                            },
+                            onNavigateToRhythmGuard = {
+                                navController.navigate(Screen.TunerRhythmGuard.route)
+                            },
+                            onNavigateToArtist = { artist ->
+                                navController.navigate(Screen.ArtistDetail.createRoute(artist.name))
+                            },
+                            isStreamingMode = isStreamingMode,
+                            streamingViewModel = streamingMusicViewModel,
+                            streamingSongs = streamingMappedSongs,
+                            streamingAlbums = streamingMappedAlbums,
+                            streamingArtists = streamingMappedArtists,
+                            streamingPlaylists = streamingMappedPlaylists,
+                            streamingRecentlyPlayed = recentlyPlayed,
+                            streamingServiceName = streamingServiceName,
+                            streamingServiceConnected = streamingServiceConnected,
+                            streamingIsLoading = streamingIsLoading,
+                            streamingError = streamingError,
+                            onConfigureService = { serviceId ->
+                                val target = StreamingServiceOptions.defaults
+                                    .firstOrNull { it.id.equals(serviceId, ignoreCase = true) }
+                                    ?.id
+                                    ?: streamingServiceId
+                                navController.navigate(StreamingRoutes.serviceSetup(target)) {
+                                    launchSingleTop = true
+                                }
+                            },
+                            onSwitchToLocalMode = {
+                                appSettings.setAppMode("LOCAL")
+                                viewModel.restartApp()
+                            },
+                            onStreamingNavigateToArtist = { artist ->
+                                navController.navigate(StreamingRoutes.artist(artist.id, artist.name)) {
+                                    launchSingleTop = true
+                                }
+                            },
+                            onStreamingNavigateToAlbum = { album ->
+                                navController.navigate(StreamingRoutes.album(album.id, album.title)) {
+                                    launchSingleTop = true
+                                }
+                            },
+                            onStreamingNavigateToPlaylist = { playlist ->
+                                navController.navigate(StreamingRoutes.playlist(playlist.id)) {
+                                    launchSingleTop = true
+                                }
+                            },
+                            onStreamingPlayQueue = { queue, startIndex, shuffle ->
+                                streamingMusicViewModel.playQueue(queue, startIndex, shuffle)
+                            },
+                            onStreamingShuffleQueue = { queue ->
+                                streamingMusicViewModel.playQueue(queue, 0, true)
                             }
-                        },
-                        onNavigateToPlaylist = { playlistId ->
-                            // Navigate to the specified playlist
-                            // For "favorites", we'll use the ID "1" which is the favorites playlist
-                            val id = if (playlistId == "favorites") "1" else playlistId
-                            navController.navigate(Screen.PlaylistDetail.createRoute(id))
-                        },
-                        onAddToQueue = { song ->
-                            viewModel.addSongToQueue(song)
-                        },
-                        onAddSongToPlaylist = { song, playlistId ->
-                            viewModel.addSongToPlaylist(song, playlistId) { message ->
-                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                        onNavigateToStats = {
-                            navigateToTopLevel(Screen.RhythmStats.route)
-                        },
-                        onNavigateToRhythmGuard = {
-                            navController.navigate(Screen.TunerRhythmGuard.route)
-                        },
-                        onNavigateToArtist = { artist ->
-                            navController.navigate(Screen.ArtistDetail.createRoute(artist.name))
-                        }
-                    )
+                        )
                 }
 
                 composable(
@@ -1469,12 +2082,10 @@ private fun LocalNavigationContent(
                                 )
                     }
                 ) {
-                    val streamingViewModel: chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamingMusicViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-
                     SlideUpCornerWrapper {
                         chromahub.rhythm.app.shared.presentation.screens.UniversalSearchScreen(
                             localViewModel = viewModel,
-                            streamingViewModel = streamingViewModel,
+                            streamingViewModel = streamingMusicViewModel,
                             onLocalSongClick = { song ->
                                 viewModel.playSongFromSearch(song, songs)
                                 navController.navigate(Screen.Player.route)
@@ -1485,17 +2096,23 @@ private fun LocalNavigationContent(
                             onLocalArtistClick = { artist -> navController.navigate(Screen.ArtistDetail.createRoute(artist.name)) },
                             onLocalPlaylistClick = { playlist -> navController.navigate(Screen.PlaylistDetail.createRoute(playlist.id)) },
                             onStreamingSongClick = { song ->
-                                streamingViewModel.playSong(song)
+                                streamingMusicViewModel.playSong(song)
                                 navController.navigate(Screen.Player.route)
                             },
                             onStreamingAlbumClick = { streamingAlbum ->
-                                appSettings.setInitialStreamingRoute("streaming_search")
+                                navController.navigate(StreamingRoutes.album(streamingAlbum.id, streamingAlbum.title)) {
+                                    launchSingleTop = true
+                                }
                             },
                             onStreamingArtistClick = { artist ->
-                                appSettings.setInitialStreamingRoute("streaming_artist/${Uri.encode(artist.id)}?artistName=${Uri.encode(artist.name)}")
+                                navController.navigate(StreamingRoutes.artist(artist.id, artist.name)) {
+                                    launchSingleTop = true
+                                }
                             },
                             onStreamingPlaylistClick = { playlist ->
-                                appSettings.setInitialStreamingRoute("streaming_playlist/${Uri.encode(playlist.id)}")
+                                navController.navigate(StreamingRoutes.playlist(playlist.id)) {
+                                    launchSingleTop = true
+                                }
                             },
                             onBack = { navigateToLanding() }
                         )
@@ -1540,8 +2157,8 @@ private fun LocalNavigationContent(
                     NotificationsSettingsScreen(onBackClick = navigateBackOrToSettings)
                 }
 
-                composable(Screen.TunerExperimentalFeatures.route) {
-                    ExperimentalFeaturesScreen(onBackClick = navigateBackOrToSettings)
+                composable(Screen.TunerLabs.route) {
+                    chromahub.rhythm.app.shared.presentation.screens.settings.LabsSettingsScreen(onBackClick = navigateBackOrToSettings)
                 }
 
                 composable(Screen.TunerAbout.route) {
@@ -1577,10 +2194,6 @@ private fun LocalNavigationContent(
 
                 composable(Screen.TunerBackupRestore.route) {
                     BackupRestoreSettingsScreen(onBackClick = navigateBackOrToSettings)
-                }
-
-                composable(Screen.TunerLibraryTabOrder.route) {
-                    LibraryTabOrderSettingsScreen(onBackClick = navigateBackOrToSettings)
                 }
 
                 composable(Screen.TunerThemeCustomization.route) {
@@ -1646,7 +2259,18 @@ private fun LocalNavigationContent(
                 }
 
                 composable(Screen.TunerPlayback.route) {
-                    PlaybackSettingsScreen(onBackClick = navigateBackOrToSettings)
+                    PlaybackSettingsScreen(
+                        onBackClick = navigateBackOrToSettings,
+                        onNavigateTo = { route ->
+                            if (route == SettingsRoutes.REPLAY_GAIN) {
+                                navController.navigate(Screen.TunerReplayGain.route)
+                            }
+                        }
+                    )
+                }
+
+                composable(Screen.TunerReplayGain.route) {
+                    ReplayGainSettingsScreen(onBackClick = navigateBackOrToSettings)
                 }
 
                 composable(Screen.TunerHomeScreen.route) {
@@ -1702,7 +2326,8 @@ private fun LocalNavigationContent(
                             if (!navController.popBackStack()) {
                                 navController.navigate("main") { launchSingleTop = true }
                             }
-                        }
+                        },
+                        viewModel = streamingMusicViewModel
                     )
                 }
 
@@ -1754,6 +2379,856 @@ private fun LocalNavigationContent(
                     SlideUpCornerWrapper {
                         EqualizerScreen(navController = navController, viewModel = viewModel)
                     }
+                }
+
+                composable(
+                    route = StreamingRoutes.AlbumDetail,
+                    arguments = listOf(
+                        navArgument("albumId") { type = NavType.StringType },
+                        navArgument("albumName") { type = NavType.StringType }
+                    ),
+                    enterTransition = {
+                        fadeIn(animationSpec = tween(300)) +
+                            slideInVertically(
+                                initialOffsetY = { it / 4 },
+                                animationSpec = tween(350, easing = EaseInOutQuart)
+                            )
+                    },
+                    exitTransition = {
+                        fadeOut(animationSpec = tween(300))
+                    },
+                    popExitTransition = {
+                        fadeOut(animationSpec = tween(300)) +
+                            slideOutVertically(
+                                targetOffsetY = { it / 4 },
+                                animationSpec = tween(350, easing = EaseInOutQuart)
+                            )
+                    }
+                ) { backStackEntry ->
+                    val albumId = backStackEntry.arguments?.getString("albumId")?.let(Uri::decode).orEmpty()
+                    val albumName = backStackEntry.arguments?.getString("albumName")?.let(Uri::decode).orEmpty()
+
+                    var isAlbumLoading by remember(albumId) { mutableStateOf(true) }
+                    var albumSongs by remember(albumId) { mutableStateOf<List<StreamingSong>>(emptyList()) }
+                    var streamingAlbum by remember(albumId) { mutableStateOf<StreamingAlbum?>(null) }
+
+                    val searchResults by streamingMusicViewModel.searchResults.collectAsState()
+                    val currentService by streamingMusicViewModel.currentService.collectAsState()
+
+                    val matchedAlbum = remember(albumId, searchResults, currentService, streamingDownloadedAlbums, streamingSavedAlbums, streamingNewReleases) {
+                        (streamingDownloadedAlbums + streamingSavedAlbums + streamingNewReleases + searchResults.albums)
+                            .distinctBy { it.id }
+                            .firstOrNull { it.id == albumId }
+                            ?: StreamingAlbum(
+                                id = albumId,
+                                title = albumName,
+                                artist = "",
+                                artworkUri = null,
+                                songCount = 0,
+                                year = 0,
+                                sourceType = currentService
+                            )
+                    }
+
+                    LaunchedEffect(albumId) {
+                        if (albumId.isBlank()) {
+                            isAlbumLoading = false
+                            return@LaunchedEffect
+                        }
+
+                        // Immediate offline/memory resolution: if matchedAlbum already has tracks or downloaded songs match
+                        if (matchedAlbum.tracks.isNotEmpty()) {
+                            streamingAlbum = matchedAlbum
+                            albumSongs = matchedAlbum.tracks
+                            isAlbumLoading = false
+                        } else {
+                            val localSongs = streamingMusicViewModel.getAlbumSongs(matchedAlbum)
+                            if (localSongs.isNotEmpty()) {
+                                streamingAlbum = matchedAlbum
+                                albumSongs = localSongs
+                                isAlbumLoading = false
+                            } else {
+                                isAlbumLoading = true
+                            }
+                        }
+
+                        try {
+                            val albumDetail = streamingMusicViewModel.repository.getAlbumById(albumId)
+                            if (albumDetail != null && albumDetail is StreamingAlbum) {
+                                streamingAlbum = albumDetail
+                            }
+
+                            val targetAlbum = (albumDetail as? StreamingAlbum) ?: streamingAlbum ?: matchedAlbum
+                            var songs = streamingMusicViewModel.getAlbumSongs(targetAlbum)
+
+                            if (songs.isEmpty() && albumName.isNotBlank()) {
+                                val queueSongs = streamingMusicViewModel.queue.value
+                                val queueMatches = queueSongs.filter {
+                                    it.album.equals(albumName, ignoreCase = true)
+                                }
+                                if (queueMatches.isNotEmpty()) {
+                                    songs = queueMatches
+                                    if (streamingAlbum == null) {
+                                        val first = queueMatches.first()
+                                        streamingAlbum = StreamingAlbum(
+                                            id = albumId,
+                                            title = albumName,
+                                            artist = first.albumArtist ?: first.artist,
+                                            artworkUri = first.artworkUri,
+                                            songCount = queueMatches.size,
+                                            year = first.year,
+                                            sourceType = currentService
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (songs.isNotEmpty()) {
+                                albumSongs = songs
+                            }
+                        } catch (e: Exception) {
+                            Log.w("AlbumDetail", "Failed to load/refresh album $albumId", e)
+                        } finally {
+                            isAlbumLoading = false
+                        }
+                    }
+
+                    val localAlbumSongs = remember(albumSongs) {
+                        albumSongs.map { it.toDisplaySong() }
+                    }
+
+                    val localAlbum = remember(matchedAlbum, streamingAlbum, localAlbumSongs) {
+                        val active = streamingAlbum ?: matchedAlbum
+                        val albumWithArt = if (active.artworkUri.isNullOrBlank()) {
+                            val songArt = localAlbumSongs.firstOrNull { it.artworkUri != null }?.artworkUri?.toString()
+                            if (!songArt.isNullOrBlank()) active.copy(artworkUri = songArt) else active
+                        } else {
+                            active
+                        }
+                        albumWithArt.toLibraryAlbum(localAlbumSongs)
+                    }
+
+                    val albumSongsById = remember(albumSongs) { albumSongs.associateBy { it.id } }
+                    var showSongInfoSheet by remember { mutableStateOf(false) }
+                    var selectedSongForInfo by remember { mutableStateOf<chromahub.rhythm.app.shared.data.model.Song?>(null) }
+
+                    AlbumDetailScreen(
+                        albumId = albumId,
+                        albumName = localAlbum.title,
+                        onBack = {
+                            val popped = navController.popBackStack()
+                            if (!popped) {
+                                // Entry already popped
+                            }
+                        },
+                        onSongClick = { localSong ->
+                            val queue = if (respectAlbumOnPlay && albumSongs.isNotEmpty()) albumSongs else {
+                                albumSongsById[localSong.id]?.let { listOf(it) }.orEmpty()
+                            }
+                            if (queue.isNotEmpty()) {
+                                val index = queue.indexOfFirst { it.id == localSong.id }.coerceAtLeast(0)
+                                val keepShuffle = appSettings.keepShuffleOnSelection.value && isShuffleEnabled
+                                streamingMusicViewModel.playQueue(
+                                    queue = queue,
+                                    startIndex = index,
+                                    shuffle = keepShuffle,
+                                    pinStartIndex = keepShuffle
+                                )
+                            }
+                        },
+                        onPlayAll = { songs ->
+                            if (albumSongs.isNotEmpty()) {
+                                streamingMusicViewModel.playQueue(
+                                    queue = albumSongs,
+                                    startIndex = 0,
+                                    shuffle = false
+                                )
+                            }
+                        },
+                        onShufflePlay = {
+                            if (albumSongs.isNotEmpty()) {
+                                streamingMusicViewModel.playQueue(
+                                    queue = albumSongs,
+                                    startIndex = 0,
+                                    shuffle = true
+                                )
+                            }
+                        },
+                        onAddToQueue = { localSong ->
+                            albumSongsById[localSong.id]?.let { streamingSong ->
+                                streamingMusicViewModel.addSongToQueue(streamingSong, viewModel)
+                            }
+                        },
+                        onAddSongToPlaylist = { localSong ->
+                            albumSongsById[localSong.id]?.let { onStreamingAddSongToPlaylist(it) }
+                        },
+                        onGoToArtist = { song ->
+                            val separatorEnabled = appSettings.artistSeparatorEnabled.value
+                            val delimiters = appSettings.artistSeparatorDelimiters.value.ifBlank { AppSettings.DEFAULT_ARTIST_SEPARATOR_DELIMITERS }
+                            val candidates = ArtistSeparator.splitArtistNames(
+                                song.artist,
+                                delimiters = delimiters,
+                                enabled = separatorEnabled
+                            )
+                            val artistName = candidates.firstOrNull()?.trim().orEmpty().ifBlank { song.artist.trim() }
+                            if (artistName.isNotBlank()) {
+                                val streamingSong = albumSongsById[song.id]
+                                val artistId = streamingSong?.artist?.trim() ?: artistName
+                                navController.navigate(StreamingRoutes.artist(artistId, artistName)) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        },
+                        onPlayerClick = {
+                            navController.navigate(Screen.Player.route) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onPlayNext = { localSong ->
+                            albumSongsById[localSong.id]?.let { streamingSong ->
+                                streamingMusicViewModel.playNext(streamingSong, viewModel)
+                            }
+                        },
+                        onToggleFavorite = { localSong ->
+                            albumSongsById[localSong.id]?.let { streamingSong ->
+                                val isLiked = streamingLikedSongIds.contains(streamingSong.id)
+                                if (isLiked) streamingMusicViewModel.unlikeSong(streamingSong)
+                                else streamingMusicViewModel.likeSong(streamingSong)
+                            }
+                        },
+                        isStreamingMode = true,
+                        favoriteSongs = streamingLikedSongIds,
+                        onShowSongInfo = { song ->
+                            selectedSongForInfo = song
+                            showSongInfoSheet = true
+                        },
+                        currentSong = currentSong,
+                        isPlaying = isPlaying,
+                        albumOverride = localAlbum,
+                        songsOverride = localAlbumSongs,
+                        isContentLoadingOverride = isAlbumLoading,
+                        viewModel = viewModel
+                    )
+
+                    if (showSongInfoSheet && selectedSongForInfo != null) {
+                        val currentSelectedSong = selectedSongForInfo!!
+                        SongInfoBottomSheet(
+                            song = currentSelectedSong,
+                            onDismiss = {
+                                showSongInfoSheet = false
+                                selectedSongForInfo = null
+                            },
+                            appSettings = appSettings,
+                            isStreamingMode = true,
+                            isDownloaded = streamingDownloadedSongIds.contains(currentSelectedSong.id),
+                            isDownloading = streamingDownloadingSongIds.contains(currentSelectedSong.id),
+                            onToggleDownload = {
+                                if (streamingDownloadedSongIds.contains(currentSelectedSong.id)) {
+                                    streamingMusicViewModel.removeDownload(currentSelectedSong.id)
+                                } else {
+                                    val orig = streamingSongById[currentSelectedSong.id]
+                                    if (orig != null) {
+                                        streamingMusicViewModel.downloadSong(orig)
+                                    } else {
+                                        streamingMusicViewModel.downloadSongById(currentSelectedSong.id)
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+
+                composable(
+                    route = StreamingRoutes.ArtistDetail,
+                    arguments = listOf(
+                        navArgument("artistId") { type = NavType.StringType },
+                        navArgument("artistName") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = ""
+                        }
+                    ),
+                    enterTransition = {
+                        fadeIn(animationSpec = tween(300)) +
+                            slideInVertically(
+                                initialOffsetY = { it / 4 },
+                                animationSpec = tween(350, easing = EaseInOutQuart)
+                            )
+                    },
+                    exitTransition = {
+                        fadeOut(animationSpec = tween(300))
+                    },
+                    popExitTransition = {
+                        fadeOut(animationSpec = tween(300)) +
+                            slideOutVertically(
+                                targetOffsetY = { it / 4 },
+                                animationSpec = tween(350, easing = EaseInOutQuart)
+                            )
+                    }
+                ) { backStackEntry ->
+                    val artistId = backStackEntry.arguments?.getString("artistId")?.let(Uri::decode).orEmpty()
+                    val routeArtistName = backStackEntry.arguments?.getString("artistName")?.let(Uri::decode).orEmpty()
+
+                    val followedArtists by streamingMusicViewModel.followedArtists.collectAsState()
+                    val searchResults by streamingMusicViewModel.searchResults.collectAsState()
+                    val currentService by streamingMusicViewModel.currentService.collectAsState()
+
+                    val resolvedArtistName = remember(artistId, routeArtistName) {
+                        routeArtistName.ifBlank { artistId }
+                    }
+
+                    val selectedArtist = remember(
+                        artistId,
+                        resolvedArtistName,
+                        followedArtists,
+                        searchResults,
+                        currentService,
+                        streamingDownloadedArtists
+                    ) {
+                        (streamingDownloadedArtists + followedArtists + searchResults.artists)
+                            .distinctBy { it.id }
+                            .firstOrNull { it.id == artistId || it.name.equals(resolvedArtistName, ignoreCase = true) }
+                            ?: StreamingArtist(
+                                id = artistId,
+                                name = resolvedArtistName.ifBlank {
+                                    context.getString(R.string.artists_title)
+                                },
+                                artworkUri = null,
+                                songCount = 0,
+                                albumCount = 0,
+                                sourceType = currentService
+                            )
+                    }
+
+                    var artistSongs by remember(artistId) {
+                        mutableStateOf(selectedArtist.getTopTracks())
+                    }
+                    var artistAlbums by remember(artistId) { mutableStateOf<List<StreamingAlbum>>(emptyList()) }
+                    var isArtistLoading by remember(artistId) { mutableStateOf(true) }
+                    var fetchedArtist by remember(artistId) { mutableStateOf<StreamingArtist?>(null) }
+
+                    LaunchedEffect(artistId, selectedArtist.name) {
+                        if (artistId.isBlank()) {
+                            artistSongs = emptyList()
+                            isArtistLoading = false
+                            return@LaunchedEffect
+                        }
+
+                        // Immediate resolution from downloads / memory
+                        val separatorEnabled = appSettings.artistSeparatorEnabled.value
+                        val separatorDelimiters = appSettings.artistSeparatorDelimiters.value.ifBlank { AppSettings.DEFAULT_ARTIST_SEPARATOR_DELIMITERS }
+
+                        val downloadedTracks = streamingMusicViewModel.downloadedSongs.value.filter { song ->
+                            song.artist.equals(selectedArtist.name, ignoreCase = true) ||
+                            song.albumArtist?.equals(selectedArtist.name, ignoreCase = true) == true ||
+                            ArtistSeparator.splitArtistNames(song.artist, delimiters = separatorDelimiters, enabled = separatorEnabled).any { it.equals(selectedArtist.name, ignoreCase = true) } ||
+                            (song.albumArtist != null && ArtistSeparator.splitArtistNames(song.albumArtist, delimiters = separatorDelimiters, enabled = separatorEnabled).any { it.equals(selectedArtist.name, ignoreCase = true) })
+                        }
+                        val downloadedAlbumsForArtist = streamingMusicViewModel.downloadedAlbums.value.filter { album ->
+                            album.artist.equals(selectedArtist.name, ignoreCase = true) ||
+                            ArtistSeparator.splitArtistNames(album.artist, delimiters = separatorDelimiters, enabled = separatorEnabled).any { it.equals(selectedArtist.name, ignoreCase = true) }
+                        }
+
+                        if (downloadedTracks.isNotEmpty() || downloadedAlbumsForArtist.isNotEmpty() || selectedArtist.getTopTracks().isNotEmpty()) {
+                            artistSongs = downloadedTracks.ifEmpty { selectedArtist.getTopTracks() }
+                            artistAlbums = downloadedAlbumsForArtist
+                            isArtistLoading = false
+                        } else {
+                            isArtistLoading = true
+                        }
+
+                        try {
+                            if (selectedArtist.artworkUri == null) {
+                                fetchedArtist = streamingMusicViewModel.getArtistInfo(
+                                    artistId = artistId,
+                                    artistNameHint = selectedArtist.name
+                                )
+                            }
+                            val songs = streamingMusicViewModel.getArtistTopSongs(
+                                artistId = artistId,
+                                artistNameHint = selectedArtist.name,
+                                limit = 80
+                            )
+                            if (songs.isNotEmpty()) {
+                                artistSongs = songs
+                            }
+                            val albums = streamingMusicViewModel.getArtistAlbums(
+                                artistId = artistId,
+                                artistNameHint = selectedArtist.name
+                            )
+                            if (albums.isNotEmpty()) {
+                                artistAlbums = albums
+                            }
+                        } catch (e: Exception) {
+                            Log.w("ArtistDetail", "Failed to fetch remote artist details", e)
+                        } finally {
+                            isArtistLoading = false
+                        }
+                    }
+
+                    val localArtistSongs = remember(artistSongs) {
+                        artistSongs.map { it.toDisplaySong() }
+                    }
+                    val localArtistAlbums = remember(artistAlbums) {
+                        artistAlbums.map { it.toLibraryAlbum(emptyList()) }
+                    }
+                    val effectiveArtist = remember(selectedArtist, fetchedArtist, localArtistSongs, localArtistAlbums) {
+                        val base = when {
+                            selectedArtist.artworkUri != null -> selectedArtist
+                            fetchedArtist?.artworkUri != null -> fetchedArtist!!
+                            else -> selectedArtist
+                        }
+                        if (base.artworkUri.isNullOrBlank()) {
+                            val fallbackArt = localArtistSongs.firstOrNull { it.artworkUri != null }?.artworkUri?.toString()
+                                ?: localArtistAlbums.firstOrNull { it.artworkUri != null }?.artworkUri?.toString()
+                            if (!fallbackArt.isNullOrBlank()) base.copy(artworkUri = fallbackArt) else base
+                        } else {
+                            base
+                        }
+                    }
+                    val localArtist = remember(
+                        effectiveArtist,
+                        resolvedArtistName,
+                        localArtistSongs,
+                        localArtistAlbums
+                    ) {
+                        effectiveArtist.toDisplayArtist(
+                            fallbackName = resolvedArtistName,
+                            songs = localArtistSongs,
+                            albums = localArtistAlbums
+                        )
+                    }
+                    val artistSongsById = remember(artistSongs) { artistSongs.associateBy { it.id } }
+                    var showSongInfoSheet by remember { mutableStateOf(false) }
+                    var selectedSongForInfo by remember { mutableStateOf<chromahub.rhythm.app.shared.data.model.Song?>(null) }
+
+                    ArtistDetailScreen(
+                        viewModel = viewModel,
+                        artistName = localArtist.name,
+                        onBack = {
+                            val popped = navController.popBackStack()
+                            if (!popped) {
+                                // Entry already popped
+                            }
+                        },
+                        onSongClick = { localSong ->
+                            val queue = if (respectAlbumOnPlay && artistSongs.isNotEmpty()) artistSongs else {
+                                artistSongsById[localSong.id]?.let { listOf(it) }.orEmpty()
+                            }
+                            if (queue.isNotEmpty()) {
+                                val index = queue.indexOfFirst { it.id == localSong.id }.coerceAtLeast(0)
+                                val keepShuffle = appSettings.keepShuffleOnSelection.value && isShuffleEnabled
+                                streamingMusicViewModel.playQueue(
+                                    queue = queue,
+                                    startIndex = index,
+                                    shuffle = keepShuffle,
+                                    pinStartIndex = keepShuffle
+                                )
+                            }
+                        },
+                        onAlbumClick = { album ->
+                            navController.navigate(StreamingRoutes.album(album.id, album.title)) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onPlayAll = { songs ->
+                            if (artistSongs.isNotEmpty()) {
+                                streamingMusicViewModel.playQueue(
+                                    queue = artistSongs,
+                                    startIndex = 0,
+                                    shuffle = false
+                                )
+                            } else {
+                                val fallbackQueue = songs.mapNotNull { artistSongsById[it.id] }
+                                if (fallbackQueue.isNotEmpty()) {
+                                    streamingMusicViewModel.playQueue(
+                                        queue = fallbackQueue,
+                                        startIndex = 0,
+                                        shuffle = false
+                                    )
+                                }
+                            }
+                        },
+                        onShufflePlay = {
+                            if (artistSongs.isNotEmpty()) {
+                                streamingMusicViewModel.playQueue(
+                                    queue = artistSongs,
+                                    startIndex = 0,
+                                    shuffle = true
+                                )
+                            }
+                        },
+                        onAddToQueue = { localSong ->
+                            artistSongsById[localSong.id]?.let { streamingSong ->
+                                streamingMusicViewModel.addSongToQueue(streamingSong, viewModel)
+                            }
+                        },
+                        onAddSongToPlaylist = { localSong ->
+                            artistSongsById[localSong.id]?.let { onStreamingAddSongToPlaylist(it) }
+                        },
+                        onPlayerClick = {
+                            navController.navigate(Screen.Player.route) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onPlayNext = { localSong ->
+                            artistSongsById[localSong.id]?.let { streamingSong ->
+                                streamingMusicViewModel.playNext(streamingSong, viewModel)
+                            }
+                        },
+                        onToggleFavorite = { localSong ->
+                            artistSongsById[localSong.id]?.let { streamingSong ->
+                                val isLiked = streamingLikedSongIds.contains(streamingSong.id)
+                                if (isLiked) streamingMusicViewModel.unlikeSong(streamingSong)
+                                else streamingMusicViewModel.likeSong(streamingSong)
+                            }
+                        },
+                        favoriteSongs = streamingLikedSongIds,
+                        onShowSongInfo = { song ->
+                            selectedSongForInfo = song
+                            showSongInfoSheet = true
+                        },
+                        showPlayNextAction = false,
+                        currentSong = currentSong,
+                        isPlaying = isPlaying,
+                        artistOverride = localArtist,
+                        songsOverride = localArtistSongs,
+                        albumsOverride = localArtistAlbums,
+                        isContentLoadingOverride = isArtistLoading
+                    )
+
+                    if (showSongInfoSheet && selectedSongForInfo != null) {
+                        val currentSelectedSong = selectedSongForInfo!!
+                        SongInfoBottomSheet(
+                            song = currentSelectedSong,
+                            onDismiss = {
+                                showSongInfoSheet = false
+                                selectedSongForInfo = null
+                            },
+                            appSettings = appSettings,
+                            isStreamingMode = true,
+                            isDownloaded = streamingDownloadedSongIds.contains(currentSelectedSong.id),
+                            isDownloading = streamingDownloadingSongIds.contains(currentSelectedSong.id),
+                            onToggleDownload = {
+                                if (streamingDownloadedSongIds.contains(currentSelectedSong.id)) {
+                                    streamingMusicViewModel.removeDownload(currentSelectedSong.id)
+                                } else {
+                                    val orig = streamingSongById[currentSelectedSong.id]
+                                    if (orig != null) {
+                                        streamingMusicViewModel.downloadSong(orig)
+                                    } else {
+                                        streamingMusicViewModel.downloadSongById(currentSelectedSong.id)
+                                    }
+                                }
+                            }
+                        )
+                    }
+                }
+
+                composable(
+                    route = StreamingRoutes.PlaylistDetail,
+                    arguments = listOf(navArgument("playlistId") { type = NavType.StringType }),
+                    enterTransition = {
+                        fadeIn(animationSpec = tween(350)) +
+                            scaleIn(
+                                initialScale = 0.85f,
+                                animationSpec = tween(400, easing = EaseOutQuint)
+                            )
+                    },
+                    exitTransition = {
+                        fadeOut(animationSpec = tween(350)) +
+                            scaleOut(
+                                targetScale = 0.85f,
+                                animationSpec = tween(300, easing = EaseInOutQuart)
+                            )
+                    },
+                    popEnterTransition = {
+                        fadeIn(animationSpec = tween(350)) +
+                            scaleIn(
+                                initialScale = 0.85f,
+                                animationSpec = tween(400, easing = EaseOutQuint)
+                            )
+                    },
+                    popExitTransition = {
+                        fadeOut(animationSpec = tween(350)) +
+                            scaleOut(
+                                targetScale = 0.85f,
+                                animationSpec = tween(300, easing = EaseInOutQuart)
+                            )
+                    }
+                ) { backStackEntry ->
+                    val playlistId = backStackEntry.arguments?.getString("playlistId")?.let(Uri::decode).orEmpty()
+
+                    val savedPlaylists by streamingMusicViewModel.savedPlaylists.collectAsState()
+                    val featuredPlaylists by streamingMusicViewModel.featuredPlaylists.collectAsState()
+                    val searchResults by streamingMusicViewModel.searchResults.collectAsState()
+
+                    val selectedPlaylist = remember(
+                        playlistId,
+                        savedPlaylists,
+                        featuredPlaylists,
+                        searchResults
+                    ) {
+                        (savedPlaylists + featuredPlaylists + searchResults.playlists)
+                            .distinctBy { it.id }
+                            .firstOrNull { it.id == playlistId }
+                    }
+
+                    val playlistTracks = remember(selectedPlaylist) {
+                        selectedPlaylist?.getTracks().orEmpty()
+                    }
+                    val playlistTracksById = remember(playlistTracks) {
+                        playlistTracks.associateBy { it.id }
+                    }
+                    val localPlaylistSongs = remember(playlistTracks) {
+                        playlistTracks.map { it.toDisplaySong() }
+                    }
+                    val localPlaylist = remember(selectedPlaylist, localPlaylistSongs, playlistId) {
+                        selectedPlaylist?.toDisplayPlaylist(localPlaylistSongs)
+                            ?: Playlist(
+                                id = playlistId,
+                                name = context.getString(R.string.library_tab_playlists),
+                                songs = localPlaylistSongs
+                            )
+                    }
+                    val scope = rememberCoroutineScope()
+
+                    PlaylistDetailScreen(
+                        musicViewModel = viewModel,
+                        playlist = localPlaylist,
+                        isStreamingPlaylist = true,
+                        currentSong = currentSong,
+                        isPlaying = isPlaying,
+                        onPlayPause = { viewModel.togglePlayPause() },
+                        onPlayerClick = {
+                            navController.navigate(Screen.Player.route) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onPlayAll = {
+                            if (playlistTracks.isNotEmpty()) {
+                                streamingMusicViewModel.playQueue(
+                                    queue = playlistTracks,
+                                    startIndex = 0,
+                                    shuffle = false
+                                )
+                            }
+                        },
+                        onShufflePlay = {
+                            if (playlistTracks.isNotEmpty()) {
+                                streamingMusicViewModel.playQueue(
+                                    queue = playlistTracks,
+                                    startIndex = 0,
+                                    shuffle = true
+                                )
+                            }
+                        },
+                        onSongClick = { localSong ->
+                            val keepShuffle = appSettings.keepShuffleOnSelection.value && isShuffleEnabled
+                            if (respectAlbumOnPlay) {
+                                val index = playlistTracks.indexOfFirst { it.id == localSong.id }
+                                if (index >= 0) {
+                                    streamingMusicViewModel.playQueue(
+                                        queue = playlistTracks,
+                                        startIndex = index,
+                                        shuffle = keepShuffle,
+                                        pinStartIndex = keepShuffle
+                                    )
+                                }
+                            } else {
+                                playlistTracks.firstOrNull { it.id == localSong.id }?.let { single ->
+                                    streamingMusicViewModel.playQueue(
+                                        queue = listOf(single),
+                                        startIndex = 0,
+                                        shuffle = keepShuffle,
+                                        pinStartIndex = keepShuffle
+                                    )
+                                }
+                            }
+                        },
+                        onPlaySongFromPlaylist = { localSong, localQueue ->
+                            val queue = localQueue
+                                .mapNotNull { playlistTracksById[it.id] }
+                                .ifEmpty { playlistTracks }
+                            if (queue.isNotEmpty()) {
+                                val index = queue.indexOfFirst { it.id == localSong.id }.coerceAtLeast(0)
+                                val keepShuffle = appSettings.keepShuffleOnSelection.value && isShuffleEnabled
+                                streamingMusicViewModel.playQueue(
+                                    queue = queue,
+                                    startIndex = index,
+                                    shuffle = keepShuffle,
+                                    pinStartIndex = keepShuffle
+                                )
+                            }
+                        },
+                        onBack = {
+                            val popped = navController.popBackStack()
+                            if (!popped) {
+                                // Entry already popped
+                            }
+                        },
+                        onRemoveSong = { localSong, _ ->
+                            playlistTracksById[localSong.id]?.let { streamingSong ->
+                                streamingMusicViewModel.removeSongFromPlaylist(playlistId, streamingSong.id)
+                            }
+                        },
+                        onRenamePlaylist = { newName ->
+                            selectedPlaylist?.let { playlist ->
+                                streamingMusicViewModel.renamePlaylist(playlist, newName)
+                            }
+                        },
+                        onDeletePlaylist = {
+                            selectedPlaylist?.let { playlist ->
+                                streamingMusicViewModel.deletePlaylist(playlist) { success ->
+                                    if (success) {
+                                        val popped = navController.popBackStack()
+                                        if (!popped) {
+                                            // Entry already popped
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        onSkipNext = { streamingMusicViewModel.skipToNext() },
+                        onSearchClick = { navigateToTopLevel(Screen.Search.route) },
+                        onPlayNext = { localSong ->
+                            playlistTracksById[localSong.id]?.let { streamingSong ->
+                                streamingMusicViewModel.playNext(streamingSong, viewModel)
+                            }
+                        },
+                        onAddToQueue = { localSong ->
+                            playlistTracksById[localSong.id]?.let { streamingSong ->
+                                streamingMusicViewModel.addSongToQueue(streamingSong, viewModel)
+                            }
+                        },
+                        onToggleFavorite = { localSong ->
+                            playlistTracksById[localSong.id]?.let { streamingSong ->
+                                val isLiked = streamingLikedSongs.any { it.id == streamingSong.id }
+                                if (isLiked) streamingMusicViewModel.unlikeSong(streamingSong)
+                                else streamingMusicViewModel.likeSong(streamingSong)
+                            }
+                        },
+                        onAddToPlaylist = { localSong ->
+                            playlistTracksById[localSong.id]?.let { onStreamingAddSongToPlaylist(it) }
+                        },
+                        onGoToAlbum = { song ->
+                            val baseAlbumId = song.albumId.takeIf { it.isNotBlank() }
+                            val albumArtist = song.albumArtist?.takeIf { it.isNotBlank() } ?: song.artist
+                            val matchingAlbum = streamingAlbumCatalog.firstOrNull { album ->
+                                val albumMatchesByTrack = album.tracks.any { it.id == song.id }
+                                val albumMatchesById = baseAlbumId?.let { album.id == it } == true
+                                val albumMatchesByMetadata = album.title.equals(song.album, ignoreCase = true) &&
+                                    album.artist.equals(albumArtist, ignoreCase = true)
+                                albumMatchesByTrack || albumMatchesById || albumMatchesByMetadata
+                            } ?: streamingAlbumCatalog.firstOrNull { album ->
+                                album.title.equals(song.album, ignoreCase = true)
+                            }
+
+                            val resolvedAlbumId = matchingAlbum?.id ?: baseAlbumId ?: "streaming-playlist:${song.id}:${song.album.lowercase()}"
+                            val resolvedAlbumTitle = matchingAlbum?.title ?: song.album
+
+                            navController.navigate(
+                                StreamingRoutes.album(resolvedAlbumId, resolvedAlbumTitle)
+                            ) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onGoToArtist = { song ->
+                            val separatorEnabled = appSettings.artistSeparatorEnabled.value
+                            val delimiters = appSettings.artistSeparatorDelimiters.value.ifBlank { AppSettings.DEFAULT_ARTIST_SEPARATOR_DELIMITERS }
+                            val candidates = ArtistSeparator.splitArtistNames(
+                                song.artist,
+                                delimiters = delimiters,
+                                enabled = separatorEnabled
+                            )
+                            val artistName = candidates.firstOrNull()?.trim().orEmpty().ifBlank { song.artist.trim() }
+                            if (artistName.isNotBlank()) {
+                                val streamingSong = playlistTracksById[song.id]
+                                val artistId = streamingSong?.artist?.trim()?.let { name ->
+                                    name
+                                } ?: artistName
+                                navController.navigate(
+                                    StreamingRoutes.artist(artistId, artistName)
+                                ) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        },
+                        onShare = { song ->
+                            try {
+                                val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                    type = "audio/*"
+                                    putExtra(android.content.Intent.EXTRA_STREAM, song.uri)
+                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(android.content.Intent.createChooser(shareIntent, "Share ${song.title}"))
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(context, R.string.materialplayerscreen_unable_to_share_file, android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+                }
+
+                composable(
+                    route = StreamingRoutes.ServiceSetup,
+                    arguments = listOf(navArgument("serviceId") { type = NavType.StringType }),
+                    enterTransition = {
+                        fadeIn(animationSpec = tween(300)) +
+                            slideInVertically(
+                                initialOffsetY = { it / 4 },
+                                animationSpec = tween(350, easing = EaseInOutQuart)
+                            )
+                    },
+                    exitTransition = {
+                        fadeOut(animationSpec = tween(300))
+                    },
+                    popExitTransition = {
+                        fadeOut(animationSpec = tween(300))
+                    }
+                ) { backStackEntry ->
+                    val serviceId = backStackEntry.arguments?.getString("serviceId")?.let(Uri::decode).orEmpty()
+                    StreamingServiceSetupScreen(
+                        serviceId = serviceId,
+                        viewModel = streamingMusicViewModel,
+                        onBackClick = {
+                            val popped = navController.popBackStack()
+                            if (!popped) {
+                                // Entry already popped
+                            }
+                        }
+                    )
+                }
+
+                composable(
+                    route = StreamingRoutes.GoSettings,
+                    enterTransition = {
+                        fadeIn(animationSpec = tween(300)) +
+                            slideInVertically(
+                                initialOffsetY = { it / 4 },
+                                animationSpec = tween(350, easing = EaseInOutQuart)
+                            )
+                    },
+                    exitTransition = {
+                        fadeOut(animationSpec = tween(300))
+                    },
+                    popExitTransition = {
+                        fadeOut(animationSpec = tween(300))
+                    }
+                ) {
+                    GoSettingsScreen(
+                        onBackClick = {
+                            val popped = navController.popBackStack()
+                            if (!popped) {
+                                // Entry already popped
+                            }
+                        },
+                        onConfigureCurrentProvider = { serviceId ->
+                            navController.navigate(StreamingRoutes.serviceSetup(serviceId)) {
+                                launchSingleTop = true
+                            }
+                        },
+                        viewModel = streamingMusicViewModel
+                    )
                 }
 
                 composable(
@@ -1843,60 +3318,126 @@ private fun LocalNavigationContent(
                     }
 
                     LibraryScreen(
-                        songs = songs,
-                        albums = albums,
-                        playlists = playlists,
-                        artists = artists,
+                        songs = if (isStreamingMode) streamingMappedSongs else songs,
+                        albums = if (isStreamingMode) streamingMappedAlbums else albums,
+                        playlists = if (isStreamingMode) streamingMappedPlaylists else playlists,
+                        artists = if (isStreamingMode) streamingMappedArtists else artists,
                         currentSong = currentSong,
                         isPlaying = isPlaying,
-                        onSongClick = onPlaySong,
+                        onSongClick = { song ->
+                            if (isStreamingMode) {
+                                val keepShuffle = appSettings.keepShuffleOnSelection.value && isShuffleEnabled
+                                if (respectAlbumOnPlay) {
+                                    val index = streamingMappedSongs.indexOfFirst { it.id == song.id }.coerceAtLeast(0)
+                                    playStreamingMappedQueue(streamingMappedSongs, index, keepShuffle)
+                                } else {
+                                    playStreamingMappedQueue(listOf(song), 0, keepShuffle)
+                                }
+                            } else {
+                                onPlaySong(song)
+                            }
+                        },
                         onPlayPause = onPlayPause,
                         onPlayerClick = {
                             navController.navigate(Screen.Player.route)
                         },
                         onPlaylistClick = { playlist ->
-                            // Navigate to playlist detail screen
-                            navController.navigate(Screen.PlaylistDetail.createRoute(playlist.id))
+                            if (isStreamingMode) {
+                                navController.navigate(StreamingRoutes.playlist(playlist.id)) {
+                                    launchSingleTop = true
+                                }
+                            } else {
+                                navController.navigate(Screen.PlaylistDetail.createRoute(playlist.id))
+                            }
                         },
                         onAddPlaylist = {
                             // This is now handled internally with the dialog
                         },
-                        onAlbumClick = onPlayAlbum,
+                        onAlbumClick = { album ->
+                            if (isStreamingMode) {
+                                navController.navigate(StreamingRoutes.album(album.id, album.title)) {
+                                    launchSingleTop = true
+                                }
+                            } else {
+                                onPlayAlbum(album)
+                            }
+                        },
                         onArtistClick = { artist ->
-                            // Handle artist click - could navigate to artist detail or show bottom sheet
-                            // For now, we'll handle it within LibraryScreen
+                            if (isStreamingMode) {
+                                navController.navigate(StreamingRoutes.artist(artist.id, artist.name)) {
+                                    launchSingleTop = true
+                                }
+                            }
                         },
-                        onAlbumShufflePlay = onPlayAlbumShuffled,
-                        onPlayQueue = { songs ->
-                            // Play queue (force replace) for explicit Play All action
-                            viewModel.playSongs(songs)
+                        onAlbumShufflePlay = { album ->
+                            if (isStreamingMode) {
+                                playStreamingMappedQueue(album.songs, 0, true)
+                            } else {
+                                onPlayAlbumShuffled(album)
+                            }
                         },
-                        onPlayQueueFromIndex = { songs, startIndex ->
-                            // Play queue from specific index (force replace)
-                            viewModel.playQueue(songs = songs, enableShuffle = false, startIndex = startIndex)
+                        onPlayQueue = { queue ->
+                            if (isStreamingMode) {
+                                playStreamingMappedQueue(queue, 0, false)
+                            } else {
+                                viewModel.playSongs(queue)
+                            }
                         },
-                        onShuffleQueue = { songs ->
-                            // Shuffle using playShuffled to respect settings
-                            viewModel.playShuffled(songs)
+                        onPlayQueueFromIndex = { queue, startIndex ->
+                            val keepShuffle = appSettings.keepShuffleOnSelection.value && isShuffleEnabled
+                            if (isStreamingMode) {
+                                playStreamingMappedQueue(queue, startIndex, keepShuffle)
+                            } else {
+                                viewModel.playQueue(
+                                    songs = queue,
+                                    enableShuffle = keepShuffle,
+                                    startIndex = startIndex,
+                                    pinStartIndex = keepShuffle
+                                )
+                            }
+                        },
+                        onShuffleQueue = { queue ->
+                            if (isStreamingMode) {
+                                playStreamingMappedQueue(queue, 0, true)
+                            } else {
+                                viewModel.playShuffled(queue)
+                            }
                         },
                         onAlbumBottomSheetClick = { album ->
-                            navController.navigate(Screen.AlbumDetail.createRoute(album.id, album.title))
+                            if (isStreamingMode) {
+                                navController.navigate(StreamingRoutes.album(album.id, album.title)) {
+                                    launchSingleTop = true
+                                }
+                            } else {
+                                navController.navigate(Screen.AlbumDetail.createRoute(album.id, album.title))
+                            }
                         },
                         onSort = {
                             // Implement sort functionality
                             viewModel.sortLibrary()
                         },
                         onAddSongToPlaylist = { song, playlistId ->
-                            // Add song to playlist
-                            viewModel.addSongToPlaylist(song, playlistId) { message ->
-                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            if (isStreamingMode) {
+                                streamingSongById[song.id]?.let { onStreamingAddSongToPlaylist(it) }
+                            } else {
+                                viewModel.addSongToPlaylist(song, playlistId) { message ->
+                                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                }
                             }
                         },
                         onCreatePlaylist = { name ->
-                            viewModel.createPlaylist(name)
+                            if (isStreamingMode) {
+                                streamingMusicViewModel.createPlaylist(name)
+                            } else {
+                                viewModel.createPlaylist(name)
+                            }
                         },
                         onRefreshClick = {
-                            viewModel.refreshLibrary(showMediaScanLoader = false)
+                            if (isStreamingMode) {
+                                streamingMusicViewModel.loadLibrary()
+                            } else {
+                                viewModel.refreshLibrary(showMediaScanLoader = false)
+                            }
                         }, // Added onRefreshClick
                         sortOrder = sortOrder,
                         onSkipNext = onSkipNext,
@@ -1906,7 +3447,7 @@ private fun LocalNavigationContent(
                         },
                         initialTab = initialTab,
                         musicViewModel = viewModel, // Pass musicViewModel
-                        onExportAllPlaylists = { format, includeDefault, userDirectoryUri, resultCallback ->
+                        onExportAllPlaylists = if (isStreamingMode) null else { format, includeDefault, userDirectoryUri, resultCallback ->
                             // Export all playlists with optional user-selected directory
                             viewModel.exportAllPlaylists(
                                 format,
@@ -1918,13 +3459,13 @@ private fun LocalNavigationContent(
                                         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                                     },
                                     onFailure = { error ->
-                                        Toast.makeText(context, "Export failed: ${error.message}", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.backup_export_failed, error.message), Toast.LENGTH_SHORT).show()
                                     }
                                 )
                                 resultCallback(result)
                             }
                         },
-                        onImportPlaylist = { uri, resultCallback, onRestartRequired ->
+                        onImportPlaylist = if (isStreamingMode) null else { uri, resultCallback, onRestartRequired ->
                             // Import playlist from URI with restart functionality
                             viewModel.importPlaylist(uri, { result ->
                                 result.fold(
@@ -1932,7 +3473,7 @@ private fun LocalNavigationContent(
                                         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                                     },
                                     onFailure = { error ->
-                                        Toast.makeText(context, "Import failed: ${error.message}", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.backup_import_failed, error.message), Toast.LENGTH_SHORT).show()
                                     }
                                 )
                                 resultCallback(result)
@@ -1944,82 +3485,76 @@ private fun LocalNavigationContent(
                         onRestartApp = {
                             viewModel.restartApp()
                         },
-                        onNavigateToArtist = { artist ->
-                            navController.navigate(Screen.ArtistDetail.createRoute(artist.name))
-                        }
+                            onNavigateToArtist = { artist ->
+                                if (isStreamingMode) {
+                                    navController.navigate(StreamingRoutes.artist(artist.id, artist.name)) {
+                                        launchSingleTop = true
+                                    }
+                                } else {
+                                    navController.navigate(Screen.ArtistDetail.createRoute(artist.name))
+                                }
+                            },
+                        isStreamingMode = isStreamingMode,
+                        streamingServiceName = streamingServiceName,
+                        streamingServiceConnected = streamingServiceConnected,
+                        streamingIsLoading = streamingIsLoading,
+                        streamingError = streamingError,
+                        onConfigureService = { serviceId ->
+                            val target = StreamingServiceOptions.defaults
+                                .firstOrNull { it.id.equals(serviceId, ignoreCase = true) }
+                                ?.id
+                                ?: streamingServiceId
+                            navController.navigate(StreamingRoutes.serviceSetup(target)) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onStreamingPlayNext = { song ->
+                            streamingSongById[song.id]?.let { original ->
+                                streamingMusicViewModel.playNext(original, viewModel)
+                            }
+                        },
+                        onStreamingAddToQueue = { song ->
+                            streamingSongById[song.id]?.let { original ->
+                                streamingMusicViewModel.addSongToQueue(original, viewModel)
+                            }
+                        },
+                        onStreamingToggleFavorite = if (isStreamingMode) ({ song ->
+                            streamingSongById[song.id]?.let { original ->
+                                val isLiked = streamingLikedSongIds.contains(original.id)
+                                if (isLiked) streamingMusicViewModel.unlikeSong(original)
+                                else streamingMusicViewModel.likeSong(original)
+                            }
+                        }) else null,
+                        onStreamingSetFavorite = if (isStreamingMode) ({ song, shouldLike ->
+                            streamingSongById[song.id]?.let { original ->
+                                if (shouldLike) streamingMusicViewModel.likeSong(original)
+                                else streamingMusicViewModel.unlikeSong(original)
+                            }
+                        }) else null,
+                        streamingFavoriteSongIds = streamingLikedSongIds,
+                        streamingDownloadedSongIds = streamingDownloadedSongIds,
+                        streamingDownloadingSongIds = streamingDownloadingSongIds,
+                        onStreamingToggleDownload = if (isStreamingMode) ({ song ->
+                            if (streamingDownloadedSongIds.contains(song.id)) {
+                                streamingMusicViewModel.removeDownload(song.id)
+                            } else {
+                                val orig = streamingSongById[song.id]
+                                if (orig != null) {
+                                    streamingMusicViewModel.downloadSong(orig)
+                                } else {
+                                    streamingMusicViewModel.downloadSongById(song.id)
+                                }
+                            }
+                        }) else null
                     )
                 }
 
                 composable(
                     route = Screen.Player.route,
-                    enterTransition = {
-                        slideInVertically(
-                            initialOffsetY = { it },
-                            animationSpec = spring(
-                                dampingRatio = 0.75f,
-                                stiffness = Spring.StiffnessMediumLow
-                            )
-                        ) + scaleIn(
-                            initialScale = 0.85f,
-                            animationSpec = spring(
-                                dampingRatio = 0.75f,
-                                stiffness = Spring.StiffnessMediumLow
-                            )
-                        ) + fadeIn(
-                            animationSpec = tween(durationMillis = 200)
-                        )
-                    },
-                    exitTransition = {
-                        slideOutVertically(
-                            targetOffsetY = { it },
-                            animationSpec = spring(
-                                dampingRatio = 0.8f,
-                                stiffness = Spring.StiffnessMedium
-                            )
-                        ) + scaleOut(
-                            targetScale = 0.85f,
-                            animationSpec = spring(
-                                dampingRatio = 0.8f,
-                                stiffness = Spring.StiffnessMedium
-                            )
-                        ) + fadeOut(
-                            animationSpec = tween(durationMillis = 200)
-                        )
-                    },
-                    popExitTransition = {
-                        slideOutVertically(
-                            targetOffsetY = { it },
-                            animationSpec = spring(
-                                dampingRatio = 0.8f,
-                                stiffness = Spring.StiffnessMedium
-                            )
-                        ) + scaleOut(
-                            targetScale = 0.85f,
-                            animationSpec = spring(
-                                dampingRatio = 0.8f,
-                                stiffness = Spring.StiffnessMedium
-                            )
-                        ) + fadeOut(
-                            animationSpec = tween(durationMillis = 200)
-                        )
-                    },
-                    popEnterTransition = {
-                        slideInVertically(
-                            initialOffsetY = { it },
-                            animationSpec = spring(
-                                dampingRatio = 0.75f,
-                                stiffness = Spring.StiffnessMediumLow
-                            )
-                        ) + scaleIn(
-                            initialScale = 0.85f,
-                            animationSpec = spring(
-                                dampingRatio = 0.75f,
-                                stiffness = Spring.StiffnessMediumLow
-                            )
-                        ) + fadeIn(
-                            animationSpec = tween(durationMillis = 200)
-                        )
-                    }
+                    enterTransition = { EnterTransition.None },
+                    exitTransition = { ExitTransition.None },
+                    popEnterTransition = { EnterTransition.None },
+                    popExitTransition = { ExitTransition.None }
                 ) {
                     Box(modifier = Modifier.fillMaxSize())
                 }
@@ -2160,13 +3695,15 @@ private fun LocalNavigationContent(
                             },
                             onGoToAlbum = { song ->
                                 val album = allAlbums.findAlbumForSong(song)
-                                if (album != null) {
-                                    navController.navigate(Screen.AlbumDetail.createRoute(album.id, album.title))
+                                val albumId = album?.id ?: song.albumId.ifBlank { "unknown_${song.album}" }
+                                val albumTitle = album?.title ?: song.album
+                                if (albumTitle.isNotBlank() || albumId.isNotBlank()) {
+                                    navController.navigate(Screen.AlbumDetail.createRoute(albumId, albumTitle))
                                 }
                             },
                             onGoToArtist = { song ->
                                 val separatorEnabled = appSettings.artistSeparatorEnabled.value
-                                val delimiters = appSettings.artistSeparatorDelimiters.value.ifBlank { "/;,+&" }
+                                val delimiters = appSettings.artistSeparatorDelimiters.value.ifBlank { chromahub.rhythm.app.shared.data.model.AppSettings.DEFAULT_ARTIST_SEPARATOR_DELIMITERS }
                                 val candidates = ArtistSeparator.splitArtistNames(
                                     song.artist,
                                     delimiters = delimiters,
@@ -2283,6 +3820,13 @@ private fun LocalNavigationContent(
                             navigateBackOrToLanding()
                         },
                         onSongClick = onPlaySong,
+                        onSongClickInContext = { song, contextSongs ->
+                            if (respectAlbumOnPlay) {
+                                viewModel.playSongFromContext(song, contextSongs, artistName)
+                            } else {
+                                viewModel.playSong(song)
+                            }
+                        },
                         onAlbumClick = { album ->
                             navController.navigate(Screen.AlbumDetail.createRoute(album.id, album.title))
                         },
@@ -2493,6 +4037,13 @@ private fun LocalNavigationContent(
                             navigateBackOrToLanding()
                         },
                         onSongClick = onPlaySong,
+                        onSongClickInContext = { song, contextSongs ->
+                            if (respectAlbumOnPlay) {
+                                viewModel.playSongFromContext(song, contextSongs, albumName)
+                            } else {
+                                viewModel.playSong(song)
+                            }
+                        },
                         onPlayAll = { songs ->
                             if (songs.isNotEmpty()) {
                                 viewModel.playSongs(songs)
@@ -2565,7 +4116,7 @@ private fun LocalNavigationContent(
                         },
                         onGoToArtist = { song ->
                             val separatorEnabled = appSettings.artistSeparatorEnabled.value
-                            val delimiters = appSettings.artistSeparatorDelimiters.value.ifBlank { "/;,+&" }
+                            val delimiters = appSettings.artistSeparatorDelimiters.value.ifBlank { chromahub.rhythm.app.shared.data.model.AppSettings.DEFAULT_ARTIST_SEPARATOR_DELIMITERS }
                             val candidates = chromahub.rhythm.app.util.ArtistSeparator.splitArtistNames(
                                 song.artist,
                                 delimiters = delimiters,
@@ -2944,10 +4495,10 @@ private fun LocalNavigationContent(
             }
         )
     }
-    }
+}
 
 /**
- * Navigation rail for tablets with Material 3 design - Local Navigation
+ * Navigation rail for tablets with Material 3 Expressive design - Local Navigation
  */
 @Composable
 private fun LocalNavigationRail(
@@ -2955,7 +4506,8 @@ private fun LocalNavigationRail(
     navController: NavHostController,
     firstVisibleLibraryTab: LibraryTab,
     context: android.content.Context,
-    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    isFloating: Boolean = true
 ) {
     val navigateToTopLevel: (String) -> Unit = { route ->
         navController.navigate(route) {
@@ -2967,95 +4519,154 @@ private fun LocalNavigationRail(
         }
     }
 
-    // Calculate rail height based on number of items (5 items * 64dp + padding)
-    val railHeight = (5 * 64 + 32).dp // Increased padding from 24 to 32
-    
-    Box(
-        modifier = Modifier
-            .fillMaxHeight()
-            .padding(8.dp),
-        contentAlignment = Alignment.Center // Vertically center the rail
-    ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            tonalElevation = 3.dp,
+    val libraryRoute = Screen.Library.createRoute(firstVisibleLibraryTab)
+    val coreItems = listOf(
+        LocalNavRailItem(
+            route = Screen.Home.route,
+            title = stringResource(R.string.home),
+            selectedIcon = RhythmIcons.HomeFilled,
+            unselectedIcon = RhythmIcons.Home,
+            onClick = {
+                navigateToTopLevel(Screen.Home.route)
+            }
+        ),
+        LocalNavRailItem(
+            route = libraryRoute,
+            title = stringResource(R.string.library),
+            selectedIcon = RhythmIcons.Navigation.Library,
+            unselectedIcon = RhythmIcons.Navigation.LibraryOutlined,
+            onClick = {
+                navigateToTopLevel(libraryRoute)
+            }
+        ),
+        LocalNavRailItem(
+            route = Screen.RhythmStats.route,
+            title = stringResource(R.string.localnavigation_stats),
+            selectedIcon = MaterialSymbolIcon("auto_graph", filled = true),
+            unselectedIcon = MaterialSymbolIcon("auto_graph"),
+            onClick = {
+                navigateToTopLevel(Screen.RhythmStats.route)
+            }
+        ),
+        LocalNavRailItem(
+            route = Screen.Search.route,
+            title = stringResource(R.string.search),
+            selectedIcon = RhythmIcons.SearchFilled,
+            unselectedIcon = RhythmIcons.Search,
+            onClick = {
+                navigateToTopLevel(Screen.Search.route)
+            }
+        )
+    )
+
+    val settingsItem = LocalNavRailItem(
+        route = Screen.Settings.route,
+        title = stringResource(R.string.settings_backup_settings),
+        selectedIcon = RhythmIcons.SettingsFilled,
+        unselectedIcon = RhythmIcons.Settings,
+        onClick = {
+            navigateToTopLevel(Screen.Settings.route)
+        }
+    )
+
+    if (isFloating) {
+        val floatingItems = coreItems + settingsItem
+        Box(
             modifier = Modifier
-                .height(railHeight)
-                .width(80.dp)
-                .clip(RoundedCornerShape(24.dp))
+                .fillMaxHeight()
+                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Vertical + WindowInsetsSides.Start))
+                .padding(start = 12.dp, top = 16.dp, bottom = 16.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Column(
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                tonalElevation = 3.dp,
+                shadowElevation = 4.dp,
+                shape = RoundedCornerShape(28.dp),
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(vertical = 16.dp), // Increased from 12.dp to 16.dp
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Top)
+                    .wrapContentHeight()
+                    .width(80.dp)
             ) {
-            val libraryRoute = Screen.Library.createRoute(firstVisibleLibraryTab)
-            val items = listOf(
-                LocalNavRailItem(
-                    route = Screen.Home.route,
-                    title = stringResource(R.string.settings_home_screen),
-                    selectedIcon = RhythmIcons.HomeFilled,
-                    unselectedIcon = RhythmIcons.Home,
-                    onClick = {
-                        navigateToTopLevel(Screen.Home.route)
+                Column(
+                    modifier = Modifier
+                        .wrapContentHeight()
+                        .padding(vertical = 16.dp, horizontal = 2.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+                ) {
+                    floatingItems.forEach { item ->
+                        val isSelected = when {
+                            item.route == Screen.Home.route -> currentRoute == Screen.Home.route
+                            item.route.substringBefore("?") == Screen.Library.route.substringBefore("?") -> currentRoute.startsWith("library")
+                            item.route == Screen.Search.route -> currentRoute == Screen.Search.route
+                            item.route == Screen.RhythmStats.route -> currentRoute == Screen.RhythmStats.route
+                            item.route == Screen.Settings.route -> currentRoute == Screen.Settings.route
+                            else -> false
+                        }
+                        LocalNavigationRailItemWithAnimation(
+                            item = item,
+                            isSelected = isSelected,
+                            haptic = haptic,
+                            context = context
+                        )
                     }
-                ),
-                LocalNavRailItem(
-                    route = libraryRoute,
-                    title = stringResource(R.string.option_library),
-                    selectedIcon = RhythmIcons.Navigation.Library,
-                    unselectedIcon = RhythmIcons.Navigation.LibraryOutlined,
-                    onClick = {
-                        navigateToTopLevel(libraryRoute)
-                    }
-                ),
-                LocalNavRailItem(
-                    route = Screen.RhythmStats.route,
-                    title = stringResource(R.string.localnavigation_stats),
-                    selectedIcon = MaterialSymbolIcon("auto_graph", filled = true),
-                    unselectedIcon = MaterialSymbolIcon("auto_graph"),
-                    onClick = {
-                        navigateToTopLevel(Screen.RhythmStats.route)
-                    }
-                ),
-                LocalNavRailItem(
-                    route = Screen.Search.route,
-                    title = stringResource(R.string.cd_search),
-                    selectedIcon = RhythmIcons.SearchFilled,
-                    unselectedIcon = RhythmIcons.Search,
-                    onClick = {
-                        navigateToTopLevel(Screen.Search.route)
-                    }
-                ),
-                LocalNavRailItem(
-                    route = Screen.Settings.route,
-                    title = stringResource(R.string.settings_backup_settings),
-                    selectedIcon = RhythmIcons.SettingsFilled,
-                    unselectedIcon = RhythmIcons.Settings,
-                    onClick = {
-                        navigateToTopLevel(Screen.Settings.route)
-                    }
-                )
-            )
-            
-            items.forEach { item ->
-                LocalNavigationRailItemWithAnimation(
-                    item = item,
-                    isSelected = when {
-                        item.route == Screen.Home.route -> currentRoute == Screen.Home.route
-                        item.route.substringBefore("?") == Screen.Library.route.substringBefore("?") -> currentRoute.substringBefore("?") == Screen.Library.route.substringBefore("?")
-                        item.route == Screen.Search.route -> currentRoute == Screen.Search.route
-                        item.route.contains("settings") -> currentRoute.contains("settings")
-                        item.route == Screen.RhythmStats.route -> currentRoute == Screen.RhythmStats.route
-                        else -> false
-                    },
-                    haptic = haptic,
-                    context = context
-                )
+                }
             }
         }
+    } else {
+        val railContainerColor = MaterialTheme.colorScheme.surfaceContainer
+        val railWidth = 84.dp
+
+        Surface(
+            color = railContainerColor,
+            tonalElevation = 1.dp,
+            shadowElevation = 0.dp,
+            shape = RectangleShape,
+            modifier = Modifier
+                .fillMaxHeight()
+                .width(railWidth)
+                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Vertical + WindowInsetsSides.Start))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 16.dp, horizontal = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .wrapContentHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+                ) {
+                    coreItems.forEach { item ->
+                        val isSelected = when {
+                            item.route == Screen.Home.route -> currentRoute == Screen.Home.route
+                            item.route.substringBefore("?") == Screen.Library.route.substringBefore("?") -> currentRoute.startsWith("library")
+                            item.route == Screen.Search.route -> currentRoute == Screen.Search.route
+                            item.route == Screen.RhythmStats.route -> currentRoute == Screen.RhythmStats.route
+                            else -> false
+                        }
+                        LocalNavigationRailItemWithAnimation(
+                            item = item,
+                            isSelected = isSelected,
+                            haptic = haptic,
+                            context = context
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier.align(Alignment.BottomCenter)
+                ) {
+                    LocalNavigationRailItemWithAnimation(
+                        item = settingsItem,
+                        isSelected = currentRoute == Screen.Settings.route,
+                        haptic = haptic,
+                        context = context
+                    )
+                }
+            }
         }
     }
 }
@@ -3072,7 +4683,7 @@ private data class LocalNavRailItem(
 )
 
 /**
- * Local navigation rail item with animated selection indicator
+ * Local navigation rail item with animated selection indicator and spring physics
  */
 @Composable
 private fun LocalNavigationRailItemWithAnimation(
@@ -3081,123 +4692,104 @@ private fun LocalNavigationRailItemWithAnimation(
     haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
     context: android.content.Context
 ) {
-    // Enhanced animation values with spring physics
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
     val animatedScale by animateFloatAsState(
-        targetValue = if (isSelected) 1.08f else 1.0f,
+        targetValue = when {
+            isPressed -> 0.90f
+            isSelected -> 1.02f
+            else -> 1.0f
+        },
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
+            stiffness = Spring.StiffnessMedium
         ),
         label = "scale_${item.title}"
     )
 
-    val animatedAlpha by animateFloatAsState(
-        targetValue = if (isSelected) 1f else 0.7f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "alpha_${item.title}"
-    )
-
-    // Icon color animation
     val iconColor by animateColorAsState(
         targetValue = if (isSelected)
             MaterialTheme.colorScheme.onPrimaryContainer
         else
             MaterialTheme.colorScheme.onSurfaceVariant,
-        animationSpec = tween(300),
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
         label = "iconColor_${item.title}"
     )
 
-    // Indicator pill animation
-    val indicatorHeight by animateDpAsState(
+    val textColor by animateColorAsState(
+        targetValue = if (isSelected)
+            MaterialTheme.colorScheme.onSurface
+        else
+            MaterialTheme.colorScheme.onSurfaceVariant,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "textColor_${item.title}"
+    )
+
+    val pillWidth by animateDpAsState(
         targetValue = if (isSelected) 56.dp else 0.dp,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessLow
         ),
-        label = "indicatorHeight_${item.title}"
+        label = "pillWidth_${item.title}"
     )
 
-    Box(
+    Column(
         modifier = Modifier
-            .size(64.dp)
+            .width(76.dp)
+            .graphicsLayer {
+                scaleX = animatedScale
+                scaleY = animatedScale
+            }
             .clip(RoundedCornerShape(16.dp))
-            .clickable {
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null
+            ) {
                 HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
                 item.onClick()
-            },
-        contentAlignment = Alignment.Center
+            }
+            .padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
+        Box(
             modifier = Modifier
-                .graphicsLayer {
-                    scaleX = animatedScale
-                    scaleY = animatedScale
-                    alpha = animatedAlpha
-                }
-                .then(
-                    if (isSelected) Modifier
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer)
-                        .size(64.dp, indicatorHeight.coerceAtLeast(0.dp))
-                        .padding(vertical = 8.dp)
-                    else Modifier.padding(8.dp)
-                )
+                .height(32.dp)
+                .width(56.dp),
+            contentAlignment = Alignment.Center
         ) {
-            // Animated icon with crossfade
-            androidx.compose.animation.Crossfade(
-                targetState = isSelected,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessVeryLow
-                ),
-                label = "iconCrossfade_${item.title}"
-            ) { selected ->
-                Icon(
-                    imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                    contentDescription = item.title,
-                    tint = iconColor,
-                    modifier = Modifier.size(24.dp)
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .width(pillWidth)
+                        .height(32.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            shape = CircleShape
+                        )
                 )
             }
 
-            AnimatedVisibility(
-                visible = isSelected,
-                enter = fadeIn(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessMedium
-                    )
-                ) + expandVertically(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessLow
-                    )
-                ),
-                exit = fadeOut(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessLow
-                    )
-                ) + shrinkVertically(
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessLow
-                    )
-                )
-            ) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = iconColor
-                )
-            }
+            Icon(
+                imageVector = if (isSelected) item.selectedIcon else item.unselectedIcon,
+                contentDescription = item.title,
+                tint = iconColor,
+                modifier = Modifier.size(24.dp)
+            )
         }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = item.title,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+            color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

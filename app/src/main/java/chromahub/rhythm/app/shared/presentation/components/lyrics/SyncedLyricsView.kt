@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.lyrics
 
 import androidx.compose.animation.core.*
@@ -16,6 +21,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -28,6 +34,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import chromahub.rhythm.app.shared.data.model.AppSettings
 import chromahub.rhythm.app.RhythmApplication
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlin.math.abs
 
 private sealed class SyncedLyricsItem {
@@ -44,27 +53,29 @@ private suspend fun LazyListState.animateToSyncedItemWithCatchUp(
     lastIndex: Int,
     noAnimation: Boolean = false
 ) {
+    if (lastIndex < 0) return
+    val safeTargetIndex = targetIndex.coerceIn(0, lastIndex)
     val currentIndex = firstVisibleItemIndex
-    val delta = abs(currentIndex - targetIndex)
+    val delta = abs(currentIndex - safeTargetIndex)
 
     if (noAnimation) {
-        scrollToItem(targetIndex, scrollOffset = scrollOffset)
+        scrollToItem(safeTargetIndex, scrollOffset = scrollOffset)
         return
     }
 
     if (delta >= LARGE_SCROLL_CATCH_UP_DELTA) {
-        val prePositionIndex = if (targetIndex > currentIndex) {
-            (targetIndex - 1).coerceAtLeast(0)
+        val prePositionIndex = if (safeTargetIndex > currentIndex) {
+            (safeTargetIndex - 1).coerceAtLeast(0)
         } else {
-            (targetIndex + 1).coerceAtMost(lastIndex)
+            (safeTargetIndex + 1).coerceAtMost(lastIndex)
         }
 
-        if (prePositionIndex != targetIndex) {
+        if (prePositionIndex != safeTargetIndex) {
             scrollToItem(prePositionIndex, scrollOffset = scrollOffset)
         }
     }
 
-    animateScrollToItem(targetIndex, scrollOffset = scrollOffset)
+    animateScrollToItem(safeTargetIndex, scrollOffset = scrollOffset)
 }
 
 private fun buildSyncedLyricsItems(lines: List<LyricLine>): List<SyncedLyricsItem> {
@@ -141,7 +152,10 @@ fun SyncedLyricsView(
     lyricsSource: String? = null, // Source of lyrics (e.g., "LRCLib", "Embedded", "Local File")
     textSizeMultiplier: Float = 1.0f, // Scale factor for lyrics text size
     textAlignment: TextAlign = TextAlign.Center, // Alignment of lyrics text
-    onTapLyricsView: (() -> Unit)? = null
+    onTapLyricsView: (() -> Unit)? = null,
+    textColor: Color? = null,
+    activeColor: Color? = null,
+    subtitleColor: Color? = null
 ) {
     val context = LocalContext.current
     // TODO: Apply syncOffset to all timestamp comparisons for manual sync adjustment
@@ -164,6 +178,7 @@ fun SyncedLyricsView(
     val appSettings = remember(context) { AppSettings.getInstance(context) }
     val lyricBoldVal by appSettings.lyricBold.collectAsState()
     val lyricNoAnimationVal by appSettings.lyricNoAnimation.collectAsState()
+    val tapLyricsToSeek by appSettings.tapLyricsToSeek.collectAsState()
 
     // Track previous line for smooth transitions
     val previousLineIndex = remember { mutableIntStateOf(-1) }
@@ -200,18 +215,61 @@ fun SyncedLyricsView(
         }
     }
 
+    // Pause auto-scrolling when user manually scrolls
+    val isDragged by listState.interactionSource.collectIsDraggedAsState()
+    var userScrolledRecently by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isDragged) {
+        if (isDragged) {
+            userScrolledRecently = true
+        } else if (userScrolledRecently) {
+            // Wait for any active fling deceleration to complete
+            snapshotFlow { listState.isScrollInProgress }
+                .first { !it }
+            delay(3500L)
+            userScrolledRecently = false
+        }
+    }
+
+    // Reset user scroll lock and tracked line index on lyrics or song change
+    LaunchedEffect(lyrics, parsedLyricsInput) {
+        previousLineIndex.intValue = -1
+        userScrolledRecently = false
+    }
+
     // Enhanced auto-scroll with spring animation
-    LaunchedEffect(currentLineIndex) {
-        if (currentLineIndex >= 0 && parsedLyrics.isNotEmpty() && currentLineIndex != previousLineIndex.intValue) {
+    LaunchedEffect(currentLineIndex, userScrolledRecently) {
+        if (currentLineIndex >= 0 && parsedLyrics.isNotEmpty()) {
+            val isIndexChange = currentLineIndex != previousLineIndex.intValue
+            // If user explicitly jumped/seeked (jump > 1 line), override scroll lock
+            if (isIndexChange && abs(currentLineIndex - previousLineIndex.intValue) > 1) {
+                userScrolledRecently = false
+            }
+
+            if (!userScrolledRecently) {
             previousLineIndex.intValue = currentLineIndex
             val offset = listState.layoutInfo.viewportSize.height / 3
-            val targetItemIndex = lineToItemIndex[currentLineIndex] ?: currentLineIndex
+                val targetItemIndex = (lineToItemIndex[currentLineIndex] ?: currentLineIndex)
+                    .coerceIn(0, lyricsItems.lastIndex.coerceAtLeast(0))
+                if (lyricsItems.isNotEmpty()) {
             listState.animateToSyncedItemWithCatchUp(
                 targetIndex = targetItemIndex,
                 scrollOffset = -offset,
                 lastIndex = lyricsItems.lastIndex,
                 noAnimation = lyricNoAnimationVal
             )
+        }
+    }
+        }
+    }
+
+    val handleSeek: (Long) -> Unit = remember(onSeek, tapLyricsToSeek) {
+        { timestamp ->
+            userScrolledRecently = false
+            previousLineIndex.intValue = -1
+            if (tapLyricsToSeek) {
+                onSeek?.invoke(timestamp)
+            }
         }
     }
 
@@ -223,7 +281,9 @@ fun SyncedLyricsView(
         InstrumentalPlaceholder(
             modifier = modifier,
             titleText = "Instrumental",
-            subtitleText = "No vocals detected in this song"
+            subtitleText = "No vocals detected in this song",
+            textColor = textColor,
+            activeColor = activeColor
         )
     } else if (parsedLyrics.isEmpty()) {
         Box(
@@ -233,7 +293,7 @@ fun SyncedLyricsView(
             Text(
                 text = context.getString(R.string.synced_lyrics_unavailable),
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                color = (textColor ?: MaterialTheme.colorScheme.onSurface).copy(alpha = 0.7f),
                 textAlign = TextAlign.Center
             )
         }
@@ -248,7 +308,21 @@ fun SyncedLyricsView(
             },
             contentPadding = PaddingValues(vertical = 30.dp)
         ) {
-            itemsIndexed(lyricsItems) { _, item ->
+            itemsIndexed(
+                items = lyricsItems,
+                key = { index, item ->
+                    when (item) {
+                        is SyncedLyricsItem.Line -> "synced_line_${item.line.timestamp}_${item.index}"
+                        is SyncedLyricsItem.Gap -> "synced_gap_${item.startTime}_${item.duration}_$index"
+                    }
+                },
+                contentType = { _, item ->
+                    when (item) {
+                        is SyncedLyricsItem.Line -> "synced_line"
+                        is SyncedLyricsItem.Gap -> "synced_gap"
+                    }
+                }
+            ) { _, item ->
                 when (item) {
                     is SyncedLyricsItem.Line -> {
                         SyncedLyricItem(
@@ -257,14 +331,17 @@ fun SyncedLyricsView(
                             currentLineIndex = currentLineIndex,
                             currentPlaybackTime = adjustedPlaybackTime,
                             parsedLyrics = parsedLyrics,
-                            onSeek = onSeek,
+                            onSeek = handleSeek,
                             showTranslation = showTranslation,
                             showRomanization = showRomanization,
                             textSizeMultiplier = textSizeMultiplier,
                             textAlignment = textAlignment,
                             onTapLyricsView = onTapLyricsView,
                             lyricBold = lyricBoldVal,
-                            noAnimation = lyricNoAnimationVal
+                            noAnimation = lyricNoAnimationVal,
+                            textColor = textColor,
+                            activeColor = activeColor,
+                            subtitleColor = subtitleColor
                         )
                     }
 
@@ -272,7 +349,8 @@ fun SyncedLyricsView(
                         SyncedVocalGapItem(
                             item = item,
                             currentPlaybackTime = adjustedPlaybackTime,
-                            noAnimation = lyricNoAnimationVal
+                            noAnimation = lyricNoAnimationVal,
+                            textColor = textColor
                         )
                     }
                 }
@@ -285,7 +363,7 @@ fun SyncedLyricsView(
                     Text(
                         text = stringResource(R.string.lyrics_source_attribution, lyricsSource),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        color = (textColor ?: MaterialTheme.colorScheme.onSurface).copy(alpha = 0.5f),
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
@@ -299,15 +377,16 @@ fun SyncedLyricsView(
 private fun SyncedVocalGapItem(
     item: SyncedLyricsItem.Gap,
     currentPlaybackTime: Long,
-    noAnimation: Boolean
+    noAnimation: Boolean,
+    textColor: Color? = null
 ) {
     val isCurrentGap = currentPlaybackTime >= item.startTime &&
         currentPlaybackTime < item.startTime + item.duration
 
-    val gapHeight = (item.duration / 1000f).coerceIn(18f, 66f)
+    val gapPadding = (item.duration / 1000f).coerceIn(8f, 20f)
 
     val iconScale by animateFloatAsState(
-        targetValue = if (isCurrentGap) 1.4f else 1f,
+        targetValue = if (isCurrentGap) 1.3f else 1f,
         animationSpec = if (noAnimation) snap() else spring(
             dampingRatio = Spring.DampingRatioLowBouncy,
             stiffness = Spring.StiffnessVeryLow
@@ -324,43 +403,29 @@ private fun SyncedVocalGapItem(
         label = "syncedGapAlpha"
     )
 
-    Spacer(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(gapHeight.dp)
-            .padding(horizontal = 28.dp)
-    )
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = gapPadding.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = "♪",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = iconAlpha),
+            style = MaterialTheme.typography.titleMedium,
+            color = (textColor ?: MaterialTheme.colorScheme.onSurface).copy(alpha = iconAlpha),
             modifier = Modifier.graphicsLayer {
                 scaleX = iconScale
                 scaleY = iconScale
             }
         )
         Text(
-            text = "Instrumental",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurface.copy(
+            text = stringResource(R.string.lyrics_instrumental),
+            style = MaterialTheme.typography.labelMedium,
+            color = (textColor ?: MaterialTheme.colorScheme.onSurface).copy(
                 alpha = if (isCurrentGap) 0.6f else 0.25f
             )
         )
     }
-
-    Spacer(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(gapHeight.dp)
-            .padding(horizontal = 28.dp)
-    )
 }
 
 /**
@@ -380,7 +445,10 @@ private fun SyncedLyricItem(
     textAlignment: TextAlign = TextAlign.Center,
     onTapLyricsView: (() -> Unit)? = null,
     lyricBold: Boolean = false,
-    noAnimation: Boolean = false
+    noAnimation: Boolean = false,
+    textColor: Color? = null,
+    activeColor: Color? = null,
+    subtitleColor: Color? = null
 ) {
     val isCurrentLine = currentLineIndex == index
     val isPreviousLine = currentLineIndex == index + 1
@@ -440,21 +508,21 @@ private fun SyncedLyricItem(
     )
 
     // Color transition for active line with voice-specific colors
-    val textColor = when {
+    val lineColor = when {
         isCurrentLine -> {
             // Apply different colors based on voice tag
             when (line.voiceTag) {
-                "v2" -> MaterialTheme.colorScheme.secondary // Different color for second voice
-                "v3" -> MaterialTheme.colorScheme.tertiary  // Third voice
-                else -> MaterialTheme.colorScheme.primary   // Default/v1
+                "v2" -> activeColor ?: MaterialTheme.colorScheme.secondary // Different color for second voice
+                "v3" -> activeColor ?: MaterialTheme.colorScheme.tertiary  // Third voice
+                else -> activeColor ?: MaterialTheme.colorScheme.primary   // Default/v1
             }
         }
         else -> {
             // Inactive lines also get subtle voice coloring (alpha applied via modifier)
             when (line.voiceTag) {
-                "v2" -> MaterialTheme.colorScheme.secondary
-                "v3" -> MaterialTheme.colorScheme.tertiary
-                else -> MaterialTheme.colorScheme.onSurface
+                "v2" -> activeColor ?: MaterialTheme.colorScheme.secondary
+                "v3" -> activeColor ?: MaterialTheme.colorScheme.tertiary
+                else -> textColor ?: MaterialTheme.colorScheme.onSurface
             }
         }
     }
@@ -479,11 +547,8 @@ private fun SyncedLyricItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
-                if (onTapLyricsView != null) {
-                    onTapLyricsView()
-                } else {
                     onSeek?.invoke(line.timestamp)
-                }
+                onTapLyricsView?.invoke()
             }
             .padding(vertical = 14.dp, horizontal = 20.dp)
             .graphicsLayer {
@@ -503,7 +568,7 @@ private fun SyncedLyricItem(
                 lineHeight = MaterialTheme.typography.headlineSmall.lineHeight * 1.5f * textSizeMultiplier,
                 letterSpacing = letterSpacing
             ),
-            color = textColor,
+            color = lineColor,
             textAlign = textAlignment,
             modifier = Modifier.fillMaxWidth()
         )
@@ -519,7 +584,7 @@ private fun SyncedLyricItem(
                     fontWeight = if (isCurrentLine) FontWeight.Medium else FontWeight.Normal,
                     lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.4f
                 ),
-                color = MaterialTheme.colorScheme.tertiary.copy(alpha = if (isCurrentLine) 0.84f else 0.62f),
+                color = (subtitleColor ?: MaterialTheme.colorScheme.tertiary).copy(alpha = if (isCurrentLine) 0.84f else 0.62f),
                 textAlign = textAlignment,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -527,8 +592,12 @@ private fun SyncedLyricItem(
             )
         }
         
+        val hasDistinctRomanization = showRomanization &&
+            !line.romanization.isNullOrBlank() &&
+            (line.translation.isNullOrBlank() || line.romanization.trim().lowercase() != line.translation.trim().lowercase())
+
         // Romanization text (if available and enabled)
-        if (showRomanization && !line.romanization.isNullOrBlank()) {
+        if (hasDistinctRomanization) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = line.romanization,
@@ -537,7 +606,7 @@ private fun SyncedLyricItem(
                     lineHeight = MaterialTheme.typography.bodySmall.lineHeight * 1.3f,
                     letterSpacing = 0.02.sp
                 ),
-                color = MaterialTheme.colorScheme.onSurface.copy(
+                color = (textColor ?: MaterialTheme.colorScheme.onSurface).copy(
                     alpha = if (isCurrentLine) 0.65f else 0.5f
                 ),
                 textAlign = textAlignment,
@@ -585,7 +654,9 @@ private fun isInstrumentalOrNoVocals(lines: List<LyricLine>, rawLyrics: String):
 private fun InstrumentalPlaceholder(
     modifier: Modifier = Modifier,
     titleText: String = "Instrumental",
-    subtitleText: String = "Enjoy the music"
+    subtitleText: String = "Enjoy the music",
+    textColor: Color? = null,
+    activeColor: Color? = null
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "instrumentalPulse")
     val pulseScale by infiniteTransition.animateFloat(
@@ -633,7 +704,7 @@ private fun InstrumentalPlaceholder(
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = 4.sp
                     ),
-                    color = MaterialTheme.colorScheme.primary,
+                    color = activeColor ?: MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Center
                 )
             }
@@ -646,7 +717,7 @@ private fun InstrumentalPlaceholder(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.5.sp
                 ),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = textColor ?: MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
             
@@ -655,7 +726,7 @@ private fun InstrumentalPlaceholder(
             Text(
                 text = subtitleText,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                color = (textColor ?: MaterialTheme.colorScheme.onSurface).copy(alpha = 0.5f),
                 textAlign = TextAlign.Center
             )
         }

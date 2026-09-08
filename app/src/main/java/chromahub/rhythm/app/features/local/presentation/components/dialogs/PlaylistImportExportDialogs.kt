@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.dialogs
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
@@ -18,7 +23,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
+import chromahub.rhythm.app.util.HapticUtils
+import chromahub.rhythm.app.util.HapticType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -33,6 +41,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import chromahub.rhythm.app.shared.presentation.components.common.FileOperationLoader
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 
 /**
@@ -283,6 +292,7 @@ fun BulkPlaylistExportDialog(
     onExportToCustomLocation: (PlaylistImportExportUtils.PlaylistExportFormat, Boolean, Uri) -> Unit
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     var selectedFormat by remember { mutableStateOf(PlaylistImportExportUtils.PlaylistExportFormat.JSON) }
     var includeDefaultPlaylists by remember { mutableStateOf(false) }
     var showLocationOptions by remember { mutableStateOf(false) }
@@ -317,7 +327,7 @@ fun BulkPlaylistExportDialog(
             LazyColumn {
                 item {
                     Text(
-                        text = context.getString(R.string.dialog_export_playlists_to, playlistCount),
+                        text = pluralStringResource(R.plurals.dialog_export_playlists_to, playlistCount, playlistCount),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -368,7 +378,10 @@ fun BulkPlaylistExportDialog(
                     ) {
                         Checkbox(
                             checked = includeDefaultPlaylists,
-                            onCheckedChange = { includeDefaultPlaylists = it }
+                            onCheckedChange = {
+                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                includeDefaultPlaylists = it
+                            }
                         )
                         
                         Spacer(modifier = Modifier.width(8.dp))

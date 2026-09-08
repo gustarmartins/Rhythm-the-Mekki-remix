@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.common
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
@@ -47,8 +52,8 @@ enum class M3PlaceholderType {
 @Composable
 fun M3Placeholder(
     type: M3PlaceholderType,
-    name: String? = null,
     modifier: Modifier = Modifier,
+    name: String? = null,
     shape: Shape? = null
 ) {
     val context = LocalContext.current
@@ -137,7 +142,11 @@ private fun getColorForName(name: String?, fallbackColor: Color): Color {
  * Album art placeholder
  */
 @Composable
-fun AlbumPlaceholder(name: String? = null, modifier: Modifier = Modifier, shape: Shape? = null) {
+fun AlbumPlaceholder(
+    modifier: Modifier = Modifier,
+    name: String? = null,
+    shape: Shape? = null
+) {
     M3Placeholder(
         type = M3PlaceholderType.ALBUM,
         name = name,
@@ -150,7 +159,11 @@ fun AlbumPlaceholder(name: String? = null, modifier: Modifier = Modifier, shape:
  * Artist image placeholder
  */
 @Composable
-fun ArtistPlaceholder(name: String? = null, modifier: Modifier = Modifier, shape: Shape? = null) {
+fun ArtistPlaceholder(
+    modifier: Modifier = Modifier,
+    name: String? = null,
+    shape: Shape? = null
+) {
     M3Placeholder(
         type = M3PlaceholderType.ARTIST,
         name = name,
@@ -163,7 +176,11 @@ fun ArtistPlaceholder(name: String? = null, modifier: Modifier = Modifier, shape
  * Track placeholder
  */
 @Composable
-fun TrackPlaceholder(name: String? = null, modifier: Modifier = Modifier, shape: Shape? = null) {
+fun TrackPlaceholder(
+    modifier: Modifier = Modifier,
+    name: String? = null,
+    shape: Shape? = null
+) {
     M3Placeholder(
         type = M3PlaceholderType.TRACK,
         name = name,
@@ -176,7 +193,11 @@ fun TrackPlaceholder(name: String? = null, modifier: Modifier = Modifier, shape:
  * Playlist placeholder
  */
 @Composable
-fun PlaylistPlaceholder(name: String? = null, modifier: Modifier = Modifier, shape: Shape? = null) {
+fun PlaylistPlaceholder(
+    modifier: Modifier = Modifier,
+    name: String? = null,
+    shape: Shape? = null
+) {
     M3Placeholder(
         type = M3PlaceholderType.PLAYLIST,
         name = name,

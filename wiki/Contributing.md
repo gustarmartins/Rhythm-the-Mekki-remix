@@ -21,7 +21,7 @@ Found a bug? Help us fix it!
 3. Fill in all required information:
    - Android version (e.g., Android 14)
    - Device model (e.g., Pixel 7)
-    - Rhythm version (e.g., v5.1.414.1085 Beta)
+    - Rhythm version (e.g., v5.4.456.1196 Beta)
    - Steps to reproduce
    - Expected vs actual behavior
    - Screenshots/logs if applicable
@@ -179,11 +179,10 @@ app/src/main/java/chromahub/rhythm/app/
 │       ├── data/         # Network and data layer
 │       ├── domain/       # Business logic
 │       ├── di/           # Streaming DI modules
-│       ├── infrastructure/ # Streaming services
-│       └── presentation/ # UI components
-├── shared/               # Shared utilities, themes, navigation
-├── infrastructure/       # Player, widgets, workers, network
-└── network/              # Network client configuration
+│       └── presentation/ # UI components (GoSettings, service setup, discovery)
+├── shared/               # Shared utilities, themes, navigation, settings screens
+├── infrastructure/       # Audio processors, player engine, service, widgets, workers, network
+└── util/ & utils/        # General utilities and extension functions
 ```
 
 ### Comments

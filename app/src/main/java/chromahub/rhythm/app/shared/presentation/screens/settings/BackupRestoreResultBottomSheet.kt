@@ -1,6 +1,15 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
+
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 
 
@@ -84,7 +93,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -167,156 +175,140 @@ fun BackupRestoreResultBottomSheet(
 ) {
     val context = LocalContext.current
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
-    var showContent by remember { mutableStateOf(false) }
-    val contentAlpha by animateFloatAsState(
-        targetValue = if (showContent) 1f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "backup_restore_result_alpha"
-    )
-
-    LaunchedEffect(Unit) {
-        delay(80)
-        showContent = true
-    }
-
-    ModalBottomSheet(
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         dragHandle = { BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary) },
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(bottom = 20.dp)
-                .graphicsLayer(alpha = contentAlpha)
-        ) {
-            StandardBottomSheetHeader(
-                title = state.title,
-                subtitle = if (state.requiresRestart) {
-                    "Restart is required to finish applying changes"
-                } else if (state.isError) {
-                    "Action could not be completed"
-                } else {
-                    "Backup and restore status"
-                },
-                visible = showContent,
-                modifier = Modifier.padding(horizontal = 0.dp, vertical = 0.dp)
-            )
+        StandardBottomSheetHeader(
+            title = state.title,
+            subtitle = if (state.requiresRestart) {
+                "Restart is required to finish applying changes"
+            } else if (state.isError) {
+                "Action could not be completed"
+            } else {
+                "Backup and restore status"
+            },
+            visible = true
+        )
 
-            Spacer(modifier = Modifier.height(8.dp))
+        val scrollState = rememberScrollState()
 
-            Card(
+        AdaptiveSheetScrollContainer(
+            scrollState = scrollState,
+            modifier = Modifier.fillMaxWidth()
+        ) { endPadding ->
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (state.isError) {
-                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)
-                    } else {
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                    }
-                ),
-                border = BorderStroke(
-                    1.dp,
-                    if (state.isError) {
-                        MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
-                    } else {
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
-                    }
-                )
+                    .verticalScroll(scrollState)
+                    .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 20.dp)
+                    .navigationBarsPadding()
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = if (state.isError) {
-                            MaterialTheme.colorScheme.error
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        },
-                        modifier = Modifier.size(38.dp)
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (state.isError) {
+                                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)
+                            } else {
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            }
+                        ),
+                        border = BorderStroke(
+                            1.dp,
+                            if (state.isError) {
+                                MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
+                            } else {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
+                            }
+                        )
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = if (state.isError) RhythmIcons.Close else RhythmIcons.Check,
-                                contentDescription = null,
-                                tint = if (state.isError) {
-                                    MaterialTheme.colorScheme.onError
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = if (state.isError) {
+                                    MaterialTheme.colorScheme.error
                                 } else {
-                                    MaterialTheme.colorScheme.onPrimary
+                                    MaterialTheme.colorScheme.primary
                                 },
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(38.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = if (state.isError) RhythmIcons.Close else RhythmIcons.Check,
+                                        contentDescription = null,
+                                        tint = if (state.isError) {
+                                            MaterialTheme.colorScheme.onError
+                                        } else {
+                                            MaterialTheme.colorScheme.onPrimary
+                                        },
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            Text(
+                                text = state.message,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (state.isError) {
+                                    MaterialTheme.colorScheme.onErrorContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                }
                             )
                         }
                     }
 
-                    Text(
-                        text = state.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (state.isError) {
-                            MaterialTheme.colorScheme.onErrorContainer
-                        } else {
-                            MaterialTheme.colorScheme.onPrimaryContainer
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (!state.requiresRestart) {
+                        RhythmGroupedButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            size = RhythmButtonSize.Large
+                        ) {
+                            RhythmButtonWeighted(
+                                onClick = onDismiss,
+                                weight = 1f,
+                                isFirst = true,
+                                icon = RhythmIcons.Close,
+                                text = context.getString(R.string.ui_close)
+                            )
+
+                            RhythmButtonWeighted(
+                                onClick = onPrimaryAction,
+                                weight = 1f,
+                                isLast = true,
+                                icon = if (state.isError) RhythmIcons.Refresh else RhythmIcons.Check,
+                                text = context.getString(R.string.ui_ok)
+                            )
                         }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (!state.requiresRestart) {
-                RhythmGroupedButton(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
-                    size = RhythmButtonSize.Large
-                ) {
-                    RhythmButtonWeighted(
-                        onClick = onDismiss,
-                        weight = 1f,
-                        isFirst = true,
-                        icon = RhythmIcons.Close,
-                        text = context.getString(R.string.ui_close)
-                    )
-
-                    RhythmButtonWeighted(
-                        onClick = onPrimaryAction,
-                        weight = 1f,
-                        isLast = true,
-                        icon = if (state.isError) RhythmIcons.Refresh else RhythmIcons.Check,
-                        text = context.getString(R.string.ui_ok)
-                    )
-                }
-            } else {
-                RhythmGroupedButton(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp),
-                    size = RhythmButtonSize.Large
-                ) {
-                    RhythmButtonWeighted(
-                        onClick = onPrimaryAction,
-                        weight = 1f,
-                        isFirst = true,
-                        isLast = true,
-                        icon = MaterialSymbolIcon("restart_alt"),
-                        text = context.getString(R.string.settings_restart_now)
-                    )
+                    } else {
+                        RhythmGroupedButton(
+                            modifier = Modifier.fillMaxWidth(),
+                            size = RhythmButtonSize.Large
+                        ) {
+                            RhythmButtonWeighted(
+                                onClick = onPrimaryAction,
+                                weight = 1f,
+                                isFirst = true,
+                                isLast = true,
+                                icon = MaterialSymbolIcon("restart_alt"),
+                                text = context.getString(R.string.settings_restart_now)
+                            )
+                        }
+                    }
                 }
             }
         }
     }
-}

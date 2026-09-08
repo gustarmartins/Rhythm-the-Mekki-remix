@@ -1,8 +1,13 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.bottomsheets
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +27,9 @@ import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolI
 import chromahub.rhythm.app.util.HapticType
 import chromahub.rhythm.app.util.HapticUtils
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArtistArtworkSourceBottomSheet(
@@ -29,14 +37,16 @@ fun ArtistArtworkSourceBottomSheet(
     appSettings: AppSettings,
     sheetState: SheetState = rememberBottomSheetState(
         initialValue = SheetValue.Hidden,
-        confirmValueChange = { true }
+        confirmValueChange = { true },
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
     )
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val currentSource by appSettings.artistArtworkSource.collectAsState()
 
-    ModalBottomSheet(
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.COMPACT_DIALOG,
         modifier = Modifier
             .widthIn(max = 640.dp)
             .fillMaxWidth(),
@@ -47,139 +57,116 @@ fun ArtistArtworkSourceBottomSheet(
                 color = MaterialTheme.colorScheme.primary
             )
         },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp)
-        ) {
-            // Header
-            Row(
+        StandardBottomSheetHeader(
+            title = stringResource(R.string.settings_artist_artwork_source),
+            subtitle = stringResource(R.string.settings_artist_artwork_source_desc),
+            visible = true
+        )
+
+        val scrollState = rememberScrollState()
+
+        AdaptiveSheetScrollContainer(
+            scrollState = scrollState,
+            modifier = Modifier.fillMaxWidth()
+        ) { endPadding ->
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .verticalScroll(scrollState)
+                    .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Column {
-                    Text(
-                        text = stringResource(R.string.settings_artist_artwork_source),
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 6.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                shape = CircleShape
-                            )
-                    ) {
-                        Text(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            text = stringResource(R.string.settings_artist_artwork_source_desc),
-                            overflow = TextOverflow.Ellipsis,
-                            maxLines = 1,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Options
-            val options = listOf(
-                ArtistArtworkSource.PREFER_LOCAL_THEN_API to Triple(
-                    stringResource(R.string.settings_artist_artwork_source_prefer_local),
-                    stringResource(R.string.settings_artist_artwork_source_prefer_local_desc),
-                    MaterialSymbolIcon("folder_special")
-                ),
-                ArtistArtworkSource.LOCAL_ONLY to Triple(
-                    stringResource(R.string.settings_artist_artwork_source_local_only),
-                    stringResource(R.string.settings_artist_artwork_source_local_only_desc),
-                    MaterialSymbolIcon("folder")
-                ),
-                ArtistArtworkSource.API_ONLY to Triple(
-                    stringResource(R.string.settings_artist_artwork_source_api_only),
-                    stringResource(R.string.settings_artist_artwork_source_api_only_desc),
-                    MaterialSymbolIcon("cloud_download")
-                ),
-                ArtistArtworkSource.DISABLED to Triple(
-                    stringResource(R.string.settings_artist_artwork_source_disabled),
-                    stringResource(R.string.settings_artist_artwork_source_disabled_desc),
-                    MaterialSymbolIcon("block")
-                )
-            )
-
-            options.forEach { (source, info) ->
-                val (title, description, icon) = info
-                val isSelected = currentSource == source
-
-                Card(
-                    onClick = {
-                        HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
-                        appSettings.setArtistArtworkSource(source)
-                        onDismiss()
-                    },
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isSelected)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else
-                            MaterialTheme.colorScheme.surfaceContainerHigh
+                // Options
+                val options = listOf(
+                    ArtistArtworkSource.PREFER_LOCAL_THEN_API to Triple(
+                        stringResource(R.string.settings_artist_artwork_source_prefer_local),
+                        stringResource(R.string.settings_artist_artwork_source_prefer_local_desc),
+                        MaterialSymbolIcon("folder_special")
                     ),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = if (isSelected)
+                    ArtistArtworkSource.LOCAL_ONLY to Triple(
+                        stringResource(R.string.settings_artist_artwork_source_local_only),
+                        stringResource(R.string.settings_artist_artwork_source_local_only_desc),
+                        MaterialSymbolIcon("folder")
+                    ),
+                    ArtistArtworkSource.API_ONLY to Triple(
+                        stringResource(R.string.settings_artist_artwork_source_api_only),
+                        stringResource(R.string.settings_artist_artwork_source_api_only_desc),
+                        MaterialSymbolIcon("cloud_download")
+                    ),
+                    ArtistArtworkSource.DISABLED to Triple(
+                        stringResource(R.string.settings_artist_artwork_source_disabled),
+                        stringResource(R.string.settings_artist_artwork_source_disabled_desc),
+                        MaterialSymbolIcon("block")
+                    )
+                )
+
+                options.forEachIndexed { index, (source, info) ->
+                    val (title, description, icon) = info
+                    val isSelected = currentSource == source
+
+                    Card(
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                            appSettings.setArtistArtworkSource(source)
+                            onDismiss()
+                        },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected)
                                 MaterialTheme.colorScheme.onPrimaryContainer
                             else
-                                MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSelected)
-                                    MaterialTheme.colorScheme.onPrimaryContainer
-                                else
-                                    MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = description,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (isSelected)
-                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                else
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        if (isSelected) {
-                            Spacer(modifier = Modifier.width(12.dp))
+                                MaterialTheme.colorScheme.surfaceContainerHigh
+                        ),
+                        shape = groupedBottomSheetItemShape(index, options.size),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Icon(
-                                imageVector = MaterialSymbolIcon("check"),
+                                imageVector = icon,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(24.dp)
+                                tint = if (isSelected)
+                                    MaterialTheme.colorScheme.primaryContainer
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(if (isSelected) 30.dp else 26.dp)
                             )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = description,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (isSelected)
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (isSelected) {
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Icon(
+                                    imageVector = MaterialSymbolIcon("check"),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primaryContainer,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
                     }
                 }

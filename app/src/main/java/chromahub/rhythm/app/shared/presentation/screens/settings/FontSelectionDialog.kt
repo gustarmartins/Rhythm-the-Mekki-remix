@@ -1,6 +1,16 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
+
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.groupedBottomSheetItemShape
 
 
 
@@ -84,7 +94,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -159,10 +168,9 @@ import chromahub.rhythm.app.shared.presentation.screens.settings.SettingItem
 import chromahub.rhythm.app.shared.presentation.screens.settings.SettingGroup
 
 
-// Font Selection Dialog for Theme Customization
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FontSelectionDialog(
+fun FontSelectionBottomSheet(
     showDialog: Boolean,
     onDismiss: () -> Unit,
     fontOptions: List<FontOption>,
@@ -176,25 +184,9 @@ fun FontSelectionDialog(
     if (showDialog) {
         val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
 
-        // Animation states
-        var showContent by remember { mutableStateOf(false) }
-
-        val contentAlpha by animateFloatAsState(
-            targetValue = if (showContent) 1f else 0f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            ),
-            label = "contentAlpha"
-        )
-
-        LaunchedEffect(Unit) {
-            delay(100)
-            showContent = true
-        }
-
-        ModalBottomSheet(
-        modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
+        RhythmAdaptiveModalSheet(
+            adaptiveType = SheetAdaptiveType.COMPACT_DIALOG,
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
             onDismissRequest = onDismiss,
             sheetState = sheetState,
             dragHandle = {
@@ -204,85 +196,57 @@ fun FontSelectionDialog(
             },
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 24.dp)
-                    .graphicsLayer(alpha = contentAlpha)
-            ) {
-                // Header
-                Row(
+            StandardBottomSheetHeader(
+                title = context.getString(R.string.theme_font_selection),
+                subtitle = context.getString(R.string.theme_font_selection_desc),
+                visible = true
+            )
+
+            if (selectedFontSource != FontSource.SYSTEM) {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 0.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                        .padding(bottom = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column {
-                        Text(
-                            text = context.getString(R.string.theme_font_selection),
-                            style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 6.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    shape = CircleShape
-                                )
-                        ) {
-                            Text(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                style = MaterialTheme.typography.labelLarge,
-                                text = context.getString(R.string.theme_font_selection_desc),
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = 1,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
+                    Icon(
+                        imageVector = RhythmIcons.Info,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = context.getString(R.string.theme_system_fonts_unavailable),
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = context.getString(R.string.theme_system_fonts_switch),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
                 }
+            } else {
+                val fontListState = rememberLazyListState()
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                if (selectedFontSource != FontSource.SYSTEM) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = RhythmIcons.Info,
-                            contentDescription = null,
-                            
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = context.getString(R.string.theme_system_fonts_unavailable),
-                            style = MaterialTheme.typography.bodyLarge,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = context.getString(R.string.theme_system_fonts_switch),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                } else {
+                AdaptiveSheetScrollContainer(
+                    lazyListState = fontListState,
+                    modifier = Modifier.fillMaxWidth()
+                ) { endPadding ->
                     LazyColumn(
-            contentPadding = PaddingValues(bottom = 24.dp + LocalMiniPlayerPadding.current.calculateBottomPadding()),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        state = fontListState,
+                        contentPadding = PaddingValues(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        items(fontOptions, key = { "font_${it.name}" }) { option ->
+                        itemsIndexed(fontOptions, key = { _, it -> "font_${it.name}" }) { index, option ->
                             FontCard(
                                 option = option,
                                 isSelected = currentFont == option.name,
+                                shape = groupedBottomSheetItemShape(index, fontOptions.size),
                                 onSelect = {
                                     HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                                     onFontSelected(option.name)
@@ -298,4 +262,29 @@ fun FontSelectionDialog(
             }
         }
     }
+}
+
+@Composable
+fun FontSelectionDialog(
+    showDialog: Boolean,
+    onDismiss: () -> Unit,
+    fontOptions: List<FontOption>,
+    currentFont: String,
+    selectedFontSource: FontSource,
+    onFontSelected: (String) -> Unit,
+    appSettings: AppSettings,
+    context: Context,
+    haptic: HapticFeedback
+) {
+    FontSelectionBottomSheet(
+        showDialog = showDialog,
+        onDismiss = onDismiss,
+        fontOptions = fontOptions,
+        currentFont = currentFont,
+        selectedFontSource = selectedFontSource,
+        onFontSelected = onFontSelected,
+        appSettings = appSettings,
+        context = context,
+        haptic = haptic
+    )
 }

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
@@ -83,7 +88,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -180,7 +184,7 @@ fun CacheSizeDialog(
     // Helper function to format size display
     fun formatSizeDisplay(sizeMB: Float): String {
         return when {
-            sizeMB >= 1024f -> "${String.format("%.1f", sizeMB / 1024f)} GB"
+            sizeMB >= 1024f -> "${String.format(Locale.ROOT, "%.1f", sizeMB / 1024f)} GB"
             else -> "${sizeMB.toInt()} MB"
         }
     }

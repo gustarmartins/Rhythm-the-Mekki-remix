@@ -1,18 +1,10 @@
 /*
- *     Copyright (C) 2025 nift4
+ * Copyright (C) 2025 nift4 (Gramophone)
+ * Modified for Rhythm by Anjishnu Nandi (cromaguy)
  *
- *     Gramophone is free software: you can redistribute it and/or modify
- *     it under the terms of the GNU General Public License as published by
- *     the Free Software Foundation, either version 3 of the License, or
- *     (at your option) any later version.
- *
- *     Gramophone is distributed in the hope that it will be useful,
- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *     GNU General Public License for more details.
- *
- *     You should have received a copy of the GNU General Public License
- *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * SPDX-FileCopyrightText: 2025 nift4 <https://github.com/FoedusProgramme/Gramophone>
+ * SPDX-FileCopyrightText: 2025-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 package chromahub.rhythm.app.infrastructure.widget.glance
@@ -69,7 +61,6 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.activities.MainActivity
-import coil.ImageLoader
 import coil.request.ImageRequest
 import coil.size.Size
 import kotlinx.coroutines.Dispatchers
@@ -109,7 +100,7 @@ class RhythmLyricsWidget : GlanceAppWidget() {
                 LaunchedEffect(artworkUriString) {
                     try {
                         val loaded = withContext(Dispatchers.IO) {
-                            val imageLoader = ImageLoader(glanceContext)
+                            val imageLoader = coil.Coil.imageLoader(glanceContext)
                             val request = ImageRequest.Builder(glanceContext)
                                 .data(artworkUriString)
                                 .size(Size(120, 120))
@@ -187,7 +178,7 @@ class RhythmLyricsWidget : GlanceAppWidget() {
         ) {
             Image(
                 provider = ImageProvider(R.drawable.ic_skip_next),
-                contentDescription = "Next",
+                contentDescription = LocalContext.current.getString(R.string.onboarding_next),
                 modifier = GlanceModifier.size(iconSize),
                 colorFilter = ColorFilter.tint(iconColor)
             )
@@ -211,7 +202,7 @@ class RhythmLyricsWidget : GlanceAppWidget() {
         ) {
             Image(
                 provider = ImageProvider(R.drawable.ic_skip_previous),
-                contentDescription = "Previous",
+                contentDescription = LocalContext.current.getString(R.string.animatedplaybackcontrols_previous),
                 modifier = GlanceModifier.size(iconSize),
                 colorFilter = ColorFilter.tint(iconColor)
             )
@@ -231,15 +222,16 @@ class RhythmLyricsWidget : GlanceAppWidget() {
         val prevLine = if (activeIndex > 0) lines.getOrNull(activeIndex - 1) else null
         val activeLine = lines.getOrNull(activeIndex)
         val nextLine = lines.getOrNull(activeIndex + 1)
-        val hasSong = songTitle.isNotBlank() && songTitle != "Rhythm"
+        val hasSong = songTitle.isNotBlank() && songTitle != LocalContext.current.getString(R.string.app_name)
         val isCompact = size.height < 120.dp
 
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(GlanceTheme.colors.surface)
                 .cornerRadius(28.dp)
+                .background(GlanceTheme.colors.widgetBackground)
         ) {
+
             // Main content container utilizing the full widget width
             Column(
                 modifier = GlanceModifier
@@ -254,13 +246,13 @@ class RhythmLyricsWidget : GlanceAppWidget() {
                 ) {
                     Image(
                         provider = ImageProvider(R.drawable.ic_notification),
-                        contentDescription = "Rhythm",
+                        contentDescription = LocalContext.current.getString(R.string.app_name),
                         modifier = GlanceModifier.size(14.dp),
                         colorFilter = ColorFilter.tint(GlanceTheme.colors.primary)
                     )
                     Spacer(GlanceModifier.width(5.dp))
                     Text(
-                        text = "Rhythm",
+                        text = LocalContext.current.getString(R.string.app_name),
                         style = TextStyle(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -353,7 +345,7 @@ class RhythmLyricsWidget : GlanceAppWidget() {
                             }
                         } else {
                             Text(
-                                text = "No lyrics available",
+                                text = LocalContext.current.getString(R.string.rhythmlyricswidget_no_lyrics_available),
                                 style = TextStyle(
                                     fontSize = 12.sp,
                                     color = GlanceTheme.colors.onSurfaceVariant
@@ -363,7 +355,7 @@ class RhythmLyricsWidget : GlanceAppWidget() {
                         }
                     } else {
                         Text(
-                            text = "Your rhythm, your way",
+                            text = LocalContext.current.getString(R.string.rhythmlyricswidget_tagline),
                             style = TextStyle(
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
@@ -373,7 +365,7 @@ class RhythmLyricsWidget : GlanceAppWidget() {
                         )
                         Spacer(GlanceModifier.height(3.dp))
                         Text(
-                            text = "Open Rhythm to play some music",
+                            text = LocalContext.current.getString(R.string.rhythmlyricswidget_open_to_play),
                             style = TextStyle(
                                 fontSize = 11.sp,
                                 color = GlanceTheme.colors.onSurfaceVariant

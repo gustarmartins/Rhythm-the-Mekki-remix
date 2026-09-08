@@ -1,0 +1,12 @@
+﻿Rhythm v5.4 - Stable Update
+
+• Added docked navigation bar mode & ambient zoom toggle
+• Modern Coil artwork decoder with lossless extraction
+• Option to embed fetched artwork directly into audio files
+• Fixed OutOfMemoryError in playlists and Canvas player
+• Fixed media controller command permissions
+• Fixed storage write permissions in player
+• Optimized cold startup & scanning for large libraries
+• Updated translations
+
+Thanks for using Rhythm ;)

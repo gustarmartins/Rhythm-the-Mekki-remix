@@ -1,4 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.bottomsheets
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
@@ -22,6 +28,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -31,6 +38,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -47,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
@@ -59,6 +68,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import chromahub.rhythm.app.R
@@ -69,7 +79,6 @@ import chromahub.rhythm.app.shared.presentation.components.common.ActionProgress
 import chromahub.rhythm.app.shared.presentation.components.common.ContentLoadingIndicator
 import chromahub.rhythm.app.shared.presentation.components.player.formatDuration
 import chromahub.rhythm.app.shared.presentation.components.common.MarqueeText
-import chromahub.rhythm.app.shared.presentation.components.common.rhythmMarquee
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeTarget
 import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShapeFor
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmDetailActionButton
@@ -78,7 +87,6 @@ import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonTy
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmGroupedButton
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonWeighted
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonSize
-import chromahub.rhythm.app.shared.presentation.components.RatingStarsDisplay
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.MediaUtils
 import chromahub.rhythm.app.util.HapticUtils
@@ -87,6 +95,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.Locale
 import chromahub.rhythm.app.network.NetworkClient
 import chromahub.rhythm.app.network.YTMusicSearchRequest
 import chromahub.rhythm.app.network.YTMusicContext
@@ -94,17 +103,10 @@ import chromahub.rhythm.app.network.YTMusicClient
 import chromahub.rhythm.app.network.extractAlbumImageUrl
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
+import chromahub.rhythm.app.util.windowScreenWidthDp
+import chromahub.rhythm.app.util.windowScreenHeightDp
+import chromahub.rhythm.app.ui.theme.MusicDimensions
 
-// Data class to hold additional song metadata
-// 
-// AUDIO QUALITY NOTES:
-// - Lossless formats (ALAC, FLAC, WAV) preserve all original audio data bit-perfectly
-// - Lossy formats (MP3, AAC, OGG) discard data to reduce file size - NOT lossless!
-// - Bit depth alone does NOT determine lossless vs lossy:
-//   * Lossy MP3/AAC decode to 16-bit but are still lossy (data was discarded during encoding)
-//   * Lossless can be 16-bit (CD quality) or 24-bit (Hi-Res)
-// - Standard Lossless (CD Quality): 16-bit/44.1kHz, ~96 dB dynamic range
-// - High-Resolution Lossless: 24-bit/96kHz+, ~144 dB dynamic range
 data class ExtendedSongInfo(
     val fileSize: Long = 0,
     val bitrate: String = "Unknown",
@@ -120,20 +122,18 @@ data class ExtendedSongInfo(
     val mimeType: String = "",
     val channels: String = "Unknown",
     val hasLyrics: Boolean = false,
-    val genre: String = "", // Add genre field
-    // Audio quality indicators
+    val genre: String = "",
     val isLossless: Boolean = false,
     val isDolby: Boolean = false,
     val isDTS: Boolean = false,
     val isHiRes: Boolean = false,
     val audioCodec: String = "Unknown",
     val formatName: String = "Unknown",
-    // Enhanced quality information
-    val qualityType: String = "Unknown",       // e.g., "Hi-Res Lossless", "CD Quality"
-    val qualityLabel: String = "Unknown",       // e.g., "Hi-Res Lossless"
-    val qualityDescription: String = "",        // e.g., "24-bit / 96 kHz Lossless"
-    val bitDepth: Int = 0,                      // Actual or estimated bit depth (16, 24, etc.)
-    val qualityCategory: String = "Unknown"     // "Lossless", "Lossy", "Surround"
+    val qualityType: String = "Unknown",
+    val qualityLabel: String = "Unknown",
+    val qualityDescription: String = "",
+    val bitDepth: Int = 0,
+    val qualityCategory: String = "Unknown"
 )
 
 private fun resolveSongInfoArtworkUri(context: android.content.Context, song: Song): Uri? {
@@ -198,62 +198,50 @@ fun SongInfoBottomSheet(
     onEditSong: ((title: String, artist: String, album: String, genre: String, year: Int, trackNumber: Int, artworkUri: Uri?, removeArtwork: Boolean, albumArtist: String?, composer: String?, discNumber: Int, onComplete: (Boolean) -> Unit) -> Unit)? = null,
     onShowLyricsEditor: (() -> Unit)? = null,
     sheetState: SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)),
-    isStreamingMode: Boolean = false
+    isStreamingMode: Boolean = false,
+    isDownloaded: Boolean = false,
+    isDownloading: Boolean = false,
+    onToggleDownload: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
-    val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     var extendedInfo by remember { mutableStateOf<ExtendedSongInfo?>(null) }
     var isLoadingMetadata by remember { mutableStateOf(true) }
+    var isLoadingStats by remember { mutableStateOf(true) }
     var showEditSheet by remember { mutableStateOf(false) }
     
-    // Detect tablet mode
-    val isTablet = configuration.screenWidthDp >= 600
-    val isLandscapeTablet = isTablet && configuration.screenWidthDp > configuration.screenHeightDp
+    val isTablet = windowScreenWidthDp() >= 600
+    val isLandscapeTablet = isTablet && windowScreenWidthDp() > windowScreenHeightDp()
     
-    // Time format setting
     val useHoursFormat by appSettings.useHoursInTimeFormat.collectAsState()
     
-    // Animation states
-    var showContent by remember { mutableStateOf(false) }
-    
-    // Track the current song state to allow updates
     var currentSong by remember(song?.id) { mutableStateOf(song) }
     
-    // Update currentSong when the original song changes
     LaunchedEffect(song) {
         if (song != null) {
             currentSong = song
         }
     }
     
-    // Blacklist states
     val blacklistedSongs by appSettings.blacklistedSongs.collectAsState()
     val blacklistedFolders by appSettings.blacklistedFolders.collectAsState()
     var isLoadingBlacklist by remember { mutableStateOf(false) }
     var showBlacklistTrackConfirm by remember { mutableStateOf(false) }
     var showBlacklistFolderConfirm by remember { mutableStateOf(false) }
     
-    // Whitelist states
     val whitelistedSongs by appSettings.whitelistedSongs.collectAsState()
     val whitelistedFolders by appSettings.whitelistedFolders.collectAsState()
     var isLoadingWhitelist by remember { mutableStateOf(false) }
     
-    // Rhythm stats and rating states
     var songPlaybackStats by remember { mutableStateOf<chromahub.rhythm.app.shared.data.repository.PlaybackStatsRepository.SongPlaybackSummary?>(null) }
-    var songRating by remember(song?.id) { mutableStateOf(0) }
     
-    // Expressive shape for artwork
     val songArtShape = rememberExpressiveShapeFor(ExpressiveShapeTarget.SONG_ART)
     
-    // Check if song is blacklisted
     val isBlacklisted = song?.let { blacklistedSongs.contains(it.id) } ?: false
     
-    // Check if song is whitelisted
     val isWhitelisted = song?.let { whitelistedSongs.contains(it.id) } ?: false
     
-    // Check if song is in a blacklisted folder
     val folderPath = remember(song?.uri) {
         song?.let { 
             try {
@@ -302,7 +290,6 @@ fun SongInfoBottomSheet(
         }
     }
 
-    // Load extended metadata
     LaunchedEffect(song.id) {
         isLoadingMetadata = true
         extendedInfo = withContext(Dispatchers.IO) {
@@ -311,29 +298,19 @@ fun SongInfoBottomSheet(
         isLoadingMetadata = false
     }
     
-    // Load rhythm stats and rating
     LaunchedEffect(song.id) {
+        isLoadingStats = true
         song.let { currentSong ->
-            // Load playback stats
             songPlaybackStats = withContext(Dispatchers.IO) {
                 chromahub.rhythm.app.shared.data.repository.PlaybackStatsRepository.getInstance(context).getSongPlaybackStats(
                     currentSong.id,
                     chromahub.rhythm.app.shared.data.repository.StatsTimeRange.ALL_TIME
                 )
             }
-            
-            // Load rating
-            songRating = appSettings.getSongRating(currentSong.id)
         }
-    }
-
-    // Animation trigger
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(100)
-        showContent = true
+        isLoadingStats = false
     }
     
-    // Blacklist track confirmation dialog
     if (showBlacklistTrackConfirm) {
         AlertDialog(
             onDismissRequest = { showBlacklistTrackConfirm = false },
@@ -411,7 +388,6 @@ fun SongInfoBottomSheet(
         )
     }
     
-    // Blacklist folder confirmation dialog
     if (showBlacklistFolderConfirm) {
         AlertDialog(
             onDismissRequest = { showBlacklistFolderConfirm = false },
@@ -431,6 +407,24 @@ fun SongInfoBottomSheet(
             },
             text = {
                 Column {
+                    folderPath?.let { path ->
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = path,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
                     Text(
                         if (isInBlacklistedFolder) stringResource(R.string.blacklist_remove_folder_desc) else stringResource(R.string.blacklist_add_folder_desc),
                         style = MaterialTheme.typography.bodyMedium
@@ -490,7 +484,6 @@ fun SongInfoBottomSheet(
     }
 
     if (isLandscapeTablet) {
-        // Tablet layout: Dialog with side-by-side layout
         Dialog(
             onDismissRequest = onDismiss,
             properties = DialogProperties(
@@ -521,7 +514,6 @@ fun SongInfoBottomSheet(
                         .navigationBarsPadding()
                 ) {
                     Row(modifier = Modifier.fillMaxSize()) {
-                        // Left side: Song artwork and info
                         Surface(
                             modifier = Modifier
                                 .weight(0.4f)
@@ -535,7 +527,6 @@ fun SongInfoBottomSheet(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
-                                // Song artwork
                                 Surface(
                                     modifier = Modifier
                                         .size(180.dp),
@@ -564,7 +555,6 @@ fun SongInfoBottomSheet(
 
                                 Spacer(modifier = Modifier.height(24.dp))
 
-                                // Song info
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -589,30 +579,10 @@ fun SongInfoBottomSheet(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
-
-                                    val tabletDiscNumber = (extendedInfo?.discNumber ?: 0)
-                                        .takeIf { it > 0 }
-                                        ?: displaySong.discNumber.takeIf { it > 0 }
-                                    val tabletSongDescriptor = buildList {
-                                        tabletDiscNumber?.let { add(context.getString(R.string.blacklist_disc_label, it)) }
-                                        if (displaySong.trackNumber > 0) add(context.getString(R.string.blacklist_track_label, displaySong.trackNumber))
-                                    }.joinToString(" • ")
-
-                                    if (tabletSongDescriptor.isNotEmpty()) {
-                                        Text(
-                                            text = tabletSongDescriptor,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                                            textAlign = TextAlign.Center,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
                                 }
                             }
                         }
 
-                        // Right side: Metadata grid
                         Surface(
                             modifier = Modifier
                                 .weight(0.6f)
@@ -620,7 +590,6 @@ fun SongInfoBottomSheet(
                             color = Color.Transparent
                         ) {
                             Column(modifier = Modifier.fillMaxSize()) {
-                                // Header with close and edit buttons
                                 Surface(
                                     modifier = Modifier.fillMaxWidth(),
                                     color = Color.Transparent
@@ -640,52 +609,48 @@ fun SongInfoBottomSheet(
                                             modifier = Modifier.weight(1f)
                                         )
 
-                                        // Action buttons
                                         Row(
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            // Edit button
-                                            onEditSong?.let {
-                                                FilledTonalIconButton(
+                                            // Edit button — local files only (hidden for streaming songs)
+                                            if (!isStreamingMode) {
+                                                onEditSong?.let {
+                                                    AdaptiveSheetActionButton(
+                                                        onClick = {
+                                                            HapticUtils.performHapticFeedback(
+                                                                context,
+                                                                haptics,
+                                                                HapticType.HEAVY
+                                                            )
+                                                            showEditSheet = true
+                                                        },
+                                                        icon = RhythmIcons.Edit,
+                                                        contentDescription = stringResource(R.string.bottomsheet_timer_edit)
+                                                    )
+                                                }
+                                            } else if (onToggleDownload != null) {
+                                                AdaptiveSheetActionButton(
                                                     onClick = {
                                                         HapticUtils.performHapticFeedback(
                                                             context,
                                                             haptics,
                                                             HapticType.HEAVY
                                                         )
-                                                        showEditSheet = true
+                                                        onToggleDownload()
                                                     },
-                                                    modifier = Modifier.size(44.dp),
-                                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                                    )
-                                                ) {
-                                                    Icon(
-                                                        imageVector = RhythmIcons.Edit,
-                                                        contentDescription = stringResource(R.string.bottomsheet_timer_edit),
-                                                        modifier = Modifier.size(20.dp)
-                                                    )
-                                                }
-                                            }
-
-                                            // Close button on tablet
-                                            IconButton(
-                                                onClick = onDismiss,
-                                                modifier = Modifier.size(44.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = RhythmIcons.Close,
-                                                    contentDescription = stringResource(R.string.ui_close),
-                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                                    icon = if (isDownloaded) MaterialSymbolIcon("download_done", filled = true) else MaterialSymbolIcon("download"),
+                                                    contentDescription = if (isDownloaded) stringResource(R.string.streaming_remove_download) else stringResource(R.string.streaming_download)
                                                 )
                                             }
+
+                                            AdaptiveSheetCloseButton(
+                                                onClick = onDismiss
+                                            )
                                         }
                                     }
                                 }
 
-                                // Metadata grid
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -695,7 +660,6 @@ fun SongInfoBottomSheet(
                                         topStart = 28.dp,
                                         topEnd = 28.dp
                                     ),
-//                                    color = MaterialTheme.colorScheme.surfaceContainer,
                                     tonalElevation = 1.dp
                                 ) {
                                     LazyColumn(
@@ -706,28 +670,30 @@ fun SongInfoBottomSheet(
                                             start = 16.dp,
                                             end = 16.dp
                                         ),
-                                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(24.dp),
                                         userScrollEnabled = true
                                     ) {
                                         item {
                                             SongInfoCard(
                                                 song = currentSong ?: song,
                                                 extendedInfo = extendedInfo,
-                                                useHoursFormat = useHoursFormat
+                                                useHoursFormat = useHoursFormat,
+                                                isLoading = isLoadingMetadata
                                             )
                                         }
                                         item {
                                             RhythmStatsCard(
                                                 songPlaybackStats = songPlaybackStats,
-                                                songRating = songRating,
-                                                useHoursFormat = useHoursFormat
+                                                useHoursFormat = useHoursFormat,
+                                                isLoading = isLoadingStats
                                             )
                                         }
                                         item {
                                             FileInfoCard(
                                                 song = currentSong ?: song,
                                                 extendedInfo = extendedInfo,
-                                                folderPath = folderPath
+                                                folderPath = folderPath,
+                                                isLoading = isLoadingMetadata
                                             )
                                         }
                                     }
@@ -739,7 +705,6 @@ fun SongInfoBottomSheet(
             }
         }
 
-        // Edit sheet for tablet
         if (showEditSheet) {
             EditSongSheet(
                 song = currentSong ?: song,
@@ -785,113 +750,137 @@ fun SongInfoBottomSheet(
             )
         }
     } else {
-        // Phone layout: Bottom sheet
-        ModalBottomSheet(
-        modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = { 
-            BottomSheetDefaults.DragHandle(
-                color = MaterialTheme.colorScheme.primary
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        tonalElevation = 0.dp
-    ) {
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        val infoListState = rememberLazyListState()
+
+        RhythmAdaptiveModalSheet(
+            adaptiveType = SheetAdaptiveType.TWO_PANE_DIALOG,
+            lazyListState = infoListState,
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
+            onDismissRequest = onDismiss,
+            sheetState = sheetState,
+            dragHandle = { 
+                BottomSheetDefaults.DragHandle(
+                    color = MaterialTheme.colorScheme.primary
+                )
+            },
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            tonalElevation = 0.dp
         ) {
-            item {
-                // Header with album art and track info
-                AnimatedVisibility(
-                    visible = showContent,
-                    enter = fadeIn() + slideInVertically { it },
-                    exit = fadeOut() + slideOutVertically { it }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            ) {
+                // Header (Sticky at top)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Surface(
+                        modifier = Modifier.size(80.dp),
+                        shape = songArtShape,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp
                     ) {
-                        // Album Art with modern styling
-                        Surface(
-                            modifier = Modifier.size(80.dp),
-                            shape = songArtShape,
-                            tonalElevation = 0.dp,
-                            shadowElevation = 0.dp
-                        ) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .apply(
-                                        ImageUtils.buildImageRequest(
-                                            displayArtworkUri,
-                                            displaySong.title,
-                                            context.cacheDir,
-                                            M3PlaceholderType.TRACK
-                                        )
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .apply(
+                                    ImageUtils.buildImageRequest(
+                                        displayArtworkUri,
+                                        displaySong.title,
+                                        context.cacheDir,
+                                        M3PlaceholderType.TRACK
                                     )
-                                    .build(),
-                                contentDescription = stringResource(R.string.songinfobottomsheet_song_artwork),
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-
-                        // Song info with improved layout
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = displaySong.title,
-                                style = MaterialTheme.typography.headlineSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                ),
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            
-                            MarqueeText(
-                                text = displaySong.artist,
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                ),
-                                gradientEdgeColor = MaterialTheme.colorScheme.surface,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            val phoneDiscNumber = (extendedInfo?.discNumber ?: 0)
-                                .takeIf { it > 0 }
-                                ?: displaySong.discNumber.takeIf { it > 0 }
-                            val phoneSongDescriptor = buildList {
-                                phoneDiscNumber?.let { add(context.getString(R.string.blacklist_disc_label, it)) }
-                                if (displaySong.trackNumber > 0) add(context.getString(R.string.blacklist_track_label, displaySong.trackNumber))
-                            }.joinToString(" • ")
-
-                            if (phoneSongDescriptor.isNotEmpty()) {
-                                Text(
-                                    text = phoneSongDescriptor,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.fillMaxWidth()
                                 )
-                            }
-                        }
+                                .build(),
+                            contentDescription = stringResource(R.string.songinfobottomsheet_song_artwork),
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = displaySong.title,
+                            style = MaterialTheme.typography.headlineSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            ),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                         
-                        // No edit button here - moved to actions section
+                        MarqueeText(
+                            text = displaySong.artist,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            gradientEdgeColor = MaterialTheme.colorScheme.surface,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
-            }
-            if (!isStreamingMode) {
+
+                AdaptiveSheetScrollContainer(
+                    lazyListState = infoListState,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                ) { endPadding ->
+                    LazyColumn(
+                        state = infoListState,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(start = 24.dp, end = 24.dp + endPadding, top = 8.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(28.dp)
+                    ) {
+            if (isStreamingMode) {
+                if (onToggleDownload != null) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            RhythmDetailActionButton(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                                    onToggleDownload()
+                                },
+                                height = 48.dp,
+                                isFirst = true,
+                                isLast = true,
+                                type = RhythmButtonType.Tonal,
+                                isLoading = isDownloading,
+                                icon = if (isDownloaded) {
+                                    MaterialSymbolIcon("download_done", filled = true)
+                                } else {
+                                    MaterialSymbolIcon("download")
+                                } as MaterialSymbolIcon?,
+                                iconSize = 18.dp,
+                                text = when {
+                                    isDownloading -> stringResource(R.string.streaming_downloading)
+                                    isDownloaded -> stringResource(R.string.streaming_remove_download)
+                                    else -> stringResource(R.string.streaming_download)
+                                },
+                                containerColor = if (isDownloaded)
+                                    MaterialTheme.colorScheme.primaryContainer
+                                else
+                                    MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = if (isDownloaded)
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                else
+                                    MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                }
+            } else {
                 item {
                     // Actions section - only shown in local mode
                     Column(
@@ -901,7 +890,6 @@ fun SongInfoBottomSheet(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            // Edit button
                             if (onEditSong != null) {
                                 RhythmDetailActionButton(
                                     onClick = {
@@ -920,7 +908,6 @@ fun SongInfoBottomSheet(
                                 )
                             }
 
-                            // Block Song
                             RhythmDetailActionButton(
                                 onClick = {
                                     HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
@@ -945,7 +932,6 @@ fun SongInfoBottomSheet(
                                     MaterialTheme.colorScheme.onSecondaryContainer
                             )
 
-                            // Block Folder
                             if (folderPath != null) {
                                 RhythmDetailActionButton(
                                     onClick = {
@@ -976,146 +962,36 @@ fun SongInfoBottomSheet(
                 }
             }
             
-            // item {
-            //     // Action buttons (Bottom Row)
-            //     Row(
-            //         modifier = Modifier.fillMaxWidth(),
-            //         horizontalArrangement = Arrangement.spacedBy(8.dp)
-            //     ) {
-            //         // Share Song Info
-            //         FilledTonalButton(
-            //             onClick = {
-            //                 HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-            //                 val shareIntent = Intent().apply {
-            //                     action = Intent.ACTION_SEND
-            //                     putExtra(Intent.EXTRA_TEXT, "Now playing: ${song.title} by ${song.artist}")
-            //                     type = "text/plain"
-            //                 }
-            //                 context.startActivity(Intent.createChooser(shareIntent, "Share song"))
-            //             },
-            //             modifier = Modifier.weight(1f),
-            //             colors = ButtonDefaults.filledTonalButtonColors(
-            //                 containerColor = MaterialTheme.colorScheme.primaryContainer
-            //             )
-            //         ) {
-            //             Icon(
-            //                 imageVector = RhythmIcons.Share,
-            //                 contentDescription = null,
-            //                 modifier = Modifier.size(16.dp)
-            //             )
-            //             Spacer(modifier = Modifier.width(8.dp))
-            //             Text("Share Info")
-            //         }
-                    
-            //         // Share Original File
-            //         FilledTonalButton(
-            //             onClick = {
-            //                 HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-            //                 try {
-            //                     val shareIntent = Intent().apply {
-            //                         action = Intent.ACTION_SEND
-            //                         type = "audio/*"
-            //                         putExtra(Intent.EXTRA_STREAM, song.uri)
-            //                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            //                     }
-            //                     context.startActivity(Intent.createChooser(shareIntent, "Share original file"))
-            //                 } catch (e: Exception) {
-            //                     Toast.makeText(context, "Unable to share file", Toast.LENGTH_SHORT).show()
-            //                 }
-            //             },
-            //             modifier = Modifier.weight(1f),
-            //             colors = ButtonDefaults.filledTonalButtonColors(
-            //                 containerColor = MaterialTheme.colorScheme.secondaryContainer
-            //             )
-            //         ) {
-            //             Icon(
-            //                 imageVector = MaterialSymbolIcon("audio_file", filled = true),
-            //                 contentDescription = null,
-            //                 modifier = Modifier.size(16.dp)
-            //             )
-            //             Spacer(modifier = Modifier.width(8.dp))
-            //             Text("Share File")
-            //         }
-                    
-            //         // Open in external player
-            //         FilledTonalButton(
-            //             onClick = {
-            //                 HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-            //                 val intent = Intent().apply {
-            //                     action = Intent.ACTION_VIEW
-            //                     setDataAndType(song.uri, "audio/*")
-            //                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            //                 }
-            //                 try {
-            //                     context.startActivity(intent)
-            //                 } catch (_: Exception) {
-            //                     Toast.makeText(context, "No app found to open file", Toast.LENGTH_SHORT).show()
-            //                 }
-            //             },
-            //             modifier = Modifier.weight(1f),
-            //             colors = ButtonDefaults.filledTonalButtonColors(
-            //                 containerColor = MaterialTheme.colorScheme.tertiaryContainer
-            //             )
-            //         ) {
-            //             Icon(
-            //                 imageVector = RhythmIcons.Play,
-            //                 contentDescription = null,
-            //                 modifier = Modifier.size(16.dp)
-            //             )
-            //             Spacer(modifier = Modifier.width(8.dp))
-            //             Text("Open")
-            //         }
-            //     }
-            // }
-
             item {
-                // Song Info card
-                AnimatedVisibility(
-                    visible = showContent,
-                    enter = fadeIn() + slideInVertically { it },
-                    exit = fadeOut() + slideOutVertically { it }
-                ) {
-                    SongInfoCard(
-                        song = displaySong,
-                        extendedInfo = extendedInfo,
-                        useHoursFormat = useHoursFormat
-                    )
-                }
+                SongInfoCard(
+                    song = displaySong,
+                    extendedInfo = extendedInfo,
+                    useHoursFormat = useHoursFormat,
+                    isLoading = isLoadingMetadata
+                )
             }
 
             item {
-                // Rhythm Stats card
-                AnimatedVisibility(
-                    visible = showContent,
-                    enter = fadeIn() + slideInVertically { it },
-                    exit = fadeOut() + slideOutVertically { it }
-                ) {
-                    RhythmStatsCard(
-                        songPlaybackStats = songPlaybackStats,
-                        songRating = songRating,
-                        useHoursFormat = useHoursFormat
-                    )
-                }
+                RhythmStatsCard(
+                    songPlaybackStats = songPlaybackStats,
+                    useHoursFormat = useHoursFormat,
+                    isLoading = isLoadingStats
+                )
             }
 
             item {
-                // File Info card
-                AnimatedVisibility(
-                    visible = showContent,
-                    enter = fadeIn() + slideInVertically { it },
-                    exit = fadeOut() + slideOutVertically { it }
-                ) {
-                    FileInfoCard(
-                        song = displaySong,
-                        extendedInfo = extendedInfo,
-                        folderPath = folderPath
-                    )
-                }
+                FileInfoCard(
+                    song = displaySong,
+                    extendedInfo = extendedInfo,
+                    folderPath = folderPath,
+                    isLoading = isLoadingMetadata
+                )
+            }
             }
         }
+    }
         
-        // Show Edit Sheet
-        if (showEditSheet) {
+    if (showEditSheet) {
             EditSongSheet(
                 song = currentSong ?: song,
                 extendedInfo = extendedInfo,
@@ -1163,114 +1039,141 @@ fun SongInfoBottomSheet(
     }
 }
 
-@Composable
-private fun SongInfoCard(
-    song: Song,
-    extendedInfo: ExtendedSongInfo?,
-    useHoursFormat: Boolean = false
-) {
-    val context = LocalContext.current
-    val songInfoItems = buildList {
-        // Basic song info
-        add(MetadataItem(context.getString(R.string.metadata_duration), formatDuration(song.duration, useHoursFormat), RhythmIcons.AccessTime))
-
-        // Track info (prefer extended info if available)
-        val trackNum = if (song.trackNumber > 0) song.trackNumber else 0
-        val discNum = (extendedInfo?.discNumber ?: 0).takeIf { it > 0 }
-            ?: song.discNumber.takeIf { it > 0 }
-            ?: 0
-        if (discNum > 0) {
-            add(MetadataItem(context.getString(R.string.metadata_disc), discNum.toString(), RhythmIcons.AlbumFilled))
-        }
-        if (trackNum > 0) {
-            add(MetadataItem(context.getString(R.string.metadata_track), trackNum.toString(), RhythmIcons.FormatListNumbered))
-        }
-
-        // Year (prefer song data, fallback to extended info)
-        val yearValue = if (song.year > 0) song.year else extendedInfo?.year ?: 0
-        if (yearValue > 0) {
-            add(MetadataItem(context.getString(R.string.metadata_year), yearValue.toString(), RhythmIcons.DateRange))
-        }
-
-        // Genre (prefer song data, fallback to extended info)
-        val genreValue = if (!song.genre.isNullOrEmpty()) song.genre else extendedInfo?.genre
-        if (!genreValue.isNullOrEmpty()) {
-            add(MetadataItem(context.getString(R.string.metadata_genre), genreValue.trim(), RhythmIcons.Category))
-        }
-
-        // Album
-        if (!song.album.isNullOrEmpty()) {
-            add(MetadataItem(context.getString(R.string.metadata_album), song.album, RhythmIcons.AlbumFilled))
-        }
-
-        // Composer (moved from FileInfoCard)
-        extendedInfo?.let { info ->
-            if (info.composer.isNotEmpty() && info.composer != song.artist) {
-                add(MetadataItem(context.getString(R.string.metadata_composer), info.composer, MaterialSymbolIcon("edit_note", filled = true)))
-            }
-            if (info.albumArtist.isNotEmpty() && info.albumArtist != song.artist) {
-                add(MetadataItem(context.getString(R.string.metadata_album_artist), info.albumArtist, RhythmIcons.ArtistFilled))
+private fun computeGridCellInfo(
+    itemCount: Int,
+    isFullWidth: (Int) -> Boolean
+): Pair<List<Pair<Int, Int>>, Int> {
+    val cells = mutableListOf<Pair<Int, Int>>()
+    var row = 0
+    var col = 0
+    for (i in 0 until itemCount) {
+        if (isFullWidth(i)) {
+            cells.add(Pair(row, 2))
+            row++
+            col = 0
+        } else {
+            cells.add(Pair(row, col))
+            col++
+            if (col == 2) {
+                col = 0
+                row++
             }
         }
     }
+    val totalRows = if (col > 0) row + 1 else row
+    return Pair(cells, totalRows)
+}
 
-    if (songInfoItems.isNotEmpty()) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+private fun connectedGridItemShape(row: Int, col: Int, totalRows: Int): RoundedCornerShape {
+    val isFirstRow = row == 0
+    val isLastRow = row == totalRows - 1
+    return when {
+        col == 2 -> when {
+            isFirstRow && isLastRow -> RoundedCornerShape(24.dp)
+            isFirstRow -> RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 8.dp)
+            isLastRow -> RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
+            else -> RoundedCornerShape(8.dp)
+        }
+        col == 0 -> when {
+            isFirstRow && isLastRow -> RoundedCornerShape(topStart = 24.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 8.dp)
+            isFirstRow -> RoundedCornerShape(topStart = 24.dp, topEnd = 8.dp, bottomStart = 8.dp, bottomEnd = 8.dp)
+            isLastRow -> RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 8.dp)
+            else -> RoundedCornerShape(8.dp)
+        }
+        else -> when {
+            isFirstRow && isLastRow -> RoundedCornerShape(topStart = 8.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 24.dp)
+            isFirstRow -> RoundedCornerShape(topStart = 8.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 8.dp)
+            isLastRow -> RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 8.dp, bottomEnd = 24.dp)
+            else -> RoundedCornerShape(8.dp)
+        }
+    }
+}
+
+@Composable
+private fun MetadataSection(
+    title: String,
+    icon: MaterialSymbolIcon,
+    isLoading: Boolean,
+    tint: Color = MaterialTheme.colorScheme.primary,
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(20.dp)
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(96.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = RhythmIcons.Info,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = context.getString(R.string.cd_song_info),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                ContentLoadingIndicator()
+            }
+        } else {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun MetadataGridCard(
+    title: String,
+    icon: MaterialSymbolIcon,
+    items: List<MetadataItem>,
+    isLoading: Boolean,
+    tint: Color = MaterialTheme.colorScheme.primary,
+    tintContainer: Color = MaterialTheme.colorScheme.primaryContainer
+) {
+    val visibleItems = items.filter { it.value.isNotBlank() && !it.value.equals("Unknown", ignoreCase = true) }
+    if (isLoading || visibleItems.isNotEmpty()) {
+        MetadataSection(
+            title = title,
+            icon = icon,
+            isLoading = isLoading,
+            tint = tint
+        ) {
+            if (visibleItems.isNotEmpty()) {
+                val regularCount = visibleItems.count { !it.isWide }
+                val lastRegularIndex = visibleItems.indexOfLast { !it.isWide }
+                val isFullWidth: (Int) -> Boolean = { index ->
+                    visibleItems[index].isWide ||
+                        (index == lastRegularIndex && regularCount % 2 == 1)
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
+                val (cells, totalRows) = computeGridCellInfo(visibleItems.size, isFullWidth)
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    userScrollEnabled = false,
                     modifier = Modifier.height(
-                        songInfoItems.count { it.label == "Album" || it.label == "Composer" || it.label == "Album Artist" }.let { wideCount ->
-                            val regularCount = songInfoItems.size - wideCount
-                            val regularRows = (regularCount + 1) / 2 // Ceiling division
-                            (wideCount + regularRows) * 80
-                        }.dp
+                        MusicDimensions.infoTileHeight * totalRows.coerceAtLeast(1) +
+                            4.dp * (totalRows.coerceAtLeast(1) - 1)
                     )
                 ) {
                     itemsIndexed(
-                        items = songInfoItems,
-                        span = { index, item -> 
-                            when {
-                                item.label == "Album" || item.label == "Composer" || item.label == "Album Artist" -> GridItemSpan(2)
-                                else -> {
-                                    val regularItems = songInfoItems.filter { it.label != "Album" && it.label != "Composer" && it.label != "Album Artist" }
-                                    val itemIndexInRegular = regularItems.indexOf(item)
-                                    if (itemIndexInRegular == regularItems.lastIndex && regularItems.size % 2 == 1) GridItemSpan(2) else GridItemSpan(1)
-                                }
-                            }
-                        }
+                        items = visibleItems,
+                        span = { index, _ -> if (isFullWidth(index)) GridItemSpan(2) else GridItemSpan(1) }
                     ) { index, item ->
                         AnimatedVisibility(
                             visible = true,
@@ -1287,7 +1190,13 @@ private fun SongInfoCard(
                                 initialOffsetY = { it / 5 }
                             )
                         ) {
-                            SongInfoGridItem(item = item)
+                            val (row, col) = cells[index]
+                            InfoGridItem(
+                                item = item,
+                                shape = connectedGridItemShape(row, col, totalRows),
+                                tint = tint,
+                                tintContainer = tintContainer
+                            )
                         }
                     }
                 }
@@ -1297,14 +1206,68 @@ private fun SongInfoCard(
 }
 
 @Composable
+private fun SongInfoCard(
+    song: Song,
+    extendedInfo: ExtendedSongInfo?,
+    useHoursFormat: Boolean = false,
+    isLoading: Boolean = false
+) {
+    val context = LocalContext.current
+    val songInfoItems = buildList {
+        add(MetadataItem(context.getString(R.string.metadata_duration), formatDuration(song.duration, useHoursFormat), RhythmIcons.AccessTime))
+
+        val rawTrack = song.trackNumber
+        val trackNum = if (rawTrack >= 1000) rawTrack % 1000 else if (rawTrack > 0) rawTrack else 0
+        val discNum = if (rawTrack >= 1000) rawTrack / 1000 else ((extendedInfo?.discNumber ?: 0).takeIf { it > 0 } ?: song.discNumber.takeIf { it > 0 } ?: 0)
+        if (discNum > 0) {
+            add(MetadataItem(context.getString(R.string.metadata_disc), discNum.toString(), RhythmIcons.AlbumFilled))
+        }
+        if (trackNum > 0) {
+            add(MetadataItem(context.getString(R.string.metadata_track), trackNum.toString(), RhythmIcons.FormatListNumbered))
+        }
+
+        val yearValue = if (song.year > 0) song.year else extendedInfo?.year ?: 0
+        if (yearValue > 0) {
+            add(MetadataItem(context.getString(R.string.metadata_year), yearValue.toString(), RhythmIcons.DateRange))
+        }
+
+        val genreValue = if (!song.genre.isNullOrEmpty()) song.genre else extendedInfo?.genre
+        if (!genreValue.isNullOrEmpty()) {
+            add(MetadataItem(context.getString(R.string.metadata_genre), genreValue.trim(), RhythmIcons.Category))
+        }
+
+        if (!song.album.isNullOrEmpty()) {
+            add(MetadataItem(context.getString(R.string.metadata_album), song.album, RhythmIcons.AlbumFilled, isWide = true))
+        }
+
+        extendedInfo?.let { info ->
+            if (info.composer.isNotEmpty() && info.composer != song.artist) {
+                add(MetadataItem(context.getString(R.string.metadata_composer), info.composer, MaterialSymbolIcon("edit_note", filled = true), isWide = true))
+            }
+            if (info.albumArtist.isNotEmpty() && info.albumArtist != song.artist) {
+                add(MetadataItem(context.getString(R.string.metadata_album_artist), info.albumArtist, RhythmIcons.ArtistFilled, isWide = true))
+            }
+        }
+    }
+
+    MetadataGridCard(
+        title = context.getString(R.string.cd_song_info),
+        icon = RhythmIcons.Info,
+        items = songInfoItems,
+        isLoading = isLoading,
+        tint = MaterialTheme.colorScheme.primary,
+        tintContainer = MaterialTheme.colorScheme.primaryContainer
+    )
+}
+
+@Composable
 private fun RhythmStatsCard(
     songPlaybackStats: chromahub.rhythm.app.shared.data.repository.PlaybackStatsRepository.SongPlaybackSummary?,
-    songRating: Int,
-    useHoursFormat: Boolean = false
+    useHoursFormat: Boolean = false,
+    isLoading: Boolean = false
 ) {
     val context = LocalContext.current
     val rhythmStatsItems = buildList {
-        // Rhythm stats
         songPlaybackStats?.let { stats ->
             if (stats.playCount > 0) {
                 add(MetadataItem(context.getString(R.string.metadata_play_count), stats.playCount.toString(), RhythmIcons.Play))
@@ -1313,90 +1276,28 @@ private fun RhythmStatsCard(
                 add(MetadataItem(context.getString(R.string.metadata_total_played), formatDuration(stats.totalDurationMs, useHoursFormat), RhythmIcons.AccessTime))
             }
         }
-
-        // Star rating
-        if (songRating > 0) {
-            add(MetadataItem(context.getString(R.string.metadata_rating), "${songRating}★", MaterialSymbolIcon("star", filled = true)))
-        }
     }
 
-    if (rhythmStatsItems.isNotEmpty()) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = RhythmIcons.BarChart,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = context.getString(R.string.rhythm_stats),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.height(((rhythmStatsItems.size / 2 + rhythmStatsItems.size % 2) * 80).dp)
-                ) {
-                    itemsIndexed(
-                        items = rhythmStatsItems,
-                        span = { index, item -> if (index == rhythmStatsItems.lastIndex && rhythmStatsItems.size % 2 == 1) GridItemSpan(2) else GridItemSpan(1) }
-                    ) { index, item ->
-                        AnimatedVisibility(
-                            visible = true,
-                            enter = fadeIn(
-                                animationSpec = tween(
-                                    durationMillis = 500,
-                                    delayMillis = 400 + (index * 100)
-                                )
-                            ) + slideInVertically(
-                                animationSpec = tween(
-                                    durationMillis = 500,
-                                    delayMillis = 400 + (index * 100)
-                                ),
-                                initialOffsetY = { it / 5 }
-                            )
-                        ) {
-                            RhythmStatsGridItem(item = item)
-                        }
-                    }
-                }
-            }
-        }
-    }
+    MetadataGridCard(
+        title = context.getString(R.string.rhythm_stats),
+        icon = RhythmIcons.BarChart,
+        items = rhythmStatsItems,
+        isLoading = isLoading,
+        tint = MaterialTheme.colorScheme.secondary,
+        tintContainer = MaterialTheme.colorScheme.secondaryContainer
+    )
 }
 
 @Composable
 private fun FileInfoCard(
     song: Song,
     extendedInfo: ExtendedSongInfo?,
-    folderPath: String?
+    folderPath: String?,
+    isLoading: Boolean = false
 ) {
     val context = LocalContext.current
     val fileInfoItems = buildList {
         extendedInfo?.let { info ->
-            // Enhanced Audio Quality Badge - show detailed quality type
             if (info.qualityLabel != "Unknown" && info.qualityLabel.isNotEmpty()) {
                 val qualityIcon: Any = when {
                     info.isDolby -> R.drawable.ic_dolby
@@ -1415,7 +1316,6 @@ private fun FileInfoCard(
                 add(MetadataItem(context.getString(R.string.metadata_quality), localizedLabel, qualityIcon))
             }
 
-            // Legacy quality badges for backward compatibility (only if not covered by qualityLabel)
             if (info.qualityLabel == "Unknown") {
                 if (info.isLossless) {
                     add(MetadataItem(context.getString(R.string.metadata_quality), "Lossless", R.drawable.ic_cd))
@@ -1431,7 +1331,6 @@ private fun FileInfoCard(
                 }
             }
 
-            // Audio quality info
             if (info.bitDepth > 0) {
                 add(MetadataItem(context.getString(R.string.metadata_bit_depth), "${info.bitDepth}-bit", MaterialSymbolIcon("high_quality", filled = true)))
             }
@@ -1450,12 +1349,10 @@ private fun FileInfoCard(
                 add(MetadataItem(context.getString(R.string.metadata_format), info.format, RhythmIcons.MusicNote))
             }
 
-            // File info
             folderPath?.let {
-                add(MetadataItem(context.getString(R.string.metadata_location), it, RhythmIcons.FolderOpen))
+                add(MetadataItem(context.getString(R.string.metadata_location), it, RhythmIcons.FolderOpen, isWide = true))
             }
 
-            // Additional metadata (non-duplicating)
             if (info.hasLyrics) {
                 add(MetadataItem(context.getString(R.string.metadata_lyrics), context.getString(R.string.metadata_lyrics_available), MaterialSymbolIcon("lyrics", filled = true)))
             }
@@ -1463,7 +1360,6 @@ private fun FileInfoCard(
                 add(MetadataItem(context.getString(R.string.metadata_mime_type), info.mimeType.substringAfter("/").uppercase(), RhythmIcons.Code))
             }
 
-            // Date info
             if (info.dateAdded > 0) {
                 add(MetadataItem(context.getString(R.string.metadata_date_added), formatDate(context, info.dateAdded), RhythmIcons.Add))
             }
@@ -1473,298 +1369,94 @@ private fun FileInfoCard(
         }
     }
 
-    if (fileInfoItems.isNotEmpty()) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = RhythmIcons.Folder,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.tertiary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = context.getString(R.string.file_info),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.height(
-                        fileInfoItems.count { it.label == "Location" }.let { wideCount ->
-                            val regularCount = fileInfoItems.size - wideCount
-                            val regularRows = (regularCount + 1) / 2 // Ceiling division
-                            (wideCount + regularRows) * 80
-                        }.dp
-                    )
-                ) {
-                    itemsIndexed(
-                        items = fileInfoItems,
-                        span = { index, item -> 
-                            when {
-                                item.label == "Location" -> GridItemSpan(2)
-                                else -> {
-                                    val regularItems = fileInfoItems.filter { it.label != "Location" }
-                                    val itemIndexInRegular = regularItems.indexOf(item)
-                                    if (itemIndexInRegular == regularItems.lastIndex && regularItems.size % 2 == 1) GridItemSpan(2) else GridItemSpan(1)
-                                }
-                            }
-                        }
-                    ) { index, item ->
-                        AnimatedVisibility(
-                            visible = true,
-                            enter = fadeIn(
-                                animationSpec = tween(
-                                    durationMillis = 500,
-                                    delayMillis = 400 + (index * 100)
-                                )
-                            ) + slideInVertically(
-                                animationSpec = tween(
-                                    durationMillis = 500,
-                                    delayMillis = 400 + (index * 100)
-                                ),
-                                initialOffsetY = { it / 5 }
-                            )
-                        ) {
-                            FileInfoGridItem(item = item)
-                        }
-                    }
-                }
-            }
-        }
-    }
+    MetadataGridCard(
+        title = context.getString(R.string.file_info),
+        icon = RhythmIcons.Folder,
+        items = fileInfoItems,
+        isLoading = isLoading,
+        tint = MaterialTheme.colorScheme.tertiary,
+        tintContainer = MaterialTheme.colorScheme.tertiaryContainer
+    )
 }
 
 @Composable
-private fun SongInfoGridItem(
-    item: MetadataItem
+private fun InfoGridItem(
+    item: MetadataItem,
+    shape: RoundedCornerShape,
+    tint: Color = MaterialTheme.colorScheme.primary,
+    tintContainer: Color = MaterialTheme.colorScheme.primaryContainer
 ) {
-    val context = LocalContext.current
+    val tileColor = lerp(
+        MaterialTheme.colorScheme.surfaceContainer,
+        tintContainer,
+        0.35f
+    )
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(68.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+            .height(MusicDimensions.infoTileHeight)
+            .clip(shape),
+        shape = shape,
+        color = tileColor
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                when (val icon = item.icon) {
-                    is MaterialSymbolIcon -> {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                    is Int -> {
-                        Icon(
-                            painter = painterResource(id = icon),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-                Text(
-                    text = item.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            if (item.label in listOf("Album", "Composer", "Album Artist")) {
-                Text(
-                    text = item.value,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    maxLines = 1,
+        Box(modifier = Modifier.fillMaxSize()) {
+            when (val icon = item.icon) {
+                is MaterialSymbolIcon -> Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = tint.copy(alpha = MusicDimensions.infoTileWatermarkAlpha),
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .rhythmMarquee()
+                        .align(Alignment.BottomEnd)
+                        .offset(
+                            x = MusicDimensions.infoTileBackdropCut,
+                            y = MusicDimensions.infoTileBackdropCut
+                        )
+                        .size(MusicDimensions.infoTileIconSize)
                 )
-            } else {
-                Text(
-                    text = item.value,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                is Int -> Icon(
+                    painter = painterResource(id = icon),
+                    contentDescription = null,
+                    tint = tint.copy(alpha = MusicDimensions.infoTileWatermarkAlpha),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(
+                            x = MusicDimensions.infoTileBackdropCut,
+                            y = MusicDimensions.infoTileBackdropCut
+                        )
+                        .size(MusicDimensions.infoTileIconSize)
                 )
             }
-        }
-    }
-}
 
-@Composable
-private fun RhythmStatsGridItem(
-    item: MetadataItem
-) {
-    val context = LocalContext.current
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(68.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                when (val icon = item.icon) {
-                    is MaterialSymbolIcon -> {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                    is Int -> {
-                        Icon(
-                            painter = painterResource(id = icon),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-                Text(
-                    text = item.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            MarqueeText(
+                text = item.value,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    fontSize = 18.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                ),
+                gradientEdgeColor = tileColor,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(
+                        start = MusicDimensions.infoTileInset,
+                        end = MusicDimensions.infoTileInset,
+                        bottom = MusicDimensions.infoTileInset
+                    )
+            )
 
             Text(
-                text = item.value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.SemiBold,
+                text = item.label,
+                style = MaterialTheme.typography.titleSmall.copy(
+                    color = tint,
+                    fontWeight = FontWeight.Bold
+                ),
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = MusicDimensions.infoTileInset, start = MusicDimensions.infoTileInset)
             )
-        }
-    }
-}
-
-@Composable
-private fun FileInfoGridItem(
-    item: MetadataItem
-) {
-    val context = LocalContext.current
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(68.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                when (val icon = item.icon) {
-                    is MaterialSymbolIcon -> {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                    is Int -> {
-                        Icon(
-                            painter = painterResource(id = icon),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.tertiary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-                Text(
-                    text = item.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            if (item.label in listOf("Location")) {
-                Text(
-                    text = item.value,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    maxLines = 1,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .rhythmMarquee()
-                )
-            } else {
-                Text(
-                    text = item.value,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
         }
     }
 }
@@ -1793,33 +1485,35 @@ private fun EditSongSheet(
     songArtShape: androidx.compose.ui.graphics.Shape
 ) {
     val context = LocalContext.current
-    val configuration = LocalConfiguration.current
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
     
-    // Detect tablet mode
-    val isTablet = configuration.screenWidthDp >= 600
-    val isLandscapeTablet = isTablet && configuration.screenWidthDp > configuration.screenHeightDp
+    val isTablet = windowScreenWidthDp() >= 600
+    val isLandscapeTablet = isTablet && windowScreenWidthDp() > windowScreenHeightDp()
     
-    // Store original values for undo functionality
+    val initYear = if (song.year > 0) song.year else (extendedInfo?.year ?: 0)
+    val initTrackRaw = song.trackNumber
+    val initTrack = if (initTrackRaw >= 1000) initTrackRaw % 1000 else initTrackRaw
+    val initDisc = if (initTrackRaw >= 1000) initTrackRaw / 1000 else if (song.discNumber > 0) song.discNumber else (extendedInfo?.discNumber ?: 1)
+
     val originalTitle by remember(song.id) { mutableStateOf(song.title) }
     val originalArtist by remember(song.id) { mutableStateOf(song.artist) }
     val originalAlbum by remember(song.id) { mutableStateOf(song.album) }
-    val originalGenre by remember(song.id) { mutableStateOf(song.genre ?: "") }
-    val originalYear by remember(song.id) { mutableStateOf(if (song.year > 0) song.year.toString() else "") }
-    val originalTrackNumber by remember(song.id) { mutableStateOf(if (song.trackNumber > 0) song.trackNumber.toString() else "") }
+    val originalGenre by remember(song.id) { mutableStateOf(song.genre ?: extendedInfo?.genre ?: "") }
+    val originalYear by remember(song.id) { mutableStateOf(if (initYear > 0) initYear.toString() else "") }
+    val originalTrackNumber by remember(song.id) { mutableStateOf(if (initTrack > 0) initTrack.toString() else "") }
     val originalAlbumArtist by remember(song.id) { mutableStateOf(song.albumArtist ?: extendedInfo?.albumArtist ?: "") }
     val originalComposer by remember(song.id) { mutableStateOf(extendedInfo?.composer ?: "") }
-    val originalDiscNumber by remember(song.id) { mutableStateOf(if (song.discNumber > 0) song.discNumber.toString() else if ((extendedInfo?.discNumber ?: 0) > 0) extendedInfo!!.discNumber.toString() else "1") }
+    val originalDiscNumber by remember(song.id) { mutableStateOf(if (initDisc > 0) initDisc.toString() else "1") }
     
     var title by remember(song.id) { mutableStateOf(song.title) }
     var artist by remember(song.id) { mutableStateOf(song.artist) }
     var album by remember(song.id) { mutableStateOf(song.album) }
-    var genre by remember(song.id) { mutableStateOf(song.genre ?: "") }
-    var year by remember(song.id) { mutableStateOf(if (song.year > 0) song.year.toString() else "") }
-    var trackNumber by remember(song.id) { mutableStateOf(if (song.trackNumber > 0) song.trackNumber.toString() else "") }
+    var genre by remember(song.id) { mutableStateOf(song.genre ?: extendedInfo?.genre ?: "") }
+    var year by remember(song.id) { mutableStateOf(if (initYear > 0) initYear.toString() else "") }
+    var trackNumber by remember(song.id) { mutableStateOf(if (initTrack > 0) initTrack.toString() else "") }
     var albumArtist by remember(song.id) { mutableStateOf(song.albumArtist ?: extendedInfo?.albumArtist ?: "") }
     var composer by remember(song.id) { mutableStateOf(extendedInfo?.composer ?: "") }
-    var discNumber by remember(song.id) { mutableStateOf(if (song.discNumber > 0) song.discNumber.toString() else if ((extendedInfo?.discNumber ?: 0) > 0) extendedInfo!!.discNumber.toString() else "1") }
+    var discNumber by remember(song.id) { mutableStateOf(if (initDisc > 0) initDisc.toString() else "1") }
     var selectedImageUri by remember(song.id) { mutableStateOf<Uri?>(null) }
     var removeArtwork by remember(song.id) { mutableStateOf(false) }
     val haptics = LocalHapticFeedback.current
@@ -1827,15 +1521,8 @@ private fun EditSongSheet(
     var isSaving by remember { mutableStateOf(false) }
     var isFetchingOnlineArt by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
-    var showContent by remember { mutableStateOf(false) }
     var resolvedSongArtworkUri by remember(song.id, song.artworkUri, song.uri) {
         mutableStateOf(song.artworkUri)
-    }
-    
-    // Animation effect
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(50)
-        showContent = true
     }
 
     LaunchedEffect(song.id, song.artworkUri, song.uri) {
@@ -1844,7 +1531,6 @@ private fun EditSongSheet(
         }
     }
     
-    // Function to reset all fields to original values
     val resetToOriginal = {
         title = originalTitle
         artist = originalArtist
@@ -1860,15 +1546,13 @@ private fun EditSongSheet(
         HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
     }
     
-    // Helper function to proceed with save after permissions are granted
     val proceedWithSave = { 
         val yearInt = year.toIntOrNull() ?: 0
         val trackInt = trackNumber.toIntOrNull() ?: 0
         val discInt = discNumber.toIntOrNull() ?: 1
         
         isSaving = true
-        // Pass metadata with artwork intent to the save callback
-        onSave(
+            onSave(
             title.trim(),
             artist.trim(),
             album.trim(),
@@ -1888,7 +1572,6 @@ private fun EditSongSheet(
         }
     }
 
-    // Permission launchers for different scenarios
     val storagePermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -1904,7 +1587,6 @@ private fun EditSongSheet(
         }
     }
     
-    // Multiple permissions launcher for Android 13+
     val multiplePermissionsLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -1921,7 +1603,6 @@ private fun EditSongSheet(
         }
     }
     
-    // Image picker launcher
     val imagePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
@@ -1957,7 +1638,6 @@ private fun EditSongSheet(
         }
     }
     
-    // Function to handle save with permission checks
     fun handleSave() {
         if (isSaving) return
         HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
@@ -2010,7 +1690,6 @@ private fun EditSongSheet(
     }
 
     if (isLandscapeTablet) {
-        // Tablet layout: Dialog with side-by-side layout
         Dialog(
             onDismissRequest = onDismiss,
             properties = DialogProperties(
@@ -2040,7 +1719,6 @@ private fun EditSongSheet(
                         )
                 ) {
                     Row(modifier = Modifier.fillMaxSize()) {
-                        // Left side: Artwork editing
                         Surface(
                             modifier = Modifier
                                 .weight(0.4f)
@@ -2054,7 +1732,6 @@ private fun EditSongSheet(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
-                                // Artwork display
                                 Box(
                                     modifier = Modifier
                                         .size(220.dp)
@@ -2079,7 +1756,6 @@ private fun EditSongSheet(
                                         contentScale = ContentScale.Crop
                                     )
 
-                                    // Change artwork button in top corner
                                     IconButton(
                                         onClick = {
                                             imagePickerLauncher.launch("image/*")
@@ -2122,7 +1798,6 @@ private fun EditSongSheet(
                             }
                         }
 
-                        // Right side: Form fields
                         Surface(
                             modifier = Modifier
                                 .weight(0.6f)
@@ -2130,7 +1805,6 @@ private fun EditSongSheet(
                             color = Color.Transparent
                         ) {
                             Column(modifier = Modifier.fillMaxSize()) {
-                                // Header with close button
                                 Surface(
                                     modifier = Modifier.fillMaxWidth(),
                                     color = Color.Transparent
@@ -2150,21 +1824,12 @@ private fun EditSongSheet(
                                             modifier = Modifier.weight(1f)
                                         )
 
-                                        // Close button
-                                        IconButton(
-                                            onClick = onDismiss,
-                                            modifier = Modifier.size(44.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = RhythmIcons.Close,
-                                                contentDescription = stringResource(R.string.ui_close),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
+                                        AdaptiveSheetCloseButton(
+                                            onClick = onDismiss
+                                        )
                                     }
                                 }
 
-                                // Form fields
                                 Surface(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -2181,7 +1846,6 @@ private fun EditSongSheet(
                                             .verticalScroll(rememberScrollState()),
                                         verticalArrangement = Arrangement.spacedBy(16.dp)
                                     ) {
-                                        // Title field
                                         OutlinedTextField(
                                             value = title,
                                             onValueChange = { title = it },
@@ -2197,7 +1861,6 @@ private fun EditSongSheet(
                                             singleLine = true
                                         )
 
-                                        // Artist field
                                         OutlinedTextField(
                                             value = artist,
                                             onValueChange = { artist = it },
@@ -2213,7 +1876,6 @@ private fun EditSongSheet(
                                             singleLine = true
                                         )
 
-                                        // Album field
                                         OutlinedTextField(
                                             value = album,
                                             onValueChange = { album = it },
@@ -2229,11 +1891,10 @@ private fun EditSongSheet(
                                             singleLine = true
                                         )
 
-                                        // Album Artist field
                                         OutlinedTextField(
                                             value = albumArtist,
                                             onValueChange = { albumArtist = it },
-                                            label = { Text("Album Artist") },
+                                            label = { Text(stringResource(R.string.metadata_album_artist)) },
                                             leadingIcon = {
                                                 Icon(
                                                     imageVector = RhythmIcons.ArtistFilled,
@@ -2245,11 +1906,10 @@ private fun EditSongSheet(
                                             singleLine = true
                                         )
 
-                                        // Composer field
                                         OutlinedTextField(
                                             value = composer,
                                             onValueChange = { composer = it },
-                                            label = { Text("Composer") },
+                                            label = { Text(stringResource(R.string.metadata_composer)) },
                                             leadingIcon = {
                                                 Icon(
                                                     imageVector = RhythmIcons.Edit,
@@ -2261,7 +1921,6 @@ private fun EditSongSheet(
                                             singleLine = true
                                         )
 
-                                        // Genre field
                                         OutlinedTextField(
                                             value = genre,
                                             onValueChange = { genre = it },
@@ -2281,7 +1940,6 @@ private fun EditSongSheet(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
-                                            // Year field
                                             OutlinedTextField(
                                                 value = year,
                                                 onValueChange = { year = it },
@@ -2297,7 +1955,6 @@ private fun EditSongSheet(
                                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                             )
 
-                                            // Track number field
                                             OutlinedTextField(
                                                 value = trackNumber,
                                                 onValueChange = { trackNumber = it },
@@ -2313,11 +1970,10 @@ private fun EditSongSheet(
                                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                                             )
 
-                                            // Disc number field
                                             OutlinedTextField(
                                                 value = discNumber,
                                                 onValueChange = { discNumber = it },
-                                                label = { Text("Disc") },
+                                                label = { Text(stringResource(R.string.metadata_disc)) },
                                                 leadingIcon = {
                                                     Icon(
                                                         imageVector = RhythmIcons.FormatListNumbered,
@@ -2332,7 +1988,6 @@ private fun EditSongSheet(
 
                                         Spacer(modifier = Modifier.height(8.dp))
 
-                                        // Progress
                                         AnimatedVisibility(visible = isSaving) {
                                             Column(
                                                 modifier = Modifier
@@ -2357,12 +2012,10 @@ private fun EditSongSheet(
 
                                         Spacer(modifier = Modifier.height(8.dp))
 
-                                        // Action buttons
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
-                                            // Reset button
                                             OutlinedButton(
                                                 onClick = {
                                                     HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
@@ -2380,7 +2033,6 @@ private fun EditSongSheet(
                                                 Text(stringResource(R.string.ui_reset))
                                             }
 
-                                            // Cancel button
                                             OutlinedButton(
                                                 onClick = onDismiss,
                                                 modifier = Modifier.weight(1f),
@@ -2395,7 +2047,6 @@ private fun EditSongSheet(
                                                 Text(stringResource(R.string.ui_cancel))
                                             }
 
-                                            // Save button
                                             Button(
                                                 onClick = { handleSave() },
                                                 modifier = Modifier.weight(1f),
@@ -2509,7 +2160,6 @@ private fun EditSongSheet(
             }
         }
 
-        // Warning Dialog for tablet
         if (showWarningDialog) {
             AlertDialog(
                 onDismissRequest = { showWarningDialog = false },
@@ -2580,8 +2230,8 @@ private fun EditSongSheet(
             )
         }
     } else {
-        // Phone layout: Bottom sheet
-        ModalBottomSheet(
+        RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.TWO_PANE_DIALOG,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -2603,28 +2253,24 @@ private fun EditSongSheet(
             StandardBottomSheetHeader(
                 title = context.getString(R.string.edit_metadata),
                 subtitle = stringResource(R.string.songinfobottomsheet_update_artwork_and_tags),
-                visible = showContent
+                visible = true
             )
-
-            Spacer(modifier = Modifier.height(6.dp))
             
-            Box(
+            val editScrollState = rememberScrollState()
+
+            AdaptiveSheetScrollContainer(
+                scrollState = editScrollState,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-            ) {
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = showContent,
-                    enter = fadeIn() + slideInVertically { it },
-                    exit = fadeOut() + slideOutVertically { it },
-                    modifier = Modifier.fillMaxSize()
+            ) { endPadding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(end = endPadding)
+                        .verticalScroll(editScrollState),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
                     Spacer(modifier = Modifier.height(2.dp))
 
                     Surface(
@@ -2874,11 +2520,10 @@ private fun EditSongSheet(
                                 singleLine = true
                             )
 
-                            // Album Artist field
                             OutlinedTextField(
                                 value = albumArtist,
                                 onValueChange = { albumArtist = it },
-                                label = { Text("Album Artist") },
+                                label = { Text(stringResource(R.string.metadata_album_artist)) },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = RhythmIcons.ArtistFilled,
@@ -2890,11 +2535,10 @@ private fun EditSongSheet(
                                 singleLine = true
                             )
 
-                            // Composer field
                             OutlinedTextField(
                                 value = composer,
                                 onValueChange = { composer = it },
-                                label = { Text("Composer") },
+                                label = { Text(stringResource(R.string.metadata_composer)) },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = RhythmIcons.Edit,
@@ -2970,7 +2614,7 @@ private fun EditSongSheet(
                                             discNumber = input
                                         }
                                     },
-                                    label = { Text("Disc") },
+                                    label = { Text(stringResource(R.string.metadata_disc)) },
                                     leadingIcon = {
                                         Icon(
                                             imageVector = RhythmIcons.FormatListNumbered,
@@ -2984,11 +2628,9 @@ private fun EditSongSheet(
                             }
                         }
                     }
-                    }
                 }
             }
 
-            // Progress
             AnimatedVisibility(visible = isSaving) {
                 Column(
                     modifier = Modifier
@@ -3049,7 +2691,6 @@ private fun EditSongSheet(
         }
     }
     
-    // Warning Dialog for phone layout
     if (showWarningDialog) {
         AlertDialog(
             onDismissRequest = { showWarningDialog = false },
@@ -3122,30 +2763,30 @@ private fun EditSongSheet(
     }
 }
 
-// Data classes
 data class MetadataItem(
     val label: String,
     val value: String,
-    val icon: Any
+    val icon: Any,
+    val isWide: Boolean = false
 )
 
-// Helper functions
 private fun formatFileSize(bytes: Long): String {
     val kb = bytes / 1024.0
     val mb = kb / 1024.0
     val gb = mb / 1024.0
     
     return when {
-        gb >= 1 -> String.format("%.2f GB", gb)
-        mb >= 1 -> String.format("%.2f MB", mb)
-        kb >= 1 -> String.format("%.2f KB", kb)
+        gb >= 1 -> String.format(Locale.ROOT, "%.2f GB", gb)
+        mb >= 1 -> String.format(Locale.ROOT, "%.2f MB", mb)
+        kb >= 1 -> String.format(Locale.ROOT, "%.2f KB", kb)
         else -> "$bytes B"
     }
 }
 
 private fun formatDate(context: android.content.Context, timestamp: Long): String {
-    return if (timestamp > 0) {
-        val date = java.util.Date(timestamp)
+    val normalizedTimestamp = if (timestamp in 1..99_999_999_999L) timestamp * 1000L else timestamp
+    return if (normalizedTimestamp > 0) {
+        val date = java.util.Date(normalizedTimestamp)
         val formatter = java.text.SimpleDateFormat("MMM dd, yyyy", java.util.Locale.getDefault())
         formatter.format(date)
     } else {

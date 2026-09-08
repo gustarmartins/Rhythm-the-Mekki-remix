@@ -19,7 +19,7 @@ Complete guide to all features and capabilities in Rhythm Music Player.
 - Queue management with drag-and-drop reordering
 - Playback speed control
 - Sleep timer with fade-out
-- Auto-resume after restart or reboot
+- Restore queue and playback position after restart (Persist Queue)
 
 ---
 ## 🎨 Material You Design
@@ -36,6 +36,7 @@ Complete guide to all features and capabilities in Rhythm Music Player.
 - Edge-to-edge design with gesture navigation
 - Smooth animations and transitions
 - **Responsive layouts for phones, tablets, and foldables** — tablet-optimized multi-pane layout
+- **Posture-Aware Player**: The player adapts its layout to the device posture (tabletop, book, separated) on foldables
 - **Material Symbols**: Variable-weight icon font for crisp, scalable icons
 - Split-screen and multi-window support
 - Adaptive icons and dynamic shortcuts
@@ -80,16 +81,17 @@ Complete guide to all features and capabilities in Rhythm Music Player.
 ### Replay Gain
 - **Album Gain**: Maintains dynamic range within albums
 - **Track Gain**: Normalizes perceived loudness per song
-- **Configured in**: Settings → Audio → Replay Gain
+- **Configured in**: Settings → Queue & Playback → Playback → Replay Gain
 
 ### Crossfade
 - **Smooth Transitions**: Blends the end of one track into the start of the next
 - **Adjustable Duration**: 1–12 seconds
-- **Configured in**: Settings → Audio → Crossfade
+- **Configured in**: Settings → Queue & Playback → Playback → Crossfade
 
 ### Audio Effects
 - **Bass Boost**: Enhance low frequencies (0-1000)
 - **Virtualizer/Spatial Audio**: 3D sound effect
+- **Mono Audio**: Downmix stereo channels to a center mono channel for single-earpiece listening, with a dedicated device toggle
 - **Volume Normalization**: Consistent playback levels
 - **Audio Focus**: Automatic pause for calls and notifications
 
@@ -98,11 +100,13 @@ Complete guide to all features and capabilities in Rhythm Music Player.
 
 ### Smart Organization
 - **Songs**: All tracks with sorting and quality-based filtering
+- **Liked**: Your favorite (♥) tracks
+- **Playlists**: Custom and auto-generated playlists
 - **Albums**: Album-based browsing with artwork
 - **Artists**: Artist-based organization with album grouping
-- **Playlists**: Custom and auto-generated playlists
-- **Genres**: Genre-based categorization
-- **Folders**: File system browser
+- **Album Artists**: Grouping by album artist rather than track artist
+- **Dates**: Tracks organized by release date
+- **Explorer**: File system browser
 
 ### Quality-Based Filter Chips
 The Songs tab includes dynamic quality filter chips that appear only when matching tracks exist:
@@ -115,11 +119,10 @@ The Songs tab includes dynamic quality filter chips that appear only when matchi
 ### A–Z Scroll Bar
 - **Alphabetical Navigation**: Drag along letter strip to jump to songs, albums, or artists
 - **Auto-appears**: When library exceeds threshold
-- **Configured in**: Settings → Library → Scroll Bar
+- **Configured in**: Settings → Library & Media → Library Settings
 
 ### Search & Library Exploration
 - **Instant Search**: Real-time results across all categories
-- **Fuzzy Matching**: Find songs with approximate spelling
 - **Multi-Category Search**: Search songs, albums, artists simultaneously
 - **Recent Searches**: Quick access to previous searches
 - **Search Filters**: Filter by artist, album, or genre
@@ -138,8 +141,7 @@ The Songs tab includes dynamic quality filter chips that appear only when matchi
 - **Create/Edit/Delete**: Full playlist control
 - **Drag & Drop Reordering**: Visual song arrangement
 - **Multi-Select**: Batch add/remove operations
-- **Smart Playlists**: Recently Added, Most Played, Favorites
-- **Grid/List Views**: Switch between viewing modes
+- **Default Auto-Playlists**: Recently Added and Most Played
 - **Playlist Artwork**: Auto-generated from songs
 
 ### Import/Export
@@ -157,14 +159,14 @@ Rhythm includes a dedicated safety system to protect your hearing:
 - **Manual Protection**: User-configurable volume limits to prevent hearing damage.
 - **Safety Alerts**: Notifications when volume levels exceed safe thresholds.
 ---
-## 🌐 Streaming Mode
+## 🌐 Go Mode (Streaming)
 
-Beyond local playback, Rhythm supports a complete streaming ecosystem:
-- **Dual-Mode Architecture**: Seamlessly switch between Local and Streaming modes.
+Beyond local playback, Rhythm supports a complete streaming ecosystem through **Go Mode**:
+- **Dual-Mode Architecture**: Seamlessly switch between Local and Go (streaming) modes from onboarding or Settings.
 - **Server Integration**: Connect to external streaming servers (Subsonic, Navidrome, Jellyfin).
-- **Dedicated UI**: Specialized streaming library and player views.
+- **Shared UI**: Streaming browsing and playback reuse the same library and player screens as local mode.
 - **Nearby Server Discovery**: Automatically discover Subsonic-compatible servers on your local network — no manual address entry needed.
-- **Rhythm Go**: Download tracks from your streaming server for offline playback. Perfect for commuting, flights, or areas with limited connectivity. Downloaded tracks appear in a dedicated "Downloaded" section. Configure in Settings → Streaming → Rhythm Go.
+- **Rhythm Go Downloads**: Download tracks from your streaming server for offline playback. Perfect for commuting, flights, or areas with limited connectivity. Configure in Settings → Advanced → Experimental Features → Go Mode.
 ---
 ## 📊 Playback Statistics
 
@@ -175,24 +177,21 @@ Beyond local playback, Rhythm supports a complete streaming ecosystem:
 - **Albums**: Most played albums
 - **Artists**: Favorite artists ranking
 - **History**: Recent plays with timestamps
-- **Yearly Reset**: Stats reset at start of each year with summary notification
 - **Play Count**: Track listening frequency
 - **Total Playtime**: Accumulated listening hours
-- **Skip Rate**: Track skip statistics
 
 ### Listening Insights
 - Daily, weekly, monthly breakdowns
 - Genre distribution analysis
 - Peak listening times
 - Favorite artists ranking
-- Album completion rates
 
 ---
 
 ## 📱 Home Screen Widgets
 
 ### Glance Widgets (Modern)
-- **6 Responsive Layouts**: 2x1, 2x2, 3x2, 4x2, 3x3, 4x4
+- **4 Widgets**: Music, Cookie, Stats, and Lyrics widgets with adaptive responsive sizes
 - **Material 3 Design**: Dynamic colors and theming
 - **Real-time Updates**: Instant playback state sync
 - **Playback Controls**: Play/pause, skip controls
@@ -203,12 +202,6 @@ Beyond local playback, Rhythm supports a complete streaming ecosystem:
 - **Home Screen**: Display current track lyrics at a glance
 - **Real-time Updates**: Synced with playback position
 - **Compact Layout**: Minimal footprint while showing full text
-
-### Legacy Widgets
-- **7 RemoteViews Layouts**: Including 5x5 size
-- **Compatibility**: Works on all Android versions
-- **Battery Efficient**: Optimized background updates
-- **Theme Adaptive**: Matches system theme
 
 ---
 
@@ -237,8 +230,6 @@ Beyond local playback, Rhythm supports a complete streaming ecosystem:
 - **Deezer** — high-quality album artwork fetching
 - **YouTube Music** — additional artwork lookup
 - **LRCLib** — community synced lyrics database
-- Last.fm scrobbling
-- Discord Rich Presence
 
 ---
 
@@ -246,36 +237,27 @@ Beyond local playback, Rhythm supports a complete streaming ecosystem:
 
 ### Playback Settings
 - Audio focus behavior
-- Headphone auto-play
-- Bluetooth auto-resume
-- Resume on boot
+- Resume on device reconnect (headphones / Bluetooth)
 - Gapless playback toggle
-- Audio output selection
+- Crossfade options
 
 ### Library Settings
-- Media scan intervals
-- Blacklist/whitelist folders
-- Minimum duration filter
-- Auto-scan on startup
-- Storage location preferences
-- Cache management
+- Blacklist/whitelist folder modes
+- **Allowed Formats**: Include/exclude specific audio formats from the library (e.g., MP3, FLAC, OGG, M4A, Opus, MP4/MKV audio, Dolby, DSD)
+- Block or allow individual songs, clear all songs
+- Library tab order and Combine Discs options
+- Artwork source preferences
 
 ### Appearance Settings
 - Theme selection (Light/Dark/System)
 - Material You dynamic colors
 - Festive theme toggles
 - Font selection
-- Layout density
-- Animation speed
 - Home screen customization
 
 ### Advanced Features
 - Settings search
-- Backup & Restore
-- Auto-backup scheduling
-- Export app settings
-- Developer options
-- Debug logs
+- Backup & Restore with auto-backup scheduling
 - Crash log history
 
 ---
@@ -320,12 +302,10 @@ Beyond local playback, Rhythm supports a complete streaming ecosystem:
 ## 💾 Backup & Restore
 
 ### Backup Features
-- Full settings backup
+- Full settings backup (file or clipboard)
 - Playlist export
 - Custom EQ profiles
 - Auto-backup scheduling
-- Cloud storage compatible
-- Encrypted backups (optional)
 
 ### Restore Options
 - Settings restoration
@@ -363,10 +343,8 @@ Beyond local playback, Rhythm supports a complete streaming ecosystem:
 - Version tracking
 
 ### Maintenance Features
-- Cache clearing
-- Library optimization
-- Database cleanup
-- Temporary file removal
+- Cache size limits with auto-trim
+- Clear all cache or lyrics cache
 - Storage usage monitoring
 
 ---

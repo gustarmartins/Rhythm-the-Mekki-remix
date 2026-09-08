@@ -1,8 +1,18 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.streaming.data.provider
 
 import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
@@ -11,6 +21,7 @@ import org.json.JSONObject
 import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import androidx.core.content.edit
 
 class SubsonicErrorException(val code: Int, message: String) : Exception(message)
 
@@ -71,14 +82,14 @@ class SubsonicApiClient(context: Context) {
 
         return ping().map {
             if (saveCredentials) {
-                prefs.edit()
-                    .putString(KEY_SERVER_URL, normalizedUrl)
-                    .putString(KEY_USERNAME, username.trim())
-                    .putString(KEY_PASSWORD, password)
-                    .putBoolean(KEY_USE_PASSWORD_AUTH, usePasswordAuth)
-                    .apply()
+                prefs.edit {
+    putString(KEY_SERVER_URL, normalizedUrl)
+    putString(KEY_USERNAME, username.trim())
+    putString(KEY_PASSWORD, password)
+    putBoolean(KEY_USE_PASSWORD_AUTH, usePasswordAuth)
+}
             } else {
-                prefs.edit().clear().apply()
+                prefs.edit { clear() }
             }
             ProviderConnectionResult(displayName = username.trim(), serverUrl = normalizedUrl)
         }.onFailure {
@@ -89,7 +100,7 @@ class SubsonicApiClient(context: Context) {
     fun logout() {
         credentials = null
         usePasswordAuth = false
-        prefs.edit().clear().apply()
+        prefs.edit { clear() }
     }
 
     suspend fun ping(): Result<Boolean> {
@@ -239,16 +250,21 @@ class SubsonicApiClient(context: Context) {
         }
     }
 
-    suspend fun fetchLibrarySongs(limit: Int = 5_000): Result<List<ProviderSong>> {
+    suspend fun fetchLibrarySongs(
+        limit: Int = 5_000,
+        onProgress: ((current: Int, total: Int, songsCount: Int) -> Unit)? = null
+    ): Result<List<ProviderSong>> {
         if (!isConnected()) {
             return Result.failure(IllegalStateException("Subsonic service is not connected"))
         }
 
         return withContext(Dispatchers.IO) {
             try {
-                val albumBatchSize = 200
+                val albumBatchSize = 100
                 var albumOffset = 0
                 val songs = LinkedHashMap<String, ProviderSong>()
+                val semaphore = Semaphore(6)
+                var totalAlbumsProcessed = 0
 
                 while (songs.size < limit) {
                     val albumResult = requestAndParse(
@@ -264,24 +280,33 @@ class SubsonicApiClient(context: Context) {
                     val albums = parseAlbumListCompat(albumList?.opt("album"))
                     if (albums.isEmpty()) break
 
-                    for (album in albums) {
-                        val albumId = album.providerId
-                        if (albumId.isBlank()) continue
-
-                        val albumResponse = requestAndParse("getAlbum", mapOf("id" to albumId)).getOrNull()
-                            ?.optJSONObject("album")
-                            ?: continue
-
-                        val albumSongs = parseSongList(albumResponse.opt("song"))
-                        for (song in albumSongs) {
-                            songs.putIfAbsent(song.providerId, song)
-                            if (songs.size >= limit) {
-                                break
+                    coroutineScope {
+                        val albumTasks = albums.map { album ->
+                            async {
+                                val albumId = album.providerId
+                                if (albumId.isBlank()) return@async emptyList<ProviderSong>()
+                                semaphore.withPermit {
+                                    try {
+                                        val albumResponse = requestAndParse("getAlbum", mapOf("id" to albumId)).getOrNull()
+                                            ?.optJSONObject("album") ?: return@withPermit emptyList()
+                                        parseSongList(albumResponse.opt("song"))
+                                    } catch (e: Exception) {
+                                        Log.w(TAG, "Failed to fetch album $albumId, skipping", e)
+                                        emptyList()
+                                    }
+                                }
                             }
                         }
 
-                        if (songs.size >= limit) {
-                            break
+                        for (task in albumTasks) {
+                            val albumSongs = task.await()
+                            for (song in albumSongs) {
+                                songs.putIfAbsent(song.providerId, song)
+                                if (songs.size >= limit) break
+                            }
+                            totalAlbumsProcessed++
+                            onProgress?.invoke(totalAlbumsProcessed, totalAlbumsProcessed + albums.size, songs.size)
+                            if (songs.size >= limit) break
                         }
                     }
 
@@ -540,7 +565,7 @@ class SubsonicApiClient(context: Context) {
             val obfuscated = "enc:" + cred.password.toByteArray(Charsets.UTF_8).joinToString("") { "%02x".format(it) }
             urlBuilder.addQueryParameter("p", obfuscated)
         } else {
-            val (token, salt) = generateAuthParams(cred.password)
+            val (token, salt) = getStableCoverArtAuthParams(cred.password)
             urlBuilder.addQueryParameter("t", token)
             urlBuilder.addQueryParameter("s", salt)
         }
@@ -600,7 +625,7 @@ class SubsonicApiClient(context: Context) {
             if (exception is SubsonicErrorException && exception.code == 41 && !usePasswordAuth) {
                 usePasswordAuth = true
                 if (isConnected()) {
-                    prefs.edit().putBoolean(KEY_USE_PASSWORD_AUTH, true).apply()
+                    prefs.edit { putBoolean(KEY_USE_PASSWORD_AUTH, true) }
                 }
                 return request(endpoint, params, listParams).fold(
                     onSuccess = { parseSubsonicResponse(it) },
@@ -687,6 +712,9 @@ class SubsonicApiClient(context: Context) {
         if (id.isBlank()) return null
 
         val coverArtId = song.optString("coverArt").takeIf { it.isNotBlank() }
+            ?: song.optString("albumId").takeIf { it.isNotBlank() }
+            ?: song.optString("parent").takeIf { it.isNotBlank() }
+            ?: id
         
         val rawTrack = song.optString("track", "")
         val trackNum = song.optInt("track", 0).takeIf { it > 0 }
@@ -835,6 +863,12 @@ class SubsonicApiClient(context: Context) {
 
     private fun generateAuthParams(password: String): Pair<String, String> {
         val salt = UUID.randomUUID().toString().take(6)
+        val token = md5(password + salt)
+        return token to salt
+    }
+
+    private fun getStableCoverArtAuthParams(password: String): Pair<String, String> {
+        val salt = md5(password).take(8)
         val token = md5(password + salt)
         return token to salt
     }

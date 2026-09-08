@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.infrastructure.audio
 
 import android.util.Log
@@ -26,10 +31,13 @@ class RhythmBassBoostProcessor : RhythmAudioProcessor() {
     }
     
     // Parent processor for dynamic configuration sharing (crossfade thread safety)
+    @Volatile
     private var parentProcessor: RhythmBassBoostProcessor? = null
 
     // Bass boost strength (0-1000, where 1000 = maximum boost)
+    @Volatile
     private var strength: Short = 0
+    @Volatile
     private var enabled: Boolean = false
     
     // Filter state (per channel) - maintains continuity across buffers

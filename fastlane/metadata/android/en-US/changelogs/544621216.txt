@@ -1,0 +1,10 @@
+Rhythm v5.4 - Stable Update
+
+• fix(core): enable non-blocking instant startup with asynchronous background media sync and live progress bubble
+• Harden Rhythm processor init and audio routing
+• Improve TTML lyric parsing and detection
+• Expand local lyrics support to TTML/XML
+• fix(ui): standardize bottom sheet radii, fix playback speed sheet touches, update liked tab empty state and active song styling
+• Various bug fixes and improvements.
+
+Thanks for using Rhythm ;)

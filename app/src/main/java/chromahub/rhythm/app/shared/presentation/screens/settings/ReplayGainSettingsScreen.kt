@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
@@ -105,13 +110,13 @@ fun ReplayGainSettingsScreen(
                         )
                         if (isOffloadEnforced) {
                             Text(
-                                text = "Disabled to conserve battery.",
+                                text = context.getString(R.string.replay_gain_disabled_battery),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         } else if (isAudioOffloadActive && !replayGain) {
                             Text(
-                                text = "Enabling will disable hardware Audio Offload",
+                                text = context.getString(R.string.replay_gain_offload_warning),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -121,7 +126,6 @@ fun ReplayGainSettingsScreen(
                         checked = if (isOffloadEnforced) false else replayGain,
                         onCheckedChange = { enabled ->
                             if (!isOffloadEnforced) {
-                                HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
                                 appSettings.setReplayGain(enabled)
                             }
                         },
@@ -177,7 +181,6 @@ fun ReplayGainSettingsScreen(
                                 TunerAnimatedSwitch(
                                     checked = replayGainDrc,
                                     onCheckedChange = {
-                                        HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                                         appSettings.setReplayGainDrc(it)
                                     }
                                 )
@@ -208,7 +211,10 @@ fun ReplayGainSettingsScreen(
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Slider(
                                         value = replayGainPreamp,
-                                        onValueChange = { appSettings.setReplayGainPreamp(it) },
+                                        onValueChange = {
+                                            HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                                            appSettings.setReplayGainPreamp(it)
+                                        },
                                         valueRange = -15f..15f,
                                         steps = 30,
                                         modifier = Modifier.fillMaxWidth()
@@ -237,7 +243,10 @@ fun ReplayGainSettingsScreen(
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Slider(
                                         value = replayGainPreampUntagged,
-                                        onValueChange = { appSettings.setReplayGainPreampUntagged(it) },
+                                        onValueChange = {
+                                            HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                                            appSettings.setReplayGainPreampUntagged(it)
+                                        },
                                         valueRange = -15f..15f,
                                         steps = 30,
                                         modifier = Modifier.fillMaxWidth()

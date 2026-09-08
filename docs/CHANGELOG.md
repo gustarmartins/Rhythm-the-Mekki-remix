@@ -10,6 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - 
 
+## [5.5.480.1260 Bluetooth Lyrics] - 2026-09-08
+
+### Added
+
+- Integrate 201 upstream commits through Rhythm 5.5.480.1260.
+- Add Better Lyrics, TTML/ELRC discovery and export, lyric gestures, and adaptive player controls.
+- Bring in the revised queue, streaming downloads and offline support, artist indexing, and faster library startup.
+
+### Changed
+
+- Include the fast-singing Bluetooth lyrics improvements from the local nightly, preserving saved timing, chunk width, language, and car compatibility settings.
+- Keep local and embedded lyric enrichment, explicit Romaji/translation selection, and the older-car virtual queue alongside upstream playback changes.
+- Keep stable and nightly updates on this fork, compare release tags, and retain the JamesDSP-safe optional equalizer lifecycle.
+
 ## [5.4.443.1174 Bluetooth Lyrics] - 2026-08-21
 
 ### Changed
@@ -19,6 +33,219 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep explicit saved settings authoritative when updating.
 - Make the GitHub updater compare release tags instead of human-readable release titles.
 - Give fork releases their own version identity and concise release notes.
+
+## [5.5.480.1260] - 2026-09-06
+
+### Added
+- Rhythm Go offline music downloads: download tracks from Subsonic and Jellyfin servers with real-time progress tracking and offline management
+- Local network server discovery to auto-scan and connect to nearby Jellyfin and Subsonic servers
+- Adaptive Two-Pane layouts and dialogs designed specifically for tablets, foldables, and large screens
+- Enhanced tablet sheet navigation with pinned headers, interactive scrollbars, and desktop mouse-wheel support
+- Comprehensive gesture customization with independent controls across player, mini-player, queue, library tabs, and lyrics screens
+- Mini-player swipe gestures to configure horizontal track skipping and vertical dismiss actions independently
+- Album artwork tap actions including single-tap (toggle lyrics), double-tap (play/pause), and tap-to-seek controls
+- Customizable and reorderable bottom player action buttons for Normal and Merge modes
+- Revamped playback queue with played and up-next sections, swipe-to-dismiss tracks, sticky headers, and smooth drag-and-drop reordering
+- Context-aware playback queue preserving album and artist context on track taps (#546)
+- Option to keep shuffle active when manually selecting a song from the library
+- TTML and Enhanced LRC (.elrc) synchronized lyrics export, editing, and local file discovery
+- Streaming service selection step in the initial onboarding tour
+
+### Changed
+- Streaming resilience with automatic fallback to downloaded offline music when servers disconnect, plus faster sync and cover art caching
+- Touch-aware lyrics auto-scroll that pauses automatically while reading or interacting with lyrics
+- Updated translations from Weblate
+
+### Fixed
+- Audio service stability fixes preventing background playback termination and native audio engine crashes
+- Preserved correct playback queue order when using "Play Next" and "Add to Queue" while shuffle is active
+- Multi-artist delimiter handling preventing multi-character delimiters (such as "ft.") from splitting names into individual letters
+- Missing artist indexing, empty album navigation, and media scanner folder whitelist filtering
+- Normalized track added and modified timestamps to milliseconds with automatic database migration
+- Restored missing Favorite and Lyrics action buttons in Merge Mode bottom player controls
+- Bottom sheet visual jitter and layout jumps during transitions
+
+### Performance
+- Instant backward seeking with a 10-second back-buffer cache to eliminate re-buffering
+- Dynamic high-precision scrubbing with sample-accurate playback alignment on release
+
+## [5.5.479.1258 Beta] - 2026-09-05
+
+### Added
+- Streaming service selection step in the onboarding tour
+- Option to keep shuffle active when manually selecting a track
+- Context-aware playback queue preserving album and artist context on track taps (#546)
+- Updated translations from Weblate
+
+### Changed
+- Refined playback queue UX, artist navigation sheets, and detail screen haptics (#571, #543)
+
+### Fixed
+- Restored Favorite and Lyrics action buttons in Merge Mode bottom player controls
+- Improved streaming provider reliability across Subsonic and Jellyfin with real-time download tracking, faster sync, and offline fallback
+- Resolved local library indexing, artist delimiter splitting, and media scanner folder whitelist filtering
+- Fixed audio service stability and background playback termination
+
+## [5.5.473.1246 Beta] - 2026-09-01
+
+### Added
+- Customizable bottom player action buttons with reordering and quick toggles
+- Adaptive bottom sheet architecture with responsive layouts and fluid scrollbar interactions
+- TTML and Enhanced LRC (.elrc) export, editing, and file discovery support
+
+### Fixed
+- Preserve playback queue order for Play Next and Add to Queue under Shuffle Engine
+- Normalize date added and modified timestamps to milliseconds with Room DB migration
+- Suppress lyrics auto-scroll during active user gestures and touch interactions
+- Improved TTML line-level timing and Unicode script detection for romanization
+- Updated translations from Weblate
+
+## [5.4.468.1233] - 2026-08-28
+
+### Added
+- Overhauled onboarding tour with interactive setup for shape presets and artist delimiters
+- Enhanced multi-artist splitting with custom delimiter creation, presets, and protected artist names
+- Integrated multi-artist splitting into playback stats, play counts, and top artists
+- Minimum song duration filter in media scan settings to ignore short audio clips
+
+### Changed
+- Clear and user-friendly error messages when Jellyfin connection fails #561
+- Updated Material 3 design components and improved navigation stability
+
+## [5.4.466.1229] - 2026-08-27
+
+### Added
+- Docked navigation bar mode option alongside floating navigation bar
+- Ambient infinite background zoom animation toggle in Player Customization
+- On-demand Coil AudioArtworkFetcher and AudioArtworkKeyer for efficient cover art decoding
+- Lossless embedded artwork extraction and folder cover reconciliation pipeline
+- Direct audio file artwork embedding dialog for fetched covers
+
+### Changed
+- Refined synchronized lyrics background gradient in accent color mode
+- Updated translations
+
+### Fixed
+- Fix OutOfMemoryError during Room playlist transactions and Canvas ExoPlayer playback
+- Fix controller player commands permission mask in MediaPlaybackService restricting external controls
+- Fix storage write permission handling when embedding artwork from the player
+- Resolve compiler deprecations and Jetpack Compose lint warnings
+
+### Performance
+- Optimize cold startup performance for large libraries by eliminating blocking disk I/O
+- Optimize media scanning and artwork extraction with native TagLib routines and folder cover caching
+- Stabilize Discover carousel state across background metadata emissions
+
+## [5.4.465.1226] - 2026-08-27
+
+### Added
+- Docked navigation bar mode option alongside floating navigation bar
+- Ambient infinite background zoom animation toggle in Player Customization
+- On-demand Coil AudioArtworkFetcher and AudioArtworkKeyer for efficient cover art decoding
+- Lossless embedded artwork extraction and folder cover reconciliation pipeline
+- Direct audio file artwork embedding dialog for fetched covers
+
+### Changed
+- Refined synchronized lyrics background gradient in accent color mode
+- Updated translations
+
+### Fixed
+- Fix OutOfMemoryError during Room playlist transactions and Canvas ExoPlayer playback
+- Fix controller player commands permission mask in MediaPlaybackService restricting external controls
+- Fix storage write permission handling when embedding artwork from the player
+- Resolve compiler deprecations and Jetpack Compose lint warnings
+
+### Performance
+- Optimize cold startup performance for large libraries by eliminating blocking disk I/O
+- Optimize media scanning and artwork extraction with native TagLib routines and folder cover caching
+- Stabilize Discover carousel state across background metadata emissions
+
+## [5.4.462.1216] - 2026-08-23
+
+### Added
+- Enable non-blocking instant startup with asynchronous background media sync and live progress indicator
+- Support for TTML and XML lyrics with enhanced "Better Lyrics" format parsing #363
+- Foldable and posture-aware player layouts for multi-window and folding devices #529 #530
+- Mono audio downmixing with dedicated per-device toggle #531
+- Expanded support for MP4 audio containers and advanced audio codecs #535
+- Android Quick Settings tile shortcuts for active playback controls #227 #457
+- Custom artwork editing and management for artists and playlists #280 #415
+- Option to select and batch-manage songs from the folder view #492
+- Option to toggle remaining playback time on track seekbars
+- Option to disable online and custom artist images #475
+- Dedicated Album Artists tab in the library
+- Comprehensive song deletion flow with storage permission handling #179 #493 #501 #508
+- Granular audio format scan controls and extended codec filtering
+
+### Changed
+- Merge streaming mode seamlessly into shared local UI
+- Standardize bottom sheet radii and surface elevations across the app
+- Redesigned and improved Song Info dialog with rich metadata display
+- Refined Home and About screen layouts with improved artist separation
+- Drop legacy song ratings in favor of modern favorites workflow
+
+### Fixed
+- Fix app crash when opening lyrics settings in streaming mode #554
+- Fix ambient intensity slider numerical step and range display #542
+- Fix app volume not persisting across playback and session flows #551
+- Fix Dolby Atmos detection to match both `eac3-joc` and `atmos` MIME types
+- Fix metadata parsing edge-cases and improve multi-disc album grouping #521 #538
+- Fix touch event handling and responsiveness on playback speed sheet
+- Fix vertical duration text alignment in Expressive player layout
+- Fix empty state styling and active song indicators in Liked tab
+- Fix plural string formatting across localized settings
+
+### Performance
+- Harden Rhythm processor initialization and audio device routing
+- Optimize Compose duration formatting performance and clickable modifier hitboxes
+- Upgrade GitHub Actions workflows to latest Node 24 runtime
+- Bump Gradle and AndroidX dependency versions
+- Updated translations
+
+## [5.4.457.1200 Beta] - 2026-08-11
+
+### Added
+- Add support for TTML lyrics and "Better Lyrics" #363
+- Add custom artwork editing for artists/playlists #280 #415
+- Add shortcuts to active it via android quick settings tile #227 #457
+- Add option to disable artist image #475
+- Add option to select songs from the folder section #492
+- Add song deletion flow and player UX polish #179 #493 #501 #508
+- Add foldable posture-aware player layouts #529 #530
+- Add mono audio downmix and device toggle #531
+- Expand support for MP4 and advanced audio codecs #535
+- Improve metadata parsing and album grouping #521 #538
+- Add format scan controls and metadata fixes
+- Drop song ratings, add Album Artists tab
+- Merge streaming mode into shared local UI
+- Harden plural string handling in settings
+- Fix vertical alignment of time duration texts in Expressive player layout
+- Optimize compose duration formatting performance and click modifiers target area
+- Add toggle option for remaining playback time
+- Update translations
+
+## [5.4.457.1199 Beta] - 2026-08-11
+
+### Added
+
+- Add support for TTML lyrics and "Better Lyrics" #363
+- Add custom artwork editing for artists/playlists #280 #415
+- Add shortcuts to active it via android quick settings tile #227 #457
+- Add option to disable artist image #475
+- Add option to select songs from the folder section #492
+- Add song deletion flow and player UX polish #179 #493 #501 #508
+- Add foldable posture-aware player layouts #529 #530
+- Add mono audio downmix and device toggle #531
+- Expand support for MP4 and advanced audio codecs #535
+- Improve metadata parsing and album grouping #521 #538
+- Add format scan controls and metadata fixes
+- Drop song ratings, add Album Artists tab
+- Merge streaming mode into shared local UI
+- Harden plural string handling in settings
+- Fix vertical alignment of time duration texts in Expressive player layout
+- Optimize compose duration formatting performance and click modifiers target area
+- Add toggle option for remaining playback time
+- Update translations
 
 ## [5.3.440.1160] - 2026-07-28
 

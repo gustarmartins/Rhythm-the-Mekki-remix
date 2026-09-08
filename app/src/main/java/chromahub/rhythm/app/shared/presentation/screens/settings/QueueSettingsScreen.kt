@@ -1,6 +1,19 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
+
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.StandardBottomSheetHeader
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.groupedBottomSheetItemShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 
 import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
@@ -13,14 +26,12 @@ import android.content.Context
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.animation.core.Spring
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -55,7 +66,9 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
     val hapticFeedback = LocalHapticFeedback.current
 
     val shuffleUsesExoplayer by appSettings.shuffleUsesExoplayer.collectAsState()
+    val keepShuffleOnSelection by appSettings.keepShuffleOnSelection.collectAsState()
     val autoAddToQueue by appSettings.autoAddToQueue.collectAsState()
+    val respectAlbumOnPlay by appSettings.respectAlbumOnPlay.collectAsState()
     val clearQueueOnNewSong by appSettings.clearQueueOnNewSong.collectAsState()
     val hidePlayedQueueSongs by appSettings.hidePlayedQueueSongs.collectAsState()
     val contextQueuePreference by appSettings.contextQueuePreference.collectAsState()
@@ -67,11 +80,9 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
         "ARTIST_FIRST"
     }
     val showQueueDialog by appSettings.showQueueDialog.collectAsState()
-    val playlistClickBehavior by appSettings.playlistClickBehavior.collectAsState(initial = "ask")
     val listQueueActionBehavior by appSettings.listQueueActionBehavior.collectAsState(initial = "replace")
     val queuePersistenceEnabled by appSettings.queuePersistenceEnabled.collectAsState()
 
-    var showPlaylistBehaviorDialog by remember { mutableStateOf(false) }
     var showListQueueBehaviorDialog by remember { mutableStateOf(false) }
     var showQueueDialogSettingDialog by remember { mutableStateOf(false) }
     var showContextPrefBottomSheet by remember { mutableStateOf(false) }
@@ -87,6 +98,50 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                 items = buildList {
                     add(
                         SettingItem(
+                            MaterialSymbolIcon("album", filled = true),
+                            context.getString(R.string.settings_respect_album_on_play),
+                            context.getString(R.string.settings_respect_album_on_play_desc),
+                            toggleState = respectAlbumOnPlay,
+                            onToggleChange = { appSettings.setRespectAlbumOnPlay(it) }
+                        )
+                    )
+                    add(
+                        SettingItem(
+                            RhythmIcons.Sort,
+                            context.getString(R.string.settings_list_queue_action_dialog),
+                            when (listQueueActionBehavior) {
+                                "ask" -> context.getString(R.string.settings_list_queue_action_ask)
+                                "play_next" -> context.getString(R.string.settings_list_queue_action_play_next)
+                                "add_to_end" -> context.getString(R.string.settings_list_queue_action_add_to_end)
+                                else -> context.getString(R.string.settings_list_queue_action_replace)
+                            },
+                            onClick = { showListQueueBehaviorDialog = true }
+                        )
+                    )
+                    add(
+                        SettingItem(
+                            MaterialSymbolIcon("help", filled = true),
+                            context.getString(R.string.settings_queue_action_dialog),
+                            when {
+                                clearQueueOnNewSong -> context.getString(R.string.settings_queue_action_dialog_desc_disabled)
+                                showQueueDialog -> context.getString(R.string.settings_queue_action_dialog_desc_ask)
+                                else -> context.getString(R.string.settings_queue_action_dialog_desc_always)
+                            },
+                            onClick = { showQueueDialogSettingDialog = true },
+                            enabled = !clearQueueOnNewSong
+                        )
+                    )
+                    add(
+                        SettingItem(
+                            RhythmIcons.Delete,
+                            context.getString(R.string.settings_clear_queue_on_new_song),
+                            context.getString(R.string.settings_clear_queue_on_new_song_desc),
+                            toggleState = clearQueueOnNewSong,
+                            onToggleChange = { appSettings.setClearQueueOnNewSong(it) }
+                        )
+                    )
+                    add(
+                        SettingItem(
                             RhythmIcons.Shuffle,
                             context.getString(R.string.settings_use_exoplayer_shuffle),
                             context.getString(R.string.settings_use_exoplayer_shuffle_desc),
@@ -94,6 +149,20 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                             onToggleChange = { appSettings.setShuffleUsesExoplayer(it) }
                         )
                     )
+                    add(
+                        SettingItem(
+                            RhythmIcons.Shuffle,
+                            context.getString(R.string.settings_keep_shuffle_on_selection),
+                            context.getString(R.string.settings_keep_shuffle_on_selection_desc),
+                            toggleState = keepShuffleOnSelection,
+                            onToggleChange = { appSettings.setKeepShuffleOnSelection(it) }
+                        )
+                    )
+                }
+            ),
+            SettingGroup(
+                title = context.getString(R.string.settings_queue_autofill),
+                items = buildList {
                     add(
                         SettingItem(
                             RhythmIcons.AddToQueue,
@@ -124,69 +193,20 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                             enabled = autoAddToQueue
                         )
                     )
-                    add(
-                        SettingItem(
-                            RhythmIcons.Delete,
-                            context.getString(R.string.settings_clear_queue_on_new_song),
-                            context.getString(R.string.settings_clear_queue_on_new_song_desc),
-                            toggleState = clearQueueOnNewSong,
-                            onToggleChange = { appSettings.setClearQueueOnNewSong(it) }
-                        )
-                    )
-                    add(
-                        SettingItem(
-                            RhythmIcons.Queue,
-                            context.getString(R.string.settings_show_played_queue_songs),
-                            context.getString(R.string.settings_show_played_queue_songs_desc),
-                            toggleState = showAlreadyPlayedSongsInQueue,
-                            onToggleChange = { appSettings.setHidePlayedQueueSongs(!it) }
-                        )
-                    )
-                    add(
-                        SettingItem(
-                            MaterialSymbolIcon("help", filled = true),
-                            context.getString(R.string.settings_queue_action_dialog),
-                            when {
-                                clearQueueOnNewSong -> context.getString(R.string.settings_queue_action_dialog_desc_disabled)
-                                showQueueDialog -> context.getString(R.string.settings_queue_action_dialog_desc_ask)
-                                else -> context.getString(R.string.settings_queue_action_dialog_desc_always)
-                            },
-                            onClick = { showQueueDialogSettingDialog = true },
-                            enabled = !clearQueueOnNewSong
-                        )
-                    )
-                    add(
-                        SettingItem(
-                            RhythmIcons.Queue,
-                            context.getString(R.string.settings_playlist_action_dialog),
-                            when (playlistClickBehavior) {
-                                "play_all" -> context.getString(R.string.settings_playlist_action_play_all)
-                                "play_one" -> context.getString(R.string.settings_playlist_action_play_one)
-                                else -> context.getString(R.string.settings_playlist_action_ask)
-                            },
-                            onClick = { showPlaylistBehaviorDialog = true }
-                        )
-                    )
-                    add(
-                        SettingItem(
-                            RhythmIcons.Sort,
-                            context.getString(R.string.settings_list_queue_action_dialog),
-                            when (listQueueActionBehavior) {
-                                "ask" -> context.getString(R.string.settings_list_queue_action_ask)
-                                "play_next" -> context.getString(R.string.settings_list_queue_action_play_next)
-                                "add_to_end" -> context.getString(R.string.settings_list_queue_action_add_to_end)
-                                else -> context.getString(R.string.settings_list_queue_action_replace)
-                            },
-                            onClick = { showListQueueBehaviorDialog = true }
-                        )
-                    )
                 }
             ),
             SettingGroup(
-                title = context.getString(R.string.settings_playback_persistence),
+                title = context.getString(R.string.settings_queue_display),
                 items = listOf(
                     SettingItem(
                         RhythmIcons.Queue,
+                        context.getString(R.string.settings_show_played_queue_songs),
+                        context.getString(R.string.settings_show_played_queue_songs_desc),
+                        toggleState = showAlreadyPlayedSongsInQueue,
+                        onToggleChange = { appSettings.setHidePlayedQueueSongs(!it) }
+                    ),
+                    SettingItem(
+                        MaterialSymbolIcon("history", filled = true),
                         context.getString(R.string.settings_remember_queue),
                         context.getString(R.string.settings_remember_queue_desc),
                         toggleState = queuePersistenceEnabled,
@@ -252,7 +272,6 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                                 TunerAnimatedSwitch(
                                     checked = item.toggleState,
                                     onCheckedChange = {
-                                        HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
                                         item.onToggleChange?.invoke(it)
                                     }
                                 )
@@ -313,370 +332,14 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
         )
     }
 
-    // Playlist Click Behavior Dialog
-    if (showPlaylistBehaviorDialog) {
-        val haptic = LocalHapticFeedback.current
-        val scope = rememberCoroutineScope()
-        val playlistSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
-
-        var showContent by remember { mutableStateOf(false) }
-
-        val contentAlpha by animateFloatAsState(
-            targetValue = if (showContent) 1f else 0f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessLow
-            ),
-            label = "contentAlpha"
-        )
-
-        LaunchedEffect(Unit) {
-            delay(100)
-            showContent = true
-        }
-
-        ModalBottomSheet(
-        modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
-            onDismissRequest = { showPlaylistBehaviorDialog = false },
-            sheetState = playlistSheetState,
-            dragHandle = {
-                BottomSheetDefaults.DragHandle(
-                    color = MaterialTheme.colorScheme.primary
-                )
-            },
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 24.dp)
-                    .graphicsLayer(alpha = contentAlpha)
-            ) {
-                // Header
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 0.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text(
-                            text = context.getString(R.string.playlist_action_title),
-                            style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 6.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    shape = CircleShape
-                                )
-                        ) {
-                            Text(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                style = MaterialTheme.typography.labelLarge,
-                                text = context.getString(R.string.playlist_action_desc),
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = 1,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Option 1: Ask each time
-                    Card(
-                        onClick = {
-                            HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
-                            scope.launch {
-                                appSettings.setPlaylistClickBehavior("ask")
-                                showPlaylistBehaviorDialog = false
-                            }
-                        },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (playlistClickBehavior == "ask")
-                                MaterialTheme.colorScheme.primaryContainer
-                            else
-                                MaterialTheme.colorScheme.surfaceContainerHigh
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        border = if (playlistClickBehavior == "ask") {
-                            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                        } else {
-                            null
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = if (playlistClickBehavior == "ask")
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier.size(44.dp)
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier.fillMaxSize()
-                                ) {
-                                    Icon(
-                                        imageVector = MaterialSymbolIcon("help", filled = true),
-                                        contentDescription = null,
-                                        tint = if (playlistClickBehavior == "ask")
-                                            MaterialTheme.colorScheme.onPrimary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = context.getString(R.string.playlist_ask_each_time),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (playlistClickBehavior == "ask")
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = context.getString(R.string.playlist_ask_each_time_desc),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (playlistClickBehavior == "ask")
-                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                    else
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
-                            if (playlistClickBehavior == "ask") {
-                                Icon(
-                                    imageVector = RhythmIcons.CheckCircle,
-                                    contentDescription = context.getString(R.string.ui_selected),
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    // Option 2: Load entire playlist
-                    Card(
-                        onClick = {
-                            HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
-                            scope.launch {
-                                appSettings.setPlaylistClickBehavior("play_all")
-                                showPlaylistBehaviorDialog = false
-                            }
-                        },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (playlistClickBehavior == "play_all")
-                                MaterialTheme.colorScheme.primaryContainer
-                            else
-                                MaterialTheme.colorScheme.surfaceContainerHigh
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        border = if (playlistClickBehavior == "play_all") {
-                            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                        } else {
-                            null
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = if (playlistClickBehavior == "play_all")
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier.size(44.dp)
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier.fillMaxSize()
-                                ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Queue,
-                                        contentDescription = null,
-                                        tint = if (playlistClickBehavior == "play_all")
-                                            MaterialTheme.colorScheme.onPrimary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = context.getString(R.string.playlist_action_load_title),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (playlistClickBehavior == "play_all")
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = context.getString(R.string.playlist_action_load_desc),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (playlistClickBehavior == "play_all")
-                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                    else
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
-                            if (playlistClickBehavior == "play_all") {
-                                Icon(
-                                    imageVector = RhythmIcons.CheckCircle,
-                                    contentDescription = stringResource(R.string.streaming_selected),
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    // Option 3: Play only this song
-                    Card(
-                        onClick = {
-                            HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
-                            scope.launch {
-                                appSettings.setPlaylistClickBehavior("play_one")
-                                showPlaylistBehaviorDialog = false
-                            }
-                        },
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (playlistClickBehavior == "play_one")
-                                MaterialTheme.colorScheme.primaryContainer
-                            else
-                                MaterialTheme.colorScheme.surfaceContainerHigh
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        border = if (playlistClickBehavior == "play_one") {
-                            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                        } else {
-                            null
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = if (playlistClickBehavior == "play_one")
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier.size(44.dp)
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier.fillMaxSize()
-                                ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Play,
-                                        contentDescription = null,
-                                        tint = if (playlistClickBehavior == "play_one")
-                                            MaterialTheme.colorScheme.onPrimary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = context.getString(R.string.playlist_action_single_title),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (playlistClickBehavior == "play_one")
-                                        MaterialTheme.colorScheme.onPrimaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.onSurface
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = context.getString(R.string.playlist_action_single_desc),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (playlistClickBehavior == "play_one")
-                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                    else
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
-                            if (playlistClickBehavior == "play_one") {
-                                Icon(
-                                    imageVector = RhythmIcons.CheckCircle,
-                                    contentDescription = stringResource(R.string.streaming_selected),
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // List Queue Behavior Dialog
     if (showListQueueBehaviorDialog) {
         val haptic = LocalHapticFeedback.current
         val scope = rememberCoroutineScope()
         val listQueueSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
 
-        var showContent by remember { mutableStateOf(false) }
-
-        val contentAlpha by animateFloatAsState(
-            targetValue = if (showContent) 1f else 0f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            ),
-            label = "contentAlpha"
-        )
-
-        LaunchedEffect(Unit) {
-            delay(100)
-            showContent = true
-        }
-
-        ModalBottomSheet(
-        modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
+        RhythmAdaptiveModalSheet(
+            adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
             onDismissRequest = { showListQueueBehaviorDialog = false },
             sheetState = listQueueSheetState,
             dragHandle = {
@@ -686,50 +349,25 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
             },
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 24.dp)
-                    .graphicsLayer(alpha = contentAlpha)
-            ) {
-                Row(
+            StandardBottomSheetHeader(
+                title = context.getString(R.string.list_queue_behavior_title),
+                subtitle = context.getString(R.string.list_queue_behavior_desc),
+                visible = true
+            )
+
+            val scrollState = rememberScrollState()
+
+            AdaptiveSheetScrollContainer(
+                scrollState = scrollState,
+                modifier = Modifier.fillMaxWidth()
+            ) { endPadding ->
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 0.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .verticalScroll(scrollState)
+                        .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Column {
-                        Text(
-                            text = context.getString(R.string.list_queue_behavior_title),
-                            style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 6.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    shape = CircleShape
-                                )
-                        ) {
-                            Text(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                style = MaterialTheme.typography.labelLarge,
-                                text = context.getString(R.string.list_queue_behavior_desc),
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = 1,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     val options = listOf(
                         "replace" to Triple(
                             context.getString(R.string.list_queue_behavior_replace_title),
@@ -753,7 +391,7 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                         )
                     )
 
-                    options.forEach { (value, option) ->
+                    options.forEachIndexed { index, (value, option) ->
                         val isSelected = listQueueActionBehavior == value
 
                         Card(
@@ -766,16 +404,11 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                             },
                             colors = CardDefaults.cardColors(
                                 containerColor = if (isSelected)
-                                    MaterialTheme.colorScheme.primaryContainer
+                                    MaterialTheme.colorScheme.onPrimaryContainer
                                 else
                                     MaterialTheme.colorScheme.surfaceContainerHigh
                             ),
-                            shape = RoundedCornerShape(16.dp),
-                            border = if (isSelected) {
-                                BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                            } else {
-                                null
-                            },
+                            shape = groupedBottomSheetItemShape(index, options.size),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
@@ -784,29 +417,15 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                                     .padding(20.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = if (isSelected)
-                                        MaterialTheme.colorScheme.primary
+                                Icon(
+                                    imageVector = option.third,
+                                    contentDescription = null,
+                                    tint = if (isSelected)
+                                        MaterialTheme.colorScheme.primaryContainer
                                     else
-                                        MaterialTheme.colorScheme.surfaceVariant,
-                                    modifier = Modifier.size(44.dp)
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier.fillMaxSize()
-                                    ) {
-                                        Icon(
-                                            imageVector = option.third,
-                                            contentDescription = null,
-                                            tint = if (isSelected)
-                                                MaterialTheme.colorScheme.onPrimary
-                                            else
-                                                MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                    }
-                                }
+                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(if (isSelected) 30.dp else 26.dp)
+                                )
 
                                 Spacer(modifier = Modifier.width(16.dp))
 
@@ -816,7 +435,7 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
                                         color = if (isSelected)
-                                            MaterialTheme.colorScheme.onPrimaryContainer
+                                            MaterialTheme.colorScheme.primaryContainer
                                         else
                                             MaterialTheme.colorScheme.onSurface
                                     )
@@ -825,7 +444,7 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                                         text = option.second,
                                         style = MaterialTheme.typography.bodySmall,
                                         color = if (isSelected)
-                                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
                                         else
                                             MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -835,6 +454,7 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                                     Icon(
                                         imageVector = RhythmIcons.CheckCircle,
                                         contentDescription = context.getString(R.string.ui_selected),
+                                        tint = MaterialTheme.colorScheme.primaryContainer,
                                         modifier = Modifier.size(28.dp)
                                     )
                                 }
@@ -846,30 +466,14 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
         }
     }
 
-    // Show Queue Dialog Setting Dialog
     if (showQueueDialogSettingDialog) {
         val haptic = LocalHapticFeedback.current
         val scope = rememberCoroutineScope()
         val queueSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
 
-        var showContent by remember { mutableStateOf(false) }
-
-        val contentAlpha by animateFloatAsState(
-            targetValue = if (showContent) 1f else 0f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
-            ),
-            label = "contentAlpha"
-        )
-
-        LaunchedEffect(Unit) {
-            delay(100)
-            showContent = true
-        }
-
-        ModalBottomSheet(
-        modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
+        RhythmAdaptiveModalSheet(
+            adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
             onDismissRequest = { showQueueDialogSettingDialog = false },
             sheetState = queueSheetState,
             dragHandle = {
@@ -879,52 +483,25 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
             },
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(bottom = 24.dp)
-                    .graphicsLayer(alpha = contentAlpha)
-            ) {
-                // Header
-                Row(
+            StandardBottomSheetHeader(
+                title = context.getString(R.string.queue_action_title),
+                subtitle = context.getString(R.string.queue_action_choose),
+                visible = true
+            )
+
+            val scrollState = rememberScrollState()
+
+            AdaptiveSheetScrollContainer(
+                scrollState = scrollState,
+                modifier = Modifier.fillMaxWidth()
+            ) { endPadding ->
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 0.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .verticalScroll(scrollState)
+                        .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Column {
-                        Text(
-                            text = context.getString(R.string.queue_action_title),
-                            style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 6.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    shape = CircleShape
-                                )
-                        ) {
-                            Text(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                style = MaterialTheme.typography.labelLarge,
-                                text = context.getString(R.string.queue_action_choose),
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = 1,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Option 1: Ask each time (show dialog)
                     Card(
                         onClick = {
                             HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
@@ -935,16 +512,11 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                         },
                         colors = CardDefaults.cardColors(
                             containerColor = if (showQueueDialog)
-                                MaterialTheme.colorScheme.primaryContainer
+                                MaterialTheme.colorScheme.onPrimaryContainer
                             else
                                 MaterialTheme.colorScheme.surfaceContainerHigh
                         ),
-                        shape = RoundedCornerShape(16.dp),
-                        border = if (showQueueDialog) {
-                            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                        } else {
-                            null
-                        },
+                        shape = groupedBottomSheetItemShape(0, 2),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -953,29 +525,15 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                                 .padding(20.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = if (showQueueDialog)
-                                    MaterialTheme.colorScheme.primary
+                            Icon(
+                                imageVector = MaterialSymbolIcon("help", filled = true),
+                                contentDescription = null,
+                                tint = if (showQueueDialog)
+                                    MaterialTheme.colorScheme.primaryContainer
                                 else
-                                    MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier.size(44.dp)
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier.fillMaxSize()
-                                ) {
-                                    Icon(
-                                        imageVector = MaterialSymbolIcon("help", filled = true),
-                                        contentDescription = null,
-                                        tint = if (showQueueDialog)
-                                            MaterialTheme.colorScheme.onPrimary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(if (showQueueDialog) 30.dp else 26.dp)
+                            )
 
                             Spacer(modifier = Modifier.width(16.dp))
 
@@ -985,7 +543,7 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = if (showQueueDialog)
-                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                        MaterialTheme.colorScheme.primaryContainer
                                     else
                                         MaterialTheme.colorScheme.onSurface
                                 )
@@ -994,7 +552,7 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                                     text = context.getString(R.string.queue_action_ask_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (showQueueDialog)
-                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
                                     else
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1004,13 +562,13 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                                 Icon(
                                     imageVector = RhythmIcons.CheckCircle,
                                     contentDescription = stringResource(R.string.streaming_selected),
+                                    tint = MaterialTheme.colorScheme.primaryContainer,
                                     modifier = Modifier.size(28.dp)
                                 )
                             }
                         }
                     }
 
-                    // Option 2: Always add to queue
                     Card(
                         onClick = {
                             HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
@@ -1021,16 +579,11 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                         },
                         colors = CardDefaults.cardColors(
                             containerColor = if (!showQueueDialog)
-                                MaterialTheme.colorScheme.primaryContainer
+                                MaterialTheme.colorScheme.onPrimaryContainer
                             else
                                 MaterialTheme.colorScheme.surfaceContainerHigh
                         ),
-                        shape = RoundedCornerShape(16.dp),
-                        border = if (!showQueueDialog) {
-                            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
-                        } else {
-                            null
-                        },
+                        shape = groupedBottomSheetItemShape(1, 2),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -1039,29 +592,15 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                                 .padding(20.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = if (!showQueueDialog)
-                                    MaterialTheme.colorScheme.primary
+                            Icon(
+                                imageVector = RhythmIcons.Play,
+                                contentDescription = null,
+                                tint = if (!showQueueDialog)
+                                    MaterialTheme.colorScheme.primaryContainer
                                 else
-                                    MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier.size(44.dp)
-                            ) {
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier.fillMaxSize()
-                                ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.AddToPlaylist,
-                                        contentDescription = null,
-                                        tint = if (!showQueueDialog)
-                                            MaterialTheme.colorScheme.onPrimary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(if (!showQueueDialog) 30.dp else 26.dp)
+                            )
 
                             Spacer(modifier = Modifier.width(16.dp))
 
@@ -1071,7 +610,7 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = if (!showQueueDialog)
-                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                        MaterialTheme.colorScheme.primaryContainer
                                     else
                                         MaterialTheme.colorScheme.onSurface
                                 )
@@ -1080,7 +619,7 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                                     text = context.getString(R.string.queue_action_always_add_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (!showQueueDialog)
-                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
                                     else
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -1090,6 +629,7 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                                 Icon(
                                     imageVector = RhythmIcons.CheckCircle,
                                     contentDescription = stringResource(R.string.streaming_selected),
+                                    tint = MaterialTheme.colorScheme.primaryContainer,
                                     modifier = Modifier.size(28.dp)
                                 )
                             }

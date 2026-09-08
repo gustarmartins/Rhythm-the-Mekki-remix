@@ -1,6 +1,16 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.components.player
+
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.StandardBottomSheetHeader
 
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
@@ -11,6 +21,7 @@ import chromahub.rhythm.app.shared.presentation.components.icons.Icon
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -28,17 +39,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel
 import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel.SleepAction
-import chromahub.rhythm.app.shared.presentation.components.common.RhythmWavyProgressLoader
+import androidx.compose.material3.LinearWavyProgressIndicator
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmGroupedButton
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonWeighted
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonSize
@@ -73,6 +86,8 @@ fun SleepTimerBottomSheetNew(
     var selectedAction by remember { mutableStateOf(SleepAction.valueOf(timerAction.takeIf { it.isNotBlank() } ?: "FADE_OUT")) }
     var statusMessage by remember { mutableStateOf("") }
     var sheetState by remember { mutableStateOf(SheetContentState.Presets) }
+    // Track session original total — only updated when a brand new timer session starts (not on +/- adjustments)
+    var originalTotalSeconds by remember { mutableLongStateOf(0L) }
 
     val timerOptions = listOf(
         SleepTimerOption(5, "5 min", MaterialSymbolIcon("coffee", filled = true)),
@@ -95,6 +110,8 @@ fun SleepTimerBottomSheetNew(
             return
         }
         HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+        // Fresh start — reset session baseline
+        originalTotalSeconds = (minutes * 60).toLong()
         coroutineScope.launch {
             statusMessage = "Timer Started"
             delay(1500)
@@ -113,7 +130,7 @@ fun SleepTimerBottomSheetNew(
         val newRemainingSeconds = remainingSeconds + (deltaMinutes * 60)
         
         if (newRemainingSeconds <= 0L) {
-            stopTimer() // The LaunchedEffect will handle showing the "Timer Stopped" text
+            stopTimer()
         } else {
             val newMinutes = (newRemainingSeconds / 60) + if (newRemainingSeconds % 60 > 0) 1 else 0
             val msg = if (deltaMinutes > 0) "+$deltaMinutes Minutes" else "$deltaMinutes Minutes"
@@ -122,6 +139,10 @@ fun SleepTimerBottomSheetNew(
                 delay(1500)
                 if (statusMessage == msg) statusMessage = ""
             }
+            // Adjust originalTotalSeconds to keep elapsed progress consistent
+            // elapsed = originalTotalSeconds - remainingSeconds (unchanged), new total = elapsed + newRemainingSeconds
+            val elapsed = originalTotalSeconds - remainingSeconds
+            originalTotalSeconds = elapsed + newRemainingSeconds
             musicViewModel.startSleepTimer(newMinutes.toInt(), selectedAction)
         }
     }
@@ -151,73 +172,34 @@ fun SleepTimerBottomSheetNew(
 
     val bottomSheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
 
-    ModalBottomSheet(
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.WIDE_DIALOG,
         onDismissRequest = onDismiss,
         sheetState = bottomSheetState,
         dragHandle = {
             BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary)
         },
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth()
     ) {
+        val isErrorState = !isPlaying || !serviceConnected || currentSong == null
+
+        StandardBottomSheetHeader(
+            title = context.getString(R.string.sleep_timer),
+            subtitle = when {
+                isTimerActive -> "Active"
+                isErrorState -> "No music playing"
+                else -> "Set automatic playback control"
+            },
+            visible = true
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.navigationBars)
         ) {
-            // ── Header ──────────────────────────────────────────────────────
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(top = 16.dp, bottom = 8.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text(
-                            text = context.getString(R.string.sleep_timer),
-                            style = MaterialTheme.typography.displayMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        
-                        val isErrorState = !isPlaying || !serviceConnected || currentSong == null
-                        Box(
-                            modifier = Modifier
-                                .padding(top = 6.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    color = if (isTimerActive) MaterialTheme.colorScheme.primaryContainer 
-                                            else if (isErrorState) MaterialTheme.colorScheme.errorContainer 
-                                            else MaterialTheme.colorScheme.surfaceContainerHigh
-                                )
-                        ) {
-                            Text(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                style = MaterialTheme.typography.labelLarge,
-                                text = when {
-                                    isTimerActive -> "Active"
-                                    isErrorState -> "No music playing"
-                                    else -> "Set automatic playback control"
-                                },
-                                overflow = TextOverflow.Ellipsis,
-                                maxLines = 1,
-                                color = if (isTimerActive) MaterialTheme.colorScheme.onPrimaryContainer
-                                        else if (isErrorState) MaterialTheme.colorScheme.onErrorContainer 
-                                        else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-
             // ── Scrollable Content Area ──────────────────────────────────────
             Box(
                 modifier = Modifier
@@ -246,129 +228,145 @@ fun SleepTimerBottomSheetNew(
                     when (state) {
                         // ── Active Timer ───────────────────────────────────────
                         SheetContentState.Active -> {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .verticalScroll(rememberScrollState()),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
+                            val activeScrollState = rememberScrollState()
+                            AdaptiveSheetScrollContainer(
+                                scrollState = activeScrollState,
+                                blendColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                modifier = Modifier.fillMaxSize()
+                            ) { endPadding ->
                                 Column(
                                     modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 24.dp, vertical = 12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                                        .fillMaxSize()
+                                        .verticalScroll(activeScrollState)
+                                        .padding(end = endPadding),
+                                    horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    // Animated Wavy Card
-                                    Card(
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                                        shape = RoundedCornerShape(16.dp),
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 24.dp, vertical = 12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        // Timer Status Card — accent (primaryContainer) background
+                                        Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                                        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 8.dp),
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .height(208.dp) // Fixed height to prevent jumping (160 progress + 48 padding)
+                                                .height(208.dp)
                                         ) {
                                             AnimatedContent(
                                                 targetState = statusMessage.isNotEmpty(),
                                                 transitionSpec = {
                                                     val floatSpring = spring<Float>(stiffness = Spring.StiffnessMediumLow)
-                                                    (fadeIn(animationSpec = floatSpring) + scaleIn(animationSpec = floatSpring, initialScale = 0.9f)) togetherWith
-                                                    (fadeOut(animationSpec = floatSpring) + scaleOut(animationSpec = floatSpring, targetScale = 0.9f))
+                                                    (fadeIn(animationSpec = floatSpring) + scaleIn(animationSpec = floatSpring, initialScale = 0.92f)) togetherWith
+                                                    (fadeOut(animationSpec = floatSpring) + scaleOut(animationSpec = floatSpring, targetScale = 0.92f))
                                                 },
-                                                label = "status_anim"
+                                                label = "timer_status_anim"
                                             ) { isShowingMessage ->
                                                 if (isShowingMessage) {
                                                     Box(
-                                                        modifier = Modifier.fillMaxSize().padding(24.dp), 
+                                                        modifier = Modifier.fillMaxSize().padding(24.dp),
                                                         contentAlignment = Alignment.BottomEnd
                                                     ) {
                                                         Text(
                                                             text = statusMessage,
                                                             style = MaterialTheme.typography.headlineLarge,
                                                             fontWeight = FontWeight.Bold,
-                                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                                            color = MaterialTheme.colorScheme.onPrimaryContainer
                                                         )
                                                     }
                                                 } else {
-                                                    Box(
-                                                        modifier = Modifier.fillMaxSize(),
-                                                        contentAlignment = Alignment.Center
+                                                    Column(
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                            .padding(horizontal = 20.dp, vertical = 20.dp),
+                                                        horizontalAlignment = Alignment.CenterHorizontally
                                                     ) {
-                                                        Box(modifier = Modifier.size(160.dp), contentAlignment = Alignment.Center) {
-                                                            val elapsedSeconds = totalTimerSeconds - remainingSeconds
-                                                            val progress = if (totalTimerSeconds > 0L) {
-                                                                (elapsedSeconds.toFloat() / totalTimerSeconds).coerceIn(0f, 1f)
-                                                            } else 0f
-
-                                                            RhythmWavyProgressLoader(
-                                                                progress = progress,
-                                                                modifier = Modifier.fillMaxSize(),
-                                                                indicatorColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                                            ) {
-                                                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                                    Text(
-                                                                        text = formatTime(remainingSeconds),
-                                                                        style = MaterialTheme.typography.headlineMedium,
-                                                                        fontWeight = FontWeight.Bold,
-                                                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                                                    )
-                                                                    Text(
-                                                                        text = context.getString(R.string.bottomsheet_timer_remaining),
-                                                                        style = MaterialTheme.typography.bodySmall,
-                                                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                                                                    )
-                                                                }
-                                                            }
+                                                        BoxWithConstraints(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .weight(1f),
+                                                            contentAlignment = Alignment.BottomEnd
+                                                        ) {
+                                                            val timerText = formatTime(remainingSeconds)
+                                                            // Auto-scale the countdown so long hour+ timers (e.g. "1:23:45") never clip on narrow screens
+                                                            val baseSizeSp = MaterialTheme.typography.displayLarge.fontSize.value
+                                                            val baseSizeDp = baseSizeSp * LocalDensity.current.fontScale
+                                                            val digitCount = timerText.count { it.isDigit() }
+                                                            val colonCount = timerText.count { it == ':' }
+                                                            val estimatedWidthDp = (digitCount * 0.6f + colonCount * 0.38f) * baseSizeDp
+                                                            val scale = if (estimatedWidthDp > 0f) (maxWidth.value / estimatedWidthDp).coerceAtMost(1f) else 1f
+                                                            val fittedSizeSp = (baseSizeSp * scale).coerceAtLeast(32f)
+                                                            Text(
+                                                                text = timerText,
+                                                                style = MaterialTheme.typography.displayLarge.copy(fontSize = fittedSizeSp.sp),
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                                textAlign = TextAlign.End,
+                                                                maxLines = 1
+                                                            )
                                                         }
+                                                        Spacer(modifier = Modifier.height(12.dp))
+                                                        val rawProgress = if (totalTimerSeconds > 0L) {
+                                                            ((totalTimerSeconds - remainingSeconds).toFloat() / totalTimerSeconds).coerceIn(0f, 1f)
+                                                        } else 0f
+                                                        val animatedProgress by animateFloatAsState(
+                                                            targetValue = rawProgress,
+                                                            animationSpec = spring(dampingRatio = 0.6f, stiffness = 80f),
+                                                            label = "SleepTimerProgress"
+                                                        )
+                                                        LinearWavyProgressIndicator(
+                                                            progress = { animatedProgress },
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .height(10.dp),
+                                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                            trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
+                                                        )
                                                     }
                                                 }
                                             }
                                         }
                                     }
 
-                                    // Quick Adjust Controls
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically
+                                    // Quick Adjust Controls Card
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                                        shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 24.dp),
+                                        modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        FilledTonalButton(
-                                            onClick = { adjustTime(-5) },
-                                            modifier = Modifier.height(44.dp),
-                                            colors = ButtonDefaults.filledTonalButtonColors(
-                                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
+                                        RhythmGroupedButton(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                                            size = RhythmButtonSize.Large
                                         ) {
-                                            Icon(
-                                                imageVector = MaterialSymbolIcon("remove", filled = true), 
-                                                contentDescription = null, 
-                                                modifier = Modifier.size(20.dp)
+                                            RhythmButtonWeighted(
+                                                onClick = { adjustTime(-5) },
+                                                weight = 1f,
+                                                isFirst = true,
+                                                isLast = false,
+                                                icon = MaterialSymbolIcon("remove", filled = true),
+                                                text = "5 min",
+                                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                                contentColor = MaterialTheme.colorScheme.onSurface
                                             )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text("5m", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                                        }
-                                        
-                                        Spacer(modifier = Modifier.width(20.dp))
-                                        
-                                        FilledTonalButton(
-                                            onClick = { adjustTime(5) },
-                                            modifier = Modifier.height(44.dp),
-                                            colors = ButtonDefaults.filledTonalButtonColors(
-                                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                            RhythmButtonWeighted(
+                                                onClick = { adjustTime(5) },
+                                                weight = 1f,
+                                                isFirst = false,
+                                                isLast = true,
+                                                icon = MaterialSymbolIcon("add", filled = true),
+                                                text = "5 min"
                                             )
-                                        ) {
-                                            Icon(
-                                                imageVector = MaterialSymbolIcon("add", filled = true), 
-                                                contentDescription = null, 
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text("5m", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                                         }
                                     }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
 
                                     ActionSelectionCard(
                                         selectedAction = selectedAction,
@@ -384,29 +382,37 @@ fun SleepTimerBottomSheetNew(
                                 }
                             }
                         }
+                    }
 
-                        // ── Inline Time Picker ─────────────────────────────────
-                        SheetContentState.InlinePicker -> {
-                            InlineTimePickerContent(
-                                onCancel = {
-                                    sheetState = if (isTimerActive) SheetContentState.Active else SheetContentState.Presets
-                                },
-                                onTimeSelected = { hours, minutes ->
-                                    val totalMinutes = hours * 60 + minutes
-                                    if (totalMinutes > 0) {
-                                        startTimer(totalMinutes)
-                                    }
-                                    sheetState = SheetContentState.Active
+                    // ── Inline Time Picker ─────────────────────────────────
+                    SheetContentState.InlinePicker -> {
+                        InlineTimePickerContent(
+                            onCancel = {
+                                sheetState = if (isTimerActive) SheetContentState.Active else SheetContentState.Presets
+                            },
+                            onTimeSelected = { hours, minutes ->
+                                val totalMinutes = hours * 60 + minutes
+                                if (totalMinutes > 0) {
+                                    startTimer(totalMinutes)
                                 }
-                            )
-                        }
+                                sheetState = SheetContentState.Active
+                            }
+                        )
+                    }
 
-                        // ── Presets ────────────────────────────────────────────
-                        SheetContentState.Presets -> {
+                    // ── Presets ────────────────────────────────────────────
+                    SheetContentState.Presets -> {
+                        val presetsScrollState = rememberScrollState()
+                        AdaptiveSheetScrollContainer(
+                            scrollState = presetsScrollState,
+                            blendColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            modifier = Modifier.fillMaxSize()
+                        ) { endPadding ->
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .verticalScroll(rememberScrollState()),
+                                    .verticalScroll(presetsScrollState)
+                                    .padding(end = endPadding),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Column(
@@ -563,6 +569,7 @@ fun SleepTimerBottomSheetNew(
                     }
                 }
             }
+            }
 
             // ── Fixed Footer ────────────────────────────────────────────────
             if (sheetState == SheetContentState.Active) {
@@ -711,15 +718,15 @@ private fun InlineTimePickerContent(
                     selectorColor = MaterialTheme.colorScheme.primary,
                     containerColor = MaterialTheme.colorScheme.surface,
                     clockDialSelectedContentColor = MaterialTheme.colorScheme.onPrimary,
-                    clockDialUnselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    clockDialContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     periodSelectorSelectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    periodSelectorUnselectedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    periodSelectorContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                     periodSelectorSelectedContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    periodSelectorUnselectedContentColor = MaterialTheme.colorScheme.onSurface,
+                    periodSelectorContentColor = MaterialTheme.colorScheme.onSurface,
                     timeSelectorSelectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    timeSelectorUnselectedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    timeSelectorContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                     timeSelectorSelectedContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    timeSelectorUnselectedContentColor = MaterialTheme.colorScheme.onSurface
+                    timeSelectorContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         }

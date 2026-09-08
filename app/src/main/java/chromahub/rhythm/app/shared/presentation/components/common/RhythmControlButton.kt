@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.common
 
 import androidx.compose.animation.animateColorAsState
@@ -190,9 +195,9 @@ fun RhythmControlButton(
 @Composable
 fun RhythmPlayButton(
     isPlaying: Boolean,
-    showBuffering: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    showBuffering: Boolean = false,
     size: Dp = 64.dp,
     containerColor: Color = MaterialTheme.colorScheme.primaryContainer,
     contentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer

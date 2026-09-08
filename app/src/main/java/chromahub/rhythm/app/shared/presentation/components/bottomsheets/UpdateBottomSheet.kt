@@ -1,4 +1,13 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.bottomsheets
+
+import androidx.compose.foundation.lazy.rememberLazyListState
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
@@ -51,7 +60,8 @@ fun UpdateBottomSheet(
     val downloadedFile by updaterViewModel.downloadedFile.collectAsState()
     val error by updaterViewModel.error.collectAsState()
 
-    ModalBottomSheet(
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -60,17 +70,26 @@ fun UpdateBottomSheet(
                 color = MaterialTheme.colorScheme.primary
             )
         },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onBackground,
         tonalElevation = 0.dp
     ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        val updateListState = rememberLazyListState()
+
+        Column(modifier = Modifier.fillMaxWidth()) {
+            AdaptiveSheetScrollContainer(
+                lazyListState = updateListState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false)
+            ) { endPadding ->
+                LazyColumn(
+                    state = updateListState,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(start = 24.dp, end = 24.dp + endPadding, top = 8.dp, bottom = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
             // Big card with icon/name in top right and update available text
             item {
                 Card(
@@ -140,7 +159,7 @@ fun UpdateBottomSheet(
 
                         // Release date
                         Text(
-                            text = "Released: ${version.releaseDate}",
+                            text = stringResource(R.string.released_on, version.releaseDate),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -225,10 +244,34 @@ fun UpdateBottomSheet(
                     }
                 }
             }
+        }
+    }
 
-            // Update button
-            item {
-                ElevatedCard(
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            tonalElevation = 3.dp
+        ) {
+            RhythmGroupedButton(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                size = RhythmButtonSize.Large
+            ) {
+                RhythmButtonWeighted(
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                        onDismiss()
+                    },
+                    weight = 1f,
+                    isFirst = true,
+                    isLast = false,
+                    type = RhythmButtonType.Tonal,
+                    icon = RhythmIcons.Close,
+                    text = stringResource(R.string.bottomsheet_lyrics_later)
+                )
+
+                RhythmButtonWeighted(
                     onClick = {
                         if (!isDownloading && downloadedFile == null) {
                             HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
@@ -239,83 +282,55 @@ fun UpdateBottomSheet(
                             updaterViewModel.installDownloadedApk()
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = if (downloadedFile != null) 
-                            MaterialTheme.colorScheme.tertiary 
-                        else 
-                            MaterialTheme.colorScheme.primary
-                    ),
-                    shape = RoundedCornerShape(16.dp),
-                    enabled = !isDownloading || downloadedFile != null
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = when {
-                                downloadedFile != null -> context.getString(R.string.updates_install_update)
-                                isDownloading -> "${context.getString(R.string.updates_downloading)} ${downloadProgress.toInt()}%"
-                                else -> context.getString(R.string.update_now)
-                            },
-                            style = MaterialTheme.typography.titleLarge,
-                            color = if (downloadedFile != null) 
-                                MaterialTheme.colorScheme.onTertiary
-                            else 
-                                MaterialTheme.colorScheme.onPrimary,
-                            fontWeight = FontWeight.Bold
-                        )
-                        
-                        when {
-                            downloadedFile != null -> {
-                                Icon(
-                                    imageVector = RhythmIcons.CheckCircle,
-                                    contentDescription = stringResource(R.string.updatebottomsheet_install),
-                                    tint = MaterialTheme.colorScheme.onTertiary
-                                )
-                            }
-                            isDownloading -> {
+                    weight = 1f,
+                    isFirst = false,
+                    isLast = true,
+                    type = RhythmButtonType.Filled,
+                    containerColor = if (downloadedFile != null)
+                        MaterialTheme.colorScheme.tertiary
+                    else
+                        MaterialTheme.colorScheme.primary,
+                    contentColor = if (downloadedFile != null)
+                        MaterialTheme.colorScheme.onTertiary
+                    else
+                        MaterialTheme.colorScheme.onPrimary,
+                    enabled = !isDownloading || downloadedFile != null,
+                    icon = when {
+                        downloadedFile != null -> RhythmIcons.CheckCircle
+                        isDownloading -> null
+                        else -> RhythmIcons.Download
+                    },
+                    text = when {
+                        downloadedFile != null -> context.getString(R.string.updates_install_update)
+                        isDownloading -> "${context.getString(R.string.updates_downloading)} ${downloadProgress.toInt()}%"
+                        else -> context.getString(R.string.update_now)
+                    },
+                    content = if (isDownloading) {
+                        {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
                                 CircularProgressIndicator(
-                                    progress = { downloadProgress / 100f },
-                                    modifier = Modifier.size(24.dp),
-                                    strokeWidth = 3.dp,
+                                    progress = { (downloadProgress / 100f).coerceIn(0f, 1f) },
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.5.dp,
                                     color = MaterialTheme.colorScheme.onPrimary
                                 )
-                            }
-                            else -> {
-                                Icon(
-                                    imageVector = RhythmIcons.Forward,
-                                    contentDescription = stringResource(R.string.updatebottomsheet_update),
-                                    tint = MaterialTheme.colorScheme.onPrimary
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "${context.getString(R.string.updates_downloading)} ${downloadProgress.toInt()}%",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            item {
-                RhythmGroupedButton(
-                    modifier = Modifier.fillMaxWidth(),
-                    size = RhythmButtonSize.Large
-                ) {
-                    RhythmButtonWeighted(
-                        onClick = onDismiss,
-                        weight = 1f,
-                        isFirst = true,
-                        isLast = true,
-                        type = RhythmButtonType.Tonal,
-                        icon = RhythmIcons.Close,
-                        text = stringResource(R.string.bottomsheet_lyrics_later)
-                    )
-                }
+                    } else null
+                )
             }
         }
     }
+}
 }

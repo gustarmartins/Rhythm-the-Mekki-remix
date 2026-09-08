@@ -10,8 +10,13 @@
         java.security.cert.CertPathValidatorException:
             Trust anchor for certification path not found.
 -->
-<network-security-config>
-    <base-config cleartextTrafficPermitted="true">
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <!-- Intentional: cleartext + user CAs are required for self-hosted
+         Navidrome/Jellyfin servers (plain HTTP or private PKI). Removing
+         them would break those integrations, so the findings are justified. -->
+    <base-config
+        cleartextTrafficPermitted="true"
+        tools:ignore="InsecureBaseConfiguration,AcceptsUserCertificates">
         <trust-anchors>
             <!-- Trust pre-installed system CAs (default behaviour) -->
             <certificates src="system" />

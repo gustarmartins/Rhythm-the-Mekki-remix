@@ -1,5 +1,11 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 package chromahub.rhythm.app.shared.presentation.components.bottomsheets
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
@@ -58,6 +64,7 @@ import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
 
 private fun groupedSourceItemShape(index: Int, totalCount: Int): RoundedCornerShape {
     return when {
@@ -108,174 +115,152 @@ fun LyricallySourcesBottomSheet(
         }
     }
 
-    ModalBottomSheet(
+    val lazyListState = rememberLazyListState()
+
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.COMPACT_DIALOG,
+        lazyListState = lazyListState,
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         dragHandle = {
             BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary)
         },
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier
             .widthIn(max = 640.dp)
             .fillMaxWidth()
     ) {
+        StandardBottomSheetHeader(
+            title = stringResource(R.string.lyrically_sources_title),
+            subtitle = stringResource(R.string.lyrically_sources_desc),
+            visible = true
+        )
+
         Column(modifier = Modifier.fillMaxWidth()) {
-
-            // ─── Header ───────────────────────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .padding(vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = stringResource(R.string.lyrically_sources_title),
-                        style = MaterialTheme.typography.displayMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 6.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                shape = CircleShape
-                            )
-                    ) {
-                        Text(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            text = stringResource(R.string.lyrically_sources_desc),
-                            overflow = TextOverflow.Ellipsis,
-                            maxLines = 1,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // ─── Reorderable list ──────────────────────────────────────────
-            val lazyListState = rememberLazyListState()
-            DragDropLazyColumn(
-                items = reorderableList,
+            // ─── Reorderable list inside AdaptiveSheetScrollContainer ───────
+            AdaptiveSheetScrollContainer(
+                lazyListState = lazyListState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .padding(horizontal = 24.dp),
-                lazyListState = lazyListState,
-                onMove = { fromIndex, toIndex ->
-                    val newList = reorderableList.toMutableList()
-                    val item = newList.removeAt(fromIndex)
-                    newList.add(toIndex, item)
-                    reorderableList = newList
-                },
-                itemKey = { it }
-            ) { source, isDragging, index ->
-                val (name, typeLabel) = getSourceInfo(source)
-                val isEnabled = !disabledSourcesSet.contains(source)
-
-                Card(
+            ) { endPadding ->
+                DragDropLazyColumn(
+                    items = reorderableList,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 2.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isDragging)
-                            MaterialTheme.colorScheme.secondaryContainer
-                        else
-                            MaterialTheme.colorScheme.surfaceContainerHigh
-                    ),
-                    shape = groupedSourceItemShape(index, reorderableList.size)
-                ) {
-                    Row(
+                        .padding(start = 24.dp, end = 24.dp + endPadding),
+                    lazyListState = lazyListState,
+                    onMove = { fromIndex, toIndex ->
+                        val newList = reorderableList.toMutableList()
+                        val item = newList.removeAt(fromIndex)
+                        newList.add(toIndex, item)
+                        reorderableList = newList
+                    },
+                    itemKey = { it }
+                ) { source, isDragging, index ->
+                    val (name, typeLabel) = getSourceInfo(source)
+                    val isEnabled = !disabledSourcesSet.contains(source)
+
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // ── Position badge ──────────────────────────────────
-                        Surface(
-                            shape = CircleShape,
-                            color = if (isEnabled)
-                                MaterialTheme.colorScheme.primaryContainer
+                            .padding(vertical = 2.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isDragging)
+                                MaterialTheme.colorScheme.secondaryContainer
                             else
-                                MaterialTheme.colorScheme.surfaceContainerHighest,
-                            modifier = Modifier.size(32.dp)
+                                MaterialTheme.colorScheme.surfaceContainerHigh
+                        ),
+                        shape = groupedSourceItemShape(index, reorderableList.size)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = "${index + 1}",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                // ── Position badge ─────────────────────────
+                                Surface(
+                                    shape = CircleShape,
                                     color = if (isEnabled)
-                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                        MaterialTheme.colorScheme.primaryContainer
                                     else
-                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        // ── Name + type label ──────────────────────────────
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = name,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                color = if (isEnabled)
-                                    MaterialTheme.colorScheme.onSurface
-                                else
-                                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-                            )
-                            Text(
-                                text = typeLabel,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = when {
-                                    !isEnabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-                                    typeLabel.contains("Word-by-word") -> MaterialTheme.colorScheme.primary
-                                    else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                        MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = "${index + 1}",
+                                            style = MaterialTheme.typography.labelMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isEnabled)
+                                                MaterialTheme.colorScheme.onPrimaryContainer
+                                            else
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
-                            )
-                        }
 
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        // ── Enable / Disable toggle ────────────────────────
-                        val enabledCount = reorderableList.count { !disabledSourcesSet.contains(it) }
-                        TunerAnimatedSwitch(
-                            checked = isEnabled,
-                            onCheckedChange = { nowEnabled ->
-                                if (!nowEnabled && enabledCount <= 1) {
-                                    Toast.makeText(
-                                        context,
-                                        "At least one source must remain enabled.",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                    return@TunerAnimatedSwitch
-                                }
-                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                disabledSourcesSet = if (nowEnabled) {
-                                    disabledSourcesSet - source
-                                } else {
-                                    disabledSourcesSet + source
+                                // ── Source name & type ─────────────────────
+                                Column {
+                                    Text(
+                                        text = name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = if (isEnabled)
+                                            MaterialTheme.colorScheme.onSurface
+                                        else
+                                            MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                                    )
+                                    Text(
+                                        text = typeLabel,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = if (isEnabled)
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+                                    )
                                 }
                             }
-                        )
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                            // ── Enable/Disable switch ──────────────────────
+                            val enabledCount = reorderableList.count { !disabledSourcesSet.contains(it) }
+                            TunerAnimatedSwitch(
+                                checked = isEnabled,
+                                onCheckedChange = { nowEnabled: Boolean ->
+                                    if (!nowEnabled && enabledCount <= 1) {
+                                        Toast.makeText(
+                                            context,
+                                            "At least one source must remain enabled.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        return@TunerAnimatedSwitch
+                                    }
+                                    disabledSourcesSet = if (nowEnabled) {
+                                        disabledSourcesSet - source
+                                    } else {
+                                        disabledSourcesSet + source
+                                    }
+                                }
+                            )
 
-                        // ── Drag handle ────────────────────────────────────
-                        Icon(
-                            imageVector = RhythmIcons.DragHandle,
-                            contentDescription = stringResource(R.string.drag_to_reorder),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.size(20.dp)
-                        )
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            // ── Drag handle ────────────────────────────────────
+                            Icon(
+                                imageVector = RhythmIcons.DragHandle,
+                                contentDescription = stringResource(R.string.drag_to_reorder),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -301,7 +286,7 @@ fun LyricallySourcesBottomSheet(
                             appSettings.setDisabledLyricallySources(defaultDisabled)
                             reorderableList = appSettings.defaultLyricallySources
                             disabledSourcesSet = defaultDisabled
-                            Toast.makeText(context, "Reset to defaults.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.lyricallysources_reset_to_defaults), Toast.LENGTH_SHORT).show()
                         },
                         weight = 1f,
                         isFirst = true,
@@ -314,7 +299,7 @@ fun LyricallySourcesBottomSheet(
                             HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                             appSettings.setLyricallySourcesOrder(reorderableList)
                             appSettings.setDisabledLyricallySources(disabledSourcesSet)
-                            Toast.makeText(context, "Sources saved.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.lyricallysources_saved), Toast.LENGTH_SHORT).show()
                             scope.launch { sheetState.hide() }.invokeOnCompletion {
                                 if (!sheetState.isVisible) onDismiss()
                             }

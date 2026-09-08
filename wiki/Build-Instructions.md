@@ -119,8 +119,8 @@ android {
         applicationId = "chromahub.rhythm.app"
         minSdk = 26          // Android 8.0
         targetSdk = 37       // Android 15
-        versionCode = 514141085
-        versionName = "5.1.414.1085 Beta"
+        versionCode = 544561196
+        versionName = "5.4.456.1196 Beta"
     }
     
     compileOptions {
@@ -152,7 +152,7 @@ Rhythm supports multiple build variants:
 ./gradlew assembleGithubDebug
 ```
 - Output: `app/build/outputs/apk/fdroid/debug/` or `app/build/outputs/apk/github/debug/`
-- Files are named `Rhythm-{versionName}-{flavorVariant}-{abi}.apk` (e.g., `Rhythm-5.1.414.1085 Beta-fdroidDebug-arm64-v8a.apk`)
+- Files are named `Rhythm-{versionName}-{flavorVariant}-{abi}.apk` (e.g., `Rhythm-5.4.456.1196 Beta-fdroidDebug-arm64-v8a.apk`)
 - Features: Debugging enabled, logs enabled
 - Signing: Debug keystore (auto-generated)
 

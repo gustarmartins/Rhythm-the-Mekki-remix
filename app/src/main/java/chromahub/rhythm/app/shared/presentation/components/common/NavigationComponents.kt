@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.common
 import androidx.compose.ui.platform.LocalContext
 import chromahub.rhythm.app.util.HapticUtils
@@ -50,6 +55,8 @@ import androidx.compose.ui.unit.sp
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.R
 import androidx.compose.ui.res.stringResource
+import chromahub.rhythm.app.util.windowScreenWidthDp
+import chromahub.rhythm.app.util.windowScreenHeightDp
 
 /**
  * Alphabet bar for quick navigation through sorted lists
@@ -73,8 +80,7 @@ fun AlphabetBar(
     val activeLetter = draggedLetter ?: selectedLetter
     
     // Responsive sizing based on screen width
-    val configuration = LocalConfiguration.current
-    val screenWidthDp = configuration.screenWidthDp
+    val screenWidthDp = windowScreenWidthDp()
     val isCompactWidth = screenWidthDp < 400
     val isTablet = screenWidthDp >= 600
     
@@ -231,8 +237,7 @@ fun ScrollToTopButton(
 ) {
     val context = LocalContext.current
     // Responsive sizing based on screen size
-    val configuration = LocalConfiguration.current
-    val screenWidthDp = configuration.screenWidthDp
+    val screenWidthDp = windowScreenWidthDp()
     val isCompactWidth = screenWidthDp < 400
     val isTablet = screenWidthDp >= 600
     

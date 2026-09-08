@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.streaming.di
 
 import android.content.Context
@@ -30,8 +35,4 @@ object StreamingMusicModule {
         }
     }
     
-    // TODO: Add use cases and API clients when implementing streaming features
-    // fun provideSpotifyApiClient(context: Context): SpotifyApiClient { ... }
-    // fun provideLyricallyApiClient(context: Context): LyricallyApiClient { ... }
-    // fun provideYouTubeMusicApiClient(context: Context): YouTubeMusicApiClient { ... }
 }

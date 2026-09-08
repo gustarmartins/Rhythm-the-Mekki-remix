@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
@@ -84,7 +89,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -170,6 +174,7 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
     // API states
     val deezerApiEnabled by appSettings.deezerApiEnabled.collectAsState()
     val lrclibApiEnabled by appSettings.lrclibApiEnabled.collectAsState()
+    val betterLyricsApiEnabled by appSettings.betterLyricsApiEnabled.collectAsState()
     val ytMusicApiEnabled by appSettings.ytMusicApiEnabled.collectAsState()
     val lyricallyApiEnabled by appSettings.lyricallyApiEnabled.collectAsState()
     val wikipediaApiEnabled by appSettings.wikipediaApiEnabled.collectAsState()
@@ -216,7 +221,7 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                                 item = SettingItem(
                                     icon = RhythmIcons.Public,
                                     title = stringResource(R.string.onboarding_integration_deezer),
-                                    description = "Free artist images and album artwork - no setup needed",
+                                    description = context.getString(R.string.api_deezer_desc),
                                     toggleState = deezerApiEnabled,
                                     onToggleChange = { enabled -> appSettings.setDeezerApiEnabled(enabled) }
                                 )
@@ -232,9 +237,25 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                                 item = SettingItem(
                                     icon = RhythmIcons.Queue,
                                     title = stringResource(R.string.onboarding_integration_lrclib),
-                                    description = "Free line-by-line synced lyrics (Fallback)",
+                                    description = context.getString(R.string.api_lrclib_desc),
                                     toggleState = lrclibApiEnabled,
                                     onToggleChange = { enabled -> appSettings.setLrcLibApiEnabled(enabled) }
+                                )
+                            )
+                        )
+                    }
+
+                    if (chromahub.rhythm.app.BuildConfig.ENABLE_BETTERLYRICS) {
+                        add(
+                            toMaterial3SettingsItem(
+                                context = context,
+                                hapticFeedback = hapticFeedback,
+                                item = SettingItem(
+                                    icon = RhythmIcons.Queue,
+                                    title = stringResource(R.string.onboarding_integration_betterlyrics),
+                                    description = context.getString(R.string.api_betterlyrics_desc),
+                                    toggleState = betterLyricsApiEnabled,
+                                    onToggleChange = { enabled -> appSettings.setBetterLyricsApiEnabled(enabled) }
                                 )
                             )
                         )
@@ -248,7 +269,7 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                                 item = SettingItem(
                                     icon = MaterialSymbolIcon("music_note"),
                                     title = stringResource(R.string.apimanagementsettingsscreen_lyrically),
-                                    description = "Word-by-word synchronized lyrics (Highest Quality)",
+                                    description = context.getString(R.string.api_lyrically_desc),
                                     toggleState = lyricallyApiEnabled,
                                     onToggleChange = { enabled -> appSettings.setLyricallyApiEnabled(enabled) },
                                     onClick = {
@@ -268,11 +289,14 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                             hapticFeedback = hapticFeedback,
                             item = SettingItem(
                                 icon = MaterialSymbolIcon("movie"),
-                                title = "Apple Music Motion Canvas",
-                                description = "Dynamic animated album artwork - " + when (appleCanvasNetworkMode) {
-                                    chromahub.rhythm.app.shared.data.model.CanvasNetworkMode.WIFI_ONLY -> "Only on Wi-Fi"
-                                    chromahub.rhythm.app.shared.data.model.CanvasNetworkMode.BOTH -> "Wi-Fi & Cellular"
-                                },
+                                title = context.getString(R.string.api_apple_motion_canvas),
+                                description = context.getString(
+                                    R.string.api_apple_motion_canvas_desc,
+                                    when (appleCanvasNetworkMode) {
+                                        chromahub.rhythm.app.shared.data.model.CanvasNetworkMode.WIFI_ONLY -> context.getString(R.string.api_apple_canvas_wifi)
+                                        chromahub.rhythm.app.shared.data.model.CanvasNetworkMode.BOTH -> context.getString(R.string.api_apple_canvas_both)
+                                    }
+                                ),
                                 toggleState = appleCanvasEnabled,
                                 onToggleChange = { enabled -> appSettings.setAppleCanvasEnabled(enabled) },
                                 onClick = {
@@ -293,7 +317,7 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                                 item = SettingItem(
                                     icon = RhythmIcons.Album,
                                     title = stringResource(R.string.onboarding_integration_ytmusic),
-                                    description = "Fallback for artist images and album artwork",
+                                    description = context.getString(R.string.api_ytmusic_desc),
                                     toggleState = ytMusicApiEnabled,
                                     onToggleChange = { enabled -> appSettings.setYTMusicApiEnabled(enabled) }
                                 )
@@ -333,25 +357,26 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                 )
             }
 
-            item { Spacer(modifier = Modifier.height(24.dp)) }
+            item { Spacer(modifier = Modifier.height(16.dp)) }
 
             item {
                 Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
-                    ),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(
+                        modifier = Modifier.padding(20.dp)
+                    ) {
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(bottom = 12.dp)
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = RhythmIcons.Info,
+                                imageVector = MaterialSymbolIcon("lightbulb", filled = true),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 contentDescription = null,
-                                
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(modifier = Modifier.width(12.dp))
@@ -359,14 +384,14 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                                 text = context.getString(R.string.api_services),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
-
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = context.getString(R.string.external_services_desc),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                         )
                     }
                 }

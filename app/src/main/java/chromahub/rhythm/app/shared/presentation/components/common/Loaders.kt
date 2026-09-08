@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.components.common
@@ -22,8 +27,8 @@ import androidx.compose.ui.unit.dp
  */
 @Composable
 fun M3LinearLoader(
-    progress: Float? = null,
     modifier: Modifier = Modifier,
+    progress: Float? = null,
     color: Color = MaterialTheme.colorScheme.primary,
     trackColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
     showTrackGap: Boolean = true,
@@ -42,11 +47,13 @@ fun M3LinearLoader(
         LinearWavyProgressIndicator(
             progress = { animatedProgress },
             modifier = modifier,
+            color = color,
             trackColor = trackColor
         )
     } else {
         LinearWavyProgressIndicator(
             modifier = modifier,
+            color = color,
             trackColor = trackColor
         )
     }
@@ -58,8 +65,8 @@ fun M3LinearLoader(
  */
 @Composable
 fun M3CircularLoader(
-    progress: Float? = null,
     modifier: Modifier = Modifier,
+    progress: Float? = null,
     color: Color = MaterialTheme.colorScheme.primary,
     trackColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.4f),
     strokeWidth: Float = 4f,
@@ -202,8 +209,8 @@ fun M3DotLoader(
  */
 @Composable
 fun M3BrandedLoader(
-    progress: Float? = null,
     modifier: Modifier = Modifier,
+    progress: Float? = null,
     color: Color = MaterialTheme.colorScheme.primary,
     trackColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
     surfaceColor: Color = MaterialTheme.colorScheme.surface,

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.local.data.database.dao
 
 import androidx.room.Dao
@@ -16,7 +21,7 @@ interface SongDao {
     fun getAllSongsFlow(): kotlinx.coroutines.flow.Flow<List<SongEntity>>
 
     @Query("SELECT * FROM songs WHERE duration >= :minDurationMs ORDER BY title ASC")
-    fun getSongsFilteredFlow(minDurationMs: Long = 10000L): kotlinx.coroutines.flow.Flow<List<SongEntity>>
+    fun getSongsFilteredFlow(minDurationMs: Long = 0L): kotlinx.coroutines.flow.Flow<List<SongEntity>>
 
     @Query("SELECT * FROM songs ORDER BY title ASC")
     fun getSongsPagingSource(): androidx.paging.PagingSource<Int, SongEntity>
@@ -41,6 +46,9 @@ interface SongDao {
 
     @Query("SELECT COUNT(*) FROM songs")
     suspend fun getCount(): Int
+
+    @Query("SELECT COUNT(*) FROM songs WHERE artworkUri LIKE '%embedded_artwork%'")
+    suspend fun countSongsWithEmbeddedArtworkUri(): Int
 
     @Transaction
     suspend fun replaceAll(songs: List<SongEntity>) {

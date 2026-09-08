@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.util
 
 import android.content.Context
@@ -37,17 +42,13 @@ object OutputSwitcherHelper {
      */
     @RequiresApi(Build.VERSION_CODES.R)
     private fun tryShowNativeOutputSwitcher(context: Context): Boolean {
-        // Method 1: Try the volume panel approach (shows output switcher button)
-//        if (tryShowViaVolumePanel(context)) {
-//            return true
-//        }
         
-        // Method 2: Try broadcast to open output switcher directly
+        // Method 1: Try broadcast to open output switcher directly
         if (tryShowViaBroadcast(context)) {
             return true
         }
         
-        // Method 3: Try Settings Panel API (Android 13+)
+        // Method 2: Try Settings Panel API (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && tryShowViaSettingsPanel(context)) {
             return true
         }
@@ -57,29 +58,7 @@ object OutputSwitcherHelper {
     }
     
     /**
-     * Method 1: Show volume panel which has output switcher button on Android 11+
-     */
-    private fun tryShowViaVolumePanel(context: Context): Boolean {
-        try {
-            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-            audioManager?.let {
-                // Adjust volume by 0 to show volume panel without changing volume
-                it.adjustStreamVolume(
-                    AudioManager.STREAM_MUSIC,
-                    AudioManager.ADJUST_SAME,
-                    AudioManager.FLAG_SHOW_UI
-                )
-                Log.d(TAG, "Showed volume panel with output switcher button")
-                return true
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to show volume panel: ${e.message}")
-        }
-        return false
-    }
-    
-    /**
-     * Method 2: Try to broadcast intent to open output switcher (device-specific)
+     * Method 1: Try to broadcast intent to open output switcher (device-specific)
      */
     private fun tryShowViaBroadcast(context: Context): Boolean {
         try {

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:targetApi="31"
     android:description="@string/widget_description_glance"
     android:minWidth="110dp"
     android:minHeight="48dp"
@@ -7,7 +9,8 @@
     android:minResizeHeight="48dp"
     android:maxResizeWidth="800dp"
     android:maxResizeHeight="800dp"
-    android:previewImage="@drawable/widget_preview_glance"
+    android:previewImage="@drawable/widget_preview_music_image"
+    android:previewLayout="@layout/widget_preview_music"
     android:resizeMode="horizontal|vertical"
     android:targetCellWidth="2"
     android:targetCellHeight="2"

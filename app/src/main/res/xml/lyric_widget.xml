@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:targetApi="31"
     android:description="@string/lyric_widget_description"
     android:minWidth="180dp"
     android:minHeight="80dp"
@@ -7,7 +9,8 @@
     android:minResizeHeight="48dp"
     android:maxResizeWidth="800dp"
     android:maxResizeHeight="800dp"
-    android:previewImage="@drawable/widget_preview_lyric"
+    android:previewImage="@drawable/widget_preview_lyrics_image"
+    android:previewLayout="@layout/widget_preview_lyrics"
     android:resizeMode="horizontal|vertical"
     android:targetCellWidth="3"
     android:targetCellHeight="2"

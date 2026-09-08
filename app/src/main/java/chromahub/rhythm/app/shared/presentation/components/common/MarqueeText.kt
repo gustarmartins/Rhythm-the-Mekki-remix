@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.common
 
 import androidx.compose.animation.animateColorAsState
@@ -37,9 +42,9 @@ import chromahub.rhythm.app.shared.data.model.AppSettings
 @Composable
 fun AutoScrollingTextOnDemand(
     text: String,
-    style: TextStyle = LocalTextStyle.current,
     gradientEdgeColor: Color,
     modifier: Modifier = Modifier,
+    style: TextStyle = LocalTextStyle.current,
     enabled: Boolean = true,
     textAlign: TextAlign = TextAlign.Start,
     respectGlobalSetting: Boolean = true

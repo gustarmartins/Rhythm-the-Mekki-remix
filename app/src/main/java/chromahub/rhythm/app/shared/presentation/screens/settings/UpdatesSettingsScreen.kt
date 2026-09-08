@@ -1,8 +1,16 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
 
-
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.groupedBottomSheetItemShape
 
 import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
 import androidx.compose.foundation.layout.PaddingValues
@@ -84,7 +92,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -137,6 +144,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import android.widget.TextView
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.core.text.HtmlCompat
 import chromahub.rhythm.app.shared.presentation.components.common.M3FourColorCircularLoader
@@ -149,6 +157,7 @@ import chromahub.rhythm.app.shared.presentation.components.dialogs.PlaylistOpera
 import chromahub.rhythm.app.shared.presentation.components.dialogs.PlaylistOperationResultDialog
 import chromahub.rhythm.app.shared.presentation.components.dialogs.AppRestartDialog
 import chromahub.rhythm.app.shared.presentation.components.dialogs.FdroidUpdateWarningDialog
+import chromahub.rhythm.app.shared.presentation.components.dialogs.VersionCodeDowngradeWarningDialog
 import chromahub.rhythm.app.shared.presentation.components.player.PlayerChipOrderBottomSheet
 import chromahub.rhythm.app.features.local.presentation.components.settings.HomeSectionOrderBottomSheet
 import chromahub.rhythm.app.features.local.presentation.components.settings.LibraryTabOrderBottomSheet
@@ -160,6 +169,7 @@ import chromahub.rhythm.app.shared.presentation.screens.settings.TunerAnimatedSw
 import chromahub.rhythm.app.shared.presentation.screens.settings.TunerSettingCard
 import chromahub.rhythm.app.shared.presentation.screens.settings.SettingItem
 import chromahub.rhythm.app.shared.presentation.screens.settings.SettingGroup
+import androidx.core.net.toUri
 
 
 @Composable
@@ -173,7 +183,6 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
     // Collect state from ViewModel and AppSettings
     val updatesEnabled by appSettings.updatesEnabled.collectAsState()
     val autoCheckForUpdates by appSettings.autoCheckForUpdates.collectAsState()
-    val useSmartUpdatePolling by appSettings.useSmartUpdatePolling.collectAsState()
     val updateChannel by appSettings.updateChannel.collectAsState()
     val updateSource by appSettings.updateSource.collectAsState()
     val updateCheckIntervalHours by appSettings.updateCheckIntervalHours.collectAsState()
@@ -187,13 +196,14 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
     val downloadedFile by updaterViewModel.downloadedFile.collectAsState()
     val isExtracting by updaterViewModel.isExtracting.collectAsState()
     val canProceedWithMismatchedDownload by updaterViewModel.canProceedWithMismatchedDownload.collectAsState()
+    val isVersionCodeDowngrade by updaterViewModel.isVersionCodeDowngrade.collectAsState()
 
     // Simulation state variables
     var simulateEnabled by remember { mutableStateOf(false) }
     var simIsChecking by remember { mutableStateOf(false) }
     var simUpdateAvailable by remember { mutableStateOf(false) }
     var simIsDownloading by remember { mutableStateOf(false) }
-    var simDownloadProgress by remember { mutableStateOf(0f) }
+    var simDownloadProgress by remember { mutableFloatStateOf(0f) }
     var simDownloadedFile by remember { mutableStateOf<File?>(null) }
     var simError by remember { mutableStateOf<String?>(null) }
 
@@ -241,6 +251,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
     var showSourceDialog by remember { mutableStateOf(false) }
     var showIntervalDialog by remember { mutableStateOf(false) }
     var showFdroidWarningDialog by remember { mutableStateOf(false) }
+    var showDowngradeWarningDialog by remember { mutableStateOf(false) }
 
     val intervalOptions = listOf(
         1 to context.getString(R.string.settings_interval_every_hour),
@@ -251,14 +262,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
     )
     val updateIntervalLabel = intervalOptions.firstOrNull { (hours, _) ->
         hours == updateCheckIntervalHours
-    }?.second ?: context.getString(R.string.settings_check_interval_value, updateCheckIntervalHours)
-
-    // Check for updates when the screen is first shown and updates are enabled
-    LaunchedEffect(updatesEnabled) {
-        if (updatesEnabled) {
-            updaterViewModel.checkForUpdates(force = true)
-        }
-    }
+    }?.second ?: pluralStringResource(R.plurals.settings_check_interval_value, updateCheckIntervalHours, updateCheckIntervalHours)
 
     // Infinite transition for continuous animations
     val infiniteTransition = rememberInfiniteTransition(label = "update_animations")
@@ -590,7 +594,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                                 if (error?.contains("unknown sources", ignoreCase = true) == true ||
                                                     error?.contains("install from unknown", ignoreCase = true) == true) {
                                                     val intent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                                                        data = Uri.parse("package:${context.packageName}")
+                                                        data = ("package:${context.packageName}").toUri()
                                                     }
                                                     try {
                                                         context.startActivity(intent)
@@ -754,6 +758,8 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                                     simDownloadedFile = File(context.cacheDir, "simulated_update.apk")
                                                 }
                                             }
+                                        } else if (isVersionCodeDowngrade) {
+                                            showDowngradeWarningDialog = true
                                         } else {
                                             updaterViewModel.downloadUpdate()
                                         }
@@ -893,7 +899,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                 "https://github.com/${BuildConfig.GITHUB_OWNER}/${BuildConfig.GITHUB_REPO}/releases/tag/v$displayVersionName"
                             }
                             try {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(releaseUrl))
+                                val intent = Intent(Intent.ACTION_VIEW, (releaseUrl).toUri())
                                 context.startActivity(intent)
                             } catch (e: Exception) {
                                 Toast.makeText(context, R.string.updatessettingsscreen_unable_to_open_release, Toast.LENGTH_SHORT).show()
@@ -940,7 +946,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(18.dp),
+                            shape = RoundedCornerShape(24.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
@@ -1012,7 +1018,7 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(18.dp),
+                            shape = RoundedCornerShape(24.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
@@ -1093,15 +1099,6 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                         )
                         add(
                             SettingItem(
-                                MaterialSymbolIcon("cloud_sync"),
-                                context.getString(R.string.onboarding_smart_polling_title),
-                                context.getString(R.string.onboarding_smart_polling_desc),
-                                toggleState = useSmartUpdatePolling,
-                                onToggleChange = { appSettings.setUseSmartUpdatePolling(it) }
-                            )
-                        )
-                        add(
-                            SettingItem(
                                 RhythmIcons.Category,
                                 context.getString(R.string.updates_channel_title),
                                 "${updateChannel.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }} - Tap to change",
@@ -1136,424 +1133,59 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                 )
             }
 
-            // 6. Informational card about smart polling
-            item {
-                AnimatedVisibility(
-                    visible = updatesEnabled && useSmartUpdatePolling,
-                    enter = fadeIn(animationSpec = tween(300)) + expandVertically(animationSpec = tween(300)),
-                    exit = fadeOut(animationSpec = tween(200)) + shrinkVertically(animationSpec = tween(200))
-                ) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = RhythmIcons.Info,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.tertiary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = context.getString(R.string.updates_smart_polling),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = context.getString(R.string.updates_smart_polling_desc),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 7. Developer UI Test Sandbox Card
-//            item {
-//                Card(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    shape = RoundedCornerShape(18.dp),
-//                    colors = CardDefaults.cardColors(
-//                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
-//                    ),
-//                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f)),
-//                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-//                ) {
-//                    Column(
-//                        modifier = Modifier.padding(16.dp),
-//                        verticalArrangement = Arrangement.spacedBy(12.dp)
-//                    ) {
-//                        Row(
-//                            modifier = Modifier.fillMaxWidth(),
-//                            horizontalArrangement = Arrangement.SpaceBetween,
-//                            verticalAlignment = Alignment.CenterVertically
-//                        ) {
-//                            Row(
-//                                verticalAlignment = Alignment.CenterVertically,
-//                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-//                            ) {
-//                                Icon(
-//                                    imageVector = MaterialSymbolIcon("science"),
-//                                    contentDescription = null,
-//                                    tint = MaterialTheme.colorScheme.secondary,
-//                                    modifier = Modifier.size(24.dp)
-//                                )
-//                                Text(
-//                                    text = "UI Test Sandbox",
-//                                    style = MaterialTheme.typography.titleMedium,
-//                                    fontWeight = FontWeight.Bold,
-//                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-//                                )
-//                            }
-//                            TunerAnimatedSwitch(
-//                                checked = simulateEnabled,
-//                                onCheckedChange = {
-//                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-//                                    simulateEnabled = it
-//                                    if (!it) {
-//                                        // Reset simulated states when disabled
-//                                        simIsChecking = false
-//                                        simUpdateAvailable = false
-//                                        simIsDownloading = false
-//                                        simDownloadProgress = 0f
-//                                        simDownloadedFile = null
-//                                        simError = null
-//                                    }
-//                                }
-//                            )
-//                        }
-//
-//                        Text(
-//                            text = "Enable to simulate different update states and progress bars for UI testing.",
-//                            style = MaterialTheme.typography.bodySmall,
-//                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-//                        )
-//
-//                        AnimatedVisibility(
-//                            visible = simulateEnabled,
-//                            enter = fadeIn() + expandVertically(),
-//                            exit = fadeOut() + shrinkVertically()
-//                        ) {
-//                            Column(
-//                                verticalArrangement = Arrangement.spacedBy(8.dp)
-//                            ) {
-//                                HorizontalDivider(color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f))
-//
-//                                Text(
-//                                    text = "Simulate State:",
-//                                    style = MaterialTheme.typography.titleSmall,
-//                                    fontWeight = FontWeight.SemiBold,
-//                                    color = MaterialTheme.colorScheme.onSecondaryContainer
-//                                )
-//
-//                                // Row 1 of presets: Checking & Update Available
-//                                Row(
-//                                    modifier = Modifier.fillMaxWidth(),
-//                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-//                                ) {
-//                                    val isCheckingSelected = simIsChecking && !simUpdateAvailable && !simIsDownloading && simDownloadedFile == null && simError == null
-//                                    if (isCheckingSelected) {
-//                                        Button(
-//                                            onClick = {
-//                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-//                                                simIsChecking = true
-//                                                simUpdateAvailable = false
-//                                                simIsDownloading = false
-//                                                simDownloadedFile = null
-//                                                simError = null
-//                                            },
-//                                            modifier = Modifier.weight(1f).height(36.dp),
-//                                            shape = RoundedCornerShape(12.dp),
-//                                            contentPadding = PaddingValues(0.dp)
-//                                        ) {
-//                                            Text("Checking", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-//                                        }
-//                                    } else {
-//                                        OutlinedButton(
-//                                            onClick = {
-//                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-//                                                simIsChecking = true
-//                                                simUpdateAvailable = false
-//                                                simIsDownloading = false
-//                                                simDownloadedFile = null
-//                                                simError = null
-//                                            },
-//                                            modifier = Modifier.weight(1f).height(36.dp),
-//                                            shape = RoundedCornerShape(12.dp),
-//                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)),
-//                                            contentPadding = PaddingValues(0.dp)
-//                                        ) {
-//                                            Text("Checking", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-//                                        }
-//                                    }
-//
-//                                    val isAvailableSelected = !simIsChecking && simUpdateAvailable && !simIsDownloading && simDownloadedFile == null && simError == null
-//                                    if (isAvailableSelected) {
-//                                        Button(
-//                                            onClick = {
-//                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-//                                                simIsChecking = false
-//                                                simUpdateAvailable = true
-//                                                simIsDownloading = false
-//                                                simDownloadedFile = null
-//                                                simError = null
-//                                            },
-//                                            modifier = Modifier.weight(1f).height(36.dp),
-//                                            shape = RoundedCornerShape(12.dp),
-//                                            contentPadding = PaddingValues(0.dp)
-//                                        ) {
-//                                            Text("Update Available", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-//                                        }
-//                                    } else {
-//                                        OutlinedButton(
-//                                            onClick = {
-//                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-//                                                simIsChecking = false
-//                                                simUpdateAvailable = true
-//                                                simIsDownloading = false
-//                                                simDownloadedFile = null
-//                                                simError = null
-//                                            },
-//                                            modifier = Modifier.weight(1f).height(36.dp),
-//                                            shape = RoundedCornerShape(12.dp),
-//                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)),
-//                                            contentPadding = PaddingValues(0.dp)
-//                                        ) {
-//                                            Text("Update Available", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-//                                        }
-//                                    }
-//                                }
-//
-//                                // Row 2 of presets: Downloading & Downloaded
-//                                Row(
-//                                    modifier = Modifier.fillMaxWidth(),
-//                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-//                                ) {
-//                                    val isDownloadingSelected = simIsDownloading
-//                                    if (isDownloadingSelected) {
-//                                        Button(
-//                                            onClick = {
-//                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-//                                                simIsChecking = false
-//                                                simUpdateAvailable = true
-//                                                simIsDownloading = true
-//                                                simDownloadedFile = null
-//                                                simError = null
-//
-//                                                // Start simulating a progress cycle
-//                                                scope.launch {
-//                                                    simDownloadProgress = 0f
-//                                                    while (simDownloadProgress < 100f && simIsDownloading) {
-//                                                        delay(100)
-//                                                        simDownloadProgress += 4f
-//                                                    }
-//                                                    if (simIsDownloading) {
-//                                                        simIsDownloading = false
-//                                                        simDownloadedFile = File(context.cacheDir, "simulated_update.apk")
-//                                                    }
-//                                                }
-//                                            },
-//                                            modifier = Modifier.weight(1f).height(36.dp),
-//                                            shape = RoundedCornerShape(12.dp),
-//                                            contentPadding = PaddingValues(0.dp)
-//                                        ) {
-//                                            Text("Downloading", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-//                                        }
-//                                    } else {
-//                                        OutlinedButton(
-//                                            onClick = {
-//                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-//                                                simIsChecking = false
-//                                                simUpdateAvailable = true
-//                                                simIsDownloading = true
-//                                                simDownloadedFile = null
-//                                                simError = null
-//
-//                                                // Start simulating a progress cycle
-//                                                scope.launch {
-//                                                    simDownloadProgress = 0f
-//                                                    while (simDownloadProgress < 100f && simIsDownloading) {
-//                                                        delay(100)
-//                                                        simDownloadProgress += 4f
-//                                                    }
-//                                                    if (simIsDownloading) {
-//                                                        simIsDownloading = false
-//                                                        simDownloadedFile = File(context.cacheDir, "simulated_update.apk")
-//                                                    }
-//                                                }
-//                                            },
-//                                            modifier = Modifier.weight(1f).height(36.dp),
-//                                            shape = RoundedCornerShape(12.dp),
-//                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)),
-//                                            contentPadding = PaddingValues(0.dp)
-//                                        ) {
-//                                            Text("Downloading", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-//                                        }
-//                                    }
-//
-//                                    val isDownloadedSelected = simDownloadedFile != null && !simIsDownloading
-//                                    if (isDownloadedSelected) {
-//                                        Button(
-//                                            onClick = {
-//                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-//                                                simIsChecking = false
-//                                                simUpdateAvailable = true
-//                                                simIsDownloading = false
-//                                                simDownloadedFile = File(context.cacheDir, "simulated_update.apk")
-//                                                simError = null
-//                                            },
-//                                            modifier = Modifier.weight(1f).height(36.dp),
-//                                            shape = RoundedCornerShape(12.dp),
-//                                            contentPadding = PaddingValues(0.dp)
-//                                        ) {
-//                                            Text("Downloaded", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-//                                        }
-//                                    } else {
-//                                        OutlinedButton(
-//                                            onClick = {
-//                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-//                                                simIsChecking = false
-//                                                simUpdateAvailable = true
-//                                                simIsDownloading = false
-//                                                simDownloadedFile = File(context.cacheDir, "simulated_update.apk")
-//                                                simError = null
-//                                            },
-//                                            modifier = Modifier.weight(1f).height(36.dp),
-//                                            shape = RoundedCornerShape(12.dp),
-//                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)),
-//                                            contentPadding = PaddingValues(0.dp)
-//                                        ) {
-//                                            Text("Downloaded", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-//                                        }
-//                                    }
-//                                }
-//
-//                                // Row 3 of presets: Error & Reset
-//                                Row(
-//                                    modifier = Modifier.fillMaxWidth(),
-//                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-//                                ) {
-//                                    val isErrorSelected = simError != null
-//                                    if (isErrorSelected) {
-//                                        Button(
-//                                            onClick = {
-//                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-//                                                simIsChecking = false
-//                                                simUpdateAvailable = false
-//                                                simIsDownloading = false
-//                                                simDownloadedFile = null
-//                                                simError = "Simulated network timeout error. Please check connection and try again."
-//                                            },
-//                                            modifier = Modifier.weight(1f).height(36.dp),
-//                                            shape = RoundedCornerShape(12.dp),
-//                                            contentPadding = PaddingValues(0.dp)
-//                                        ) {
-//                                            Text("Error", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-//                                        }
-//                                    } else {
-//                                        OutlinedButton(
-//                                            onClick = {
-//                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-//                                                simIsChecking = false
-//                                                simUpdateAvailable = false
-//                                                simIsDownloading = false
-//                                                simDownloadedFile = null
-//                                                simError = "Simulated network timeout error. Please check connection and try again."
-//                                            },
-//                                            modifier = Modifier.weight(1f).height(36.dp),
-//                                            shape = RoundedCornerShape(12.dp),
-//                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)),
-//                                            contentPadding = PaddingValues(0.dp)
-//                                        ) {
-//                                            Text("Error", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-//                                        }
-//                                    }
-//
-//                                    val isResetSelected = !simIsChecking && !simUpdateAvailable && !simIsDownloading && simDownloadedFile == null && simError == null
-//                                    if (isResetSelected) {
-//                                        Button(
-//                                            onClick = {
-//                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-//                                                simIsChecking = false
-//                                                simUpdateAvailable = false
-//                                                simIsDownloading = false
-//                                                simDownloadedFile = null
-//                                                simError = null
-//                                            },
-//                                            modifier = Modifier.weight(1f).height(36.dp),
-//                                            shape = RoundedCornerShape(12.dp),
-//                                            contentPadding = PaddingValues(0.dp)
-//                                        ) {
-//                                            Text("Reset", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-//                                        }
-//                                    } else {
-//                                        OutlinedButton(
-//                                            onClick = {
-//                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-//                                                simIsChecking = false
-//                                                simUpdateAvailable = false
-//                                                simIsDownloading = false
-//                                                simDownloadedFile = null
-//                                                simError = null
-//                                            },
-//                                            modifier = Modifier.weight(1f).height(36.dp),
-//                                            shape = RoundedCornerShape(12.dp),
-//                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)),
-//                                            contentPadding = PaddingValues(0.dp)
-//                                        ) {
-//                                            Text("Reset", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-//                                        }
-//                                    }
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//            }
         }
     }
 
-    // Update Channel Dialog
     if (showChannelDialog) {
-        AlertDialog(
-            onDismissRequest = { showChannelDialog = false },
-            icon = {
-                Icon(
-                    imageVector = RhythmIcons.Category,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
+        val sheetState = rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
                 )
-            },
-            title = { Text(context.getString(R.string.updates_channel_title)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = context.getString(R.string.updates_channel_desc),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
 
+        RhythmAdaptiveModalSheet(
+            adaptiveType = SheetAdaptiveType.COMPACT_DIALOG,
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
+            onDismissRequest = { showChannelDialog = false },
+            sheetState = sheetState,
+            dragHandle = {
+                BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary)
+            },
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ) {
+            StandardBottomSheetHeader(
+                title = context.getString(R.string.updates_channel_title),
+                subtitle = context.getString(R.string.updates_channel_desc),
+                visible = true
+            )
+
+            val scrollState = rememberScrollState()
+
+            AdaptiveSheetScrollContainer(
+                scrollState = scrollState,
+                modifier = Modifier.fillMaxWidth()
+            ) { endPadding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                        .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     val channels = listOf(
                         "stable" to context.getString(R.string.updates_channel_stable_desc),
                         "beta" to context.getString(R.string.updates_channel_beta_desc),
                         "nightly" to context.getString(R.string.updates_channel_nightly_desc)
                     )
 
-                    channels.forEach { (channel, description) ->
+                    channels.forEachIndexed { index, (channel, description) ->
+                        val isSelected = updateChannel == channel
+                        val channelIcon = when (channel) {
+                            "nightly" -> MaterialSymbolIcon("nights_stay", filled = true)
+                            "beta" -> MaterialSymbolIcon("science", filled = true)
+                            else -> MaterialSymbolIcon("verified", filled = true)
+                        }
+
                         Card(
                             onClick = {
                                 HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
@@ -1561,82 +1193,107 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                 showChannelDialog = false
                             },
                             colors = CardDefaults.cardColors(
-                                containerColor = if (updateChannel == channel)
-                                    MaterialTheme.colorScheme.primaryContainer
+                                containerColor = if (isSelected)
+                                    MaterialTheme.colorScheme.onPrimaryContainer
                                 else
-                                    MaterialTheme.colorScheme.surfaceVariant
+                                    MaterialTheme.colorScheme.surfaceContainerHigh
                             ),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = groupedBottomSheetItemShape(index, channels.size),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
+                                    .padding(20.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                Icon(
+                                    imageVector = channelIcon,
+                                    contentDescription = null,
+                                    tint = if (isSelected)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(if (isSelected) 30.dp else 26.dp)
+                                )
+
+                                Spacer(modifier = Modifier.width(16.dp))
+
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = channel.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() },
                                         style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (isSelected)
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        else
+                                            MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
                                         text = description,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (isSelected)
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                if (updateChannel == channel) {
+
+                                if (isSelected) {
                                     Icon(
                                         imageVector = RhythmIcons.CheckCircle,
                                         contentDescription = stringResource(R.string.streaming_selected),
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(28.dp)
-                                    )
+                                        tint = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(24.dp)
+                )
                                 }
                             }
                         }
                     }
                 }
-            },
-            confirmButton = {
-                OutlinedButton(onClick = { showChannelDialog = false }) {
-                    Icon(
-                        imageVector = RhythmIcons.Close,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(context.getString(R.string.ui_close))
-                }
-            },
-            shape = RoundedCornerShape(24.dp)
-        )
+            }
+        }
     }
 
-    // Update Check Interval Dialog
     if (showIntervalDialog) {
-        AlertDialog(
-            onDismissRequest = { showIntervalDialog = false },
-            icon = {
-                Icon(
-                    imageVector = RhythmIcons.AccessTime,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
-            },
-            title = { Text(context.getString(R.string.updates_check_interval_title)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = context.getString(R.string.updates_check_frequency),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+        val sheetState = rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
+        )
 
-                    intervalOptions.forEach { (hours, label) ->
+        RhythmAdaptiveModalSheet(
+            adaptiveType = SheetAdaptiveType.COMPACT_DIALOG,
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
+            onDismissRequest = { showIntervalDialog = false },
+            sheetState = sheetState,
+            dragHandle = {
+                BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary)
+            },
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ) {
+            StandardBottomSheetHeader(
+                title = context.getString(R.string.updates_check_interval_title),
+                subtitle = context.getString(R.string.updates_check_frequency),
+                visible = true
+                    )
+
+            val scrollState = rememberScrollState()
+
+            AdaptiveSheetScrollContainer(
+                scrollState = scrollState,
+                modifier = Modifier.fillMaxWidth()
+            ) { endPadding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                        .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    intervalOptions.forEachIndexed { index, (hours, label) ->
+                        val isSelected = updateCheckIntervalHours == hours
+
                         Card(
                             onClick = {
                                 HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
@@ -1644,81 +1301,109 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                 showIntervalDialog = false
                             },
                             colors = CardDefaults.cardColors(
-                                containerColor = if (updateCheckIntervalHours == hours)
-                                    MaterialTheme.colorScheme.primaryContainer
+                                containerColor = if (isSelected)
+                                    MaterialTheme.colorScheme.onPrimaryContainer
                                 else
-                                    MaterialTheme.colorScheme.surfaceVariant
+                                    MaterialTheme.colorScheme.surfaceContainerHigh
                             ),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = groupedBottomSheetItemShape(index, intervalOptions.size),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
+                                    .padding(20.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                Icon(
+                                    imageVector = if (hours == 0) RhythmIcons.Block else RhythmIcons.AccessTime,
+                                    contentDescription = null,
+                                    tint = if (isSelected)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(if (isSelected) 30.dp else 26.dp)
+                                )
+
+                                Spacer(modifier = Modifier.width(16.dp))
+
                                 Text(
                                     text = label,
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = if (updateCheckIntervalHours == hours) FontWeight.SemiBold else FontWeight.Normal,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (isSelected)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.weight(1f)
                                 )
-                                if (updateCheckIntervalHours == hours) {
+
+                                if (isSelected) {
                                     Icon(
                                         imageVector = RhythmIcons.CheckCircle,
                                         contentDescription = stringResource(R.string.streaming_selected),
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(28.dp)
+                                        tint = MaterialTheme.colorScheme.primaryContainer,
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
                         }
                     }
                 }
-            },
-            confirmButton = {
-                OutlinedButton(onClick = { showIntervalDialog = false }) {
-                    Icon(
-                        imageVector = RhythmIcons.Close,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(context.getString(R.string.ui_close))
                 }
-            },
-            shape = RoundedCornerShape(24.dp)
-        )
+        }
     }
 
     if (showSourceDialog) {
-        AlertDialog(
-            onDismissRequest = { showSourceDialog = false },
-            icon = {
-                Icon(
-                    imageVector = RhythmIcons.Category,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
+        val sheetState = rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
                 )
-            },
-            title = { Text(context.getString(R.string.updates_source_title)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = context.getString(R.string.updates_source_desc),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
 
+        RhythmAdaptiveModalSheet(
+            adaptiveType = SheetAdaptiveType.COMPACT_DIALOG,
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
+            onDismissRequest = { showSourceDialog = false },
+            sheetState = sheetState,
+            dragHandle = {
+                BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary)
+            },
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ) {
+            StandardBottomSheetHeader(
+                title = context.getString(R.string.updates_source_title),
+                subtitle = context.getString(R.string.updates_source_desc),
+                visible = true
+            )
+
+            val scrollState = rememberScrollState()
+
+            AdaptiveSheetScrollContainer(
+                scrollState = scrollState,
+                modifier = Modifier.fillMaxWidth()
+            ) { endPadding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                        .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     val sources = listOf(
                         "installed" to getUpdateSourceLabel(context, "installed"),
                         "github" to context.getString(R.string.updates_source_github_desc),
                         "fdroid" to context.getString(R.string.updates_source_fdroid_desc)
                     )
 
-                    sources.forEach { (source, description) ->
+                    sources.forEachIndexed { index, (source, description) ->
+                        val isSelected = updateSource == source
+                        val sourceIcon = when (source) {
+                            "github" -> MaterialSymbolIcon("code", filled = true)
+                            "fdroid" -> MaterialSymbolIcon("android", filled = true)
+                            else -> MaterialSymbolIcon("install_mobile", filled = true)
+                        }
+
                         Card(
                             onClick = {
                                 HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
@@ -1726,20 +1411,32 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                 showSourceDialog = false
                             },
                             colors = CardDefaults.cardColors(
-                                containerColor = if (updateSource == source)
-                                    MaterialTheme.colorScheme.primaryContainer
+                                containerColor = if (isSelected)
+                                    MaterialTheme.colorScheme.onPrimaryContainer
                                 else
-                                    MaterialTheme.colorScheme.surfaceVariant
+                                    MaterialTheme.colorScheme.surfaceContainerHigh
                             ),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = groupedBottomSheetItemShape(index, sources.size),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
+                                    .padding(20.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                Icon(
+                                    imageVector = sourceIcon,
+                                    contentDescription = null,
+                                    tint = if (isSelected)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(if (isSelected) 30.dp else 26.dp)
+                                )
+
+                                Spacer(modifier = Modifier.width(16.dp))
+
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = when (source) {
@@ -1747,40 +1444,36 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                                             else -> source.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
                                         },
                                         style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = if (isSelected)
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        else
+                                            MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
                                         text = description,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = if (isSelected)
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                if (updateSource == source) {
+
+                                if (isSelected) {
                                     Icon(
                                         imageVector = RhythmIcons.CheckCircle,
                                         contentDescription = stringResource(R.string.streaming_selected),
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(28.dp)
+                                        tint = MaterialTheme.colorScheme.primaryContainer,
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
                         }
                     }
                 }
-            },
-            confirmButton = {
-                OutlinedButton(onClick = { showSourceDialog = false }) {
-                    Icon(
-                        imageVector = RhythmIcons.Close,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(context.getString(R.string.ui_close))
                 }
-            },
-            shape = RoundedCornerShape(24.dp)
-        )
+        }
     }
 
     if (showFdroidWarningDialog) {
@@ -1788,6 +1481,19 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
             onDismiss = { showFdroidWarningDialog = false },
             onConfirm = {
                 appSettings.setUpdatesEnabled(true)
+            }
+        )
+    }
+
+    if (showDowngradeWarningDialog) {
+        VersionCodeDowngradeWarningDialog(
+            onDismiss = { showDowngradeWarningDialog = false },
+            onConfirm = {
+                if (activeDownloadedFile != null) {
+                    updaterViewModel.installDownloadedApk()
+                } else {
+                    updaterViewModel.downloadUpdate()
+                }
             }
         )
     }

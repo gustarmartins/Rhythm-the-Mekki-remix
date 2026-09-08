@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.worker
 
 import android.app.NotificationChannel
@@ -15,11 +20,13 @@ import chromahub.rhythm.app.activities.MainActivity
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.shared.data.model.AppSettings
 import chromahub.rhythm.app.network.NetworkManager
+import chromahub.rhythm.app.util.VersionComparator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 import java.text.SimpleDateFormat
 import java.util.Locale
+import androidx.core.content.edit
 
 /**
  * Background worker that checks for app updates using smart polling techniques
@@ -193,62 +200,72 @@ class UpdateNotificationWorker(
             Log.d(TAG, "Smart polling - Last ETag: $lastETag, Last Modified: $lastModified")
             Log.d(TAG, "Consecutive 304 responses: $consecutiveNotModified")
             
-            
             if (channel == "nightly") {
+                var nightlyVersionTag: String? = null
                 val runsResponse = gitHubApiService.getWorkflowRuns(BuildConfig.GITHUB_OWNER, BuildConfig.GITHUB_REPO, "nightly.yml")
-                val responseCode = runsResponse.code()
-                Log.d(TAG, "Nightly response code: $responseCode")
-                
                 if (runsResponse.isSuccessful && runsResponse.body() != null) {
-                    val runsData = runsResponse.body()
-                    val latestRun = runsData?.workflow_runs?.firstOrNull { it.status == "completed" && it.conclusion == "success" }
-                    
+                    val latestRun = runsResponse.body()?.workflow_runs?.firstOrNull {
+                        it.status == "completed" && it.conclusion == "success"
+                    }
                     if (latestRun != null) {
                         val shortSha = latestRun.head_sha.take(7)
-                        val cleanedBaseName = BuildConfig.VERSION_NAME.replace(" Beta", "")
-                        val newVersionTag = "$cleanedBaseName-nightly-r${latestRun.run_number}-$shortSha"
+                        val cleanedBaseName = BuildConfig.VERSION_NAME
+                            .replace(" Beta", "")
+                            .replace(Regex("-nightly-r\\d+-[0-9a-f]+", RegexOption.IGNORE_CASE), "")
+                        nightlyVersionTag = "$cleanedBaseName-nightly-r${latestRun.run_number}-$shortSha"
+                    }
+                }
                         
-                        val isNewerNightly = if (BuildConfig.IS_NIGHTLY) {
-                            val currentNightlyRun = extractNightlyRunNumber(BuildConfig.VERSION_NAME)
-                            val latestNightlyRun = latestRun.run_number
-                            latestNightlyRun > currentNightlyRun
+                // Also check releases for any equal/higher Stable or Beta releases
+                var releaseVersionTag: String? = null
+                val releasesResponse = gitHubApiService.getReleases(BuildConfig.GITHUB_OWNER, BuildConfig.GITHUB_REPO)
+                if (releasesResponse.isSuccessful && releasesResponse.body() != null) {
+                    val allReleases = releasesResponse.body()
+                    val bestRelease = allReleases?.filter { !it.draft }?.maxWithOrNull { r1, r2 ->
+                        val v1 = r1.tag_name.ifEmpty { r1.name }
+                        val v2 = r2.tag_name.ifEmpty { r2.name }
+                        VersionComparator.compare(v1, v2, isPreRelease1 = r1.prerelease, isPreRelease2 = r2.prerelease)
+                    }
+                    if (bestRelease != null) {
+                        releaseVersionTag = bestRelease.tag_name.ifEmpty { bestRelease.name }
+                    }
+                }
+
+                val bestCandidateTag = listOfNotNull(nightlyVersionTag, releaseVersionTag).maxWithOrNull { t1, t2 ->
+                    VersionComparator.compare(t1, t2)
+                }
+
+                if (bestCandidateTag != null) {
+                    val isNewer = VersionComparator.isNewer(
+                        candidate = bestCandidateTag,
+                        current = BuildConfig.VERSION_NAME,
+                        isCurrentPreRelease = BuildConfig.IS_NIGHTLY || BuildConfig.VERSION_NAME.contains("Beta", ignoreCase = true),
+                    )
+                    val isSameAsLast = lastVersionTag == bestCandidateTag
+
+                    Log.d(TAG, "Best candidate for nightly channel: $bestCandidateTag, Last known: $lastVersionTag, Is newer: $isNewer")
+
+                    if (isSameAsLast) {
+                        prefs.edit {
+                            putInt(KEY_CONSECUTIVE_NOT_MODIFIED, consecutiveNotModified + 1)
+                            putLong(KEY_LAST_CHECK_TIME, System.currentTimeMillis())
+                        }
+                        return UpdateCheckResult.UP_TO_DATE
                         } else {
-                            try {
-                                val isoFmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
-                                val dateFmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                                val nightlyDate = isoFmt.parse(latestRun.updated_at)
-                                val buildDate = dateFmt.parse(BuildConfig.RELEASE_DATE)
-                                nightlyDate != null && buildDate != null && nightlyDate.after(buildDate)
-                            } catch (e: Exception) {
-                                false
+                        prefs.edit {
+                            putString(KEY_LAST_VERSION_TAG, bestCandidateTag)
+                            putLong(KEY_LAST_CHECK_TIME, System.currentTimeMillis())
+                            putInt(KEY_CONSECUTIVE_NOT_MODIFIED, 0)
+                        }
+                        return if (isNewer) UpdateCheckResult.UPDATE_AVAILABLE else UpdateCheckResult.UP_TO_DATE
                             }
                         }
                         
-                        val hasNewVersion = lastVersionTag != newVersionTag && isNewerNightly
-                        Log.d(TAG, "Latest nightly version: $newVersionTag, Last known: $lastVersionTag")
-                        Log.d(TAG, "Current version: ${BuildConfig.VERSION_NAME}, Is newer: $hasNewVersion")
-                        
-                        prefs.edit()
-                            .putString(KEY_LAST_VERSION_TAG, newVersionTag)
-                            .putLong(KEY_LAST_CHECK_TIME, System.currentTimeMillis())
-                            .putInt(KEY_CONSECUTIVE_NOT_MODIFIED, 0)
-                            .apply()
-                        
-                        return if (hasNewVersion) {
-                            UpdateCheckResult.UPDATE_AVAILABLE
-                        } else {
-                            UpdateCheckResult.UP_TO_DATE
-                        }
-                    }
-                    lastCheckErrorMessage = "GitHub returned empty workflow runs"
-                    return UpdateCheckResult.ERROR
-                } else {
-                    lastCheckErrorMessage = "GitHub returned unsuccessful workflow runs response"
+                lastCheckErrorMessage = "No builds or releases found on GitHub"
                     return UpdateCheckResult.ERROR
                 }
-            }
 
-            // Fetch latest release based on channel with conditional headers
+            // Fetch releases for stable or beta channels with conditional headers
             val response = if (channel == "beta") {
                 gitHubApiService.getReleasesWithHeaders(
                     owner = BuildConfig.GITHUB_OWNER,
@@ -266,7 +283,6 @@ class UpdateNotificationWorker(
                 )
             }
             
-            // Check response headers
             val responseCode = response.code()
             val newETag = response.headers()["ETag"]
             val newLastModified = response.headers()["Last-Modified"]
@@ -278,48 +294,48 @@ class UpdateNotificationWorker(
             
             when (responseCode) {
                 304 -> {
-                    // Not Modified - no changes since last check
                     Log.d(TAG, "304 Not Modified - no changes detected")
-                    prefs.edit()
-                        .putInt(KEY_CONSECUTIVE_NOT_MODIFIED, consecutiveNotModified + 1)
-                        .putLong(KEY_LAST_CHECK_TIME, System.currentTimeMillis())
-                        .apply()
+                    prefs.edit {
+                        putInt(KEY_CONSECUTIVE_NOT_MODIFIED, consecutiveNotModified + 1)
+                        putLong(KEY_LAST_CHECK_TIME, System.currentTimeMillis())
+                    }
                     return UpdateCheckResult.UP_TO_DATE
                 }
                 
                 200 -> {
-                    // Success - check if version changed
                     if (response.isSuccessful && response.body() != null) {
-                        val latestRelease = if (channel == "beta") {
-                            // For beta channel, get all releases and find first non-draft
+                        val bestRelease = if (channel == "beta") {
                             @Suppress("UNCHECKED_CAST")
-                            (response.body() as? List<chromahub.rhythm.app.network.GitHubRelease>)?.firstOrNull { !it.draft }
+                            val releaseList = (response.body() as? List<chromahub.rhythm.app.network.GitHubRelease>)
+                            releaseList?.filter { !it.draft }?.maxWithOrNull { r1, r2 ->
+                                val v1 = r1.tag_name.ifEmpty { r1.name }
+                                val v2 = r2.tag_name.ifEmpty { r2.name }
+                                VersionComparator.compare(v1, v2, isPreRelease1 = r1.prerelease, isPreRelease2 = r2.prerelease)
+                            }
                         } else {
                             response.body() as? chromahub.rhythm.app.network.GitHubRelease
                         }
                         
-                        if (latestRelease != null) {
-                            val newVersionTag = latestRelease.tag_name
-                            val hasNewVersion = lastVersionTag != newVersionTag && 
-                                               isNewerVersion(latestRelease.tag_name, BuildConfig.VERSION_NAME)
+                        if (bestRelease != null) {
+                            val newVersionTag = bestRelease.tag_name.ifEmpty { bestRelease.name }
+                            val isNewer = VersionComparator.isNewer(
+                                candidate = newVersionTag,
+                                current = BuildConfig.VERSION_NAME,
+                                isCandidatePreRelease = bestRelease.prerelease,
+                                isCurrentPreRelease = BuildConfig.IS_NIGHTLY || BuildConfig.VERSION_NAME.contains("Beta", ignoreCase = true),
+                            )
                             
-                            Log.d(TAG, "Latest version: $newVersionTag, Last known: $lastVersionTag")
-                            Log.d(TAG, "Current version: ${BuildConfig.VERSION_NAME}, Is newer: $hasNewVersion")
+                            Log.d(TAG, "Latest version tag: $newVersionTag, Last known: $lastVersionTag, Is newer: $isNewer")
                             
-                            // Update cache
-                            prefs.edit()
-                                .putString(KEY_LAST_ETAG, newETag)
-                                .putString(KEY_LAST_MODIFIED, newLastModified)
-                                .putString(KEY_LAST_VERSION_TAG, newVersionTag)
-                                .putLong(KEY_LAST_CHECK_TIME, System.currentTimeMillis())
-                                .putInt(KEY_CONSECUTIVE_NOT_MODIFIED, 0) // Reset counter
-                                .apply()
-                            
-                            return if (hasNewVersion) {
-                                UpdateCheckResult.UPDATE_AVAILABLE
-                            } else {
-                                UpdateCheckResult.UP_TO_DATE
+                            prefs.edit {
+                                putString(KEY_LAST_ETAG, newETag)
+                                putString(KEY_LAST_MODIFIED, newLastModified)
+                                putString(KEY_LAST_VERSION_TAG, newVersionTag)
+                                putLong(KEY_LAST_CHECK_TIME, System.currentTimeMillis())
+                                putInt(KEY_CONSECUTIVE_NOT_MODIFIED, 0)
                             }
+                            
+                            return if (isNewer) UpdateCheckResult.UPDATE_AVAILABLE else UpdateCheckResult.UP_TO_DATE
                         }
 
                         lastCheckErrorMessage = "GitHub returned an empty release payload"
@@ -331,7 +347,6 @@ class UpdateNotificationWorker(
                 }
                 
                 403 -> {
-                    // Rate limit exceeded
                     Log.w(TAG, "GitHub API rate limit exceeded. Next reset: $rateLimitReset")
                     lastCheckErrorMessage = "GitHub rate limit reached. Try again later."
                     return UpdateCheckResult.ERROR
@@ -360,10 +375,10 @@ class UpdateNotificationWorker(
         }
 
         sendUpdateStatusNotification(title, text)
-        prefs.edit()
-            .putString(KEY_LAST_STATUS_NOTIFICATION_TYPE, type)
-            .putLong(KEY_LAST_STATUS_NOTIFICATION_AT, System.currentTimeMillis())
-            .apply()
+        prefs.edit {
+            putString(KEY_LAST_STATUS_NOTIFICATION_TYPE, type)
+            putLong(KEY_LAST_STATUS_NOTIFICATION_AT, System.currentTimeMillis())
+        }
     }
 
     private fun shouldSendStatusNotification(type: String): Boolean {
@@ -381,88 +396,6 @@ class UpdateNotificationWorker(
         }
 
         return now - lastSentAt >= minIntervalMs
-    }
-    
-    private fun extractNightlyRunNumber(versionString: String): Int {
-        val regex = Regex("nightly-r(\\d+)", RegexOption.IGNORE_CASE)
-        return regex.find(versionString)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-    }
-
-    /**
-     * Compare version strings to determine if new version is newer
-     * Handles semantic versioning with build numbers and pre-release tags
-     */
-    private fun isNewerVersion(newVersion: String, currentVersion: String): Boolean {
-        try {
-            // Parse semantic versions
-            val newSemVer = parseSemanticVersion(newVersion)
-            val currentSemVer = parseSemanticVersion(currentVersion)
-            
-            // Compare major.minor.patch first
-            if (newSemVer.major != currentSemVer.major) return newSemVer.major > currentSemVer.major
-            if (newSemVer.minor != currentSemVer.minor) return newSemVer.minor > currentSemVer.minor
-            if (newSemVer.patch != currentSemVer.patch) return newSemVer.patch > currentSemVer.patch
-            if (newSemVer.subpatch != currentSemVer.subpatch) return newSemVer.subpatch > currentSemVer.subpatch
-            
-            // If versions are equal, compare build numbers
-            if (newSemVer.buildNumber != currentSemVer.buildNumber) {
-                return newSemVer.buildNumber > currentSemVer.buildNumber
-            }
-            
-            // Pre-releases are considered older than stable releases
-            if (newSemVer.isPreRelease != currentSemVer.isPreRelease) {
-                return !newSemVer.isPreRelease && currentSemVer.isPreRelease
-            }
-            
-            return false
-        } catch (e: Exception) {
-            Log.e(TAG, "Error comparing versions: ${e.message}", e)
-            return false
-        }
-    }
-    
-    /**
-     * Parse version string to semantic version components
-     */
-    private data class SemanticVersion(
-        val major: Int,
-        val minor: Int,
-        val patch: Int,
-        val subpatch: Int = 0,
-        val buildNumber: Int = 0,
-        val isPreRelease: Boolean = false
-    )
-    
-    private fun parseSemanticVersion(versionString: String): SemanticVersion {
-        try {
-            val cleaned = versionString.trim().removePrefix("v")
-            
-            // Extract build number (e.g., "b-127" or "build-127")
-            val buildRegex = Regex("(?:b|build)-(\\d+)", RegexOption.IGNORE_CASE)
-            val buildNumber = buildRegex.find(cleaned)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-            
-            // Extract base version (remove build info and tags)
-            val versionBase = cleaned.split(" ")[0].split("-")[0].split("_")[0]
-            val versionParts = versionBase.split(".")
-            
-            // Check for pre-release keywords
-            val preReleaseKeywords = listOf("alpha", "beta", "pre", "rc", "dev", "snapshot")
-            val isPreRelease = preReleaseKeywords.any { keyword ->
-                cleaned.contains(keyword, ignoreCase = true)
-            }
-            
-            return SemanticVersion(
-                major = versionParts.getOrNull(0)?.toIntOrNull() ?: 0,
-                minor = versionParts.getOrNull(1)?.toIntOrNull() ?: 0,
-                patch = versionParts.getOrNull(2)?.toIntOrNull() ?: 0,
-                subpatch = versionParts.getOrNull(3)?.toIntOrNull() ?: 0,
-                buildNumber = buildNumber,
-                isPreRelease = isPreRelease
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Error parsing version: $versionString", e)
-            return SemanticVersion(0, 0, 0, 0, 0, false)
-        }
     }
     
     /**
@@ -545,7 +478,6 @@ class UpdateNotificationWorker(
     }
 
     private fun ensureUpdateAvailableChannel(notificationManager: NotificationManager) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
 
         val channel = NotificationChannel(
             UPDATE_AVAILABLE_CHANNEL_ID,
@@ -559,7 +491,6 @@ class UpdateNotificationWorker(
     }
 
     private fun ensureUpdateStatusChannel(notificationManager: NotificationManager) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
 
         val channel = NotificationChannel(
             UPDATE_STATUS_CHANNEL_ID,
@@ -592,7 +523,7 @@ class UpdateNotificationWorker(
      * Clear cached webhook data (useful for testing or reset)
      */
     fun clearCache() {
-        prefs.edit().clear().apply()
+        prefs.edit { clear() }
         Log.d(TAG, "Webhook cache cleared")
     }
 }

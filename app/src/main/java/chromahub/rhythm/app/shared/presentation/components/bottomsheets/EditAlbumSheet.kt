@@ -1,4 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.bottomsheets
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 import android.net.Uri
 import android.widget.Toast
@@ -53,6 +59,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import java.io.File
+import chromahub.rhythm.app.util.windowScreenWidthDp
+import chromahub.rhythm.app.util.windowScreenHeightDp
 
 private fun resolveAlbumArtworkUri(context: android.content.Context, song: Song): Uri? {
     val currentArtworkUri = song.artworkUri
@@ -167,11 +175,11 @@ fun EditAlbumSheet(
 
     fun handleSave() {
         if (albumTitle.trim().isBlank()) {
-            Toast.makeText(context, "Album Title cannot be empty", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.editalbumsheet_title_empty), Toast.LENGTH_SHORT).show()
             return
         }
         if (albumArtist.trim().isBlank()) {
-            Toast.makeText(context, "Album Artist cannot be empty", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.editalbumsheet_artist_empty), Toast.LENGTH_SHORT).show()
             return
         }
         showWarningDialog = true
@@ -197,9 +205,8 @@ fun EditAlbumSheet(
         )
     }
 
-    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-    val isTablet = configuration.screenWidthDp >= 600
-    val isLandscapeTablet = isTablet && configuration.screenWidthDp > configuration.screenHeightDp
+    val isTablet = windowScreenWidthDp() >= 600
+    val isLandscapeTablet = isTablet && windowScreenWidthDp() > windowScreenHeightDp()
 
     if (isLandscapeTablet) {
         Dialog(
@@ -272,7 +279,7 @@ fun EditAlbumSheet(
                                             )
                                             .crossfade(true)
                                             .build(),
-                                        contentDescription = "Artwork Preview",
+                                        contentDescription = stringResource(R.string.content_desc_artwork_preview),
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop
                                     )
@@ -452,17 +459,9 @@ fun EditAlbumSheet(
                                         )
                                     }
 
-                                    IconButton(
-                                        onClick = onDismiss,
-                                        enabled = !isSaving,
-                                        modifier = Modifier.size(44.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = RhythmIcons.Close,
-                                            contentDescription = stringResource(R.string.ui_close),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
+                                    AdaptiveSheetCloseButton(
+                                        onClick = onDismiss
+                                    )
                                 }
 
                                 Surface(
@@ -573,7 +572,8 @@ fun EditAlbumSheet(
             }
         }
     } else {
-        ModalBottomSheet(
+        RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.TWO_PANE_DIALOG,
             modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
             onDismissRequest = { if (!isSaving) onDismiss() },
             sheetState = sheetState,
@@ -590,21 +590,22 @@ fun EditAlbumSheet(
                 StandardBottomSheetHeader(
                     title = stringResource(R.string.edit_album_title),
                     subtitle = stringResource(R.string.edit_album_desc),
-                    visible = true,
-                    modifier = Modifier.padding(horizontal = 0.dp, vertical = 0.dp)
+                    visible = true
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                val scrollState = rememberScrollState()
 
-                Box(
+                AdaptiveSheetScrollContainer(
+                    scrollState = scrollState,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                ) {
+                ) { endPadding ->
                     Column(
                         modifier = Modifier
                             .fillMaxHeight()
-                            .verticalScroll(rememberScrollState()),
+                            .padding(end = endPadding)
+                            .verticalScroll(scrollState),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Surface(
@@ -697,7 +698,7 @@ fun EditAlbumSheet(
                                             )
                                             .crossfade(true)
                                             .build(),
-                                        contentDescription = "Artwork Preview",
+                                        contentDescription = stringResource(R.string.content_desc_artwork_preview),
                                         modifier = Modifier.fillMaxSize(),
                                         contentScale = ContentScale.Crop
                                     )

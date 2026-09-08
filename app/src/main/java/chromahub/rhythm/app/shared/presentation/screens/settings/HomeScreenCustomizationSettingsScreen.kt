@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
@@ -83,7 +88,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -134,6 +138,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import android.widget.TextView
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.core.text.HtmlCompat
 import chromahub.rhythm.app.shared.presentation.components.common.M3FourColorCircularLoader
@@ -389,7 +394,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                 item = SettingItem(
                                     icon = MaterialSymbolIcon("history", filled = true),
                                     title = stringResource(R.string.settings_home_recently_played),
-                                    description = "$recentlyPlayedCount songs"
+                                    description = pluralStringResource(R.plurals.settings_count_songs, recentlyPlayedCount, recentlyPlayedCount)
                                 ),
                                 description = {
                                     Column(
@@ -427,7 +432,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                 item = SettingItem(
                                     icon = MaterialSymbolIcon("people", filled = true),
                                     title = stringResource(R.string.settings_top_artists),
-                                    description = "$artistsCount artists"
+                                    description = pluralStringResource(R.plurals.settings_count_artists, artistsCount, artistsCount)
                                 ),
                                 description = {
                                     Column(
@@ -465,7 +470,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                 item = SettingItem(
                                     icon = MaterialSymbolIcon("new_releases", filled = true),
                                     title = stringResource(R.string.settings_new_releases),
-                                    description = "$newReleasesCount albums"
+                                    description = pluralStringResource(R.plurals.settings_count_albums, newReleasesCount, newReleasesCount)
                                 ),
                                 description = {
                                     Column(
@@ -503,7 +508,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                 item = SettingItem(
                                     icon = MaterialSymbolIcon("library_add", filled = true),
                                     title = stringResource(R.string.settings_recently_added),
-                                    description = "$recentlyAddedCount albums"
+                                    description = pluralStringResource(R.plurals.settings_count_albums, recentlyAddedCount, recentlyAddedCount)
                                 ),
                                 description = {
                                     Column(
@@ -541,7 +546,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                 item = SettingItem(
                                     icon = MaterialSymbolIcon("recommend", filled = true),
                                     title = stringResource(R.string.settings_recommended),
-                                    description = "$recommendedCount songs"
+                                    description = pluralStringResource(R.plurals.settings_count_songs, recommendedCount, recommendedCount)
                                 ),
                                 description = {
                                     Column(
@@ -681,7 +686,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                     item = SettingItem(
                                         icon = MaterialSymbolIcon("view_carousel", filled = true),
                                         title = stringResource(R.string.homescreencustomizationsettingsscreen_album_count),
-                                        description = "$discoverItemCount albums"
+                                        description = pluralStringResource(R.plurals.settings_count_albums, discoverItemCount, discoverItemCount)
                                     ),
                                     description = {
                                         Column(
@@ -727,7 +732,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                 Spacer(modifier = Modifier.height(24.dp))
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(24.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
                     )
@@ -823,7 +828,7 @@ fun CarouselStyleSelector(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -944,7 +949,7 @@ fun HomeSettingsSliderCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 8.dp),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {

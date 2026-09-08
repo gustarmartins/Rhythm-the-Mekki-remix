@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.infrastructure.service
 
 import android.app.PendingIntent
@@ -46,6 +51,7 @@ import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.Locale
 import kotlinx.coroutines.*
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -69,6 +75,7 @@ import chromahub.rhythm.app.shared.data.repository.PlaybackStatsRepository
 import chromahub.rhythm.app.shared.data.repository.StatsTimeRange
 import chromahub.rhythm.app.shared.presentation.screens.settings.rhythmGuardFormatDurationFromMinutes
 import chromahub.rhythm.app.activities.RhythmGuardTimeoutActivity
+import androidx.core.net.toUri
 
 @OptIn(UnstableApi::class)
 class MediaPlaybackService : MediaLibraryService(), Player.Listener {
@@ -112,13 +119,11 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     // Rhythm audio processors (replaced Android BassBoost and Spatializer for better quality)
     private var rhythmBassBoostProcessor: chromahub.rhythm.app.infrastructure.audio.RhythmBassBoostProcessor? = null
     private var rhythmSpatializationProcessor: chromahub.rhythm.app.infrastructure.audio.RhythmSpatializationProcessor? = null
+    private var rhythmMonoAudioProcessor: chromahub.rhythm.app.infrastructure.audio.RhythmMonoAudioProcessor? = null
     
     private var virtualizerStrength: Short = 0 // Store strength for virtualizer
     private var isInitializingAudioEffects: Boolean = false // Prevent concurrent initialization
     private var audioEffectsInitialized: Boolean = false // Track if effects have been successfully initialized
-    /** Audio session currently owning the optional platform Equalizer. */
-    @Volatile
-    private var audioEffectsSessionId: Int = 0
     private var isBassBoostAvailable: Boolean = true // Rhythm bass boost is always available
     private val audioEffectsInitMutex = Mutex()
     private var audioEffectsInitJob: Job? = null
@@ -129,6 +134,8 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private var equalizerVolumeTransitionGeneration = 0L
     @Volatile
     private var pendingAudioEffectsSessionId: Int = 0
+    @Volatile
+    private var currentAudioEffectsSessionId: Int = 0
     
     // Player listener reference for proper cleanup
     private var playerListener: Player.Listener? = null
@@ -320,9 +327,8 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     }
 
     private fun isSpeakerOutputActive(audioManager: AudioManager): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-            devices.any { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER } &&
+        return devices.any { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER } &&
                     !devices.any {
                         (it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
                          it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
@@ -330,10 +336,6 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                          it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES) &&
                         it.isSink
                     }
-        } else {
-            @Suppress("DEPRECATION")
-            !audioManager.isBluetoothA2dpOn && !audioManager.isWiredHeadsetOn
-        }
     }
 
     private fun showRhythmGuardAlertNotification(title: String, text: String, riskLevel: String) {
@@ -415,7 +417,6 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     }
 
     private fun ensureRhythmGuardNotificationChannels(notificationManager: NotificationManager) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
 
         val alertChannel = NotificationChannel(
             "rhythm_guard_alerts",
@@ -522,6 +523,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         const val ACTION_SET_EQUALIZER_BAND = "chromahub.rhythm.app.action.SET_EQUALIZER_BAND"
         const val ACTION_SET_BASS_BOOST = "chromahub.rhythm.app.action.SET_BASS_BOOST"
         const val ACTION_SET_VIRTUALIZER = "chromahub.rhythm.app.action.SET_VIRTUALIZER"
+        const val ACTION_SET_MONO_AUDIO = "chromahub.rhythm.app.action.SET_MONO_AUDIO"
         const val ACTION_APPLY_EQUALIZER_PRESET = "chromahub.rhythm.app.action.APPLY_EQUALIZER_PRESET"
         const val ACTION_GET_EQUALIZER_DIAGNOSTICS = "chromahub.rhythm.app.action.GET_EQUALIZER_DIAGNOSTICS"
         
@@ -530,6 +532,8 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         const val ACTION_SKIP_NEXT = "chromahub.rhythm.app.action.SKIP_NEXT"
         const val ACTION_SKIP_PREVIOUS = "chromahub.rhythm.app.action.SKIP_PREVIOUS"
         const val ACTION_TOGGLE_FAVORITE = "chromahub.rhythm.app.action.TOGGLE_FAVORITE"
+        const val ACTION_TOGGLE_SHUFFLE = "chromahub.rhythm.app.action.TOGGLE_SHUFFLE"
+        const val ACTION_TOGGLE_REPEAT = "chromahub.rhythm.app.action.TOGGLE_REPEAT"
         
         // Broadcast actions for status updates
         const val BROADCAST_SLEEP_TIMER_STATUS = "chromahub.rhythm.app.broadcast.SLEEP_TIMER_STATUS"
@@ -607,15 +611,25 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         
         // Initialize Rhythm audio processors early (before player creation)
         try {
-            rhythmBassBoostProcessor = chromahub.rhythm.app.infrastructure.audio.RhythmBassBoostProcessor()
-            rhythmSpatializationProcessor = chromahub.rhythm.app.infrastructure.audio.RhythmSpatializationProcessor()
+            rhythmBassBoostProcessor = chromahub.rhythm.app.infrastructure.audio.RhythmBassBoostProcessor().apply {
+                setEnabled(appSettings.bassBoostEnabled.value)
+                setStrength(appSettings.bassBoostStrength.value.toShort())
+            }
+            rhythmSpatializationProcessor = chromahub.rhythm.app.infrastructure.audio.RhythmSpatializationProcessor().apply {
+                setEnabled(appSettings.virtualizerEnabled.value)
+                setStrength(appSettings.virtualizerStrength.value.toShort())
+            }
+            rhythmMonoAudioProcessor = chromahub.rhythm.app.infrastructure.audio.RhythmMonoAudioProcessor().apply {
+                setEnabled(appSettings.monoAudioEnabled.value)
+            }
             isBassBoostAvailable = true
             appSettings.setBassBoostAvailable(true)
-            Log.d(TAG, "Rhythm audio processors initialized early")
+            Log.d(TAG, "Rhythm audio processors initialized early with saved settings (mono=${appSettings.monoAudioEnabled.value}, bass=${appSettings.bassBoostEnabled.value}, spatial=${appSettings.virtualizerEnabled.value})")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to initialize Rhythm processors", e)
             rhythmBassBoostProcessor = null
             rhythmSpatializationProcessor = null
+            rhythmMonoAudioProcessor = null
             isBassBoostAvailable = false
             appSettings.setBassBoostAvailable(false)
         }
@@ -652,14 +666,12 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 androidx.core.content.ContextCompat.RECEIVER_EXPORTED
             )
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                btProxy = chromahub.rhythm.app.util.BtCodecInfo.getCodec(this) { info ->
+btProxy = chromahub.rhythm.app.util.BtCodecInfo.getCodec(this) { info ->
                     if (info != null) {
                         btInfo = info
                         Log.d(TAG, "First Bluetooth codec config: $btInfo")
                     }
-                }
-            }
+}
         } catch (e: Exception) {
             Log.e(TAG, "Error setting up Bluetooth codec monitoring", e)
         }
@@ -853,30 +865,28 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     }
     
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
+val channel = NotificationChannel(
                 CHANNEL_ID,
                 getString(chromahub.rhythm.app.R.string.media3_notification_channel_name),
                 NotificationManager.IMPORTANCE_LOW
-            ).apply {
+).apply {
                 description = getString(chromahub.rhythm.app.R.string.media3_notification_channel_description)
                 setShowBadge(false)
-            }
+}
 
-            val sleepTimerChannel = NotificationChannel(
+val sleepTimerChannel = NotificationChannel(
                 SLEEP_TIMER_CHANNEL_ID,
                 getString(chromahub.rhythm.app.R.string.notification_sleep_timer_channel_name),
                 NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
+).apply {
                 description = getString(chromahub.rhythm.app.R.string.notification_sleep_timer_channel_desc)
                 setShowBadge(false)
                 enableVibration(false)
-            }
+}
             
-            val notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager.createNotificationChannel(channel)
-            notificationManager.createNotificationChannel(sleepTimerChannel)
-        }
+val notificationManager = getSystemService(NotificationManager::class.java)
+notificationManager.createNotificationChannel(channel)
+notificationManager.createNotificationChannel(sleepTimerChannel)
     }
     
     private fun startForegroundWithNotification(title: String = "Rhythm Music", content: String = "Rhythm is starting.") {
@@ -955,7 +965,8 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         rhythmPlayerEngine = RhythmPlayerEngine(
             this, 
             bassBoostProcessor = rhythmBassBoostProcessor,
-            spatializationProcessor = rhythmSpatializationProcessor
+            spatializationProcessor = rhythmSpatializationProcessor,
+            monoProcessor = rhythmMonoAudioProcessor
         )
         rhythmPlayerEngine.initialize()
         
@@ -996,8 +1007,9 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
             // Update widget with current song info
             updateWidgetFromMediaItem(newPlayer.currentMediaItem)
             
-            // Reinitialize audio effects with new session ID
-            if ((newPlayer as? ExoPlayer)?.audioSessionId != 0) {
+            // Reinitialize audio effects with new session ID if session changed
+            val newSessionId = (newPlayer as? ExoPlayer)?.audioSessionId ?: 0
+            if (newSessionId != 0 && (!audioEffectsInitialized || currentAudioEffectsSessionId != newSessionId)) {
                 initializeAudioEffects()
             }
         }
@@ -1022,39 +1034,49 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                     handleBtVirtualPlaybackEnded()
                 }
                 if (playbackState == Player.STATE_READY && getPlayerAudioSessionId() != 0) {
-                    // Ensure optional effects are attached once the session is valid. The
-                    // initializer is session-aware and is a no-op for the same session.
-                    Log.d(TAG, "Player ready with session ID ${getPlayerAudioSessionId()}, ensuring audio effects")
+                    val currentSessionId = getPlayerAudioSessionId()
+                    val needsInit = !audioEffectsInitialized || currentAudioEffectsSessionId != currentSessionId
+                    if (needsInit) {
+                        val previouslyEnabled = getEqualizerEnabledSafe()
+                        Log.d(TAG, "Player ready with new session ID $currentSessionId, initializing effects (EQ was: $previouslyEnabled)")
                     initializeAudioEffects()
                     
-                    // Force reload audio effects settings to fix cold boot issue
-                    // This ensures bass boost and spatial audio are properly applied on first playback
-                    // Increased delay to ensure player is fully ready and processors are connected
+                        // Reload effects settings and re-apply processors after audio pipeline is ready
                     serviceScope.launch {
-                        delay(200) // Increased delay to ensure audio pipeline is fully initialized
+                            delay(200)
                         Log.d(TAG, "Force-reloading audio effects settings after player ready")
                         loadSavedAudioEffects()
                         
-                        // Additional verification: Re-apply Rhythm processor settings after another small delay
-                        // This fixes the issue where processors don't receive settings on cold boot
                         delay(100)
                         Log.d(TAG, "Re-applying Rhythm processor settings for cold boot fix")
                         
-                        // Re-apply bass boost if enabled
                         if (appSettings.bassBoostEnabled.value && rhythmBassBoostProcessor != null) {
                             rhythmBassBoostProcessor?.setEnabled(true)
                             rhythmBassBoostProcessor?.setStrength(appSettings.bassBoostStrength.value.toShort())
                             Log.d(TAG, "Cold boot: Re-applied bass boost - enabled=true, strength=${appSettings.bassBoostStrength.value}")
                         }
                         
-                        // Re-apply spatial audio if enabled
                         if (appSettings.virtualizerEnabled.value && rhythmSpatializationProcessor != null) {
                             rhythmSpatializationProcessor?.setEnabled(true)
                             rhythmSpatializationProcessor?.setStrength(appSettings.virtualizerStrength.value.toShort())
                             Log.d(TAG, "Cold boot: Re-applied spatial audio - enabled=true, strength=${appSettings.virtualizerStrength.value}")
                         }
+
+                            if (appSettings.monoAudioEnabled.value && rhythmMonoAudioProcessor != null) {
+                                rhythmMonoAudioProcessor?.setEnabled(true)
+                                Log.d(TAG, "Cold boot: Re-applied mono audio - enabled=true")
+                            }
                     }
                     
+                        // Verify equalizer state was preserved after reinitialization
+                        if (appSettings.equalizerEnabled.value) {
+                            val currentlyEnabled = getEqualizerEnabledSafe()
+                            if (previouslyEnabled != currentlyEnabled) {
+                                Log.w(TAG, "Equalizer state changed after reinitialization! Was: $previouslyEnabled, Now: $currentlyEnabled, Expected: true")
+                                setEqualizerEnabled(true)
+                            }
+                        }
+                    }
                 }
             }
 
@@ -1328,6 +1350,9 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         equalizerVolumeTransitionJob?.cancel()
         equalizerVolumeRestoreTarget = restoreVolume
 
+        // Flag internal volume adjustment so engine doesn't overwrite userVolume with ducked values
+        rhythmPlayerEngine.isInternalVolumeAdjustment = true
+
         // 1. Duck the player volume to 0.0f to completely silence any transient audio during the hardware transition
         player.volume = 0.0f
         var actualState = enabled
@@ -1381,6 +1406,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 if (equalizerVolumeRestoreTarget == restoreVolume) {
                     equalizerVolumeRestoreTarget = null
                 }
+                rhythmPlayerEngine.isInternalVolumeAdjustment = false
             }
         }
 
@@ -1606,7 +1632,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                         album = prefs.getString("album_name", "") ?: "",
                         uri = Uri.EMPTY,
                         artworkUri = prefs.getString("artwork_uri", null)?.let { 
-                            try { Uri.parse(it) } catch (_: Exception) { null } 
+                            try { (it).toUri() } catch (_: Exception) { null } 
                         },
                         duration = 0L,
                         trackNumber = 0,
@@ -1940,6 +1966,17 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 setVirtualizerEnabled(enabled)
                 if (enabled) setVirtualizerStrength(strength)
             }
+            ACTION_SET_MONO_AUDIO -> {
+                val enabled = intent.getBooleanExtra("enabled", false)
+                Log.d(TAG, "Received intent to set mono audio - enabled: $enabled")
+                
+                if (rhythmMonoAudioProcessor == null) {
+                    Log.d(TAG, "Rhythm mono audio processor is null, attempting initialization")
+                    initializeRhythmProcessors()
+                }
+                
+                setMonoAudioEnabled(enabled)
+            }
             ACTION_APPLY_EQUALIZER_PRESET -> {
                 val preset = intent.getStringExtra("preset") ?: ""
                 val levels = intent.getFloatArrayExtra("levels")
@@ -2035,7 +2072,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                             album = prefs.getString("album_name", "") ?: "",
                             uri = Uri.EMPTY,
                             artworkUri = prefs.getString("artwork_uri", null)?.let { 
-                                try { Uri.parse(it) } catch (_: Exception) { null }
+                                try { (it).toUri() } catch (_: Exception) { null }
                             },
                             duration = 0L,
                             trackNumber = 0,
@@ -2046,9 +2083,31 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                         val isPlaying = prefs.getBoolean("is_playing", false)
                         val hasPrevious = prefs.getBoolean("has_previous", false)
                         val hasNext = prefs.getBoolean("has_next", false)
+                        val isShuffleEnabled = prefs.getBoolean("is_shuffle", false)
+                        val repeatMode = prefs.getInt("repeat_mode", 0)
                         
-                        WidgetUpdater.updateWidget(this, song, isPlaying, hasPrevious, hasNext, isFavorite)
+                        WidgetUpdater.updateWidget(this, song, isPlaying, hasPrevious, hasNext, isFavorite, isShuffleEnabled, repeatMode)
                     }
+                }
+            }
+            ACTION_TOGGLE_SHUFFLE -> {
+                Log.d(TAG, "Widget toggle shuffle action")
+                if (::player.isInitialized) {
+                    player.shuffleModeEnabled = !player.shuffleModeEnabled
+                    updateWidgetFromMediaItem(player.currentMediaItem)
+                }
+            }
+            ACTION_TOGGLE_REPEAT -> {
+                Log.d(TAG, "Widget toggle repeat action")
+                if (::player.isInitialized) {
+                    val nextRepeatMode = when (player.repeatMode) {
+                        Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ALL
+                        Player.REPEAT_MODE_ALL -> Player.REPEAT_MODE_ONE
+                        Player.REPEAT_MODE_ONE -> Player.REPEAT_MODE_OFF
+                        else -> Player.REPEAT_MODE_OFF
+                    }
+                    player.repeatMode = nextRepeatMode
+                    updateWidgetFromMediaItem(player.currentMediaItem)
                 }
             }
             ACTION_MUTE -> {
@@ -3722,6 +3781,8 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 val isFavorite = isCurrentSongFavorite()
                 val hasPrevious = player.hasPreviousMediaItem()
                 val hasNext = player.hasNextMediaItem()
+                val isShuffleEnabled = player.shuffleModeEnabled
+                val repeatMode = player.repeatMode
                 val snapshotKey = buildString {
                     append(song.id)
                     append('|')
@@ -3732,6 +3793,10 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                     append(hasNext)
                     append('|')
                     append(isFavorite)
+                    append('|')
+                    append(isShuffleEnabled)
+                    append('|')
+                    append(repeatMode)
                 }
 
                 if (snapshotKey == lastWidgetSnapshotKey) {
@@ -3739,7 +3804,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 }
                 lastWidgetSnapshotKey = snapshotKey
 
-                WidgetUpdater.updateWidget(this, song, player.isPlaying, hasPrevious, hasNext, isFavorite)
+                WidgetUpdater.updateWidget(this, song, player.isPlaying, hasPrevious, hasNext, isFavorite, isShuffleEnabled, repeatMode)
             } else {
                 if (lastWidgetSnapshotKey == "empty|false") {
                     return
@@ -3775,6 +3840,8 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     }
 
     // Sleep Timer functionality
+    private var sleepTimerOriginalVolume: Float? = null
+
     private fun launchTimerCoroutine(startTime: Long, durationMs: Long, fadeOut: Boolean, pauseOnly: Boolean): Job {
         return serviceScope.launch {
             val localStartTime = startTime
@@ -3792,6 +3859,8 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                     }
 
                     val originalVolume = player.volume
+                    sleepTimerOriginalVolume = originalVolume
+                    rhythmPlayerEngine.isInternalVolumeAdjustment = true
                     val fadeSteps = 100
                     val fadeInterval = 10000L / fadeSteps
 
@@ -3822,17 +3891,21 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 }
 
                 if (localFadeOut) {
-                    player.volume = 1.0f
+                    sleepTimerOriginalVolume?.let { player.volume = it }
                 }
+                rhythmPlayerEngine.isInternalVolumeAdjustment = false
 
                 resetSleepTimer()
 
             } catch (e: CancellationException) {
                 Log.d(TAG, "Sleep timer was cancelled")
+                rhythmPlayerEngine.isInternalVolumeAdjustment = false
             } catch (e: Exception) {
                 Log.e(TAG, "Error in sleep timer", e)
+                rhythmPlayerEngine.isInternalVolumeAdjustment = false
                 resetSleepTimer()
             } finally {
+                rhythmPlayerEngine.isInternalVolumeAdjustment = false
                 broadcastSleepTimerStatus()
             }
         }
@@ -3873,6 +3946,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
 
         sleepTimerJob?.cancel()
         sleepTimerJob = null
+        rhythmPlayerEngine.isInternalVolumeAdjustment = false
 
         sleepTimerStartTime = now
         sleepTimerJob = launchTimerCoroutine(now, duration, fadeOut, pauseOnly)
@@ -3885,8 +3959,9 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         sleepTimerJob = null
 
         if (fadeOutEnabled) {
-            player.volume = 1.0f
+            sleepTimerOriginalVolume?.let { player.volume = it }
         }
+        rhythmPlayerEngine.isInternalVolumeAdjustment = false
 
         resetSleepTimer()
         broadcastSleepTimerStatus()
@@ -3997,9 +4072,9 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         val seconds = totalSeconds % 60L
 
         return if (hours > 0L) {
-            String.format("%d:%02d:%02d", hours, minutes, seconds)
+            String.format(Locale.ROOT, "%d:%02d:%02d", hours, minutes, seconds)
         } else {
-            String.format("%02d:%02d", minutes, seconds)
+            String.format(Locale.ROOT, "%02d:%02d", minutes, seconds)
         }
     }
     
@@ -4037,6 +4112,15 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 rhythmSpatializationProcessor = chromahub.rhythm.app.infrastructure.audio.RhythmSpatializationProcessor()
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to create spatialization processor", e)
+            }
+        }
+        
+        if (rhythmMonoAudioProcessor == null) {
+            Log.w(TAG, "Rhythm mono audio processor is null, creating new instance")
+            try {
+                rhythmMonoAudioProcessor = chromahub.rhythm.app.infrastructure.audio.RhythmMonoAudioProcessor()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to create mono audio processor", e)
             }
         }
     }
@@ -4088,7 +4172,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
             // ExoPlayer session. Avoid effect churn: repeatedly disconnecting/recreating
             // an effect is unsafe on AudioFlinger and was the trigger for the observed
             // createEffect/disconnect timeout.
-            if (audioEffectsInitialized && audioEffectsSessionId == audioSessionId &&
+            if (audioEffectsInitialized && currentAudioEffectsSessionId == audioSessionId &&
                 (!equalizerShouldBeEnabled || equalizer != null)
             ) {
                 // Nothing changed at the AudioFlinger boundary. Settings changes are
@@ -4150,7 +4234,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
 
             // Mark as successfully initialized
             audioEffectsInitialized = true
-            audioEffectsSessionId = audioSessionId
+            currentAudioEffectsSessionId = audioSessionId
             Log.d(TAG, "Audio effects initialization completed successfully")
 
         } catch (e: Exception) {
@@ -4163,7 +4247,6 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     
     private fun loadSavedAudioEffects() {
         try {
-            // Load saved settings and apply them to equalizer if available
             if (equalizer != null) {
                 val shouldBeEnabled = appSettings.equalizerEnabled.value
                 Log.d(TAG, "Loading saved effects - EQ should be enabled: $shouldBeEnabled")
@@ -4220,7 +4303,14 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 Log.d(TAG, "Cannot load spatialization settings: Rhythm processor is null")
             }
             
-            Log.d(TAG, "Loaded saved audio effects - EQ: ${appSettings.equalizerEnabled.value}, Bass: ${appSettings.bassBoostEnabled.value}, Virtualizer: ${appSettings.virtualizerEnabled.value}")
+            // Load Rhythm mono audio settings
+            val monoAudioEnabled = appSettings.monoAudioEnabled.value
+            if (rhythmMonoAudioProcessor != null) {
+                rhythmMonoAudioProcessor?.setEnabled(monoAudioEnabled)
+                Log.d(TAG, "Rhythm mono audio loaded: enabled=$monoAudioEnabled")
+            }
+            
+            Log.d(TAG, "Loaded saved audio effects - EQ: ${appSettings.equalizerEnabled.value}, Bass: ${appSettings.bassBoostEnabled.value}, Virtualizer: ${appSettings.virtualizerEnabled.value}, Mono: ${appSettings.monoAudioEnabled.value}")
             if (::rhythmPlayerEngine.isInitialized) {
                 rhythmPlayerEngine.updateTrackSelectionParameters()
             }
@@ -4230,7 +4320,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     }
     
     fun setEqualizerEnabled(enabled: Boolean) {
-        if (equalizer == null) {
+        if (enabled && equalizer == null) {
             Log.w(TAG, "Attempting to enable equalizer but equalizer is null. Will reinitialize.")
             // Try to initialize if we have a valid session ID
             if (getPlayerAudioSessionId() != 0) {
@@ -4444,13 +4534,8 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     
     fun setBassBoostEnabled(enabled: Boolean) {
         if (rhythmBassBoostProcessor == null) {
-            Log.w(TAG, "Attempting to enable bass boost but Rhythm processor is null. Will reinitialize.")
-            if (getPlayerAudioSessionId() != 0) {
-                initializeAudioEffects()
-            } else {
-                Log.e(TAG, "Cannot enable bass boost: invalid audio session ID")
-                return
-            }
+            Log.w(TAG, "Attempting to enable bass boost but Rhythm processor is null. Reinitializing.")
+            initializeRhythmProcessors()
         }
         
         rhythmBassBoostProcessor?.setEnabled(enabled)
@@ -4478,9 +4563,9 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     }
     
     fun setVirtualizerEnabled(enabled: Boolean) {
-        if (rhythmSpatializationProcessor == null && getPlayerAudioSessionId() != 0) {
-            Log.w(TAG, "Rhythm spatialization processor is null, attempting reinitialization")
-            initializeAudioEffects()
+        if (rhythmSpatializationProcessor == null) {
+            Log.w(TAG, "Rhythm spatialization processor is null, reinitializing")
+            initializeRhythmProcessors()
         }
         
         rhythmSpatializationProcessor?.setEnabled(enabled)
@@ -4518,6 +4603,20 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         }
     }
     
+    fun setMonoAudioEnabled(enabled: Boolean) {
+        if (rhythmMonoAudioProcessor == null) {
+            Log.w(TAG, "Attempting to enable mono audio but Rhythm processor is null. Reinitializing.")
+            initializeRhythmProcessors()
+        }
+        
+        rhythmMonoAudioProcessor?.setEnabled(enabled)
+        Log.d(TAG, "Rhythm mono audio enabled: $enabled (applies to next audio buffer)")
+        if (::rhythmPlayerEngine.isInitialized) {
+            rhythmPlayerEngine.updateTrackSelectionParameters()
+        }
+    }
+
+    
     // Public methods for external access
     fun getMediaSession(): MediaLibrarySession? = mediaSession
     
@@ -4530,14 +4629,16 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         try {
             equalizer?.release()
             equalizer = null
-            audioEffectsSessionId = 0
+            currentAudioEffectsSessionId = 0
             audioEffectsInitialized = false
             
             // Reset Rhythm processors
             rhythmBassBoostProcessor?.reset()
             rhythmSpatializationProcessor?.reset()
+            rhythmMonoAudioProcessor?.reset()
             rhythmBassBoostProcessor = null
             rhythmSpatializationProcessor = null
+            rhythmMonoAudioProcessor = null
             
             Log.d(TAG, "Audio effects released")
         } catch (e: Exception) {

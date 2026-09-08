@@ -4,12 +4,6 @@
     <!-- All features enabled for open-source distribution -->
     
     <!-- Feature availability flags -->
-    <bool name="feature_youtube_music_available">true</bool>
-    <bool name="feature_apple_music_available">true</bool>
-    <bool name="feature_deezer_available">true</bool>
-    <bool name="feature_lrclib_available">true</bool>
-    <bool name="feature_spotify_search_available">true</bool>
     
     <!-- Distribution channel identifier -->
-    <string name="distribution_channel">GitHub</string>
 </resources>

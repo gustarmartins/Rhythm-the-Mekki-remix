@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.screens
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
@@ -55,6 +60,7 @@ import chromahub.rhythm.app.shared.data.repository.PlaybackStatsRepository
 import chromahub.rhythm.app.shared.data.repository.StatsTimeRange
 import chromahub.rhythm.app.shared.presentation.components.Material3SettingsGroup
 import chromahub.rhythm.app.shared.presentation.components.Material3SettingsItem
+import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveCookieEmptyState
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeTarget
 import chromahub.rhythm.app.shared.presentation.components.common.CollapsibleHeaderScreen
 import chromahub.rhythm.app.shared.presentation.components.common.TabAnimation
@@ -66,6 +72,8 @@ import chromahub.rhythm.app.util.HapticType
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
+import chromahub.rhythm.app.util.windowScreenWidthDp
+import chromahub.rhythm.app.util.windowScreenHeightDp
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
 @Composable
@@ -197,8 +205,7 @@ private fun StatsPageContent(
                 EmptyStatsView()
             } else {
                 val stats = statsSummary!!
-                val configuration = LocalConfiguration.current
-                val isTablet = configuration.screenWidthDp >= 600
+                val isTablet = windowScreenWidthDp() >= 600
                 if (isTablet) {
                     Row(
                         modifier = Modifier
@@ -232,8 +239,6 @@ private fun StatsPageContent(
                                 artists = artists,
                                 useHoursFormat = useHoursFormat
                             )
-
-                            RatingStatsCard(viewModel = viewModel)
                         }
                     }
                 } else {
@@ -260,8 +265,6 @@ private fun StatsPageContent(
                             stats = stats,
                             useHoursFormat = useHoursFormat
                         )
-
-                        RatingStatsCard(viewModel = viewModel)
                         
                         Spacer(modifier = Modifier.height(32.dp + LocalMiniPlayerPadding.current.calculateBottomPadding()))
                     }
@@ -435,7 +438,7 @@ private fun ListeningOverviewCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Most active at ${timeline.firstOrNull()?.label ?: "9:30 am"}",
+                    text = stringResource(R.string.stats_most_active_at, timeline.firstOrNull()?.label ?: "9:30 am"),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -707,7 +710,7 @@ private fun CategoryMetricsSection(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Text(
-                            text = "Top ${targetDimension.displayName}",
+                            text = stringResource(R.string.stats_top_dimension, targetDimension.displayName),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -852,7 +855,7 @@ private fun ListeningHabitsCard(
                     },
                     title = {
                         Text(
-                            text = "Active Days",
+                            text = stringResource(R.string.stats_active_days),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -875,7 +878,7 @@ private fun ListeningHabitsCard(
                     },
                     title = {
                         Text(
-                            text = "Longest Streak",
+                            text = stringResource(R.string.stats_longest_streak),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -898,7 +901,7 @@ private fun ListeningHabitsCard(
                     },
                     title = {
                         Text(
-                            text = "Total Sessions",
+                            text = stringResource(R.string.stats_total_sessions),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -921,7 +924,7 @@ private fun ListeningHabitsCard(
                     },
                     title = {
                         Text(
-                            text = "Avg Session",
+                            text = stringResource(R.string.stats_avg_session),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -946,7 +949,7 @@ private fun ListeningHabitsCard(
                         },
                         title = {
                             Text(
-                                text = "Peak Day",
+                                text = stringResource(R.string.stats_peak_day),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1074,111 +1077,19 @@ private fun BeatTimelineCard(timeline: List<PlaybackStatsRepository.TimelineEntr
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun RatingStatsCard(viewModel: MusicViewModel) {
-    val context = LocalContext.current
-    val appSettings = chromahub.rhythm.app.shared.data.model.AppSettings.getInstance(context)
-    val ratingDistribution = appSettings.getRatingDistribution()
-    val totalRated = ratingDistribution.values.sum()
-
-    if (totalRated == 0) return
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
-    ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.settings_song_ratings),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            (5 downTo 1).forEach { rating ->
-                val count = ratingDistribution[rating] ?: 0
-                val percentage = if (totalRated > 0) (count.toFloat() / totalRated) else 0f
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = "$rating ★",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.width(36.dp)
-                    )
-                    LinearProgressIndicator(
-                        progress = { percentage },
-                        modifier = Modifier.weight(1f).height(8.dp).clip(CircleShape),
-                        color = if (rating >= 4) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
-                        trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-                    )
-                    Text(
-                        text = "$count",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.width(28.dp),
-                        textAlign = TextAlign.End
-                    )
-                }
-            }
-
-            if ((ratingDistribution[5] ?: 0) > 0 || (ratingDistribution[4] ?: 0) > 0) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if ((ratingDistribution[5] ?: 0) > 0) {
-                        AssistChip(
-                            onClick = { viewModel.playRatingPlaylist(5, shuffled = false) },
-                            label = { Text(stringResource(R.string.rhythmstatsscreen_favorites)) },
-                            leadingIcon = { Icon(MaterialSymbolIcon("star"), contentDescription = null, modifier = Modifier.size(16.dp)) }
-                        )
-                    }
-                    if (totalRated > 0) {
-                        AssistChip(
-                            onClick = { viewModel.playMinimumRatingPlaylist(4, shuffled = false) },
-                            label = { Text(stringResource(R.string.rhythmstatsscreen_loved_4)) },
-                            leadingIcon = { Icon(RhythmIcons.Favorite, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun EmptyStatsView() {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Icon(
-            imageVector = RhythmIcons.BarChart,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-        )
-        Text(
-            text = stringResource(R.string.rhythmstatsscreen_no_stats_available_yet),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = stringResource(R.string.rhythmstatsscreen_keep_listening_to_build),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-    }
+    ExpressiveCookieEmptyState(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp),
+        title = stringResource(R.string.rhythmstatsscreen_no_stats_available_yet),
+        subtitle = stringResource(R.string.rhythmstatsscreen_keep_listening_to_build),
+        mainIcon = RhythmIcons.BarChart,
+        accentIcon = RhythmIcons.TrendingUp,
+        cornerIcon = RhythmIcons.MusicNote,
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+    )
 }
 
 private fun formatDuration(ms: Long, useHoursFormat: Boolean): String {

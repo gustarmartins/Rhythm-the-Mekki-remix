@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.player
 
 import android.widget.Toast
@@ -12,12 +17,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import chromahub.rhythm.app.util.windowScreenWidthDp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -42,12 +47,16 @@ fun RhythmPlayerSheet(
     isPlaying: Boolean,
     progress: () -> Float,
     location: PlaybackLocation?,
-    queuePosition: Int = 1,
-    queueTotal: Int = 1,
     onPlayPause: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
     onSeek: (Float) -> Unit,
+    appSettings: AppSettings,
+    musicViewModel: MusicViewModel,
+    navController: NavController,
+    modifier: Modifier = Modifier,
+    queuePosition: Int = 1,
+    queueTotal: Int = 1,
     onLyricsSeek: ((Long) -> Unit)? = null,
     onLocationClick: () -> Unit = {},
     onQueueClick: () -> Unit = {},
@@ -92,7 +101,6 @@ fun RhythmPlayerSheet(
     isMediaLoading: Boolean = false,
     isSeeking: Boolean = false,
     onShowAlbumBottomSheet: () -> Unit = {},
-    onShowArtistBottomSheet: () -> Unit = {},
     songs: List<Song> = emptyList(),
     albums: List<Album> = emptyList(),
     artists: List<Artist> = emptyList(),
@@ -100,12 +108,8 @@ fun RhythmPlayerSheet(
     onShuffleAlbumSongs: (List<Song>) -> Unit = {},
     onPlayArtistSongs: (List<Song>) -> Unit = {},
     onShuffleArtistSongs: (List<Song>) -> Unit = {},
-    appSettings: AppSettings,
-    musicViewModel: MusicViewModel,
-    navController: NavController,
     isStreamingMode: Boolean = false,
-    miniPlayerBottomOffset: Dp = 8.dp,
-    modifier: Modifier = Modifier
+    miniPlayerBottomOffset: Dp = 8.dp
 ) {
     if (song == null) return
 
@@ -119,7 +123,7 @@ fun RhythmPlayerSheet(
         
         val miniPlayerHeight = if (miniPlayerThemeId == "EXPRESSIVE") 84.dp else 110.dp
         
-        var dragOffset by remember { mutableStateOf(0f) }
+        var dragOffset by remember { mutableFloatStateOf(0f) }
         
         val collapsedOffset = screenHeightPx - with(density) { (miniPlayerBottomOffset + miniPlayerHeight).toPx() }
         val expandedOffset = 0f
@@ -137,7 +141,10 @@ fun RhythmPlayerSheet(
         
         val expansionFraction = ((collapsedOffset - animatedOffset) / collapsedOffset).coerceIn(0f, 1f)
         
-        val topCornerSize = 28.dp * (1f - expansionFraction)
+        val maxCornerRadius = 32.dp
+        val cornerBlendProgress = ((expansionFraction - 0.82f) / 0.18f).coerceIn(0f, 1f)
+        val smoothBlend = cornerBlendProgress * cornerBlendProgress * cornerBlendProgress
+        val topCornerSize = maxCornerRadius * (1f - smoothBlend)
         val bottomCornerSize = 28.dp * (1f - expansionFraction)
         val sheetShape = RoundedCornerShape(
             topStart = topCornerSize,
@@ -184,8 +191,7 @@ fun RhythmPlayerSheet(
         }
         val sheetBackgroundColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = sheetBackgroundAlpha)
 
-        val configuration = LocalConfiguration.current
-        val isTablet = configuration.screenWidthDp >= 600
+        val isTablet = windowScreenWidthDp() >= 600
 
         Box(
             modifier = Modifier
@@ -309,7 +315,6 @@ fun RhythmPlayerSheet(
                         isMediaLoading = isMediaLoading,
                         isSeeking = isSeeking,
                         onShowAlbumBottomSheet = onShowAlbumBottomSheet,
-                        onShowArtistBottomSheet = onShowArtistBottomSheet,
                         songs = songs,
                         albums = albums,
                         artists = artists,

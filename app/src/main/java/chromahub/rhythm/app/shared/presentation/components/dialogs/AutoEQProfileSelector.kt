@@ -1,6 +1,16 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class)
 
 package chromahub.rhythm.app.shared.presentation.components.dialogs
+
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
+import androidx.compose.foundation.lazy.rememberLazyListState
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
@@ -74,6 +84,7 @@ import chromahub.rhythm.app.util.HapticType
 import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel
 import kotlinx.coroutines.delay
 import chromahub.rhythm.app.R
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 
 @Composable
@@ -166,7 +177,8 @@ fun AutoEQProfileSelector(
         }
     }
 
-    ModalBottomSheet(
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
         onDismissRequest = onDismiss,
         sheetState = bottomSheetState,
@@ -209,7 +221,7 @@ fun AutoEQProfileSelector(
                         Text(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             style = MaterialTheme.typography.labelLarge,
-                            text = context.getString(R.string.autoeq_profiles_available, filteredProfiles.size),
+                            text = pluralStringResource(R.plurals.autoeq_profiles_available, filteredProfiles.size, filteredProfiles.size),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -422,36 +434,45 @@ fun AutoEQProfileSelector(
                 AnimatedVisibility(
                     visible = !isLoading && showContent,
                     enter = fadeIn(),
-                    exit = fadeOut()
+                    exit = fadeOut(),
+                    modifier = Modifier.weight(1f, fill = false)
                 ) {
-                    LazyColumn(
-                        contentPadding = PaddingValues(horizontal = 5.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.graphicsLayer {
-                            alpha = contentAlpha
-                        }
-                    ) {
-                        items(filteredProfiles, key = { it.name }) { profile ->
-                            val isCurrentlyActive = profile.name == currentAutoEQProfile
-                            ProfileCard(
-                                profile = profile,
-                                isActive = isCurrentlyActive,
-                                onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                    onProfileSelected(profile)
-                                },
-                                onDisable = if (isCurrentlyActive) {
-                                    {
+                    val autoEqListState = rememberLazyListState()
+
+                    AdaptiveSheetScrollContainer(
+                        lazyListState = autoEqListState,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { endPadding ->
+                        LazyColumn(
+                            state = autoEqListState,
+                            contentPadding = PaddingValues(start = 5.dp, end = 5.dp + endPadding, top = 8.dp, bottom = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.graphicsLayer {
+                                alpha = contentAlpha
+                            }
+                        ) {
+                            items(filteredProfiles, key = { it.name }) { profile ->
+                                val isCurrentlyActive = profile.name == currentAutoEQProfile
+                                ProfileCard(
+                                    profile = profile,
+                                    isActive = isCurrentlyActive,
+                                    onClick = {
                                         HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                        onProfileSelected(AutoEQProfile(
-                                            name = "",
-                                            brand = "",
-                                            type = "",
-                                            bands = listOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
-                                        ))
-                                    }
-                                } else null
-                            )
+                                        onProfileSelected(profile)
+                                    },
+                                    onDisable = if (isCurrentlyActive) {
+                                        {
+                                            HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                                            onProfileSelected(AutoEQProfile(
+                                                name = "",
+                                                brand = "",
+                                                type = "",
+                                                bands = listOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
+                                            ))
+                                        }
+                                    } else null
+                                )
+                            }
                         }
                     }
                 }
@@ -470,17 +491,17 @@ private fun ProfileCard(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp)),
+            .clip(RoundedCornerShape(20.dp)),
         colors = CardDefaults.cardColors(
             containerColor = if (isActive)
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
             else
                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (isActive) 2.dp else 0.dp
         ),
-        shape = RoundedCornerShape(14.dp)
+        shape = RoundedCornerShape(20.dp)
     ) {
         Row(
             modifier = Modifier
@@ -523,7 +544,7 @@ private fun ProfileCard(
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
                         color = if (isActive)
-                            MaterialTheme.colorScheme.onPrimaryContainer
+                            MaterialTheme.colorScheme.primaryContainer
                         else
                             MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
@@ -539,7 +560,7 @@ private fun ProfileCard(
                                 text = profile.brand,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (isActive)
-                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                                 else
                                     MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -556,7 +577,7 @@ private fun ProfileCard(
                                 text = profile.type,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (isActive)
-                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                                 else
                                     MaterialTheme.colorScheme.onSurfaceVariant
                             )

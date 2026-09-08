@@ -13,19 +13,13 @@ Rhythm offers three types of widgets to suit different needs:
 - **Real-time**: Synced with playback position
 - **Compact**: Minimal footprint with scrolling text
 
-### Modern Glance Widgets
+### Glance Widgets
 - **Technology**: Built with Jetpack Glance framework
 - **Design**: Material 3 with dynamic theming
-- **Layouts**: 6 responsive sizes
+- **Variants**: Music, Cookie, Stats, and Lyrics widgets
+- **Layouts**: Adaptive responsive sizes
 - **Requirements**: Android 8.0+
 - **Features**: Real-time updates, customizable appearance
-
-### Legacy Widgets
-- **Technology**: Traditional RemoteViews
-- **Compatibility**: Maximum compatibility across devices
-- **Layouts**: 7 sizes including 5x5
-- **Requirements**: Android 8.0+
-- **Features**: Battery-efficient, theme-adaptive
 
 ---
 
@@ -88,30 +82,18 @@ Rhythm offers three types of widgets to suit different needs:
 
 ---
 
-## 📐 Legacy Widgets
-
-### Available Layouts
-
-1. **Extra Small (2x1)**: Minimal horizontal strip
-2. **Small (2x2)**: Compact square
-3. **Medium (3x2)**: Standard horizontal
-4. **Large (3x3)**: Large square
-5. **Wide (4x2/5x2)**: Extended horizontal
-6. **Extra Large (4x4)**: Large display
-7. **5x5**: Maximum size with full controls
-
----
-
 ## 🔧 Adding a Widget
 
 ### Android 12+
 
 1. **Long-press** on your home screen
 2. Tap **Widgets**
-3. Scroll to find **Rhythm Music**
+3. Scroll to find **Rhythm** widgets
 4. Choose between:
-   - **Rhythm Widget** (Glance - Modern)
-   - **Rhythm Music Widget** (Legacy)
+   - **Music Widget** (Glance)
+   - **Cookie Widget**
+   - **Stats Widget**
+   - **Lyrics Widget**
 5. **Drag** to home screen
 6. **Resize** to desired size using corner handles
 7. Widget auto-updates to optimal layout
@@ -131,7 +113,7 @@ Rhythm offers three types of widgets to suit different needs:
 
 ### Glance Widget Settings
 
-Access widget settings: **Rhythm → Settings → Widget Settings**
+Access widget settings: **Rhythm → Settings → Home & Widgets → Widget Settings**
 
 #### Corner Radius
 - **Range**: 0-32dp
@@ -297,20 +279,18 @@ Widgets update instantly for:
 
 ---
 
-## 📊 Widget Comparison
+## 📊 Widget Features
 
-| Feature | Glance Widgets | Legacy Widgets |
-|:--------|:--------------|:---------------|
-| **Material 3 Design** | ✅ Yes | ⚠️ Limited |
-| **Dynamic Theming** | ✅ Full | ⚠️ Basic |
-| **Customizable Corners** | ✅ Yes | ❌ No |
-| **Transparency Control** | ✅ Yes | ❌ No |
-| **Layout Count** | 6 | 7 |
-| **Max Size** | 4×4 | 5×5 |
-| **Battery Efficiency** | ✅ Optimized | ✅ Optimized |
-| **Update Speed** | ⚡ Instant | ⚡ Instant |
-
-**Recommendation**: Use **Glance widgets** for modern design and customization.
+| Feature | Glance Widgets |
+|:--------|:---------------|
+| **Material 3 Design** | ✅ Yes |
+| **Dynamic Theming** | ✅ Full |
+| **Customizable Corners** | ✅ Yes |
+| **Transparency Control** | ✅ Yes |
+| **Widgets** | Music, Cookie, Stats, Lyrics |
+| **Sizes** | Adaptive responsive |
+| **Battery Efficiency** | ✅ Optimized |
+| **Update Speed** | ⚡ Instant |
 
 ---
 

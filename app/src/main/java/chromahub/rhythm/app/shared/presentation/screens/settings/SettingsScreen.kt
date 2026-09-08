@@ -1,4 +1,17 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.screens.settings
+
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.StandardBottomSheetHeader
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.groupedBottomSheetItemShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
@@ -20,7 +33,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateFloatAsState
-//import androidx.compose.animation.core.animateColorAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.BorderStroke
@@ -28,6 +40,28 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.SpringSpec
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.util.lerp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlin.math.absoluteValue
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,9 +77,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.LaunchedEffect
 import chromahub.rhythm.app.shared.data.repository.PlaybackStatsRepository
@@ -55,7 +87,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.BottomSheetDefaults
@@ -96,19 +127,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.BuildConfig
 import chromahub.rhythm.app.shared.presentation.components.common.CollapsibleHeaderScreen
 import chromahub.rhythm.app.ui.utils.LazyListStateSaver
 import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
 import chromahub.rhythm.app.shared.data.model.AppSettings
-import chromahub.rhythm.app.features.local.presentation.components.settings.LanguageSwitcherDialog
+import chromahub.rhythm.app.features.local.presentation.components.settings.LanguageSwitcherBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.dialogs.FdroidUpdateWarningDialog
 import android.content.Context
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -123,11 +152,17 @@ import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel
 import chromahub.rhythm.app.shared.presentation.components.Material3SettingsGroup
 import chromahub.rhythm.app.shared.presentation.components.Material3SettingsItem
 import androidx.compose.ui.res.stringResource
+import chromahub.rhythm.app.util.windowScreenWidthDp
+import chromahub.rhythm.app.util.windowScreenHeightDp
+
+import chromahub.rhythm.app.shared.presentation.components.SettingsBadgePalette
+import chromahub.rhythm.app.shared.presentation.components.SettingsPalettes
 
 // Define routes for navigation
 object SettingsRoutes {
     const val NOTIFICATIONS = "notifications_settings"
-    const val EXPERIMENTAL_FEATURES = "experimental_features_settings"
+    const val LABS = "labs_settings"
+    const val EXPERIMENTAL_FEATURES = LABS
     const val ABOUT = "about_screen"
     const val UPDATES = "updates_screen"
     const val MEDIA_SCAN = "media_scan_settings"
@@ -136,7 +171,6 @@ object SettingsRoutes {
     const val API_MANAGEMENT = "api_management_settings"
     const val CACHE_MANAGEMENT = "cache_management_settings"
     const val BACKUP_RESTORE = "backup_restore_settings"
-    const val LIBRARY_TAB_ORDER = "library_tab_order_settings"
     const val THEME_CUSTOMIZATION = "theme_customization_settings"
     const val PLAYER_CUSTOMIZATION = "player_customization_settings"
     const val MINIPLAYER_CUSTOMIZATION = "miniplayer_customization_settings"
@@ -168,7 +202,8 @@ data class SettingItem(
     val toggleState: Boolean? = null,
     val onToggleChange: ((Boolean) -> Unit)? = null,
     val data: Any? = null,
-    val enabled: Boolean = true
+    val enabled: Boolean = true,
+    val palette: SettingsBadgePalette? = null
 )
 
 data class SettingGroup(
@@ -233,7 +268,7 @@ fun SettingsScreen(
                 onQueryChange = { searchQuery = it },
                 modifier = Modifier
                     .padding(horizontal = if (isTablet) 32.dp else 24.dp)
-                    .padding(top = 8.dp, bottom = 8.dp)
+                    .padding(top = 14.dp, bottom = 8.dp)
             )
         }
     ) { modifier ->
@@ -242,43 +277,46 @@ fun SettingsScreen(
             SettingGroup(
                 title = context.getString(R.string.settings_section_appearance),
                 items = buildList {
-                    add(SettingItem(RhythmIcons.Palette, context.getString(R.string.settings_theme_customization), context.getString(R.string.settings_theme_customization_desc), onClick = { onNavigateTo(SettingsRoutes.THEME_CUSTOMIZATION) }))
-                    add(SettingItem(MaterialSymbolIcon("interests"), context.getString(R.string.settings_shapes), context.getString(R.string.settings_shapes_desc), onClick = { onNavigateTo(SettingsRoutes.EXPRESSIVE_SHAPES) }))
-                    add(SettingItem(RhythmIcons.MusicNote, context.getString(R.string.settings_player_customization), context.getString(R.string.settings_player_customization_desc), onClick = { onNavigateTo(SettingsRoutes.PLAYER_CUSTOMIZATION) }))
-                    add(SettingItem(RhythmIcons.PlayCircle, context.getString(R.string.settings_miniplayer_customization), context.getString(R.string.settings_miniplayer_customization_desc), onClick = { onNavigateTo(SettingsRoutes.MINIPLAYER_CUSTOMIZATION) }))
+                    add(SettingItem(RhythmIcons.Palette, context.getString(R.string.settings_theme_customization), context.getString(R.string.settings_theme_customization_desc), palette = SettingsPalettes.Purple, onClick = { onNavigateTo(SettingsRoutes.THEME_CUSTOMIZATION) }))
+                    add(SettingItem(MaterialSymbolIcon("interests"), context.getString(R.string.settings_shapes), context.getString(R.string.settings_shapes_desc), palette = SettingsPalettes.Purple, onClick = { onNavigateTo(SettingsRoutes.EXPRESSIVE_SHAPES) }))
+                    add(SettingItem(RhythmIcons.MusicNote, context.getString(R.string.settings_player_customization), context.getString(R.string.settings_player_customization_desc), palette = SettingsPalettes.SkyBlue, onClick = { onNavigateTo(SettingsRoutes.PLAYER_CUSTOMIZATION) }))
+                    add(SettingItem(RhythmIcons.PlayCircle, context.getString(R.string.settings_miniplayer_customization), context.getString(R.string.settings_miniplayer_customization_desc), palette = SettingsPalettes.Rose, onClick = { onNavigateTo(SettingsRoutes.MINIPLAYER_CUSTOMIZATION) }))
                 }
             ),
             // 2. Home & Widgets - only show in LOCAL mode
             if (appMode == "LOCAL") SettingGroup(
                 title = context.getString(R.string.settings_section_home_widgets),
                 items = listOf(
-                    SettingItem(RhythmIcons.Home, context.getString(R.string.settings_home_customization), context.getString(R.string.settings_home_customization_desc), onClick = { onNavigateTo(SettingsRoutes.HOME_SCREEN) }),
-                    SettingItem(MaterialSymbolIcon("widgets"), context.getString(R.string.settings_widget), context.getString(R.string.settings_widget_desc), onClick = { onNavigateTo(SettingsRoutes.WIDGET) })
+                    SettingItem(RhythmIcons.Home, context.getString(R.string.settings_home_customization), context.getString(R.string.settings_home_customization_desc), palette = SettingsPalettes.Orange, onClick = { onNavigateTo(SettingsRoutes.HOME_SCREEN) }),
+                    SettingItem(MaterialSymbolIcon("widgets"), context.getString(R.string.settings_widget), context.getString(R.string.settings_widget_desc), palette = SettingsPalettes.Cyan, onClick = { onNavigateTo(SettingsRoutes.WIDGET) })
                 )
             ) else null,
             // 3. Navigation & Controls
             SettingGroup(
                 title = context.getString(R.string.settings_section_user_interface),
                 items = buildList {
+                    // Default screen only applies to local navigation (streaming has its own start screen)
+                    if (appMode == "LOCAL") {
                     add(SettingItem(
                         RhythmIcons.Home,
                         context.getString(R.string.settings_default_screen),
                         if (defaultScreen == "library") context.getString(R.string.library) else context.getString(R.string.home),
+                            palette = SettingsPalettes.Amber,
                         onClick = { showDefaultScreenDialog = true }
                     ))
+                    }
                     add(SettingItem(
                         RhythmIcons.Public,
                         context.getString(R.string.settings_language),
-                        currentAppLanguage,
+                        context.getString(R.string.settings_language_desc),
+                        palette = SettingsPalettes.SkyBlue,
                         onClick = { showLanguageSwitcher = true }
                     ))
-                    if (appMode == "LOCAL") {
-                        //add(SettingItem(MaterialSymbolIcon("reorder"), context.getString(R.string.settings_library_tab_order), context.getString(R.string.settings_library_tab_order_desc), onClick = { onNavigateTo(SettingsRoutes.LIBRARY_TAB_ORDER) }))
-                    }
                     add(SettingItem(
                         MaterialSymbolIcon("touch_app"), 
                         context.getString(R.string.settings_haptic_feedback), 
                         context.getString(R.string.settings_haptic_feedback_desc), 
+                        palette = SettingsPalettes.SkyBlue,
                         toggleState = hapticFeedbackEnabled,
                         onToggleChange = { appSettings.setHapticFeedbackEnabled(it) }
                     ))
@@ -286,12 +324,14 @@ fun SettingsScreen(
                         MaterialSymbolIcon("gesture"),
                         context.getString(R.string.settings_gestures),
                         context.getString(R.string.settings_gestures_desc),
+                        palette = SettingsPalettes.Purple,
                         onClick = { onNavigateTo(SettingsRoutes.GESTURES) }
                     ))
                     add(SettingItem(
                         RhythmIcons.Search,
                         context.getString(R.string.settings_show_keyboard_on_search_open),
                         context.getString(R.string.settings_show_keyboard_on_search_open_desc),
+                        palette = SettingsPalettes.SkyBlue,
                         toggleState = showKeyboardOnSearchOpen,
                         onToggleChange = { appSettings.setShowKeyboardOnSearchOpen(it) }
                     ))
@@ -299,6 +339,7 @@ fun SettingsScreen(
                         MaterialSymbolIcon("lightbulb"),
                         context.getString(R.string.settings_suggestions),
                         context.getString(R.string.settings_suggestions_desc),
+                        palette = SettingsPalettes.Amber,
                         toggleState = showSettingsSuggestions,
                         onToggleChange = { appSettings.setShowSettingsSuggestions(it) }
                     ))
@@ -308,10 +349,10 @@ fun SettingsScreen(
             SettingGroup(
                 title = context.getString(R.string.settings_section_queue_playback),
                 items = buildList {
-                    add(SettingItem(RhythmIcons.Queue, context.getString(R.string.settings_queue), context.getString(R.string.settings_queue_desc), onClick = { onNavigateTo(SettingsRoutes.QUEUE) }))
-                    add(SettingItem(RhythmIcons.Play, context.getString(R.string.settings_playback), context.getString(R.string.settings_playback_desc), onClick = { onNavigateTo(SettingsRoutes.PLAYBACK) }))
+                    add(SettingItem(RhythmIcons.Queue, context.getString(R.string.settings_queue), context.getString(R.string.settings_queue_desc), palette = SettingsPalettes.SkyBlue, onClick = { onNavigateTo(SettingsRoutes.QUEUE) }))
+                    add(SettingItem(RhythmIcons.Play, context.getString(R.string.settings_playback), context.getString(R.string.settings_playback_desc), palette = SettingsPalettes.Emerald, onClick = { onNavigateTo(SettingsRoutes.PLAYBACK) }))
                     // Sleep Timer is available in both LOCAL and STREAMING modes
-                    add(SettingItem(RhythmIcons.AccessTime, context.getString(R.string.sleep_timer), context.getString(R.string.sleep_timer_set_control), onClick = { onNavigateTo(SettingsRoutes.SLEEP_TIMER) }))
+                    add(SettingItem(RhythmIcons.AccessTime, context.getString(R.string.sleep_timer), context.getString(R.string.sleep_timer_set_control), palette = SettingsPalettes.Orange, onClick = { onNavigateTo(SettingsRoutes.SLEEP_TIMER) }))
                 }
             ),
             // 5. Audio & Lyrics
@@ -319,17 +360,19 @@ fun SettingsScreen(
                 title = context.getString(R.string.settings_section_audio_lyrics),
                 items = buildList {
                     // Equalizer is available in both LOCAL and STREAMING modes
-                    add(SettingItem(RhythmIcons.Equalizer, context.getString(R.string.settings_equalizer_title), context.getString(R.string.settings_equalizer_desc), onClick = { onNavigateTo(SettingsRoutes.EQUALIZER) }))
+                    add(SettingItem(RhythmIcons.Equalizer, context.getString(R.string.settings_equalizer_title), context.getString(R.string.settings_equalizer_desc), palette = SettingsPalettes.Coral, onClick = { onNavigateTo(SettingsRoutes.EQUALIZER) }))
                     add(SettingItem(
                         icon = MaterialSymbolIcon("lyrics"),
                         title = context.getString(R.string.settings_lyrics_source),
                         description = context.getString(R.string.playback_lyrics_priority_desc),
+                        palette = SettingsPalettes.Cyan,
                         onClick = { onNavigateTo(SettingsRoutes.LYRICS) }
                     ))
                     add(SettingItem(
                         icon = MaterialSymbolIcon("speed"),
                         title = stringResource(R.string.performancesettingsscreen_performance),
                         description = context.getString(R.string.settings_performance_desc_optimized),
+                        palette = SettingsPalettes.Lime,
                         onClick = { onNavigateTo(SettingsRoutes.BATTERY_SAVER) }
                     ))
                 }
@@ -338,19 +381,19 @@ fun SettingsScreen(
             if (appMode == "LOCAL") SettingGroup(
                 title = context.getString(R.string.settings_section_library_content),
                 items = listOf(
-                    SettingItem(RhythmIcons.Folder, context.getString(R.string.settings_media_scan_title), context.getString(R.string.settings_media_scan_desc), onClick = { onNavigateTo(SettingsRoutes.MEDIA_SCAN) }),
-                    SettingItem(RhythmIcons.Artist, context.getString(R.string.settings_artist_parsing), context.getString(R.string.settings_artist_parsing_desc), onClick = { onNavigateTo(SettingsRoutes.ARTIST_SEPARATORS) }),
-                    SettingItem(MaterialSymbolIcon("playlist_add_check_circle"), context.getString(R.string.settings_playlists_title), context.getString(R.string.settings_playlists_desc), onClick = { onNavigateTo(SettingsRoutes.PLAYLISTS) }),
-                    SettingItem(RhythmIcons.Library, context.getString(R.string.settings_library_settings), context.getString(R.string.settings_library_settings_desc), onClick = { onNavigateTo(SettingsRoutes.LIBRARY_SETTINGS) })
+                    SettingItem(RhythmIcons.Folder, context.getString(R.string.settings_media_scan_title), context.getString(R.string.settings_media_scan_desc), palette = SettingsPalettes.Amber, onClick = { onNavigateTo(SettingsRoutes.MEDIA_SCAN) }),
+                    SettingItem(RhythmIcons.Artist, context.getString(R.string.settings_artist_parsing), context.getString(R.string.settings_artist_parsing_desc), palette = SettingsPalettes.Rose, onClick = { onNavigateTo(SettingsRoutes.ARTIST_SEPARATORS) }),
+                    SettingItem(MaterialSymbolIcon("playlist_add_check_circle"), context.getString(R.string.settings_playlists_title), context.getString(R.string.settings_playlists_desc), palette = SettingsPalettes.Coral, onClick = { onNavigateTo(SettingsRoutes.PLAYLISTS) }),
+                    SettingItem(RhythmIcons.Library, context.getString(R.string.settings_library_settings), context.getString(R.string.settings_library_settings_desc), palette = SettingsPalettes.Teal, onClick = { onNavigateTo(SettingsRoutes.LIBRARY_SETTINGS) })
                 )
             ) else null,
             // 6. Notifications & Services
             SettingGroup(
                 title = context.getString(R.string.settings_section_notifications_services),
                 items = buildList {
-                    add(SettingItem(RhythmIcons.Notifications, context.getString(R.string.settings_notifications), context.getString(R.string.settings_notifications_desc), onClick = { onNavigateTo(SettingsRoutes.NOTIFICATIONS) }))
+                    add(SettingItem(RhythmIcons.Notifications, context.getString(R.string.settings_notifications), context.getString(R.string.settings_notifications_desc), palette = SettingsPalettes.Coral, onClick = { onNavigateTo(SettingsRoutes.NOTIFICATIONS) }))
                     // API Management/Integrations is available in both LOCAL and STREAMING modes
-                    add(SettingItem(MaterialSymbolIcon("api"), context.getString(R.string.settings_api_management), context.getString(R.string.settings_api_management_desc), onClick = { onNavigateTo(SettingsRoutes.API_MANAGEMENT) }))
+                    add(SettingItem(MaterialSymbolIcon("api"), context.getString(R.string.settings_api_management), context.getString(R.string.settings_api_management_desc), palette = SettingsPalettes.Slate, onClick = { onNavigateTo(SettingsRoutes.API_MANAGEMENT) }))
                 }
             ),
             // 7. Data & Storage - split into shared and local-only items
@@ -358,12 +401,12 @@ fun SettingsScreen(
                 title = context.getString(R.string.settings_section_storage_data),
                 items = buildList {
                     // Listening Stats and Rhythm Guard are shared across LOCAL and STREAMING modes
-                    add(SettingItem(MaterialSymbolIcon("auto_graph"), context.getString(R.string.settings_rhythm_stats), context.getString(R.string.settings_rhythm_stats_desc), onClick = { onNavigateTo(SettingsRoutes.RHYTHM_STATS) }))
-                    add(SettingItem(RhythmIcons.Security, context.getString(R.string.settings_rhythm_guard), context.getString(R.string.settings_rhythm_guard_list_desc), onClick = { onNavigateTo(SettingsRoutes.RHYTHM_GUARD) }))
+                    add(SettingItem(MaterialSymbolIcon("auto_graph"), context.getString(R.string.settings_rhythm_stats), context.getString(R.string.settings_rhythm_stats_desc), palette = SettingsPalettes.Purple, onClick = { onNavigateTo(SettingsRoutes.RHYTHM_STATS) }))
+                    add(SettingItem(RhythmIcons.Security, context.getString(R.string.settings_rhythm_guard), context.getString(R.string.settings_rhythm_guard_list_desc), palette = SettingsPalettes.Emerald, onClick = { onNavigateTo(SettingsRoutes.RHYTHM_GUARD) }))
                     // Cache and Backup are LOCAL-only
                     if (appMode == "LOCAL") {
-                        add(SettingItem(RhythmIcons.Storage, context.getString(R.string.settings_cache_management_title), context.getString(R.string.settings_cache_management_desc), onClick = { onNavigateTo(SettingsRoutes.CACHE_MANAGEMENT) }))
-                        add(SettingItem(MaterialSymbolIcon("backup"), context.getString(R.string.settings_backup_restore_title), context.getString(R.string.settings_backup_restore_desc), onClick = { onNavigateTo(SettingsRoutes.BACKUP_RESTORE) }))
+                        add(SettingItem(RhythmIcons.Storage, context.getString(R.string.settings_cache_management_title), context.getString(R.string.settings_cache_management_desc), palette = SettingsPalettes.Yellow, onClick = { onNavigateTo(SettingsRoutes.CACHE_MANAGEMENT) }))
+                        add(SettingItem(MaterialSymbolIcon("backup"), context.getString(R.string.settings_backup_restore_title), context.getString(R.string.settings_backup_restore_desc), palette = SettingsPalettes.Emerald, onClick = { onNavigateTo(SettingsRoutes.BACKUP_RESTORE) }))
                     }
                 }
             ),
@@ -375,6 +418,7 @@ fun SettingsScreen(
                         RhythmIcons.Update,
                         context.getString(R.string.settings_updates_title),
                         context.getString(R.string.settings_updates_desc),
+                        palette = SettingsPalettes.SkyBlue,
                         toggleState = updatesEnabled,
                         onToggleChange = { enabled ->
                             if (enabled) {
@@ -389,15 +433,15 @@ fun SettingsScreen(
                         },
                         onClick = { onNavigateTo(SettingsRoutes.UPDATES) }
                     ),
-                    SettingItem(RhythmIcons.Info, context.getString(R.string.settings_about_title), context.getString(R.string.settings_about_desc), onClick = { onNavigateTo(SettingsRoutes.ABOUT) })
+                    SettingItem(RhythmIcons.Info, context.getString(R.string.settings_about_title), context.getString(R.string.settings_about_desc), palette = SettingsPalettes.Slate, onClick = { onNavigateTo(SettingsRoutes.ABOUT) })
                 )
             ),
             // 9. Advanced
             SettingGroup(
                 title = context.getString(R.string.settings_section_advanced),
                 items = listOf(
-                    SettingItem(RhythmIcons.BugReport, context.getString(R.string.settings_crash_log_history), context.getString(R.string.settings_crash_log_history_desc), onClick = { onNavigateTo(SettingsRoutes.CRASH_LOG_HISTORY) }),
-                    SettingItem(MaterialSymbolIcon("science"), context.getString(R.string.settings_experimental_features), context.getString(R.string.settings_experimental_features_desc), onClick = { onNavigateTo(SettingsRoutes.EXPERIMENTAL_FEATURES) })
+                    SettingItem(RhythmIcons.BugReport, context.getString(R.string.settings_crash_log_history), context.getString(R.string.settings_crash_log_history_desc), palette = SettingsPalettes.Coral, onClick = { onNavigateTo(SettingsRoutes.CRASH_LOG_HISTORY) }),
+                    SettingItem(MaterialSymbolIcon("science"), context.getString(R.string.settings_labs), context.getString(R.string.settings_labs_desc), palette = SettingsPalettes.Purple, onClick = { onNavigateTo(SettingsRoutes.LABS) })
                 )
             )
         ).filterNotNull() // Filter out null groups (for streaming mode)
@@ -408,41 +452,41 @@ fun SettingsScreen(
             LazyListState()
         }
         
-        // Main content
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-        ) {
-            // Show search results or normal settings
+        // Settings search results view
             if (isSearchActive) {
                 SettingsSearchResults(
                     results = searchResults,
                     onResultClick = { result ->
-                        searchQuery = "" // Clear search
                         if (result.route != null) {
                             onNavigateTo(result.route)
                         }
+                    searchQuery = "" // Clear search when item clicked
                     },
-                    modifier = Modifier.padding(horizontal = if (isTablet) 32.dp else 24.dp)
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(horizontal = if (isTablet) 32.dp else 24.dp)
                 )
             } else {
+            // Main settings list
+            Box(modifier = modifier.fillMaxSize()) {
                 LazyColumn(
                     state = lazyListState,
+                    contentPadding = PaddingValues(
+                        bottom = 24.dp + LocalMiniPlayerPadding.current.calculateBottomPadding()
+                    ),
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = if (isTablet) 32.dp else 24.dp),
-                    contentPadding = PaddingValues(bottom = 24.dp + LocalMiniPlayerPadding.current.calculateBottomPadding())
+                        .padding(horizontal = if (isTablet) 32.dp else 24.dp)
                 ) {
-                    item {
                         if (showSettingsSuggestions) {
+                        item(key = "settings_suggestions") {
                             SettingsTipsRow(
                                 onNavigateTo = onNavigateTo,
                                 rhythmGuardMode = rhythmGuardMode,
                                 appMode = appMode,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(top = 8.dp, bottom = 2.dp)
+                                    .padding(top = 14.dp, bottom = 2.dp)
                             )
                         }
                     }
@@ -457,6 +501,7 @@ fun SettingsScreen(
                         val materialItems = group.items.map { item ->
                             Material3SettingsItem(
                                 icon = item.icon,
+                                palette = item.palette,
                                 title = { Text(item.title) },
                                 description = item.description?.let { descriptionText ->
                                     { Text(descriptionText) }
@@ -527,7 +572,7 @@ fun SettingsScreen(
 
                                     else -> null
                                 },
-                                isHighlighted = item.toggleState == true,
+                                isHighlighted = false,
                                 enabled = item.enabled,
                                 onClick = when {
                                     item.onClick != null -> {
@@ -571,7 +616,8 @@ fun SettingsScreen(
         if (showDefaultScreenDialog) {
             val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
             
-            ModalBottomSheet(
+            RhythmAdaptiveModalSheet(
+                adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
                 onDismissRequest = { showDefaultScreenDialog = false },
                 sheetState = sheetState,
                 dragHandle = { 
@@ -579,53 +625,31 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
                 },
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
                 modifier = Modifier
                     .widthIn(max = 640.dp)
                     .fillMaxWidth()
             ) {
+                StandardBottomSheetHeader(
+                    title = context.getString(R.string.settings_default_screen),
+                    subtitle = context.getString(R.string.settings_default_screen_desc),
+                    visible = true
+                )
+
+                val scrollState = rememberScrollState()
+
+                AdaptiveSheetScrollContainer(
+                    scrollState = scrollState,
+                    modifier = Modifier.fillMaxWidth()
+                ) { endPadding ->
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .padding(bottom = 24.dp)
+                            .verticalScroll(scrollState)
+                            .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    // Header
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 0.dp, vertical = 16.dp),
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Text(
-                                text = context.getString(R.string.settings_default_screen),
-                                style = MaterialTheme.typography.displayMedium,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .padding(top = 6.dp)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                        shape = CircleShape
-                                    )
-                            ) {
-                                Text(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    text = context.getString(R.string.settings_default_screen_desc),
-                                    overflow = TextOverflow.Ellipsis,
-                                    maxLines = 1,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            }
-                        }
-                    }
-                    
                     // Home option
                     Card(
                         onClick = {
@@ -635,14 +659,12 @@ fun SettingsScreen(
                         },
                         colors = CardDefaults.cardColors(
                             containerColor = if (defaultScreen == "home") 
-                                MaterialTheme.colorScheme.primaryContainer 
+                                    MaterialTheme.colorScheme.onPrimaryContainer 
                             else 
                                 MaterialTheme.colorScheme.surfaceContainerHigh
                         ),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp)
+                            shape = groupedBottomSheetItemShape(0, 2),
+                            modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier
@@ -654,10 +676,10 @@ fun SettingsScreen(
                                 imageVector = RhythmIcons.Home,
                                 contentDescription = null,
                                 tint = if (defaultScreen == "home") 
-                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                        MaterialTheme.colorScheme.primaryContainer
                                 else
-                                    MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(32.dp)
+                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(if (defaultScreen == "home") 30.dp else 26.dp)
                             )
                             
                             Spacer(modifier = Modifier.width(16.dp))
@@ -668,7 +690,7 @@ fun SettingsScreen(
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = if (defaultScreen == "home") 
-                                        MaterialTheme.colorScheme.onPrimaryContainer 
+                                            MaterialTheme.colorScheme.primaryContainer 
                                     else 
                                         MaterialTheme.colorScheme.onSurface
                                 )
@@ -676,7 +698,7 @@ fun SettingsScreen(
                                     text = context.getString(R.string.settings_home_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (defaultScreen == "home") 
-                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                                     else 
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -686,7 +708,7 @@ fun SettingsScreen(
                                 Icon(
                                     imageVector = RhythmIcons.CheckCircle,
                                     contentDescription = stringResource(R.string.streaming_selected),
-                                    
+                                        tint = MaterialTheme.colorScheme.primaryContainer,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
@@ -702,14 +724,12 @@ fun SettingsScreen(
                         },
                         colors = CardDefaults.cardColors(
                             containerColor = if (defaultScreen == "library") 
-                                MaterialTheme.colorScheme.primaryContainer 
+                                    MaterialTheme.colorScheme.onPrimaryContainer 
                             else 
                                 MaterialTheme.colorScheme.surfaceContainerHigh
                         ),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp)
+                            shape = groupedBottomSheetItemShape(1, 2),
+                            modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
                             modifier = Modifier
@@ -721,10 +741,10 @@ fun SettingsScreen(
                                 imageVector = RhythmIcons.Library,
                                 contentDescription = null,
                                 tint = if (defaultScreen == "library")
-                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                        MaterialTheme.colorScheme.primaryContainer
                                 else
-                                    MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.size(32.dp)
+                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(if (defaultScreen == "library") 30.dp else 26.dp)
                             )
                             
                             Spacer(modifier = Modifier.width(16.dp))
@@ -735,7 +755,7 @@ fun SettingsScreen(
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = if (defaultScreen == "library") 
-                                        MaterialTheme.colorScheme.onPrimaryContainer 
+                                            MaterialTheme.colorScheme.primaryContainer 
                                     else 
                                         MaterialTheme.colorScheme.onSurface
                                 )
@@ -743,7 +763,7 @@ fun SettingsScreen(
                                     text = context.getString(R.string.settings_library_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (defaultScreen == "library") 
-                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
                                     else 
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -753,21 +773,19 @@ fun SettingsScreen(
                                 Icon(
                                     imageVector = RhythmIcons.CheckCircle,
                                     contentDescription = stringResource(R.string.streaming_selected),
-                                    
+                                        tint = MaterialTheme.colorScheme.primaryContainer,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
                         }
                     }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
+                    }
                 }
             }
         }
         
-        // Language switcher dialog
         if (showLanguageSwitcher) {
-            LanguageSwitcherDialog(
+            LanguageSwitcherBottomSheet(
                 onDismiss = { showLanguageSwitcher = false }
             )
         }
@@ -966,9 +984,8 @@ fun SettingsScreenWrapper(
     navController: androidx.navigation.NavController,
     musicViewModel: MusicViewModel
 ) {
-    val configuration = LocalConfiguration.current
-    val isTablet = configuration.screenWidthDp >= 600
-    val isLandscapeTablet = isTablet && configuration.screenWidthDp > configuration.screenHeightDp
+    val isTablet = windowScreenWidthDp() >= 600
+    val isLandscapeTablet = isTablet && windowScreenWidthDp() > windowScreenHeightDp()
 
     var currentRoute by rememberSaveable { mutableStateOf<String?>(null) }
     var showSleepTimerBottomSheet by rememberSaveable { mutableStateOf(false) }
@@ -1125,7 +1142,7 @@ fun SettingsScreenWrapper(
                             onNavigateToUpdates = { currentRoute = SettingsRoutes.UPDATES }
                         )
                         SettingsRoutes.UPDATES -> UpdatesSettingsScreen(onBackClick = { currentRoute = null })
-                        SettingsRoutes.EXPERIMENTAL_FEATURES -> ExperimentalFeaturesScreen(
+                        SettingsRoutes.LABS, SettingsRoutes.EXPERIMENTAL_FEATURES -> LabsSettingsScreen(
                             onBackClick = { currentRoute = null },
                             onNavigateTo = { currentRoute = it },
                             onNavigateToGoSettings = { currentRoute = SettingsRoutes.GO_SETTINGS }
@@ -1143,7 +1160,6 @@ fun SettingsScreenWrapper(
                         SettingsRoutes.API_MANAGEMENT -> ApiManagementSettingsScreen(onBackClick = { currentRoute = null })
                         SettingsRoutes.CACHE_MANAGEMENT -> CacheManagementSettingsScreen(onBackClick = { currentRoute = null })
                         SettingsRoutes.BACKUP_RESTORE -> BackupRestoreSettingsScreen(onBackClick = { currentRoute = null })
-                        SettingsRoutes.LIBRARY_TAB_ORDER -> LibraryTabOrderSettingsScreen(onBackClick = { currentRoute = null })
                         SettingsRoutes.THEME_CUSTOMIZATION -> ThemeCustomizationSettingsScreen(onBackClick = { currentRoute = null })
                         SettingsRoutes.PLAYER_CUSTOMIZATION -> PlayerCustomizationSettingsScreen(onBackClick = { currentRoute = null })
                         SettingsRoutes.MINIPLAYER_CUSTOMIZATION -> MiniPlayerCustomizationSettingsScreen(onBackClick = { currentRoute = null })
@@ -1260,7 +1276,7 @@ fun SettingsScreenWrapper(
                     onNavigateToUpdates = { currentRoute = SettingsRoutes.UPDATES }
                 )
                 SettingsRoutes.UPDATES -> UpdatesSettingsScreen(onBackClick = { currentRoute = null })
-                SettingsRoutes.EXPERIMENTAL_FEATURES -> ExperimentalFeaturesScreen(
+                SettingsRoutes.LABS, SettingsRoutes.EXPERIMENTAL_FEATURES -> LabsSettingsScreen(
                     onBackClick = { currentRoute = null },
                     onNavigateTo = { currentRoute = it },
                     onNavigateToGoSettings = { currentRoute = SettingsRoutes.GO_SETTINGS }
@@ -1278,7 +1294,6 @@ fun SettingsScreenWrapper(
                 SettingsRoutes.API_MANAGEMENT -> ApiManagementSettingsScreen(onBackClick = { currentRoute = null })
                 SettingsRoutes.CACHE_MANAGEMENT -> CacheManagementSettingsScreen(onBackClick = { currentRoute = null })
                 SettingsRoutes.BACKUP_RESTORE -> BackupRestoreSettingsScreen(onBackClick = { currentRoute = null })
-                SettingsRoutes.LIBRARY_TAB_ORDER -> LibraryTabOrderSettingsScreen(onBackClick = { currentRoute = null })
                 SettingsRoutes.THEME_CUSTOMIZATION -> ThemeCustomizationSettingsScreen(onBackClick = { currentRoute = null })
                 SettingsRoutes.PLAYER_CUSTOMIZATION -> PlayerCustomizationSettingsScreen(onBackClick = { currentRoute = null })
                 SettingsRoutes.MINIPLAYER_CUSTOMIZATION -> MiniPlayerCustomizationSettingsScreen(onBackClick = { currentRoute = null })
@@ -1347,7 +1362,6 @@ fun AnimatedSwitch(
 }
 
 data class SettingsTipData(
-    val id: String,
     val icon: MaterialSymbolIcon,
     val title: String,
     val text: String,
@@ -1365,10 +1379,9 @@ fun SettingsTipsRow(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var dismissedIds by rememberSaveable { mutableStateOf(setOf<String>()) }
     
     // Playback stats
-    var todayExposureMinutes by remember { mutableStateOf(0) }
+    var todayExposureMinutes by remember { mutableIntStateOf(0) }
     var currentRiskLevel by remember { mutableStateOf(RhythmGuardRiskLevel.LOW) }
     
     val appSettings = remember { chromahub.rhythm.app.shared.data.model.AppSettings.getInstance(context) }
@@ -1379,7 +1392,6 @@ fun SettingsTipsRow(
     val miniPlayerShowProgress by appSettings.miniPlayerShowProgress.collectAsState()
     val playerShowSeekButtons by appSettings.playerShowSeekButtons.collectAsState()
     val gesturePlayerSwipeTracks by appSettings.gesturePlayerSwipeTracks.collectAsState()
-    val enableRatingSystem by appSettings.enableRatingSystem.collectAsState()
 
     LaunchedEffect(limitMinutes, manualVolumeFloat) {
         val statsRepo = chromahub.rhythm.app.shared.data.repository.PlaybackStatsRepository.getInstance(context)
@@ -1412,15 +1424,13 @@ fun SettingsTipsRow(
     val tips = remember(
         rhythmGuardMode,
         appMode,
-        dismissedIds,
         todayExposureMinutes,
         currentRiskLevel,
         autoBackupEnabled,
         updatesEnabled,
         miniPlayerShowProgress,
         playerShowSeekButtons,
-        gesturePlayerSwipeTracks,
-        enableRatingSystem
+        gesturePlayerSwipeTracks
     ) {
         val random = kotlin.random.Random(shuffleSeed)
         val isLocalMode = appMode == "LOCAL"
@@ -1439,7 +1449,7 @@ fun SettingsTipsRow(
         }
 
         buildList {
-            if (isLocalMode && "rhythm_guard" !in dismissedIds) {
+            if (isLocalMode) {
                 val desc = when (rhythmGuardMode) {
                     "OFF" -> "${context.getString(R.string.settings_tip_rhythm_guard_off)} ${listeningPulseLabel.lowercase()} ${dayMomentLabel}."
                     "MANUAL" -> "${context.getString(R.string.settings_tip_rhythm_guard_manual)} ${todayExposureMinutes} min played today."
@@ -1450,7 +1460,6 @@ fun SettingsTipsRow(
 
                 add(
                     SettingsTipData(
-                        id = "rhythm_guard",
                         icon = RhythmIcons.Security,
                         title = context.getString(R.string.settings_rhythm_guard),
                         text = desc,
@@ -1461,39 +1470,33 @@ fun SettingsTipsRow(
                     )
                 )
             }
-            if ("theme" !in dismissedIds) {
-                val descs = listOf(
+            val themeDescs = listOf(
                     context.getString(R.string.settings_tip_theme),
                     context.getString(R.string.settings_tip_theme_desc_1),
                     context.getString(R.string.settings_tip_theme_desc_2)
                 )
                 add(
                     SettingsTipData(
-                        id = "theme",
                         icon = RhythmIcons.Palette,
                         title = context.getString(R.string.settingsscreen_personalization),
-                        text = descs.random(random),
+                    text = themeDescs.random(random),
                         route = SettingsRoutes.THEME_CUSTOMIZATION
                     )
                 )
-            }
-            if ("gestures" !in dismissedIds) {
-                val descs = listOf(
+            val gesturesDescs = listOf(
                     context.getString(R.string.settings_tip_gestures),
                     context.getString(R.string.settings_tip_gestures_swipe),
                     context.getString(R.string.settings_tip_gestures_artwork)
                 )
                 add(
                     SettingsTipData(
-                        id = "gestures",
                         icon = MaterialSymbolIcon("gesture"),
                         title = context.getString(R.string.settings_gestures),
-                        text = descs.random(random),
+                    text = gesturesDescs.random(random),
                         route = SettingsRoutes.GESTURES
                     )
                 )
-            }
-            if (isLocalMode && "media_scan" !in dismissedIds) {
+            if (isLocalMode) {
                 val descs = listOf(
                     context.getString(R.string.settings_tip_media_scan),
                     context.getString(R.string.settings_tip_media_scan_desc_1),
@@ -1501,7 +1504,6 @@ fun SettingsTipsRow(
                 )
                 add(
                     SettingsTipData(
-                        id = "media_scan",
                         icon = RhythmIcons.Folder,
                         title = context.getString(R.string.settingsscreen_library_focus),
                         text = descs.random(random),
@@ -1509,14 +1511,13 @@ fun SettingsTipsRow(
                     )
                 )
             }
-            if (isLocalMode && "sleep_timer" !in dismissedIds) {
+            if (isLocalMode) {
                 val descs = listOf(
                     context.getString(R.string.settings_tip_sleep_timer_desc_1),
                     context.getString(R.string.settings_tip_sleep_timer_desc_2)
                 )
                 add(
                     SettingsTipData(
-                        id = "sleep_timer",
                         icon = RhythmIcons.AccessTime,
                         title = context.getString(R.string.settings_sleep_timer_search),
                         text = descs.random(random),
@@ -1524,14 +1525,13 @@ fun SettingsTipsRow(
                     )
                 )
             }
-            if (isLocalMode && "equalizer" !in dismissedIds) {
+            if (isLocalMode) {
                 val descs = listOf(
                     context.getString(R.string.settings_tip_equalizer_desc_1),
                     context.getString(R.string.settings_tip_equalizer_desc_2)
                 )
                 add(
                     SettingsTipData(
-                        id = "equalizer",
                         icon = RhythmIcons.Equalizer,
                         title = context.getString(R.string.settingsscreen_audio_equalizer),
                         text = descs.random(random),
@@ -1539,7 +1539,7 @@ fun SettingsTipsRow(
                     )
                 )
             }
-            if (isLocalMode && "backup_restore" !in dismissedIds) {
+            if (isLocalMode) {
                 val descs = if (autoBackupEnabled) {
                     listOf(
                         context.getString(R.string.settings_tip_backup_active_desc_1),
@@ -1553,7 +1553,6 @@ fun SettingsTipsRow(
                 }
                 add(
                     SettingsTipData(
-                        id = "backup_restore",
                         icon = MaterialSymbolIcon("backup"),
                         title = context.getString(R.string.settings_backup_restore),
                         text = descs.random(random),
@@ -1561,8 +1560,7 @@ fun SettingsTipsRow(
                     )
                 )
             }
-            if ("updates" !in dismissedIds) {
-                val descs = if (updatesEnabled) {
+            val updatesDescs = if (updatesEnabled) {
                     listOf(
                         context.getString(R.string.settings_tip_updates_active_desc_1),
                         context.getString(R.string.settings_tip_updates_active_desc_2)
@@ -1575,16 +1573,13 @@ fun SettingsTipsRow(
                 }
                 add(
                     SettingsTipData(
-                        id = "updates",
                         icon = RhythmIcons.Update,
                         title = context.getString(R.string.cd_app_updates),
-                        text = descs.random(random),
+                    text = updatesDescs.random(random),
                         route = SettingsRoutes.UPDATES
                     )
                 )
-            }
-            if ("queue_playback" !in dismissedIds) {
-                val descs = if (gesturePlayerSwipeTracks) {
+            val queueDescs = if (gesturePlayerSwipeTracks) {
                     listOf(
                         context.getString(R.string.settings_tip_queue_active_desc_1),
                         context.getString(R.string.settings_tip_queue_active_desc_2)
@@ -1597,16 +1592,13 @@ fun SettingsTipsRow(
                 }
                 add(
                     SettingsTipData(
-                        id = "queue_playback",
                         icon = RhythmIcons.Queue,
                         title = context.getString(R.string.settings_queue_title),
-                        text = descs.random(random),
+                    text = queueDescs.random(random),
                         route = SettingsRoutes.QUEUE
                     )
                 )
-            }
-            if ("player_controls" !in dismissedIds) {
-                val descs = if (playerShowSeekButtons) {
+            val controlsDescs = if (playerShowSeekButtons) {
                     listOf(
                         context.getString(R.string.settings_tip_controls_active_desc_1),
                         context.getString(R.string.settings_tip_controls_active_desc_2)
@@ -1619,16 +1611,13 @@ fun SettingsTipsRow(
                 }
                 add(
                     SettingsTipData(
-                        id = "player_controls",
                         icon = RhythmIcons.MusicNote,
                         title = context.getString(R.string.settings_shapes_player_controls),
-                        text = descs.random(random),
+                    text = controlsDescs.random(random),
                         route = SettingsRoutes.PLAYER_CUSTOMIZATION
                     )
                 )
-            }
-            if ("miniplayer" !in dismissedIds) {
-                val descs = if (miniPlayerShowProgress) {
+            val miniplayerDescs = if (miniPlayerShowProgress) {
                     listOf(
                         context.getString(R.string.settings_tip_miniplayer_active_desc_1),
                         context.getString(R.string.settings_tip_miniplayer_active_desc_2)
@@ -1641,32 +1630,18 @@ fun SettingsTipsRow(
                 }
                 add(
                     SettingsTipData(
-                        id = "miniplayer",
                         icon = MaterialSymbolIcon("play_circle_filled"),
                         title = context.getString(R.string.settings_shapes_mini_player),
-                        text = descs.random(random),
+                    text = miniplayerDescs.random(random),
                         route = SettingsRoutes.MINIPLAYER_CUSTOMIZATION
                     )
                 )
-            }
-            if (isLocalMode && "library_settings" !in dismissedIds) {
-                val descs = if (enableRatingSystem) {
-                    listOf(
-                        context.getString(R.string.settings_tip_library_active_desc_1),
-                        context.getString(R.string.settings_tip_library_active_desc_2)
-                    )
-                } else {
-                    listOf(
-                        context.getString(R.string.settings_tip_library_inactive_desc_1),
-                        context.getString(R.string.settings_tip_library_inactive_desc_2)
-                    )
-                }
+            if (isLocalMode) {
                 add(
                     SettingsTipData(
-                        id = "library_settings",
                         icon = RhythmIcons.Library,
                         title = context.getString(R.string.settingsscreen_library_settings),
-                        text = descs.random(random),
+                        text = context.getString(R.string.settings_library_settings_desc),
                         route = SettingsRoutes.LIBRARY_SETTINGS
                     )
                 )
@@ -1675,34 +1650,205 @@ fun SettingsTipsRow(
     }
 
     if (tips.isNotEmpty()) {
-        LazyRow(
-            modifier = modifier,
-            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 0.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)
-        ) {
-            items(tips, key = { it.id }) { tip ->
-                SettingsTipCard(
-                    tip = tip,
-                    onDismiss = { dismissedIds = dismissedIds + tip.id },
-                    onClick = { tip.route?.let { onNavigateTo(it) } }
+        SettingsTipsCarousel(
+            tips = tips,
+            onTipClick = { tip -> tip.route?.let { onNavigateTo(it) } },
+            modifier = modifier
                 )
             }
-        }
-    }
 }
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun SettingsTipCard(
-    tip: SettingsTipData,
-    onDismiss: () -> Unit,
-    onClick: () -> Unit
+fun SettingsTipsCarousel(
+    tips: List<SettingsTipData>,
+    onTipClick: (SettingsTipData) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val isPrimary = tip.isPrimary
-    val containerColor = if (isPrimary) {
+    if (tips.isEmpty()) return
+
+    val itemsCount = tips.size
+    val pagerState = rememberPagerState { itemsCount }
+    val coroutineScope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val spacing = 4.dp
+
+    val carouselAnimationSpec = remember {
+        spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow)
+    }
+
+    val autoScrollProgress = remember { Animatable(0f) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    LaunchedEffect(pagerState.settledPage, itemsCount, lifecycleOwner) {
+        if (itemsCount > 1) {
+            lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                autoScrollProgress.snapTo(0f)
+                val startTime = System.currentTimeMillis()
+                while (true) {
+                    val elapsed = System.currentTimeMillis() - startTime
+                    val p = (elapsed.toFloat() / 5000f).coerceIn(0f, 1f)
+                    autoScrollProgress.snapTo(p)
+                    if (p >= 1f) break
+                    delay(16)
+                }
+
+                if (!pagerState.isScrollInProgress) {
+                    val nextStep = (pagerState.currentPage + 1) % itemsCount
+                    pagerState.animateScrollToPage(
+                        page = nextStep,
+                        animationSpec = carouselAnimationSpec
+                    )
+                }
+            }
+        } else {
+            autoScrollProgress.snapTo(0f)
+        }
+    }
+
+    val interactionSources = remember(itemsCount) { List(itemsCount) { MutableInteractionSource() } }
+
+    val expressiveSpring = spring<Float>(
+        dampingRatio = Spring.DampingRatioLowBouncy,
+        stiffness = Spring.StiffnessLow
+    )
+
+    val visualProgress by remember {
+        derivedStateOf { pagerState.currentPage + pagerState.currentPageOffsetFraction }
+    }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+        ) {
+            val totalWidthPx = constraints.maxWidth.toFloat()
+            val spacingPx = with(density) { spacing.toPx() }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp),
+                horizontalArrangement = Arrangement.spacedBy(spacing)
+            ) {
+                for (i in 0 until itemsCount) {
+                    val dist = (visualProgress - i).absoluteValue
+                    val currentWeight = when {
+                        dist < 1.0f -> {
+                            val maxW = if (i == 0 || i == itemsCount - 1) 0.9f else 0.82f
+                            lerp(maxW, 0.1f, dist)
+                        }
+                        dist < 2.0f -> lerp(0.1f, 0.0f, dist - 1.0f)
+                        else -> 0.0f
+                    }
+
+                    if (currentWeight > 0.005f) {
+                        val currentCornerRadius = if (dist < 1.0f) lerp(24f, 16f, dist) else 16f
+                        val currentAlpha = when {
+                            dist < 1.0f -> lerp(1f, 0.4f, dist)
+                            dist < 2.0f -> lerp(0.4f, 0f, dist - 1.0f)
+                            else -> 0f
+                        }
+
+                        val baseColor = if (tips[i].isPrimary) {
         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.84f)
     } else {
         MaterialTheme.colorScheme.surfaceContainerHighest
     }
+
+                        SettingsTipCard(
+                            tip = tips[i],
+                            dist = dist,
+                            isToTheLeft = i < visualProgress,
+                            interactionSource = interactionSources[i],
+                            modifier = Modifier.weight(currentWeight),
+                            containerColor = baseColor.copy(alpha = currentAlpha),
+                            cornerRadius = currentCornerRadius.dp,
+                            motionSpec = expressiveSpring,
+                            onClick = { onTipClick(tips[i]) }
+                        )
+                    }
+                }
+            }
+
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .alpha(0f)
+                    .pointerInput(itemsCount) {
+                        detectTapGestures { offset ->
+                            val tapX = offset.x
+                            var currentX = 0f
+                            val currentProgress = pagerState.currentPage + pagerState.currentPageOffsetFraction
+
+                            val renderedWeights = (0 until itemsCount).map { i ->
+                                val dist = (currentProgress - i).absoluteValue
+                                when {
+                                    dist < 1.0f -> lerp(if (i == 0 || i == itemsCount - 1) 0.9f else 0.82f, 0.1f, dist)
+                                    dist < 2.0f -> lerp(0.1f, 0.0f, dist - 1.0f)
+                                    else -> 0.0f
+                                }
+                            }
+
+                            val visibleIndices = renderedWeights.indices.filter { renderedWeights[it] > 0.005f }
+                            val totalGaps = (visibleIndices.size - 1).coerceAtLeast(0)
+                            val availableWidthForCards = totalWidthPx - (spacingPx * totalGaps)
+
+                            for (i in visibleIndices) {
+                                val weight = renderedWeights[i]
+                                val cardWidth = weight * availableWidthForCards
+
+                                if (tapX >= currentX && tapX <= currentX + cardWidth) {
+                                    coroutineScope.launch {
+                                        val press = PressInteraction.Press(offset)
+                                        interactionSources[i].emit(press)
+                                        delay(150)
+                                        interactionSources[i].emit(PressInteraction.Release(press))
+
+                                        if (pagerState.currentPage == i) {
+                                            tips[i].let(onTipClick)
+                                        } else {
+                                            pagerState.animateScrollToPage(
+                                                page = i,
+                                                animationSpec = carouselAnimationSpec
+                                            )
+                                        }
+                                    }
+                                    break
+                                }
+                                currentX += cardWidth + spacingPx
+                            }
+                        }
+                    }
+            ) {
+                Box(Modifier.fillMaxSize())
+            }
+        }
+
+    }
+}
+
+@OptIn(ExperimentalAnimationApi::class)
+@Composable
+fun RowScope.SettingsTipCard(
+    tip: SettingsTipData,
+    dist: Float,
+    isToTheLeft: Boolean,
+    interactionSource: MutableInteractionSource,
+    containerColor: Color,
+    cornerRadius: Dp,
+    modifier: Modifier = Modifier,
+    motionSpec: SpringSpec<Float>,
+    onClick: () -> Unit
+) {
+    val isFocused = dist < 0.6f
+    val isPrimary = tip.isPrimary
     val contentColor = if (isPrimary) {
         MaterialTheme.colorScheme.onPrimaryContainer
     } else {
@@ -1718,31 +1864,64 @@ fun SettingsTipCard(
     // Use health status directly for icon background if available, looks much cleaner than partial filling!
     val indicatorColor = if (tip.riskLevel != null) {
         when (tip.riskLevel) {
-            RhythmGuardRiskLevel.LOW -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
-            RhythmGuardRiskLevel.MODERATE -> androidx.compose.ui.graphics.Color(0xFFFF9800)
-            RhythmGuardRiskLevel.HIGH -> androidx.compose.ui.graphics.Color(0xFFFF5722)
+            RhythmGuardRiskLevel.LOW -> Color(0xFF4CAF50)
+            RhythmGuardRiskLevel.MODERATE -> Color(0xFFFF9800)
+            RhythmGuardRiskLevel.HIGH -> Color(0xFFFF5722)
             RhythmGuardRiskLevel.SEVERE -> MaterialTheme.colorScheme.error
         }
     } else null
 
     Card(
-        modifier = Modifier
-            .width(320.dp)
-            .height(160.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(if (isPrimary) 24.dp else 20.dp),
+        modifier = modifier
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(cornerRadius))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {}
+            ),
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        shape = RoundedCornerShape(cornerRadius)
     ) {
-        Row(modifier = Modifier.fillMaxSize()) {
+        AnimatedContent(
+            targetState = isFocused,
+            transitionSpec = {
+                val springSpec = spring<IntOffset>(
+                    stiffness = motionSpec.stiffness,
+                    dampingRatio = motionSpec.dampingRatio
+                )
+
+                val slideIn = if (targetState) {
+                    slideInHorizontally(animationSpec = springSpec) { if (isToTheLeft) -it else it }
+                } else {
+                    slideInHorizontally(animationSpec = springSpec) { if (isToTheLeft) it else -it }
+                }
+
+                val slideOut = if (targetState) {
+                    slideOutHorizontally(animationSpec = springSpec) { if (isToTheLeft) it else -it }
+                } else {
+                    slideOutHorizontally(animationSpec = springSpec) { if (isToTheLeft) -it else it }
+                }
+
+                (fadeIn(animationSpec = spring(stiffness = motionSpec.stiffness, dampingRatio = motionSpec.dampingRatio)) + slideIn +
+                    scaleIn(initialScale = 0.92f, animationSpec = spring(stiffness = motionSpec.stiffness, dampingRatio = motionSpec.dampingRatio)))
+                    .togetherWith(
+                        fadeOut(animationSpec = spring(stiffness = motionSpec.stiffness, dampingRatio = motionSpec.dampingRatio)) + slideOut +
+                            scaleOut(targetScale = 0.92f, animationSpec = spring(stiffness = motionSpec.stiffness, dampingRatio = motionSpec.dampingRatio))
+                    )
+            },
+            label = "TipCardContentTransition",
+            modifier = Modifier.fillMaxSize()
+        ) { focused ->
+            if (focused) {
+                // Card content layout (icon row, title, description) minus the close button
             Column(
                 modifier = Modifier
-                    .padding(20.dp)
                     .fillMaxSize()
+                        .padding(20.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(
@@ -1751,21 +1930,6 @@ fun SettingsTipCard(
                         tint = indicatorColor ?: iconColor,
                         modifier = Modifier.size(30.dp)
                     )
-                    
-                    androidx.compose.material3.IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surface.copy(alpha = if (isPrimary) 0.55f else 0.44f))
-                    ) {
-                        Icon(
-                            imageVector = RhythmIcons.Close,
-                            contentDescription = stringResource(R.string.onboarding_dismiss),
-                            tint = contentColor,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
                 }
                 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -1791,6 +1955,22 @@ fun SettingsTipCard(
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
+            }
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isToTheLeft)
+                            MaterialSymbolIcon("chevron_left")
+                        else
+                            MaterialSymbolIcon("chevron_right"),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = contentColor.copy(alpha = 0.6f)
+                    )
+                }
             }
         }
     }

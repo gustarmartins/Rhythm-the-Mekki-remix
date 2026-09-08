@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.common
 
 import androidx.compose.foundation.layout.Arrangement
@@ -21,12 +26,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.R
+import chromahub.rhythm.app.util.HapticType
+import chromahub.rhythm.app.util.HapticUtils
 
 private data class SongMenuItem(
     val title: String,
@@ -38,6 +47,7 @@ private data class SongMenuItem(
 
 @Composable
 fun RhythmSongMenuContent(
+    modifier: Modifier = Modifier,
     song: Song? = null,
     onPlay: (() -> Unit)? = null,
     onPlayNext: (() -> Unit)? = null,
@@ -51,10 +61,14 @@ fun RhythmSongMenuContent(
     onGoToAlbum: (() -> Unit)? = null,
     onGoToArtist: (() -> Unit)? = null,
     onAddToBlacklist: (() -> Unit)? = null,
+    onDeleteSong: (() -> Unit)? = null,
     onShare: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    isDownloaded: Boolean? = null,
+    isDownloading: Boolean = false,
+    onToggleDownload: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val finalOnShare = onShare ?: song?.let { s ->
         {
             try {
@@ -107,10 +121,11 @@ fun RhythmSongMenuContent(
             val fav = isFavorite == true
             add(
                 SongMenuItem(
-                    title = if (fav) context.getString(R.string.action_remove_from_favorites) else context.getString(R.string.action_add_to_favorites),
-                    icon = if (fav) RhythmIcons.FavoriteFilled else RhythmIcons.Favorite,
-                    iconBgColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
-                    iconTint = MaterialTheme.colorScheme.onTertiaryContainer,
+                    title = if (fav) context.getString(R.string.action_dislike) else context.getString(R.string.action_like),
+                    icon = if (fav) MaterialSymbolIcon("thumb_down", filled = true) else MaterialSymbolIcon("thumb_up", filled = true),
+                    iconBgColor = if (fav) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                        else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
+                    iconTint = if (fav) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer,
                     onClick = action
                 )
             )
@@ -135,6 +150,28 @@ fun RhythmSongMenuContent(
                     icon = RhythmIcons.AddToPlaylist,
                     iconBgColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
                     iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    onClick = action
+                )
+            )
+        }
+        onToggleDownload?.let { action ->
+            val downloaded = isDownloaded == true
+            add(
+                SongMenuItem(
+                    title = when {
+                        isDownloading -> stringResource(R.string.streaming_downloading)
+                        downloaded -> stringResource(R.string.streaming_remove_download)
+                        else -> stringResource(R.string.streaming_download)
+                    },
+                    icon = when {
+                        isDownloading -> MaterialSymbolIcon("sync")
+                        downloaded -> MaterialSymbolIcon("download_done", filled = true)
+                        else -> MaterialSymbolIcon("download")
+                    },
+                    iconBgColor = if (downloaded) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                        else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                    iconTint = if (downloaded) MaterialTheme.colorScheme.onPrimaryContainer
+                        else MaterialTheme.colorScheme.onSecondaryContainer,
                     onClick = action
                 )
             )
@@ -164,7 +201,7 @@ fun RhythmSongMenuContent(
         onGoToAlbum?.let { action ->
             add(
                 SongMenuItem(
-                    title = "Go to album",
+                    title = stringResource(R.string.multiselectionbottomsheet_go_to_album),
                     icon = RhythmIcons.AlbumFilled,
                     iconBgColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
                     iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -188,6 +225,17 @@ fun RhythmSongMenuContent(
                 SongMenuItem(
                     title = context.getString(R.string.action_add_to_blacklist),
                     icon = RhythmIcons.Block,
+                    iconBgColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                    iconTint = MaterialTheme.colorScheme.onErrorContainer,
+                    onClick = action
+                )
+            )
+        }
+        onDeleteSong?.let { action ->
+            add(
+                SongMenuItem(
+                    title = context.getString(R.string.action_delete_song),
+                    icon = RhythmIcons.Delete,
                     iconBgColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
                     iconTint = MaterialTheme.colorScheme.onErrorContainer,
                     onClick = action
@@ -222,7 +270,10 @@ fun RhythmSongMenuContent(
                 }
 
                 Surface(
-                    onClick = item.onClick,
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptic, HapticType.MEDIUM)
+                        item.onClick()
+                    },
                     shape = itemShape,
                     color = MaterialTheme.colorScheme.surfaceContainer,
                     contentColor = MaterialTheme.colorScheme.onSurface,
@@ -270,7 +321,7 @@ fun RhythmSongMenuContent(
                             text = item.title,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
-                            color = if (item.icon == RhythmIcons.Block) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                            color = if (item.icon == RhythmIcons.Block || item.icon == RhythmIcons.Delete) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f)
                         )
                     }

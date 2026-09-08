@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.local.presentation.screens
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
@@ -24,8 +29,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
@@ -53,6 +60,7 @@ import chromahub.rhythm.app.shared.data.model.findAlbumForRoute
 import chromahub.rhythm.app.shared.presentation.components.player.PlayingEqIcon
 import chromahub.rhythm.app.shared.presentation.components.AudioQualityIcon
 import chromahub.rhythm.app.shared.presentation.components.common.M3PlaceholderType
+import chromahub.rhythm.app.shared.presentation.components.common.M3CircularLoader
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
@@ -81,6 +89,9 @@ import kotlinx.coroutines.withContext
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.sp
+import chromahub.rhythm.app.ui.LocalMiniPlayerPadding
+import chromahub.rhythm.app.util.windowScreenWidthDp
+import chromahub.rhythm.app.util.windowScreenHeightDp
 
 private enum class AlbumSortOrder {
     TRACK_NUMBER,
@@ -107,11 +118,16 @@ private fun prepareAlbumSongDisplayState(
     libraryCombineDiscs: Boolean,
     savedDiscFilter: Int
 ): AlbumSongDisplayState {
+    fun getEffectiveTrack(s: Song): Int = if (s.trackNumber >= 1000) s.trackNumber % 1000 else s.trackNumber
+    fun getEffectiveDisc(s: Song): Int = if (s.trackNumber >= 1000) s.trackNumber / 1000 else s.discNumber.coerceAtLeast(1)
+
     val trackComparator = Comparator<Song> { a, b ->
+        val aTrack = getEffectiveTrack(a)
+        val bTrack = getEffectiveTrack(b)
         when {
-            a.trackNumber > 0 && b.trackNumber > 0 -> a.trackNumber.compareTo(b.trackNumber)
-            a.trackNumber > 0 -> -1
-            b.trackNumber > 0 -> 1
+            aTrack > 0 && bTrack > 0 -> aTrack.compareTo(bTrack)
+            aTrack > 0 -> -1
+            bTrack > 0 -> 1
             else -> a.title.compareTo(b.title, ignoreCase = true)
         }
     }
@@ -130,14 +146,14 @@ private fun prepareAlbumSongDisplayState(
         sortByOrder(songs)
     } else {
         songs
-            .groupBy { it.discNumber.coerceAtLeast(1) }
+            .groupBy { getEffectiveDisc(it) }
             .toSortedMap()
             .values
             .flatMap { discSongs -> sortByOrder(discSongs) }
     }
 
     val availableDiscs = songs
-        .map { it.discNumber.coerceAtLeast(1) }
+        .map { getEffectiveDisc(it) }
         .distinct()
         .sorted()
     val shouldShowDiscFilter = !libraryCombineDiscs && availableDiscs.size > 1
@@ -149,7 +165,7 @@ private fun prepareAlbumSongDisplayState(
     val visibleSongs = if (selectedDisc == 0) {
         sortedSongs
     } else {
-        sortedSongs.filter { it.discNumber.coerceAtLeast(1) == selectedDisc }
+        sortedSongs.filter { getEffectiveDisc(it) == selectedDisc }
     }
     return AlbumSongDisplayState(
         visibleSongs = visibleSongs,
@@ -167,6 +183,7 @@ fun AlbumDetailScreen(
     albumName: String,
     onBack: () -> Unit,
     onSongClick: (Song) -> Unit,
+    onSongClickInContext: (Song, List<Song>) -> Unit = { song, _ -> onSongClick(song) },
     onPlayAll: (List<Song>) -> Unit,
     onShufflePlay: (List<Song>) -> Unit,
     onAddToQueue: (Song) -> Unit,
@@ -193,14 +210,14 @@ fun AlbumDetailScreen(
         onProgress: (Int, Int) -> Unit,
         onComplete: (successCount: Int, failCount: Int) -> Unit
     ) -> Unit)? = null,
+    isStreamingMode: Boolean = false,
     viewModel: MusicViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     val density = LocalDensity.current
-    val configuration = LocalConfiguration.current
-    val isTablet = configuration.screenWidthDp >= 600
-    val isLandscapeTablet = isTablet && configuration.screenWidthDp > configuration.screenHeightDp
+    val isTablet = windowScreenWidthDp() >= 600
+    val isLandscapeTablet = isTablet && windowScreenWidthDp() > windowScreenHeightDp()
 
     val appSettings = remember { AppSettings.getInstance(context) }
     val useHoursFormat by appSettings.useHoursInTimeFormat.collectAsState()
@@ -213,12 +230,19 @@ fun AlbumDetailScreen(
 
     val allAlbums by viewModel.albums.collectAsState()
     val allArtists by viewModel.artists.collectAsState()
+    val allLibrarySongs by viewModel.filteredSongs.collectAsState()
     val album = remember(allAlbums, albumId, albumName, albumOverride) {
         albumOverride ?: allAlbums.findAlbumForRoute(albumId, albumName)
     }
 
-    val allDisplaySongs = remember(album, songsOverride) {
-        songsOverride ?: album?.songs ?: emptyList()
+    val allDisplaySongs = remember(album, songsOverride, allLibrarySongs, albumId, albumName) {
+        songsOverride ?: album?.songs?.takeIf { it.isNotEmpty() } ?: run {
+            val matchingSongs = allLibrarySongs.filter { song ->
+                (albumId.isNotBlank() && song.albumId.trim() == albumId.trim()) ||
+                (albumName.isNotBlank() && song.album.trim().equals(albumName.trim(), ignoreCase = true))
+            }
+            matchingSongs.takeIf { it.isNotEmpty() } ?: album?.songs ?: emptyList()
+        }
     }
 
     val sortOrder = remember(savedSortOrder) { savedSortOrder.toAlbumSortOrder() }
@@ -240,7 +264,7 @@ fun AlbumDetailScreen(
     var artistPickerCandidates by remember { mutableStateOf<List<Artist>>(emptyList()) }
     var artistPickerSong by remember { mutableStateOf<Song?>(null) }
 
-    val effectiveDelimiters = artistSeparatorDelimiters.ifBlank { "/;,+&" }
+    val effectiveDelimiters = artistSeparatorDelimiters.ifBlank { AppSettings.DEFAULT_ARTIST_SEPARATOR_DELIMITERS }
 
     fun handleArtistTap(song: Song) {
         val candidates = ArtistSeparator.splitArtistNames(
@@ -297,11 +321,11 @@ fun AlbumDetailScreen(
     var canvasArtwork by remember(albumId) { mutableStateOf<CanvasArtwork?>(null) }
     var canvasLoading by remember(albumId) { mutableStateOf(false) }
 
-    LaunchedEffect(albumId, albumName, album?.artist, appleCanvasEnabled, appleCanvasNetworkMode) {
+    LaunchedEffect(albumId, albumName, album?.artist, allDisplaySongs, appleCanvasEnabled, appleCanvasNetworkMode) {
         canvasArtwork = null
         canvasLoading = false
 
-        val artistName = album?.artist
+        val artistName = album?.artist ?: allDisplaySongs.firstOrNull()?.artist
         if (albumName.isNotBlank() && artistName != null && appleCanvasEnabled) {
             val hasNetwork = if (appleCanvasNetworkMode == CanvasNetworkMode.WIFI_ONLY) {
                 NetworkUtils.isWifiConnected(context)
@@ -329,8 +353,8 @@ fun AlbumDetailScreen(
     LaunchedEffect(addToQueuePressed) { if (addToQueuePressed) { delay(150); addToQueuePressed = false } }
 
     val totalDuration = songDisplayState.totalDuration
-    val aggregatedArtists = remember(album?.songs, effectiveDelimiters, artistSeparatorEnabled) {
-        (album?.songs ?: emptyList()).flatMap { song ->
+    val aggregatedArtists = remember(allDisplaySongs, effectiveDelimiters, artistSeparatorEnabled) {
+        allDisplaySongs.flatMap { song ->
             ArtistSeparator.splitArtistNames(
                 song.artist,
                 delimiters = effectiveDelimiters,
@@ -338,11 +362,13 @@ fun AlbumDetailScreen(
             )
         }.distinct().sorted()
     }
-    val displayArtist = aggregatedArtists.joinToString(", ").ifEmpty { album?.artist ?: "Unknown Artist" }
-    val displayArtworkUri = album?.artworkUri
+    val displayArtist = aggregatedArtists.joinToString(", ").ifEmpty {
+        album?.artist ?: allDisplaySongs.firstOrNull()?.artist ?: "Unknown Artist"
+    }
+    val displayArtworkUri = album?.artworkUri ?: allDisplaySongs.firstNotNullOfOrNull { it.artworkUri }
     val hasCanvas = appleCanvasEnabled && canvasArtwork != null
     val backgroundColor = MaterialTheme.colorScheme.background
-    val isLoading = isContentLoadingOverride ?: (album == null)
+    val isLoading = isContentLoadingOverride ?: (album == null && allDisplaySongs.isEmpty())
 
     if (isLandscapeTablet) {
         // Animated infinite transition for backdrop orbs (like full-screen lyrics view)
@@ -556,7 +582,7 @@ fun AlbumDetailScreen(
                                     isFirst = true,
                                     isLast = false,
                                     icon = RhythmIcons.Play,
-                                    text = "Play All",
+                                    text = stringResource(R.string.action_play_all),
                                     fontWeight = FontWeight.Bold
                                 )
 
@@ -580,7 +606,7 @@ fun AlbumDetailScreen(
                     Surface(modifier = Modifier.weight(0.6f).fillMaxHeight(), color = Color.Transparent) {
                         if (isLoading) {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                                M3CircularLoader(modifier = Modifier.size(56.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 5f)
                             }
                         } else {
                             Column(
@@ -625,7 +651,7 @@ fun AlbumDetailScreen(
                                                 currentSong = currentSong,
                                                 isPlaying = isPlaying,
                                                 useHoursFormat = useHoursFormat,
-                                                onClick = { onSongClick(song) },
+                                                onClick = { onSongClickInContext(song, displaySongs) },
                                                 onMoreClick = {
                                                     selectedSongForOptions = song
                                                     showSongOptionsSheet = true
@@ -656,6 +682,7 @@ fun AlbumDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(450.dp)
+                        .clipToBounds()
                         .graphicsLayer {
                             alpha = expandedAlpha
                             // Zoom in effect: art scales up as user scrolls down
@@ -663,53 +690,58 @@ fun AlbumDetailScreen(
                             scaleY = 1f + collapsedFraction * 0.15f
                         }
                 ) {
-                    if (displayArtworkUri != null) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .apply(ImageUtils.buildImageRequest(displayArtworkUri, albumName, context.cacheDir, M3PlaceholderType.ALBUM))
-                                .build(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                    ) {
+                        if (displayArtworkUri != null) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .apply(ImageUtils.buildImageRequest(displayArtworkUri, albumName, context.cacheDir, M3PlaceholderType.ALBUM))
+                                    .build(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.linearGradient(
+                                            colors = listOf(
+                                                MaterialTheme.colorScheme.primaryContainer,
+                                                MaterialTheme.colorScheme.tertiaryContainer
+                                            )
+                                        )
+                                    )
+                            )
+                        }
+
+                        if (hasCanvas) {
+                            CanvasArtworkPlayer(
+                                primaryUrl = canvasArtwork?.animated,
+                                fallbackUrl = canvasArtwork?.videoUrl,
+                                alwaysPlay = true,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(
-                                    Brush.linearGradient(
+                                    Brush.verticalGradient(
                                         colors = listOf(
-                                            MaterialTheme.colorScheme.primaryContainer,
-                                            MaterialTheme.colorScheme.tertiaryContainer
+                                            Color.Transparent,
+                                            backgroundColor.copy(alpha = 0.6f),
+                                            backgroundColor
                                         )
                                     )
                                 )
                         )
                     }
-
-                    if (hasCanvas) {
-                        CanvasArtworkPlayer(
-                            primaryUrl = canvasArtwork?.animated,
-                            fallbackUrl = canvasArtwork?.videoUrl,
-                            alwaysPlay = true,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-
-                    // Gradient overlay
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        backgroundColor.copy(alpha = 0.6f),
-                                        backgroundColor
-                                    )
-                                )
-                            )
-                    )
 
                     // Album info — bottom aligned, slides up with collapse
                     Column(
@@ -732,7 +764,7 @@ fun AlbumDetailScreen(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         // Merge artist + tracks together, year+quality BIG on right spanning both lines
-                        val albumYear = album?.year
+                        val albumYear = album?.year ?: allDisplaySongs.firstNotNullOfOrNull { it.year.takeIf { y -> y > 0 } }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
@@ -793,7 +825,7 @@ fun AlbumDetailScreen(
             // Loading state
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    M3CircularLoader(modifier = Modifier.size(56.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 5f)
                 }
                 FilledIconButton(
                     onClick = onBack,
@@ -961,14 +993,14 @@ fun AlbumDetailScreen(
                 // Interpolate content top padding between artwork height (expanded) and top bar height (collapsed)
                 val dynamicTopPadding = 450.dp + (collapsedTopPadding - 450.dp) * collapsedFraction
 
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = dynamicTopPadding)
                 ) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 450.dp),
+                        contentPadding = PaddingValues(bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() + 24.dp).coerceAtLeast(100.dp)),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         if (!isLoading) {
@@ -999,7 +1031,7 @@ fun AlbumDetailScreen(
                                                 isFirst = true,
                                                 isLast = false,
                                                 icon = RhythmIcons.Play,
-                                                text = "Play All",
+                                                text = stringResource(R.string.action_play_all),
                                                 fontWeight = FontWeight.Bold
                                             )
 
@@ -1100,7 +1132,7 @@ fun AlbumDetailScreen(
                                         currentSong = currentSong,
                                         isPlaying = isPlaying,
                                         useHoursFormat = useHoursFormat,
-                                        onClick = { onSongClick(song) },
+                                        onClick = { onSongClickInContext(song, displaySongs) },
                                         onMoreClick = {
                                             selectedSongForOptions = song
                                             showSongOptionsSheet = true
@@ -1110,6 +1142,29 @@ fun AlbumDetailScreen(
                             }
                         }
                     }
+
+                    val headerBlendAlpha by animateFloatAsState(
+                        targetValue = ((collapsedFraction - 0.65f) / 0.35f).coerceIn(0f, 1f),
+                        animationSpec = tween(250),
+                        label = "albumHeaderBlendAlpha"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .height(24.dp)
+                            .graphicsLayer { alpha = headerBlendAlpha }
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        backgroundColor,
+                                        backgroundColor.copy(alpha = 0.72f),
+                                        backgroundColor.copy(alpha = 0.32f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                    )
                 }
             }
         }
@@ -1139,7 +1194,7 @@ fun AlbumDetailScreen(
                 onShare(selectedSongForOptions!!)
                 showSongOptionsSheet = false
             },
-            onRemoveFromPlaylist = { }, // Not applicable to Album screen
+            onRemoveFromPlaylist = { },
             onPlayNext = {
                 onPlayNext(selectedSongForOptions!!)
                 showSongOptionsSheet = false
@@ -1158,14 +1213,19 @@ fun AlbumDetailScreen(
                 onShowSongInfo(selectedSongForOptions!!)
                 showSongOptionsSheet = false
             },
-            onGoToAlbum = { /* Hidden for album screen */ },
+            onGoToAlbum = { },
             onGoToArtist = {
                 val song = selectedSongForOptions!!
                 showSongOptionsSheet = false
                 handleArtistTap(song)
             },
-            showRemoveFromPlaylist = false, // Always hide for albums
-            showGoToAlbum = false,         // Already on the album screen
+            showRemoveFromPlaylist = false,
+            showGoToAlbum = false,
+            isStreamingMode = isStreamingMode,
+            onDeleteSong = {
+                viewModel.deleteSong(selectedSongForOptions!!)
+                showSongOptionsSheet = false
+            },
             haptics = haptics
         )
     }
@@ -1357,7 +1417,7 @@ private fun AboutAlbumSection(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "About Album",
+                text = stringResource(R.string.albumdetail_about_album),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -1392,14 +1452,14 @@ private fun AboutAlbumSection(
 private fun AlbumSongItem(
     song: Song,
     onClick: () -> Unit,
+    onMoreClick: () -> Unit,
+    modifier: Modifier = Modifier,
     currentSong: Song? = null,
     isPlaying: Boolean = false,
     useHoursFormat: Boolean = false,
     index: Int = 0,
     totalCount: Int = 0,
-    itemShape: RoundedCornerShape? = null,
-    onMoreClick: () -> Unit,
-    modifier: Modifier = Modifier
+    itemShape: RoundedCornerShape? = null
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current

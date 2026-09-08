@@ -13,11 +13,11 @@ Experience your music collection like never before. Rhythm is a beautiful, open-
 • Responsive Widgets: Control your music straight from your home screen with modern Material 3 layouts.  
 
 📚 Smart Library & Lyrics
-• Dual-Mode Playback: Seamlessly switch between your local music library and streaming servers.
+• Dual-Mode Playback: Seamlessly switch between your local music library and streaming servers (Subsonic, Navidrome, Jellyfin).
 • Synced Lyrics: Sing along with word-by-word highlighting via LRCLib, or use the local editor for custom offsets.
-• Ultimate Organization: Browse your music by Songs, Albums, Artists, Genres, Playlists, or Folders.
+• Ultimate Organization: Browse by Songs, Liked, Playlists, Albums, Artists, Album Artists, Dates, or the folder Explorer.
 • Multi-Select Power: Manage your queue, share, or delete multiple tracks at once with batch actions.
-• Reliable Scanning: A full-scan media scanner ensures no songs are ever missed.  
+• Reliable Scanning: A full-scan media scanner ensures no songs are ever missed, with configurable allowed formats.  
 
 ⚙️ Feature-Packed
 • Rhythm Guard: Integrated hearing safety system with age-aware volume protection.

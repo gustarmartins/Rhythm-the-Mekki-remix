@@ -1,4 +1,12 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.lyrics
+
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
@@ -96,6 +104,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.res.stringResource
+import com.google.gson.Gson
 
 enum class LyricFormat {
     SOURCE,
@@ -168,6 +177,7 @@ fun LyricsEditorBottomSheet(
     songTitle: String,
     initialTimeOffset: Int = 0,
     song: Song? = null,
+    isStreamingMode: Boolean = false,
     onDismiss: () -> Unit,
     onSave: (String, Int, String) -> Unit,
     onRefresh: () -> Unit = {},
@@ -308,32 +318,6 @@ fun LyricsEditorBottomSheet(
         timeOffset = initialTimeOffset
     }
 
-    // Animation states
-    var showContent by remember { mutableStateOf(false) }
-
-    val contentAlpha by animateFloatAsState(
-        targetValue = if (showContent) 1f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "contentAlpha"
-    )
-
-    val contentTranslation by animateFloatAsState(
-        targetValue = if (showContent) 0f else 30f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "contentTranslation"
-    )
-
-    LaunchedEffect(Unit) {
-        delay(100)
-        showContent = true
-    }
-
     // Function to adjust LRC timestamps or word-by-word JSON timestamps
     fun adjustLyricsTimestamps(lyrics: String, offsetMs: Int): String {
         if (offsetMs == 0) return lyrics
@@ -356,6 +340,30 @@ fun LyricsEditorBottomSheet(
                 }
                 RhythmLyricsParser.toWordByWordJson(adjusted)
             } catch (e: Exception) {
+                lyrics
+            }
+        }
+        
+        // If lyrics have Enhanced LRC word timestamps, adjust both line and word timestamps
+        if (chromahub.rhythm.app.util.LyricsParser.hasWordTimestamps(lyrics)) {
+            return try {
+                val parsed = RhythmLyricsParser.parseEnhancedLRCtoWordByWord(lyrics)
+                if (parsed.isNotEmpty()) {
+                    val adjusted = parsed.map { line ->
+                        line.copy(
+                            lineTimestamp = (line.lineTimestamp + offsetMs).coerceAtLeast(0L),
+                            lineEndtime = (line.lineEndtime + offsetMs).coerceAtLeast(0L),
+                            words = line.words.map { word ->
+                                word.copy(
+                                    timestamp = (word.timestamp + offsetMs).coerceAtLeast(0L),
+                                    endtime = (word.endtime + offsetMs).coerceAtLeast(0L)
+                                )
+                            }
+                        )
+                    }
+                    RhythmLyricsParser.toEnhancedLRCFormat(adjusted)
+                } else lyrics
+            } catch (_: Exception) {
                 lyrics
             }
         }
@@ -405,6 +413,14 @@ fun LyricsEditorBottomSheet(
             
         val isLrc = loadedLyrics.contains(Regex("\\[\\d{2}:\\d{2}\\.\\d{2,3}]"))
         
+        val isTtml = loadedTrimmed.startsWith("<") && (
+            loadedTrimmed.contains("<tt") ||
+            loadedTrimmed.contains("http://www.w3.org/ns/ttml") ||
+            loadedTrimmed.contains("<p ") ||
+            loadedTrimmed.contains("<p>") ||
+            loadedTrimmed.contains("<span ")
+        )
+        
         if (isWordByWordJson) {
             editedWordByWord = loadedLyrics
             editedSource = loadedLyrics
@@ -414,14 +430,63 @@ fun LyricsEditorBottomSheet(
             } catch (_: Exception) {
                 editedLineByLine = ""
             }
+            selectedFormat = LyricFormat.WORD_BY_WORD
+        } else if (isTtml) {
+            val parsedLines = RhythmLyricsParser.parseTtmlLyrics(loadedLyrics)
+            if (parsedLines.isNotEmpty()) {
+                val wordByWordJson = Gson().toJson(parsedLines)
+                val parsedWordByWordLines = RhythmLyricsParser.parseWordByWordLyrics(wordByWordJson)
+                val hasWordTiming = RhythmLyricsParser.hasWordTiming(parsedWordByWordLines)
+                editedWordByWord = if (hasWordTiming) wordByWordJson else ""
+                editedLineByLine = RhythmLyricsParser.toLRCFormat(parsedWordByWordLines)
+                editedSource = loadedLyrics
+                selectedFormat = if (hasWordTiming) LyricFormat.WORD_BY_WORD else LyricFormat.LINE_BY_LINE
+            } else {
+                val semanticLyrics = chromahub.rhythm.app.util.parseTtml(null, loadedLyrics)
+                val plain = when (semanticLyrics) {
+                    is chromahub.rhythm.app.util.SemanticLyrics.UnsyncedLyrics ->
+                        semanticLyrics.unsyncedText.joinToString("\n") { it.first }
+                    is chromahub.rhythm.app.util.SemanticLyrics.SyncedLyrics ->
+                        semanticLyrics.text.joinToString("\n") { it.text }
+                    else -> loadedLyrics
+                }
+                editedSource = loadedLyrics
+                editedLineByLine = plain
+                editedWordByWord = ""
+                selectedFormat = LyricFormat.LINE_BY_LINE
+            }
         } else if (isLrc) {
+            val hasWordTimestamps = chromahub.rhythm.app.util.LyricsParser.hasWordTimestamps(loadedLyrics)
+            if (hasWordTimestamps) {
+                val parsedWordByWordLines = try {
+                    RhythmLyricsParser.parseEnhancedLRCtoWordByWord(loadedLyrics)
+                } catch (_: Exception) {
+                    emptyList()
+                }
+                if (parsedWordByWordLines.isNotEmpty()) {
+                    val wordByWordJson = Gson().toJson(parsedWordByWordLines)
+                    val hasWordTiming = RhythmLyricsParser.hasWordTiming(parsedWordByWordLines)
+                    editedWordByWord = if (hasWordTiming) wordByWordJson else ""
+                    editedLineByLine = loadedLyrics
+                    editedSource = loadedLyrics
+                    selectedFormat = if (hasWordTiming) LyricFormat.WORD_BY_WORD else LyricFormat.LINE_BY_LINE
+                } else {
             editedLineByLine = loadedLyrics
             editedSource = loadedLyrics
             editedWordByWord = ""
+                    selectedFormat = LyricFormat.LINE_BY_LINE
+                }
+            } else {
+                editedLineByLine = loadedLyrics
+                editedSource = loadedLyrics
+                editedWordByWord = ""
+                selectedFormat = LyricFormat.LINE_BY_LINE
+            }
         } else {
             editedSource = loadedLyrics
             editedLineByLine = loadedLyrics
             editedWordByWord = ""
+            selectedFormat = LyricFormat.SOURCE
         }
         Toast.makeText(context, R.string.lyrics_loaded_success, Toast.LENGTH_SHORT).show()
     }
@@ -471,9 +536,9 @@ fun LyricsEditorBottomSheet(
                                         val success = performRename(context, selectedUri, songFile.parentFile, expectedLrcName, loadedLyrics)
                                         if (!success) {
                                             appSettings.setSongCustomLrcFile(song.id, loadedFileName)
-                                            Toast.makeText(context, "Could not rename (permission denied). Tagged custom file instead.", Toast.LENGTH_LONG).show()
+                                            Toast.makeText(context, context.getString(R.string.lyrics_rename_permission_denied), Toast.LENGTH_LONG).show()
                                         } else {
-                                            Toast.makeText(context, "File renamed to $expectedLrcName successfully.", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, context.getString(R.string.lyrics_renamed_to_format, expectedLrcName), Toast.LENGTH_SHORT).show()
                                         }
                                         applyLoadedLyrics(loadedLyrics)
                                     }
@@ -519,16 +584,37 @@ fun LyricsEditorBottomSheet(
             .takeIf { it.isNotEmpty() } ?: "lyrics"  // Fallback to "lyrics" if empty
     }
 
-    val defaultLyricsFileName = remember(song, sanitizedTitle, selectedFormat) {
+    val defaultLyricsFileName = remember(song, sanitizedTitle, selectedFormat, editedSource, editedLineByLine) {
         val baseName = if (song != null && !song.path.isNullOrBlank()) {
             File(song.path).nameWithoutExtension
         } else {
             sanitizedTitle
         }
-        if (selectedFormat == LyricFormat.WORD_BY_WORD) {
-            "$baseName.json"
+        when {
+            selectedFormat == LyricFormat.WORD_BY_WORD -> "$baseName.json"
+            selectedFormat == LyricFormat.LINE_BY_LINE && chromahub.rhythm.app.util.LyricsParser.hasWordTimestamps(editedLineByLine) -> "$baseName.elrc"
+            selectedFormat == LyricFormat.SOURCE && editedSource.trim().startsWith("<") -> "$baseName.ttml"
+            else -> "$baseName.lrc"
+        }
+    }
+
+    val detectedFormatLabel = remember(selectedFormat, editedLineByLine, editedSource, editedWordByWord) {
+        when (selectedFormat) {
+            LyricFormat.WORD_BY_WORD -> "Word-by-Word JSON (.json)"
+            LyricFormat.LINE_BY_LINE -> {
+                if (chromahub.rhythm.app.util.LyricsParser.hasWordTimestamps(editedLineByLine)) {
+                    "Enhanced LRC (.elrc)"
         } else {
-            "$baseName.lrc"
+                    "Standard LRC (.lrc)"
+                }
+            }
+            LyricFormat.SOURCE -> {
+                if (editedSource.trim().startsWith("<")) {
+                    "TTML XML (.ttml)"
+                } else {
+                    "Raw Source"
+                }
+            }
         }
     }
 
@@ -555,10 +641,9 @@ fun LyricsEditorBottomSheet(
         }
     }
 
-    ModalBottomSheet(
-        modifier = Modifier
-            .widthIn(max = 640.dp)
-            .fillMaxWidth(),
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.TWO_PANE_DIALOG,
+        modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         dragHandle = {
@@ -566,6 +651,7 @@ fun LyricsEditorBottomSheet(
                 color = MaterialTheme.colorScheme.primary
             )
         },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onBackground,
         tonalElevation = 0.dp
@@ -575,17 +661,11 @@ fun LyricsEditorBottomSheet(
                 .fillMaxWidth()
                 .padding(bottom = 24.dp)
         ) {
-            // Header with animation
-            AnimatedVisibility(
-                visible = showContent,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it }
-            ) {
                 LyricsEditorHeader(
                     songTitle = songTitle,
-                    hasLyrics = editedLyrics.isNotBlank()
+                hasLyrics = editedLyrics.isNotBlank(),
+                formatLabel = detectedFormatLabel
                 )
-            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -613,7 +693,7 @@ fun LyricsEditorBottomSheet(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Source Preference",
+                                text = stringResource(R.string.lyrics_source_preference),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -634,7 +714,7 @@ fun LyricsEditorBottomSheet(
                                 onClick = { dropdownExpanded = true },
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Change")
+                                Text(stringResource(R.string.lyrics_change))
                                 Icon(
                                     imageVector = MaterialSymbolIcon("arrow_drop_down", filled = true),
                                     contentDescription = null,
@@ -697,23 +777,12 @@ fun LyricsEditorBottomSheet(
                                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                Surface(
-                                                    modifier = Modifier.size(28.dp),
-                                                    shape = CircleShape,
-                                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                                                ) {
-                                                    Box(
-                                                        contentAlignment = Alignment.Center,
-                                                        modifier = Modifier.fillMaxSize()
-                                                    ) {
                                                         Icon(
                                                             imageVector = MaterialSymbolIcon(iconName, filled = true),
                                                             contentDescription = null,
-                                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                                            modifier = Modifier.size(16.dp)
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(20.dp)
                                                         )
-                                                    }
-                                                }
 
                                                 Spacer(modifier = Modifier.width(10.dp))
 
@@ -772,7 +841,7 @@ fun LyricsEditorBottomSheet(
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
                                 shape = RoundedCornerShape(8.dp)
                             ) {
-                                Text("Clear", style = MaterialTheme.typography.labelMedium)
+                                Text(stringResource(R.string.lyrics_clear), style = MaterialTheme.typography.labelMedium)
                             }
                         }
                     }
@@ -781,11 +850,6 @@ fun LyricsEditorBottomSheet(
             }
 
             // Format Selector Button Group like Theme Switcher
-            AnimatedVisibility(
-                visible = showContent,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it }
-            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -793,9 +857,9 @@ fun LyricsEditorBottomSheet(
                 ) {
                     RhythmToggleButtonGroup(
                         options = listOf(
-                            RhythmToggleOption(text = "Source"),
-                            RhythmToggleOption(text = "Line-by-line"),
-                            RhythmToggleOption(text = "Word-by-word")
+                            RhythmToggleOption(text = stringResource(R.string.lyrics_source)),
+                            RhythmToggleOption(text = stringResource(R.string.lyrics_line_by_line)),
+                            RhythmToggleOption(text = stringResource(R.string.lyrics_word_by_word))
                         ),
                         selectedIndices = setOf(
                             when (selectedFormat) {
@@ -806,27 +870,49 @@ fun LyricsEditorBottomSheet(
                         ),
                         onToggle = { index ->
                             HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
-                            selectedFormat = when (index) {
+                            val targetFormat = when (index) {
                                 0 -> LyricFormat.SOURCE
                                 1 -> LyricFormat.LINE_BY_LINE
                                 else -> LyricFormat.WORD_BY_WORD
                             }
+                            // Auto-translate between formats when switching
+                            if (targetFormat == LyricFormat.LINE_BY_LINE && editedLineByLine.isBlank() && editedWordByWord.isNotBlank()) {
+                                try {
+                                    val parsed = RhythmLyricsParser.parseWordByWordLyrics(editedWordByWord)
+                                    if (parsed.isNotEmpty()) {
+                                        editedLineByLine = RhythmLyricsParser.toEnhancedLRCFormat(parsed)
+                                    }
+                                } catch (_: Exception) {}
+                            } else if (targetFormat == LyricFormat.WORD_BY_WORD && editedWordByWord.isBlank() && chromahub.rhythm.app.util.LyricsParser.hasWordTimestamps(editedLineByLine)) {
+                                try {
+                                    val parsed = RhythmLyricsParser.parseEnhancedLRCtoWordByWord(editedLineByLine)
+                                    if (parsed.isNotEmpty()) {
+                                        editedWordByWord = com.google.gson.Gson().toJson(parsed)
+                                    }
+                                } catch (_: Exception) {}
+                            } else if (targetFormat == LyricFormat.SOURCE && editedSource.isBlank()) {
+                                if (editedWordByWord.isNotBlank()) {
+                                    try {
+                                        val parsed = RhythmLyricsParser.parseWordByWordLyrics(editedWordByWord)
+                                        if (parsed.isNotEmpty()) {
+                                            editedSource = RhythmLyricsParser.toTtmlFormat(parsed, song?.title, song?.artist)
+                                        }
+                                    } catch (_: Exception) {}
+                                } else if (editedLineByLine.isNotBlank()) {
+                                    editedSource = editedLineByLine
+                                }
+                            }
+                            selectedFormat = targetFormat
                         },
                         modifier = Modifier.fillMaxWidth(),
                         size = RhythmButtonSize.Medium,
                         isShowingCheck = false
                     )
                 }
-            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // Timestamp Adjustment Controls
-            AnimatedVisibility(
-                visible = showContent,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it }
-            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1066,21 +1152,13 @@ fun LyricsEditorBottomSheet(
                         }
                     }
                 }
-            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Lyrics Text Field with animation
-            AnimatedVisibility(
-                visible = showContent,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it },
-                modifier = Modifier.weight(1f)
-            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .fillMaxHeight()
+                    .weight(1f)
                         .padding(horizontal = 24.dp)
                 ) {
                     OutlinedTextField(
@@ -1092,8 +1170,9 @@ fun LyricsEditorBottomSheet(
                         placeholder = {
                             Text(
                                 text = when (selectedFormat) {
-                                    LyricFormat.WORD_BY_WORD -> "Enter word-by-word lyrics JSON here…"
-                                    else -> context.getString(R.string.lyrics_placeholder)
+                                LyricFormat.WORD_BY_WORD -> "Enter word-by-word lyrics JSON…"
+                                LyricFormat.LINE_BY_LINE -> "Enter timestamped LRC or Enhanced LRC ([00:12.34]<00:12.34>word)…"
+                                LyricFormat.SOURCE -> "Enter raw TTML XML, LRC, or plain text…"
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
@@ -1109,7 +1188,6 @@ fun LyricsEditorBottomSheet(
                         shape = RoundedCornerShape(16.dp)
                     )
                 }
-            }
 
             // Sticky Footer with action buttons
             Surface(
@@ -1139,6 +1217,9 @@ fun LyricsEditorBottomSheet(
                                         "text/x-lrc",
                                         "application/x-lrc",
                                         "application/json",
+                                        "application/xml",
+                                        "text/xml",
+                                        "application/ttml+xml",
                                         "application/octet-stream",
                                         "*/*"
                                     )
@@ -1155,7 +1236,12 @@ fun LyricsEditorBottomSheet(
                             onClick = {
                                 HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
                                 if (editedLyrics.isNotBlank()) {
-                                    val mimeType = if (selectedFormat == LyricFormat.WORD_BY_WORD) "application/json" else "application/octet-stream"
+                                    val mimeType = when {
+                                        selectedFormat == LyricFormat.WORD_BY_WORD -> "application/json"
+                                        selectedFormat == LyricFormat.LINE_BY_LINE && chromahub.rhythm.app.util.LyricsParser.hasWordTimestamps(editedLineByLine) -> "text/x-lrc"
+                                        selectedFormat == LyricFormat.SOURCE && editedSource.trim().startsWith("<") -> "application/ttml+xml"
+                                        else -> "application/octet-stream"
+                                    }
                                     val initialUri = getInitialFolderUri(song?.path)
                                     saveLyricsLauncher.launch(
                                         SaveLyricsInput(
@@ -1174,9 +1260,10 @@ fun LyricsEditorBottomSheet(
                         )
                     }
 
+                    // Embed in File is local-only — streaming songs have no writable file.
+                    if (!isStreamingMode) {
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Embed in File Button
                     RhythmGroupedButton(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1200,6 +1287,7 @@ fun LyricsEditorBottomSheet(
                 }
             }
         }
+        }
 
         if (showRenameDialog && song != null) {
             AlertDialog(
@@ -1220,7 +1308,7 @@ fun LyricsEditorBottomSheet(
                             modifier = Modifier.size(28.dp)
                         )
                         Text(
-                            text = "Rename LRC File?",
+                            text = stringResource(R.string.lyrics_rename_lrc_title),
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold
                         )
@@ -1229,7 +1317,7 @@ fun LyricsEditorBottomSheet(
                 text = {
                     Column {
                         Text(
-                            text = "The loaded LRC file name '$pendingFileName' is different from the song's file name. Would you like to rename it to match the song or associate it as a custom tagged file?",
+                            text = stringResource(R.string.lyrics_rename_lrc_body, pendingFileName),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1239,11 +1327,14 @@ fun LyricsEditorBottomSheet(
                         ) {
                             Checkbox(
                                 checked = rememberChoiceCheckbox,
-                                onCheckedChange = { rememberChoiceCheckbox = it }
+                                onCheckedChange = {
+                                    HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                                    rememberChoiceCheckbox = it
+                                }
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Remember my choice (Don't ask again)",
+                                text = stringResource(R.string.lyrics_remember_choice),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -1262,9 +1353,9 @@ fun LyricsEditorBottomSheet(
                                 val success = performRename(context, pendingUri!!, songFile.parentFile, pendingExpectedName, pendingLyrics)
                                 if (!success) {
                                     appSettings.setSongCustomLrcFile(song.id, pendingFileName)
-                                    Toast.makeText(context, "Could not rename (permission denied). Tagged custom file instead.", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, context.getString(R.string.lyrics_rename_permission_denied), Toast.LENGTH_LONG).show()
                                 } else {
-                                    Toast.makeText(context, "File renamed successfully.", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.lyrics_renamed_success), Toast.LENGTH_SHORT).show()
                                 }
                                 applyLoadedLyrics(pendingLyrics)
                             }
@@ -1280,7 +1371,7 @@ fun LyricsEditorBottomSheet(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Rename")
+                        Text(stringResource(R.string.lyrics_rename))
                     }
                 },
                 dismissButton = {
@@ -1300,7 +1391,7 @@ fun LyricsEditorBottomSheet(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Tag / Keep custom")
+                        Text(stringResource(R.string.lyrics_tag_keep_custom))
                     }
                 }
             )
@@ -1313,6 +1404,7 @@ fun LyricsEditorBottomSheet(
 private fun LyricsEditorHeader(
     songTitle: String,
     hasLyrics: Boolean,
+    formatLabel: String? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -1330,9 +1422,14 @@ private fun LyricsEditorHeader(
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            Row(
+                modifier = Modifier.padding(top = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
             Box(
                 modifier = Modifier
-                    .padding(top = 6.dp)
+                        .weight(1f, fill = false)
                     .background(
                         color = MaterialTheme.colorScheme.surfaceContainerHigh,
                         shape = CircleShape
@@ -1346,6 +1443,25 @@ private fun LyricsEditorHeader(
                     maxLines = 1,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+            }
+
+                if (!formatLabel.isNullOrBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                                shape = CircleShape
+                            )
+                    ) {
+                        Text(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            text = formatLabel,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
             }
         }
     }

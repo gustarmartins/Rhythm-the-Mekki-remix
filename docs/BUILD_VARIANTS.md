@@ -35,6 +35,9 @@ ENABLE_SPOTIFY_SEARCH = true
 ENABLE_LYRICALLY_API = true
 ENABLE_DEEZER = true
 ENABLE_LRCLIB = true
+ENABLE_BETTERLYRICS = true
+ENABLE_WIKIPEDIA = true
+FLAVOR = "fdroid"
 ```
 
 **Default Settings:** All features enabled. APIs and auto-updates disabled by default (opt-in for F-Droid compliance).
@@ -55,6 +58,9 @@ ENABLE_SPOTIFY_SEARCH = true
 ENABLE_LYRICALLY_API = true
 ENABLE_DEEZER = true
 ENABLE_LRCLIB = true
+ENABLE_BETTERLYRICS = true
+ENABLE_WIKIPEDIA = true
+FLAVOR = "github"
 ```
 
 **Default Settings:** All features enabled. APIs and auto-updates enabled by default (opt-out available).
@@ -167,8 +173,8 @@ Rhythm-{versionName}-{flavorVariant}-{abi}.apk
 
 **Examples:**
 ```
-Rhythm-5.1.414.1085 Beta-fdroidRelease-arm64-v8a.apk
-Rhythm-5.1.414.1085 Beta-githubRelease-armeabi-v7a.apk
+Rhythm-5.4.456.1196 Beta-fdroidRelease-arm64-v8a.apk
+Rhythm-5.4.456.1196 Beta-githubRelease-armeabi-v7a.apk
 ```
 
 ### Output Locations
@@ -280,9 +286,8 @@ jobs:
 Add to `.fdroid.yml` or `metadata/*.yml`:
 
 ```yaml
-Builds:
-  - versionName: 5.1.414.1085 Beta
-    versionCode: 514141085
+Builds:    - versionName: 5.4.456.1196 Beta
+    versionCode: 544561196
     gradle:
       - fdroid
     
@@ -389,7 +394,7 @@ A: No, they share the same `applicationId`. Use debug builds with different IDs 
 A: Use `fdroid` or `github` debug builds for full feature access during development.
 
 **Q: How do I know which variant is installed?**  
-A: Check Settings → About → Build Info or check version suffix in logs.
+A: Check the version shown in Settings → Updates & Info → About or check the version suffix in logs.
 
 **Q: Can users switch between variants?**  
 A: No, they must uninstall and reinstall a different variant. Data won't transfer.
@@ -406,5 +411,5 @@ A: Single package name simplifies distribution across different channels.
 
 ---
 
-*Last Updated: June 22, 2026*  
+*Last Updated: August 10, 2026*  
 *Rhythm Music Player Build System Documentation*

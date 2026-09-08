@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components
 
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
@@ -26,12 +31,14 @@ import chromahub.rhythm.app.features.streaming.domain.model.StreamingSong
 import chromahub.rhythm.app.util.AudioQualityDetector
 import chromahub.rhythm.app.util.AudioFormatDetector
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import chromahub.rhythm.app.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 
 import androidx.compose.ui.unit.Dp
+import androidx.core.net.toUri
 
 /**
  * Quality level for badge styling
@@ -70,7 +77,7 @@ fun AudioQualityIcon(
 
         withContext(Dispatchers.IO) {
             try {
-                val uri = Uri.parse(playbackUri)
+                val uri = (playbackUri).toUri()
                 val formatInfo = AudioFormatDetector.detectFormat(context, uri)
 
                 val bitrateKbps = if (formatInfo.bitrateKbps > 0) formatInfo.bitrateKbps else 0
@@ -128,7 +135,10 @@ fun AudioQualityIcon(
     modifier: Modifier = Modifier,
     iconSize: Dp = 32.dp,
     padding: Dp = 8.dp,
-    tint: Color? = null
+    tint: Color? = null,
+    // When > 0, the icon fades in once quality is detected, stays visible for this long, then fades out.
+    // Default 0 keeps the icon visible persistently (existing behavior for other screens).
+    autoHideAfterMs: Long = 0L
 ) {
     val context = LocalContext.current
     var audioQuality by remember(song.id) { mutableStateOf<AudioQualityDetector.AudioQuality?>(null) }
@@ -158,6 +168,17 @@ fun AudioQualityIcon(
         }
     }
 
+    // Auto-hide timer: starts only when quality has been detected for the current song,
+    // so the fade-in is not wasted while detection is still running.
+    var autoHideVisible by remember(song.id) { mutableStateOf(false) }
+    LaunchedEffect(song.id, audioQuality != null) {
+        if (autoHideAfterMs > 0L && audioQuality != null) {
+            autoHideVisible = true
+            delay(autoHideAfterMs)
+            autoHideVisible = false
+        }
+    }
+
     audioQuality?.let { quality ->
         val shouldShowIcon = quality.isLossless || quality.isDolby || quality.isDTS || quality.isHiRes ||
                            quality.qualityType != AudioQualityDetector.QualityType.LOSSY_COMPRESSED
@@ -177,14 +198,28 @@ fun AudioQualityIcon(
             }
 
             iconRes?.let { res ->
-                Icon(
-                    painter = painterResource(id = res),
-                    contentDescription = quality.qualityLabel,
-                    modifier = modifier
-                        .padding(padding)
-                        .size(iconSize),
-                    tint = tint ?: MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                )
+                val qualityIcon = @Composable {
+                    Icon(
+                        painter = painterResource(id = res),
+                        contentDescription = quality.qualityLabel,
+                        modifier = Modifier
+                            .padding(padding)
+                            .size(iconSize),
+                        tint = tint ?: MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                    )
+                }
+                if (autoHideAfterMs > 0L) {
+                    AnimatedVisibility(
+                        visible = autoHideVisible,
+                        enter = fadeIn(animationSpec = tween(400)),
+                        exit = fadeOut(animationSpec = tween(600)),
+                        modifier = modifier
+                    ) {
+                        qualityIcon()
+                    }
+                } else {
+                    Box(modifier = modifier) { qualityIcon() }
+                }
             }
         }
     }
@@ -284,7 +319,7 @@ fun AudioQualityBadges(
 
                     AudioQualityDetector.QualityType.HI_RES_STUDIO_MASTER -> {
                         QualityBadge(
-                            text = "STUDIO MASTER",
+                            text = stringResource(R.string.audioquality_studio_master),
                             icon = R.drawable.ic_high_res,
                             qualityLevel = QualityLevel.EXCELLENT
                         )
@@ -338,7 +373,7 @@ fun AudioQualityBadges(
 
                     AudioQualityDetector.QualityType.HI_RES_LOSSLESS -> {
                         QualityBadge(
-                            text = "HI-RES LOSSLESS",
+                            text = stringResource(R.string.audioquality_hi_res_lossless),
                             icon = R.drawable.ic_high_res,
                             qualityLevel = QualityLevel.GOOD
                         )
@@ -346,7 +381,7 @@ fun AudioQualityBadges(
 
                     AudioQualityDetector.QualityType.CD_QUALITY_LOSSLESS -> {
                         QualityBadge(
-                            text = "LOSSLESS",
+                            text = stringResource(R.string.audioquality_lossless),
                             icon = R.drawable.ic_cd,
                             qualityLevel = QualityLevel.GOOD
                         )

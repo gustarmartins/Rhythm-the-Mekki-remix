@@ -1,11 +1,16 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.bottomsheets
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
 
 import android.util.Log
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -16,12 +21,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -56,16 +56,22 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.SheetValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
@@ -78,51 +84,120 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.derivedStateOf
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.shared.data.model.AppSettings
 import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.shared.presentation.components.common.M3PlaceholderType
 import chromahub.rhythm.app.shared.presentation.components.common.DragDropLazyColumn
-import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveClickableSurface
+import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveCookieEmptyState
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveFilledTonalIconButton
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeTarget
 import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShapeFor
+import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShape
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveScrollBar
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonSize
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonType
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonWeighted
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmGroupedButton
+import chromahub.rhythm.app.util.HapticType
+import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.ImageUtils
 import androidx.compose.ui.res.stringResource
 
-private fun LazyListState.shouldShowScrollbar(): Boolean {
-    val layoutInfo = this.layoutInfo
-    val visibleItems = layoutInfo.visibleItemsInfo
-    if (visibleItems.isEmpty()) return false
-    val totalItems = layoutInfo.totalItemsCount
-    if (visibleItems.size < totalItems) return true
-    val lastItem = visibleItems.last()
-    val lastItemBottom = lastItem.offset + lastItem.size
-    return lastItemBottom > layoutInfo.viewportEndOffset - 80
+
+private data class QueueItemCorners(
+    val topStart: Dp,
+    val topEnd: Dp,
+    val bottomStart: Dp,
+    val bottomEnd: Dp
+) {
+    fun toShape(): RoundedCornerShape =
+        RoundedCornerShape(topStart, topEnd, bottomEnd, bottomStart)
 }
 
-private fun groupedQueueItemShape(index: Int, totalCount: Int): RoundedCornerShape {
-    if (totalCount <= 1) return RoundedCornerShape(24.dp)
+private fun groupedQueueItemCorners(index: Int, totalCount: Int): QueueItemCorners {
+    if (totalCount <= 1) return QueueItemCorners(24.dp, 24.dp, 24.dp, 24.dp)
 
     return when (index) {
-        0 -> RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 6.dp, bottomEnd = 6.dp)
-        totalCount - 1 -> RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
-        else -> RoundedCornerShape(6.dp)
+        0 -> QueueItemCorners(24.dp, 24.dp, 6.dp, 6.dp)
+        totalCount - 1 -> QueueItemCorners(6.dp, 6.dp, 24.dp, 24.dp)
+        else -> QueueItemCorners(6.dp, 6.dp, 6.dp, 6.dp)
+    }
+}
+
+
+private enum class QueueSectionLabel { PLAYED, UP_NEXT }
+
+private data class QueueSongRow(
+    val position: Int,
+    val displayNumber: Int,
+    val song: Song,
+    val isPlayed: Boolean,
+    val corners: QueueItemCorners,
+    val stableKey: String
+)
+
+private sealed interface QueueListRow {
+    data class Section(val label: QueueSectionLabel) : QueueListRow
+    data class Song(val row: QueueSongRow) : QueueListRow
+}
+
+private fun queueEntryKey(queue: List<Song>, position: Int): String {
+    val song = queue[position]
+    var ordinal = 0
+    for (i in 0..position) {
+        if (queue[i].id == song.id) ordinal++
+    }
+    return "${song.id}@$ordinal"
+}
+
+private fun queueListRowKey(row: QueueListRow): String = when (row) {
+    is QueueListRow.Section -> "section_${row.label}"
+    is QueueListRow.Song -> row.row.stableKey
+}
+
+private fun buildQueueListRows(
+    visibleQueue: List<Pair<Int, Song>>,
+    queue: List<Song>,
+    currentSongIndex: Int,
+    showPlayedSongs: Boolean
+): List<QueueListRow> = buildList {
+    val played = visibleQueue.filter { it.first < currentSongIndex }
+    val upcoming = visibleQueue.filter { it.first > currentSongIndex }
+
+    if (showPlayedSongs && played.isNotEmpty()) {
+        add(QueueListRow.Section(QueueSectionLabel.PLAYED))
+        played.forEachIndexed { index, (position, song) ->
+            add(
+                QueueListRow.Song(
+                    QueueSongRow(position, 0, song, true, groupedQueueItemCorners(index, played.size), queueEntryKey(queue, position))
+                )
+            )
+        }
+    }
+    if (upcoming.isNotEmpty()) {
+        if (played.isNotEmpty()) add(QueueListRow.Section(QueueSectionLabel.UP_NEXT))
+        upcoming.forEachIndexed { index, (position, song) ->
+            add(
+                QueueListRow.Song(
+                    QueueSongRow(position, index + 1, song, false, groupedQueueItemCorners(index, upcoming.size), queueEntryKey(queue, position))
+                )
+            )
+        }
     }
 }
 
@@ -135,7 +210,7 @@ fun QueueBottomSheet(
     isShuffleEnabled: Boolean = false,
     repeatMode: Int = Player.REPEAT_MODE_OFF,
     onSongClick: (Song) -> Unit,
-    onSongClickAtIndex: (Int) -> Unit = { _ -> }, // New parameter for index-based clicking
+    onSongClickAtIndex: (Int) -> Unit = { _ -> },
     onDismiss: () -> Unit,
     onRemoveSongAtIndex: (Int) -> Unit = {},
     onMoveQueueItem: (Int, Int) -> Unit = { _, _ -> },
@@ -145,35 +220,33 @@ fun QueueBottomSheet(
     onToggleRepeat: () -> Unit = {},
     sheetState: SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
 ) {
-    val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val appSettings = remember(context) { AppSettings.getInstance(context) }
     val hidePlayedQueueSongs by appSettings.hidePlayedQueueSongs.collectAsState()
+    val gestureQueueSwipeToRemove by appSettings.gestureQueueSwipeToRemove.collectAsState()
     val showAlreadyPlayedSongsInQueue = !hidePlayedQueueSongs
-    // Animation states
-    var showContent by remember { mutableStateOf(false) }
-    
-    val contentAlpha by animateFloatAsState(
-        targetValue = if (showContent) 1f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "contentAlpha"
-    )
-    
-    val contentTranslation by animateFloatAsState(
-        targetValue = if (showContent) 0f else 30f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
-        label = "contentTranslation"
+
+    var queueEpoch by remember { mutableIntStateOf(0) }
+    var clearRequested by remember { mutableStateOf(false) }
+    val clearFadeAlpha by animateFloatAsState(
+        targetValue = if (clearRequested) 0f else 1f,
+        animationSpec = tween(durationMillis = 240),
+        label = "queueClearFade"
     )
 
-    LaunchedEffect(Unit) {
-        delay(50) // Reduced delay for faster appearance
-        showContent = true
+    val removingQueueKeys = remember { mutableStateMapOf<String, Boolean>() }
+    val queueRowScope = rememberCoroutineScope()
+
+    fun dismissQueueRow(rowKey: String, onRemoved: () -> Unit) {
+        if (removingQueueKeys[rowKey] == true) return
+        removingQueueKeys[rowKey] = true
+        val epochAtDismiss = queueEpoch
+        queueRowScope.launch {
+            delay(300)
+            removingQueueKeys.remove(rowKey)
+            if (queueEpoch != epochAtDismiss) return@launch
+            onRemoved()
+        }
     }
 
     // Use the queue directly for display, create mutable version only for reordering operations
@@ -191,7 +264,32 @@ fun QueueBottomSheet(
         }
     }
 
-    ModalBottomSheet(
+    fun removeQueueSong(song: Song) {
+        val position = mutableQueue.indexOfFirst { it.id == song.id }
+        if (position < 0 || position >= mutableQueue.size) return
+        mutableQueue.removeAt(position)
+        onRemoveSongAtIndex(position)
+    }
+
+    LaunchedEffect(clearRequested) {
+        if (clearRequested) {
+            for (i in displayQueue.indices) {
+                removingQueueKeys[queueEntryKey(displayQueue, i)] = true
+            }
+            if (displayQueue.isNotEmpty()) {
+                delay(280)
+            }
+            removingQueueKeys.clear()
+            onClearQueue()
+            clearRequested = false
+        }
+    }
+
+    val lazyListState = rememberLazyListState()
+
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.WIDE_DIALOG,
+        lazyListState = lazyListState,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -200,6 +298,7 @@ fun QueueBottomSheet(
                 color = MaterialTheme.colorScheme.primary
             )
         },
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         contentColor = MaterialTheme.colorScheme.onBackground,
         tonalElevation = 0.dp
@@ -210,67 +309,48 @@ fun QueueBottomSheet(
                 .padding(bottom = 24.dp)
         ) {
             // Header with title and actions
-            AnimatedVisibility(
-                visible = showContent,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it }
-            ) {
-                QueueHeader(
-                    queueSize = displayQueue.size,
-                    isShuffleEnabled = isShuffleEnabled,
-                    repeatMode = repeatMode,
-                    onAddSongsClick = onAddSongsClick,
-                    onClearQueue = if (displayQueue.isNotEmpty()) onClearQueue else null,
-                    onToggleShuffle = onToggleShuffle,
-                    onToggleRepeat = onToggleRepeat
-                )
-            }
+            QueueHeader(
+                queueSize = displayQueue.size,
+                isShuffleEnabled = isShuffleEnabled,
+                repeatMode = repeatMode,
+                onAddSongsClick = onAddSongsClick,
+                onClearQueue = if (displayQueue.isNotEmpty()) {
+                    {
+                        queueEpoch++
+                        clearRequested = true
+                    }
+                } else null,
+                onToggleShuffle = onToggleShuffle,
+                onToggleRepeat = onToggleRepeat
+            )
             
             Spacer(modifier = Modifier.height(16.dp))
             
             // Queue settings info and warnings
             if (displayQueue.isNotEmpty() && hidePlayedQueueSongs) {
-                AnimatedVisibility(
-                    visible = showContent,
-                    enter = fadeIn() + slideInVertically { it },
-                    exit = fadeOut() + slideOutVertically { it }
+                Column(
+                    modifier = Modifier.graphicsLayer { alpha = clearFadeAlpha }
                 ) {
-                    Column {
-                        QueueSettingsInfo(
-                            isShuffleEnabled = isShuffleEnabled,
-                            repeatMode = repeatMode,
-                            hidePlayedSongs = hidePlayedQueueSongs,
-                            queueSize = displayQueue.size
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
+                    QueueSettingsInfo(
+                        isShuffleEnabled = isShuffleEnabled,
+                        repeatMode = repeatMode,
+                        hidePlayedSongs = hidePlayedQueueSongs,
+                        queueSize = displayQueue.size
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
             
             if (displayQueue.isEmpty()) {
-                // Empty queue state
-                AnimatedVisibility(
-                    visible = showContent,
-                    enter = fadeIn() + slideInVertically { it },
-                    exit = fadeOut() + slideOutVertically { it }
-                ) {
-                    EmptyQueueContent(
-                        onAddSongsClick = onAddSongsClick
-                    )
-                }
+                EmptyQueueContent()
             } else {
                 // Now Playing section - show current song separately
                 currentSong?.let { song ->
-                    AnimatedVisibility(
-                        visible = showContent,
-                        enter = fadeIn() + slideInVertically { it },
-                        exit = fadeOut() + slideOutVertically { it }
-                    ) {
-                        NowPlayingCard(
-                            song = song,
-                            onClick = { onSongClick(song) }
-                        )
-                    }
+                    NowPlayingCard(
+                        song = song,
+                        onClick = { onSongClick(song) },
+                        modifier = Modifier.graphicsLayer { alpha = clearFadeAlpha }
+                    )
                 }
                 
                 val currentSongIndexInQueue = remember(currentSong, displayQueue, currentQueueIndex) {
@@ -306,194 +386,145 @@ fun QueueBottomSheet(
                     }
                 }
 
+                val queueListRows = if (isShuffleEnabled) {
+                    visibleQueue.mapIndexed { index, queueItem ->
+                        QueueListRow.Song(
+                            QueueSongRow(
+                                position = queueItem.first,
+                                displayNumber = index + 1,
+                                song = queueItem.second,
+                                isPlayed = false,
+                                corners = groupedQueueItemCorners(index, visibleQueue.size),
+                                stableKey = queueEntryKey(displayQueue, queueItem.first)
+                            )
+                        )
+                    }
+                } else {
+                    buildQueueListRows(visibleQueue, displayQueue, currentSongIndexInQueue, showAlreadyPlayedSongsInQueue)
+                }
+                val hasPlayedSection = queueListRows.any {
+                    it is QueueListRow.Section && it.label == QueueSectionLabel.PLAYED
+                }
+
                 if (visibleQueue.isNotEmpty()) {
-                    // Queue header for visible queue songs
-                    AnimatedVisibility(
-                        visible = showContent,
-                        enter = fadeIn() + slideInVertically { it },
-                        exit = fadeOut() + slideOutVertically { it }
-                    ) {
+                    if (!hasPlayedSection) {
                         Text(
                             text = context.getString(R.string.bottomsheet_up_next),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 18.dp, bottom = 8.dp)
+                            modifier = Modifier
+                                .graphicsLayer { alpha = clearFadeAlpha }
+                                .padding(start = 24.dp, end = 24.dp, top = 18.dp, bottom = 8.dp)
                         )
                     }
                     
-                    // Queue list with reordering using custom drag and drop (disabled when shuffle is enabled)
-                    val lazyListState = rememberLazyListState()
                     var hasScrolledOnOpening by remember { mutableStateOf(false) }
 
-                    val canScroll by remember(lazyListState) {
-                        derivedStateOf { lazyListState.shouldShowScrollbar() }
-                    }
-                    val animatedEndPadding by animateDpAsState(
-                        targetValue = if (canScroll) 36.dp else 16.dp,
-                        animationSpec = tween(durationMillis = 200),
-                        label = "QueueEndPadding"
-                    )
-
-                    LaunchedEffect(visibleQueue, currentSongIndexInQueue) {
-                        if (!hasScrolledOnOpening && visibleQueue.isNotEmpty()) {
+                    LaunchedEffect(queueListRows, currentSongIndexInQueue) {
+                        if (!hasScrolledOnOpening && queueListRows.isNotEmpty()) {
                             while (lazyListState.layoutInfo.visibleItemsInfo.isEmpty()) {
                                 delay(10)
                             }
-                            val targetIndex = visibleQueue.indexOfFirst { it.first > currentSongIndexInQueue }
-                            if (targetIndex >= 0) {
-                                val scrollIndex = (targetIndex - 1).coerceAtLeast(0)
-                                lazyListState.scrollToItem(scrollIndex)
+                            val firstUpcomingIndex = queueListRows.indexOfFirst {
+                                it is QueueListRow.Song && it.row.position > currentSongIndexInQueue
+                            }
+                            if (firstUpcomingIndex > 0) {
+                                lazyListState.scrollToItem(firstUpcomingIndex - 1)
                             }
                             hasScrolledOnOpening = true
                         }
                     }
 
-                    Box(
+                    AdaptiveSheetScrollContainer(
+                        lazyListState = lazyListState,
+                        enableBlend = !hasPlayedSection,
+                        blendColor = MaterialTheme.colorScheme.surfaceContainer,
+                        scrollBarPaddingEnd = 4.dp,
+                        scrollBarPaddingTop = 8.dp,
+                        scrollBarPaddingBottom = 8.dp,
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f, fill = false)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(24.dp)
-                                .align(Alignment.TopCenter)
-                                .background(
-                                    brush = Brush.verticalGradient(
-                                        colors = listOf(
-                                            MaterialTheme.colorScheme.surfaceContainer,
-                                            MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f),
-                                            MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.32f),
-                                            Color.Transparent
-                                        )
-                                    )
-                                )
-                                .zIndex(5f)
-                        )
-
+                            .graphicsLayer { alpha = clearFadeAlpha }
+                    ) { endPadding ->
+                        val rowEndPadding = 16.dp + (endPadding * (20f / 12f))
                         if (isShuffleEnabled) {
                             // When shuffle is enabled, show queue but disable reordering
                             LazyColumn(
                                 state = lazyListState,
                                 modifier = Modifier.fillMaxWidth(),
-                                contentPadding = PaddingValues(top = 24.dp, bottom = 8.dp)
+                                contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 itemsIndexed(
-                                    items = visibleQueue,
-                                    key = { _, queueItem -> "${queueItem.first}_${queueItem.second.id}" }
-                                ) { index, queueItem ->
-                                    val actualQueuePosition = queueItem.first
-                                    val song = queueItem.second
-                                    val isPlayed = !isShuffleEnabled && actualQueuePosition < currentSongIndexInQueue
-                                    
-                                    Box(
-                                        modifier = Modifier
-                                            .padding(
-                                                start = 16.dp,
-                                                end = animatedEndPadding,
-                                                top = 4.dp,
-                                                bottom = 4.dp
-                                            )
-                                    ) {
-                                        AnimateIn {
-                                            QueueItem(
-                                                song = song,
-                                                index = actualQueuePosition,
-                                                itemShape = groupedQueueItemShape(index, visibleQueue.size),
-                                                isPlayed = isPlayed,
-                                                isDragging = false, // Never dragging when shuffle is enabled
-                                                onSongClick = { 
-                                                    // Use index-based click to handle duplicate songs correctly
-                                                    onSongClickAtIndex(actualQueuePosition)
-                                                },
-                                                onRemove = { 
-                                                    try {
-                                                        val indexToRemove = mutableQueue.indexOf(song)
-                                                        if (indexToRemove >= 0 && indexToRemove < mutableQueue.size) {
-                                                            mutableQueue.removeAt(indexToRemove)
-                                                        }
-                                                        onRemoveSongAtIndex(actualQueuePosition)
-                                                    } catch (e: Exception) {
-                                                        // Handle error silently
-                                                    }
-                                                },
-                                                showDragHandle = false // Hide drag handle when shuffle is enabled
-                                            )
-                                        }
-                                    }
+                                    items = queueListRows,
+                                    key = { _, row -> queueListRowKey(row) }
+                                ) { index, row ->
+                                    QueueListRowContent(
+                                        row = row,
+                                        isDragging = false,
+                                        reorderSupported = false,
+                                        endPadding = rowEndPadding,
+                                        isRemoving = { key -> removingQueueKeys[key] == true },
+                                        enableSwipeToRemove = gestureQueueSwipeToRemove,
+                                        onSongClickAtIndex = onSongClickAtIndex,
+                                        onRequestRemove = { songRow, itemKey ->
+                                            dismissQueueRow(itemKey) { removeQueueSong(songRow.song) }
+                                        },
+                                        modifier = Modifier.animateItem(
+                                            fadeInSpec = tween(0),
+                                            placementSpec = spring(
+                                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                                stiffness = Spring.StiffnessMediumLow
+                                            ),
+                                            fadeOutSpec = tween(0)
+                                        )
+                                    )
                                 }
                             }
                         } else {
                             // Normal drag and drop when shuffle is disabled
                             DragDropLazyColumn(
-                                items = visibleQueue,
+                                items = queueListRows,
                                 modifier = Modifier.fillMaxWidth(),
                                 lazyListState = lazyListState,
                                 onMove = { fromIndex, toIndex ->
-                                    val actualFromIndex = visibleQueue[fromIndex].first
-                                    val actualToIndex = visibleQueue[toIndex].first
-                                    onMoveQueueItem(actualFromIndex, actualToIndex)
+                                    val fromRow = (queueListRows[fromIndex] as QueueListRow.Song).row
+                                    val toRow = (queueListRows[toIndex] as QueueListRow.Song).row
+                                    onMoveQueueItem(fromRow.position, toRow.position)
                                 },
-                                itemKey = { queueItem -> "${queueItem.first}_${queueItem.second.id}" },
-                                contentPadding = PaddingValues(top = 24.dp, bottom = 8.dp)
-                            ) { queueItem, isDragging, visibleIndex ->
-                                val actualQueuePosition = queueItem.first
-                                val song = queueItem.second
-                                val isPlayed = !isShuffleEnabled && actualQueuePosition < currentSongIndexInQueue
-                                
-                                Box(
-                                    modifier = Modifier
-                                        .padding(
-                                            start = 16.dp,
-                                            end = animatedEndPadding,
-                                            top = 4.dp,
-                                            bottom = 4.dp
-                                        )
-                                ) {
-                                    AnimateIn {
-                                        QueueItem(
-                                            song = song,
-                                            index = actualQueuePosition,
-                                            itemShape = groupedQueueItemShape(visibleIndex, visibleQueue.size),
-                                            isPlayed = isPlayed,
-                                            isDragging = isDragging,
-                                            onSongClick = { 
-                                                // Use index-based click to handle duplicate songs correctly
-                                                onSongClickAtIndex(actualQueuePosition)
-                                            },
-                                            onRemove = { 
-                                                try {
-                                                    val indexToRemove = mutableQueue.indexOf(song)
-                                                    if (indexToRemove >= 0 && indexToRemove < mutableQueue.size) {
-                                                        mutableQueue.removeAt(indexToRemove)
-                                                    }
-                                                    onRemoveSongAtIndex(actualQueuePosition)
-                                                } catch (e: Exception) {
-                                                    // Handle error silently
-                                                }
-                                            }
-                                        )
+                                itemKey = { row -> queueListRowKey(row) },
+                                isReorderableItem = { row ->
+                                    row is QueueListRow.Song && !row.row.isPlayed
+                                },
+                                isStickyHeader = { row -> row is QueueListRow.Section },
+                                contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp),
+                                itemSpacing = 4.dp,
+                                animateItemPlacement = true,
+                                dragTopInset = 24.dp,
+                                dragBottomInset = 24.dp
+                            ) { row, isDragging, _ ->
+                                QueueListRowContent(
+                                    row = row,
+                                    isDragging = isDragging,
+                                    reorderSupported = true,
+                                    endPadding = rowEndPadding,
+                                    isRemoving = { key -> removingQueueKeys[key] == true },
+                                    enableSwipeToRemove = gestureQueueSwipeToRemove,
+                                    onSongClickAtIndex = onSongClickAtIndex,
+                                    onRequestRemove = { songRow, itemKey ->
+                                        dismissQueueRow(itemKey) { removeQueueSong(songRow.song) }
                                     }
-                                }
+                                )
                             }
                         }
-
-                        ExpressiveScrollBar(
-                            modifier = Modifier
-                                .align(Alignment.CenterEnd)
-                                .padding(end = 4.dp, top = 8.dp, bottom = 8.dp),
-                            listState = lazyListState,
-                            visible = canScroll
-                        )
                     }
                 } else if (currentSong != null) {
                     // Show empty up next content when only current song is in queue
                     // Add more spacing before empty state
                     Spacer(modifier = Modifier.height(8.dp))
                     
-                    EmptyUpNextContent(
-                        onAddSongsClick = onAddSongsClick
-                    )
+                    EmptyUpNextContent()
                 }
             }
         }
@@ -506,12 +537,13 @@ private fun QueueHeader(
     isShuffleEnabled: Boolean,
     repeatMode: Int,
     onAddSongsClick: () -> Unit,
+    modifier: Modifier = Modifier,
     onClearQueue: (() -> Unit)? = null,
     onToggleShuffle: () -> Unit = {},
-    onToggleRepeat: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onToggleRepeat: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     
     Row(
         modifier = modifier
@@ -557,37 +589,56 @@ private fun QueueHeader(
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Shuffle toggle button
-            FilledTonalIconButton(
-                onClick = onToggleShuffle,
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = if (isShuffleEnabled) 
-                        MaterialTheme.colorScheme.primaryContainer 
-                    else 
-                        MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = if (isShuffleEnabled) 
-                        MaterialTheme.colorScheme.onPrimaryContainer 
-                    else 
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                ),
-                modifier = Modifier.size(48.dp)
+            // Shuffle + repeat connected toggle group (delete stays separate)
+            RhythmGroupedButton(
+                modifier = Modifier.width(100.dp),
+                isFillMaxWidth = false,
+                size = RhythmButtonSize.Medium
             ) {
-                Icon(
-                    imageVector = RhythmIcons.Shuffle,
+                RhythmButtonWeighted(
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                        onToggleShuffle()
+                    },
+                    weight = 1f,
+                    size = RhythmButtonSize.Medium,
+                    type = RhythmButtonType.Tonal,
+                    icon = RhythmIcons.Shuffle,
+                    iconSize = 20.dp,
                     contentDescription = if (isShuffleEnabled) "Disable shuffle" else "Enable shuffle",
-                    modifier = Modifier.size(20.dp)
+                    isFirst = true,
+                    isLast = false,
+                    expandSlotWhenSelected = false,
+                    containerColor = if (isShuffleEnabled)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = if (isShuffleEnabled)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
 
-            val repeatEnabled = repeatMode != Player.REPEAT_MODE_OFF
-            val repeatIcon = when (repeatMode) {
-                Player.REPEAT_MODE_ONE -> RhythmIcons.RepeatOne
-                else -> RhythmIcons.Repeat
-            }
+                val repeatEnabled = repeatMode != Player.REPEAT_MODE_OFF
+                val repeatIcon = when (repeatMode) {
+                    Player.REPEAT_MODE_ONE -> RhythmIcons.RepeatOne
+                    else -> RhythmIcons.Repeat
+                }
 
-            FilledTonalIconButton(
-                onClick = onToggleRepeat,
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                RhythmButtonWeighted(
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                        onToggleRepeat()
+                    },
+                    weight = 1f,
+                    size = RhythmButtonSize.Medium,
+                    type = RhythmButtonType.Tonal,
+                    icon = repeatIcon,
+                    iconSize = 20.dp,
+                    contentDescription = if (repeatEnabled) "Disable repeat" else "Enable repeat",
+                    isFirst = false,
+                    isLast = true,
+                    expandSlotWhenSelected = false,
                     containerColor = if (repeatEnabled)
                         MaterialTheme.colorScheme.primaryContainer
                     else
@@ -596,29 +647,24 @@ private fun QueueHeader(
                         MaterialTheme.colorScheme.onPrimaryContainer
                     else
                         MaterialTheme.colorScheme.onSurfaceVariant
-                ),
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = repeatIcon,
-                    contentDescription = if (repeatEnabled) "Disable repeat" else "Enable repeat",
-                    modifier = Modifier.size(20.dp)
                 )
             }
-            
-            
+
             // Clear queue button (only show if queue is not empty)
             onClearQueue?.let { clearAction ->
                 FilledTonalIconButton(
-                    onClick = clearAction,
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
+                        clearAction()
+                    },
                     colors = IconButtonDefaults.filledTonalIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                         contentColor = MaterialTheme.colorScheme.onErrorContainer
                     ),
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
-                    imageVector = RhythmIcons.Delete,
+                        imageVector = RhythmIcons.Delete,
                         contentDescription = stringResource(R.string.content_desc_clear_queue),
                         modifier = Modifier.size(20.dp)
                     )
@@ -742,8 +788,8 @@ private fun NowPlayingCard(
 @Composable
 private fun QueueItem(
     song: Song,
-    index: Int,
-    itemShape: RoundedCornerShape = RoundedCornerShape(20.dp),
+    displayNumber: Int,
+    corners: QueueItemCorners,
     isPlayed: Boolean,
     isDragging: Boolean,
     onSongClick: () -> Unit,
@@ -751,73 +797,97 @@ private fun QueueItem(
     showDragHandle: Boolean = true
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
 
-    val dragCardScale by animateFloatAsState(
-        targetValue = if (isDragging) 1.015f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "dragCardScale"
-    )
-
-    val dragCardOffsetY by animateFloatAsState(
-        targetValue = if (isDragging) -4f else 0f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "dragCardOffsetY"
-    )
+    // Primary drag fill like the Library Songs active row (flips a frame after drag so it animates from rest).
+    var dragActive by remember { mutableStateOf(false) }
+    LaunchedEffect(isDragging) {
+        dragActive = isDragging
+    }
 
     val cardColor by animateColorAsState(
         targetValue = when {
-            isDragging -> MaterialTheme.colorScheme.secondaryContainer
+            dragActive -> MaterialTheme.colorScheme.primary
             isPlayed -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.42f)
-            else -> MaterialTheme.colorScheme.surfaceContainerHigh
+            else -> MaterialTheme.colorScheme.surfaceContainerLow
         },
-        animationSpec = tween(durationMillis = 180),
+        animationSpec = tween(durationMillis = 300),
         label = "queueItemCardColor"
     )
 
     val titleColor by animateColorAsState(
         targetValue = when {
-            isDragging -> MaterialTheme.colorScheme.onSecondaryContainer
+            dragActive -> MaterialTheme.colorScheme.onPrimary
             isPlayed -> MaterialTheme.colorScheme.onTertiaryContainer
             else -> MaterialTheme.colorScheme.onSurface
         },
-        animationSpec = tween(durationMillis = 180),
+        animationSpec = tween(durationMillis = 300),
         label = "queueItemTitleColor"
     )
 
     val subtitleColor by animateColorAsState(
         targetValue = when {
-            isDragging -> MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
+            dragActive -> MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
             isPlayed -> MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.75f)
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         },
-        animationSpec = tween(durationMillis = 180),
+        animationSpec = tween(durationMillis = 300),
         label = "queueItemSubtitleColor"
     )
-    
+
+    val liftedCorner = 24.dp
+    // Ramp the shadow only after the drag morph settles so it isn't clipped mid-morph.
+    var liftShadowReady by remember { mutableStateOf(false) }
+    LaunchedEffect(dragActive) {
+        if (!dragActive) liftShadowReady = false
+    }
+    val animatedTopStart by animateDpAsState(
+        targetValue = if (dragActive) liftedCorner else corners.topStart,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "queueItemTopStartCorner",
+        finishedListener = { if (dragActive) liftShadowReady = true }
+    )
+    val animatedTopEnd by animateDpAsState(
+        targetValue = if (dragActive) liftedCorner else corners.topEnd,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "queueItemTopEndCorner"
+    )
+    val animatedBottomStart by animateDpAsState(
+        targetValue = if (dragActive) liftedCorner else corners.bottomStart,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "queueItemBottomStartCorner"
+    )
+    val animatedBottomEnd by animateDpAsState(
+        targetValue = if (dragActive) liftedCorner else corners.bottomEnd,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "queueItemBottomEndCorner"
+    )
+    val animatedShape = RoundedCornerShape(
+        topStart = animatedTopStart,
+        topEnd = animatedTopEnd,
+        bottomEnd = animatedBottomEnd,
+        bottomStart = animatedBottomStart
+    )
+
+    val animatedShadow by animateDpAsState(
+        targetValue = if (liftShadowReady) 12.dp else 0.dp,
+        animationSpec = tween(durationMillis = 400),
+        label = "queueItemShadowElevation"
+    )
+
     val songArtShape = rememberExpressiveShapeFor(
         ExpressiveShapeTarget.SONG_ART,
         fallbackShape = RoundedCornerShape(8.dp)
     )
 
-    ExpressiveClickableSurface(
+    Surface(
         onClick = onSongClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = animatedShape,
         color = cardColor,
-        tonalElevation = if (isDragging) 0.dp else 1.dp,
-        shadowElevation = 0.dp,
-        shape = itemShape,
-        modifier = Modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = dragCardScale
-                scaleY = dragCardScale
-                translationY = dragCardOffsetY
-            }
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        tonalElevation = if (dragActive) 0.dp else 1.dp,
+        shadowElevation = animatedShadow
     ) {
         Row(
             modifier = Modifier
@@ -825,26 +895,38 @@ private fun QueueItem(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Number indicator with updated style
             Surface(
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
+                color = when {
+                    isPlayed -> MaterialTheme.colorScheme.tertiaryContainer
+                    dragActive -> MaterialTheme.colorScheme.onPrimary
+                    else -> MaterialTheme.colorScheme.primaryContainer
+                },
                 modifier = Modifier.size(32.dp)
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    Text(
-                        text = "${index + 1}",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isDragging) {
-                            MaterialTheme.colorScheme.onSecondaryContainer
-                        } else {
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        }
-                    )
+                    if (isPlayed) {
+                        Icon(
+                            imageVector = RhythmIcons.Check,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    } else {
+                        Text(
+                            text = "$displayNumber",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (dragActive) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            }
+                        )
+                    }
                 }
             }
             
@@ -854,7 +936,12 @@ private fun QueueItem(
             Surface(
                 modifier = Modifier.size(48.dp),
                 shape = songArtShape,
-                tonalElevation = 2.dp
+                tonalElevation = 2.dp,
+                border = if (dragActive) {
+                    BorderStroke(2.dp, MaterialTheme.colorScheme.onPrimary)
+                } else {
+                    null
+                }
             ) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
@@ -895,32 +982,16 @@ private fun QueueItem(
                 )
             }
             
-            // Drag handle with improved visual feedback (only show if enabled)
             if (showDragHandle) {
-                val handleScale by animateFloatAsState(
-                    targetValue = if (isDragging) 1.3f else 1f,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessMedium
-                    ),
-                    label = "handleScale"
-                )
-                
                 Icon(
                     imageVector = RhythmIcons.DragHandle,
                     contentDescription = stringResource(R.string.content_desc_drag_reorder),
-                    tint = if (isDragging)
-                        MaterialTheme.colorScheme.onSecondaryContainer
-                    else if (isPlayed)
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
-                    else 
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier
-                        .size(20.dp)
-                        .graphicsLayer {
-                            scaleX = handleScale
-                            scaleY = handleScale
-                        }
+                    tint = when {
+                        dragActive -> MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
+                        isPlayed -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    },
+                    modifier = Modifier.size(20.dp)
                 )
                         
                 Spacer(modifier = Modifier.width(8.dp))
@@ -940,6 +1011,7 @@ private fun QueueItem(
             ExpressiveFilledTonalIconButton(
                 onClick = {
                     isPressed = true
+                    HapticUtils.performHapticFeedback(context, haptic, HapticType.MEDIUM)
                     onRemove()
                 },
                 colors = IconButtonDefaults.iconButtonColors(
@@ -960,6 +1032,177 @@ private fun QueueItem(
                 )
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DismissibleQueueItem(
+    song: Song,
+    queuePosition: Int,
+    displayNumber: Int,
+    isPlayed: Boolean,
+    isDragging: Boolean,
+    showDragHandle: Boolean,
+    itemShape: RoundedCornerShape,
+    corners: QueueItemCorners,
+    endPadding: Dp,
+    isRemoving: Boolean,
+    onSongClickAtIndex: (Int) -> Unit,
+    onRequestRemove: () -> Unit,
+    modifier: Modifier = Modifier,
+    enableSwipeToRemove: Boolean = true
+) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+
+    val rowDismissAlpha by animateFloatAsState(
+        targetValue = if (isRemoving) 0f else 1f,
+        animationSpec = tween(280),
+        label = "queueRowDismissAlpha"
+    )
+
+    Box(
+        modifier = modifier
+            .padding(
+                start = 16.dp,
+                end = endPadding
+            )
+            .graphicsLayer {
+                alpha = rowDismissAlpha
+            }
+    ) {
+        val dismissState = rememberSwipeToDismissBoxState()
+
+        SwipeToDismissBox(
+            state = dismissState,
+            enableDismissFromStartToEnd = enableSwipeToRemove,
+            enableDismissFromEndToStart = enableSwipeToRemove,
+            onDismiss = {
+                HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
+                onRequestRemove()
+            },
+            backgroundContent = {
+                if (enableSwipeToRemove && dismissState.dismissDirection != SwipeToDismissBoxValue.Settled) {
+                    val alignment = if (dismissState.dismissDirection == SwipeToDismissBoxValue.StartToEnd) {
+                        Alignment.CenterStart
+                    } else {
+                        Alignment.CenterEnd
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(itemShape)
+                            .background(MaterialTheme.colorScheme.errorContainer)
+                            .padding(horizontal = 20.dp),
+                        contentAlignment = alignment
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Delete,
+                            contentDescription = stringResource(R.string.content_desc_remove_from_queue),
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
+        ) {
+            AnimateIn {
+                QueueItem(
+                    song = song,
+                    displayNumber = displayNumber,
+                    corners = corners,
+                    isPlayed = isPlayed,
+                    isDragging = isDragging,
+                    onSongClick = {
+                        onSongClickAtIndex(queuePosition)
+                    },
+                    onRemove = onRequestRemove,
+                    showDragHandle = showDragHandle
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun QueueListRowContent(
+    row: QueueListRow,
+    isDragging: Boolean,
+    reorderSupported: Boolean,
+    endPadding: Dp,
+    isRemoving: (String) -> Boolean,
+    onSongClickAtIndex: (Int) -> Unit,
+    onRequestRemove: (QueueSongRow, String) -> Unit,
+    modifier: Modifier = Modifier,
+    enableSwipeToRemove: Boolean = true
+) {
+    when (row) {
+        is QueueListRow.Section -> {
+            Box(modifier = modifier) {
+                QueueSectionHeader(row.label)
+            }
+        }
+
+        is QueueListRow.Song -> {
+            val songRow = row.row
+            val itemKey = queueListRowKey(row)
+            DismissibleQueueItem(
+                song = songRow.song,
+                queuePosition = songRow.position,
+                displayNumber = songRow.displayNumber,
+                isPlayed = songRow.isPlayed,
+                isDragging = isDragging,
+                showDragHandle = reorderSupported && !songRow.isPlayed,
+                itemShape = songRow.corners.toShape(),
+                corners = songRow.corners,
+                endPadding = endPadding,
+                isRemoving = isRemoving(itemKey),
+                onSongClickAtIndex = onSongClickAtIndex,
+                onRequestRemove = { onRequestRemove(songRow, itemKey) },
+                enableSwipeToRemove = enableSwipeToRemove,
+                modifier = modifier
+            )
+        }
+    }
+}
+
+@Composable
+private fun QueueSectionHeader(label: QueueSectionLabel) {
+    val context = LocalContext.current
+    val text = when (label) {
+        QueueSectionLabel.PLAYED -> context.getString(R.string.queue_section_played)
+        QueueSectionLabel.UP_NEXT -> context.getString(R.string.bottomsheet_up_next)
+    }
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+        ) {
+            Text(
+                text = text.uppercase(),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 18.dp, bottom = 8.dp)
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(20.dp)
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surfaceContainer,
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
     }
 }
 
@@ -1009,8 +1252,8 @@ private fun QueueSettingsInfo(
 
 @Composable
 private fun AnimateIn(
-    delay: Int = 50,
     modifier: Modifier = Modifier,
+    delay: Int = 50,
     content: @Composable () -> Unit
 ) {
     var visible by remember { mutableStateOf(false) }
@@ -1057,176 +1300,54 @@ private fun AnimateIn(
 
 @Composable
 private fun EmptyQueueContent(
-    onAddSongsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    Box(
+    QueueEmptyState(
+        title = stringResource(R.string.queue_empty),
+        subtitle = stringResource(R.string.queue_add_songs),
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         modifier = modifier
-            .fillMaxWidth()
-            .height(280.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Animated empty state with better design
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.size(80.dp)
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = RhythmIcons.Queue,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        modifier = Modifier.size(40.dp)
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            Text(
-                text = context.getString(R.string.queue_empty),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Text(
-                text = context.getString(R.string.queue_add_songs),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 32.dp)
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // Better styled button
-            Surface(
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier
-                    .clickable { onAddSongsClick() }
-                    .padding(horizontal = 24.dp, vertical = 12.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Icon(
-                        imageVector = RhythmIcons.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = context.getString(R.string.browse_library),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-        }
-    }
+    )
 }
 
 @Composable
 private fun EmptyUpNextContent(
-    onAddSongsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
+    QueueEmptyState(
+        title = stringResource(R.string.queue_no_more),
+        subtitle = stringResource(R.string.queue_add_more),
+        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        modifier = modifier,
+        height = 260.dp
+    )
+}
+
+@Composable
+private fun QueueEmptyState(
+    title: String,
+    subtitle: String,
+    containerColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+    height: Dp = 300.dp
+) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(200.dp), // Increased height for better spacing
+            .height(height),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Enhanced empty state design
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                modifier = Modifier.size(72.dp) // Increased size
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = RhythmIcons.Queue,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(36.dp) // Increased size
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            // Enhanced text styling
-            Text(
-                text = context.getString(R.string.queue_no_more),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold
-                ),
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Text(
-                text = context.getString(R.string.queue_add_more),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 24.dp)
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // Enhanced button styling
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.tertiaryContainer,
-                modifier = Modifier.clickable { onAddSongsClick() }
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
-                ) {
-                    Icon(
-                        imageVector = RhythmIcons.Add,
-                        contentDescription = null,
-                        
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = context.getString(R.string.add_more_songs),
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontWeight = FontWeight.Medium
-                        ),
-                        color = MaterialTheme.colorScheme.onTertiaryContainer
-                    )
-                }
-            }
-        }
+        ExpressiveCookieEmptyState(
+            title = title,
+            subtitle = subtitle,
+            mainIcon = RhythmIcons.Queue,
+            accentIcon = RhythmIcons.MusicNote,
+            cornerIcon = RhythmIcons.MusicNote,
+            containerColor = containerColor,
+            contentColor = contentColor
+        )
     }
 }

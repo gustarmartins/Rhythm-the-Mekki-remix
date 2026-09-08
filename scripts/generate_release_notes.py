@@ -106,6 +106,26 @@ def clean_changelog_content(raw_notes):
                 
     return cleaned_items
 
+# Commit messages that carry no user-facing value and are excluded from changelogs
+JUNK_PATTERNS = [
+    r"^minor\b.*$",
+    r"^fix\s+warnings?\s*$",
+    r"^fix\s+lint\s*$",
+    r"^fix\s+warnings?\s*[/\s-]?lint\s*$",
+    r"^update\s+[a-z0-9_.-]+\.(ya?ml|json|md|properties|txt)\s*$",
+    r"^update\s+.*\.github.*$",
+    r"^bump\s+(version|dependenc\w+).*$",
+    r"^cleanup\s*$",
+    r"^refactor\s*$",
+    r"^chore\s*\(\s*(deps|ci|build|config)\s*\).*$",
+    r"^(build|ci|chore|style|docs)\s*:.*$",
+]
+
+
+def is_junk_commit(msg):
+    return any(re.search(p, msg, re.IGNORECASE) for p in JUNK_PATTERNS)
+
+
 def get_commits_between_tags(current_tag, previous_tag=None):
     try:
         if not previous_tag:
@@ -135,17 +155,25 @@ def get_commits_between_tags(current_tag, previous_tag=None):
             return []
             
         commits = []
+        seen = set()
         has_translation = False
         for line in log_output.splitlines():
             parts = line.split(" ", 1)
             if len(parts) > 1:
                 msg = parts[1].strip()
+                # Skip merge, release, and junk commits so the word-limited
+                # changelog keeps the meaningful changes, not the noise
                 if msg.startswith("Merge branch") or msg.startswith("Merge pull request") or msg.startswith("Release "):
                     continue
-                # Collapse all translation/l10n commits into one line
-                if re.search(r"l10n|translation|chore\(l10n\)|update.*translation|localiz", msg, re.IGNORECASE):
+                if is_junk_commit(msg):
+                    continue
+                # Collapse all translation/localization commits into one line
+                if re.search(r"l10n|translation|chore\(l10n\)|localiz|hardcoded.*strings", msg, re.IGNORECASE):
                     has_translation = True
                     continue
+                if msg in seen:
+                    continue
+                seen.add(msg)
                 commits.append(msg)
         if has_translation:
             commits.append("Updated translations")

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 pluginManagement {
     repositories {
         google {
@@ -25,4 +28,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Rhythm"
 include(":app")
-include(":macrobenchmark")
+include(":macrobenchmark")

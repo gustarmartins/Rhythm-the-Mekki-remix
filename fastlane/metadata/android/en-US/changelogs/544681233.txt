@@ -1,0 +1,10 @@
+Rhythm v5.4 - Stable Update
+
+• Overhauled onboarding tour with quick setup sheets
+• Smarter multi-artist splitting & custom delimiter presets
+• Multi-artist support in playback stats and top artists
+• Minimum song duration filter in scan settings
+• Clear, user-friendly Jellyfin connection error messages
+• Material 3 UI updates and navigation stability improvements
+
+Thanks for using Rhythm ;)

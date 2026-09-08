@@ -57,11 +57,13 @@ Rhythm is a modern, open-source music player built with **Material 3 Expressive*
 | 🎤 **Features & Tools** | 🔒 **Privacy & Data** |
 | :--- | :--- |
 | **Synced Lyrics:** LRCLib integration with word-by-word highlighting + full-screen view. | **100% FOSS:** Completely open-source with zero tracking. |
-| **Smart Library:** A–Z scroll bar, multi-select batch operations. | **Offline Capable:** Designed to work flawlessly without the internet. |
+| **Smart Library:** A–Z scroll bar, multi-select batch operations, Album Artists & Dates tabs. | **Offline Capable:** Designed to work flawlessly without the internet. |
 | **Rhythm Stats 2.0:** Comprehensive stats with Overview, Songs, Albums, Artists, History. | **Local First:** Your data and habits stay securely on your device. |
-| **Streaming Mode:** Dual-mode architecture for local and server playback (Subsonic, Navidrome, Jellyfin). | |
+| **Go Mode (Streaming):** Local + server playback (Subsonic, Navidrome, Jellyfin) with nearby-server discovery. | |
+| **Rhythm Go Downloads:** Download streaming tracks for offline playback. | |
 | **Rhythm Guard:** Integrated hearing safety and volume protection. | |
-| **Rhythm Go:** Download streaming tracks for offline playback. | |
+| **Mono Audio:** Downmix to mono for single-earpiece listening. | |
+| **Foldable Ready:** Posture-aware player layouts that adapt to tabletop, book, and separated-screen postures. | |
 | **Home Screen Widgets:** Multiple layouts including a dedicated Lyrics widget. | |
 
 > **System Requirements:** Android 8.0+ (API 26) • 2GB RAM • 50MB Storage
@@ -192,7 +194,7 @@ Built with modern tools and clean architecture:
 
 ## 🌍 Translations
 
-Rhythm is translated into **26+ languages** by the community via **Weblate**. You don't need to write code to contribute — just visit the link below and start translating!
+Rhythm is translated into **28+ languages** by the community via **Weblate**. You don't need to write code to contribute — just visit the link below and start translating!
 
 <div align="center">
 
@@ -203,7 +205,7 @@ Rhythm is translated into **26+ languages** by the community via **Weblate**. Yo
 | Language | Status |
 | :--- | :--- |
 | 🇬🇧 English | Source (always 100%) |
-| 🌐 26+ others | [View all on Weblate](https://hosted.weblate.org/projects/rhythm/#languages) |
+| 🌐 28+ others | [View all on Weblate](https://hosted.weblate.org/projects/rhythm/#languages) |
 
 **How to help translate:**
 1. Go to [hosted.weblate.org/engage/rhythm/](https://hosted.weblate.org/engage/rhythm/)
@@ -235,7 +237,6 @@ We welcome contributions! See our [CONTRIBUTING.md](https://github.com/cromaguy/
 * [linsui](https://github.com/linsui) & [Licaon_Kter](https://github.com/licaon-kter) - F-Droid repository management
 * [theovilardo](https://github.com/theovilardo) - Guide & PixelPlayer's Lead Dev
 * [Nick](https://github.com/nift4) - Guide & Gramophone's Maintainer
-* [Christian](https://github.com/mardous) - Guide & Booming Music's Lead Dev
 * [Alex](https://github.com/Paxsenix0) - Lyrically API's Lead Dev
 * [vivi](https://github.com/vivizzz007) - Guide & Lead Developer of Vivi Music
 * The **Google Material Design Team**, **AOSP**, **JetBrains**, and the fantastic **Open Source Community**.

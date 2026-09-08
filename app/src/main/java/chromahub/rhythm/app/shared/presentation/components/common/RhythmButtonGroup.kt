@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.common
 
 import androidx.compose.animation.animateColorAsState
@@ -312,6 +317,9 @@ fun RowScope.RhythmButtonWeighted(
     isLast: Boolean = true,
     squareInnerCorners: Boolean = false,
     height: Dp? = null,
+    iconSize: Dp? = null,
+    contentDescription: String? = null,
+    expandSlotWhenSelected: Boolean = true,
     content: (@Composable () -> Unit)? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -323,7 +331,7 @@ fun RowScope.RhythmButtonWeighted(
     val animWeight by animateFloatAsState(
         targetValue = when {
             visualActive -> weight * 1.25f
-            selected -> weight * 1.1f
+            selected && expandSlotWhenSelected -> weight * 1.1f
             else -> weight
         },
         animationSpec = spring(
@@ -397,9 +405,9 @@ fun RowScope.RhythmButtonWeighted(
                     if (icon != null) {
                         Icon(
                             imageVector = icon,
-                            contentDescription = null,
+                            contentDescription = contentDescription,
                             modifier = Modifier.size(
-                                when (size) {
+                                iconSize ?: when (size) {
                                     RhythmButtonSize.Small -> 14.dp
                                     RhythmButtonSize.Medium -> 16.dp
                                     RhythmButtonSize.Large -> 18.dp
@@ -450,7 +458,9 @@ fun RowScope.RhythmDetailActionButton(
     isLoading: Boolean = false,
     textStyle: TextStyle = MaterialTheme.typography.titleMedium,
     gradientEdgeColor: Color? = null,
-    respectMarqueeGlobalSetting: Boolean = true
+    respectMarqueeGlobalSetting: Boolean = true,
+    // Optional composable slot for custom/animated text content. When set, it replaces the `text` rendering.
+    textContent: (@Composable () -> Unit)? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -531,32 +541,35 @@ fun RowScope.RhythmDetailActionButton(
                 size = iconSize,
                 color = resolvedContent
             )
-            if (text != null) Spacer(modifier = Modifier.width(8.dp))
+            if (text != null || textContent != null) Spacer(modifier = Modifier.width(8.dp))
         } else if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
                 modifier = Modifier.size(iconSize)
             )
-            if (text != null) Spacer(modifier = Modifier.width(8.dp))
+            if (text != null || textContent != null) Spacer(modifier = Modifier.width(8.dp))
         }
-        if (text != null) {
-            if (gradientEdgeColor != null) {
-                AutoScrollingTextOnDemand(
-                    text = text,
-                    style = textStyle.copy(fontWeight = fontWeight),
-                    gradientEdgeColor = gradientEdgeColor,
-                    textAlign = TextAlign.Start,
-                    respectGlobalSetting = respectMarqueeGlobalSetting
-                )
-            } else {
-                Text(
-                    text = text,
-                    style = textStyle,
-                    fontWeight = fontWeight,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+        when {
+            textContent != null -> textContent()
+            text != null -> {
+                if (gradientEdgeColor != null) {
+                    AutoScrollingTextOnDemand(
+                        text = text,
+                        style = textStyle.copy(fontWeight = fontWeight),
+                        gradientEdgeColor = gradientEdgeColor,
+                        textAlign = TextAlign.Start,
+                        respectGlobalSetting = respectMarqueeGlobalSetting
+                    )
+                } else {
+                    Text(
+                        text = text,
+                        style = textStyle,
+                        fontWeight = fontWeight,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }

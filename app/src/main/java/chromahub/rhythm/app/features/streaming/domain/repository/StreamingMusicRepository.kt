@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.features.streaming.domain.repository
 
 import chromahub.rhythm.app.core.domain.model.SourceType
@@ -57,9 +62,17 @@ interface StreamingMusicRepository : MusicRepository {
     suspend fun syncPlaylists(): List<StreamingPlaylist>
 
     /**
+     * Sync artists directly from the active streaming provider.
+     */
+    suspend fun syncArtists(): List<StreamingArtist>
+
+    /**
      * Sync the provider library catalog so songs, albums, and artists are derived from real track data.
      */
-    suspend fun syncCatalog(limit: Int = 5_000): List<StreamingSong>
+    suspend fun syncCatalog(
+        limit: Int = 5_000,
+        onProgress: ((current: Int, total: Int, songsCount: Int) -> Unit)? = null
+    ): List<StreamingSong>
     
     /**
      * Get browse categories/genres.
@@ -201,6 +214,11 @@ interface StreamingMusicRepository : MusicRepository {
      * Download a song for offline playback.
      */
     suspend fun downloadSong(songId: String): Boolean
+
+    /**
+     * Download a song with metadata for offline playback.
+     */
+    suspend fun downloadSong(song: StreamingSong): Boolean = downloadSong(song.id)
     
     /**
      * Remove a downloaded song.

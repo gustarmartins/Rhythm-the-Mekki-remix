@@ -5,33 +5,20 @@
     <string name="home">வீடு</string>
     <string name="library">நூலகம்</string>
     <string name="search">தேடல்</string>
-    <string name="settings">அமைப்புகள்</string>
     <!-- Media3 notification configuration -->
     <string name="media3_notification_channel_name">Rhythm இசை</string>
     <string name="media3_notification_channel_description">மீடியா பிளேபேக் கட்டுப்பாடுகள்</string>
     <!-- Widget strings -->
-    <string name="widget_description">Rhythm மியூசிக் விட்ஜெட் - 2x1 முதல் 5x5 கிரிட் அளவுகளை ஆதரிக்கும் ரெஸ்பான்சிவ் லேஅவுட்களுடன் பிளேபேக்கைக் கட்டுப்படுத்தவும்</string>
     <string name="widget_description_glance">Rhythm மியூசிக் - 9 ரெஸ்பான்சிவ் லேஅவுட்கள், Material 3 டிசைன் மற்றும் நிகழ்நேர நிலை புதுப்பிப்புகளுடன் பிளேபேக்கைக் கட்டுப்படுத்தவும்</string>
     <string name="widget_name_glance">Rhythm இசை</string>
-    <string name="no_song_playing">பாடல் இல்லை</string>
     <string name="unknown_artist">அறியப்படாத கலைஞர்</string>
-    <string name="unknown_album">தெரியாத ஆல்பம்</string>
-    <string name="album_art">ஆல்பம் கலை</string>
     <string name="play_pause">விளையாடு/இடைநிறுத்தம்</string>
-    <string name="skip_next">அடுத்து தவிர்</string>
-    <string name="skip_previous">முந்தையதைத் தவிர்</string>
     <!-- Widget Settings -->
     <string name="settings_widget">விட்ஜெட்</string>
     <string name="settings_widget_desc">முகப்புத் திரை விட்ஜெட்டுகள்</string>
-    <string name="widget_show_album_art">ஆல்பம் கலையைக் காட்டு</string>
-    <string name="widget_show_album_art_desc">ஆல்பம் கலைப்படைப்புகளை விட்ஜெட்டில் காட்டவும்</string>
-    <string name="widget_show_artist">கலைஞர் பெயரைக் காட்டு</string>
     <string name="widget_show_artist_desc">கலைஞர் தகவலைக் காண்பி</string>
-    <string name="widget_show_album">ஆல்பத்தின் பெயரைக் காட்டு</string>
     <string name="widget_show_album_desc">ஆல்பம் தகவலைக் காட்டு</string>
     <string name="widget_appearance">தோற்றம்</string>
-    <string name="widget_corner_radius">மூலை ஆரம்</string>
-    <string name="widget_auto_update">தானியங்கு புதுப்பிப்பு</string>
     <string name="widget_tip_controls">பயன்பாட்டைத் திறக்க விட்ஜெட்டைத் தட்டவும், பொத்தான்கள் பிளேபேக்கைக் கட்டுப்படுத்துகின்றன</string>
     <!-- Content Descriptions -->
     <string name="cd_navigate">வழிசெலுத்தவும்</string>
@@ -108,7 +95,10 @@
     <string name="settings_export_all_playlists">அனைத்து பிளேலிஸ்ட்களையும் ஏற்றுமதி செய்யவும்</string>
     <string name="settings_export_all_playlists_desc">அனைத்து பிளேலிஸ்ட்களையும் கோப்புக்கு காப்புப்பிரதி எடுக்கவும்</string>
     <string name="settings_cleanup_empty_playlists">காலியான பிளேலிஸ்ட்களை சுத்தம் செய்யவும்</string>
-    <string name="settings_cleanup_empty_playlists_desc">%1$d வெற்று பிளேலிஸ்ட்டை%2$s அகற்று</string>
+    <plurals name="settings_cleanup_empty_playlists_desc">
+        <item quantity="one">%1$d வெற்று பிளேலிஸ்ட்டை அகற்று</item>
+        <item quantity="other">%1$d வெற்று பிளேலிஸ்ட்டை அகற்று</item>
+    </plurals>
     <string name="settings_default_playlists">இயல்புநிலை பிளேலிஸ்ட்கள்</string>
     <string name="settings_no_default_playlists">இயல்புநிலை பிளேலிஸ்ட்கள் இல்லை</string>
     <string name="settings_no_default_playlists_desc">இயல்புநிலை பிளேலிஸ்ட்கள் தானாகவே உருவாக்கப்படும்</string>
@@ -130,20 +120,29 @@
     <string name="notification_media_scan_stage_songs">ஆடியோ டிராக்குகளுக்கான சாதன சேமிப்பிடத்தை ஸ்கேன் செய்கிறது…</string>
     <string name="notification_media_scan_stage_saving">ஆடியோ டிராக் தரவுத்தளத்தை மேம்படுத்துதல் மற்றும் சேமித்தல்…</string>
     <string name="notification_media_scan_stage_finishing">ஆடியோ அட்டவணையை நிறைவு செய்கிறது…</string>
-    <string name="notification_media_scan_complete_pending_setup">ஆடியோ ஸ்கேனிங் முடிந்தது, பின்னணி பணிகளை துவக்குகிறது...</string>
+    <string name="notification_media_scan_complete_pending_setup">ஆடியோ ஸ்கேனிங் முடிந்தது, பின்னணி பணிகளை துவக்குகிறது…</string>
     <string name="notification_media_scan_cancelled">நூலக ஸ்கேன் ரத்து செய்யப்பட்டது.</string>
     <string name="notification_media_scan_failed">நூலக ஸ்கேன் தோல்வியடைந்தது. சேமிப்பக அனுமதிகளைச் சரிபார்த்து மீண்டும் முயலவும்.</string>
     <string name="notification_playlist_export_title">Rhythm நூலக ஏற்றுமதி</string>
     <string name="notification_playlist_import_title">Rhythm நூலக இறக்குமதி</string>
     <string name="notification_library_setup_title">Rhythm நூலக அமைப்பு</string>
-    <string name="notification_library_setup_complete_summary">நூலகம் மேம்படுத்தப்பட்டு தயாராக உள்ளது: %1$d டிராக்குகள், %2$d ஆல்பங்கள், %3$d கலைஞர்கள்</string>
+    <plurals name="notification_library_setup_complete_summary">
+        <item quantity="one">நூலகம் மேம்படுத்தப்பட்டு தயாராக உள்ளது: %1$d டிராக்குகள், %2$d ஆல்பங்கள், %3$d கலைஞர்கள்</item>
+        <item quantity="other">நூலகம் மேம்படுத்தப்பட்டு தயாராக உள்ளது: %1$d டிராக்குகள், %2$d ஆல்பங்கள், %3$d கலைஞர்கள்</item>
+    </plurals>
     <string name="notification_playlist_not_found">ஏற்றுமதி நிறுத்தப்பட்டது: இலக்கு பிளேலிஸ்ட் கிடைக்கவில்லை.</string>
     <string name="notification_no_playlists_to_export">ஏற்றுமதி நிறுத்தப்பட்டது: காப்புப் பிரதி எடுக்க பிளேலிஸ்ட்கள் எதுவும் இல்லை.</string>
     <string name="notification_operation_timed_out">அறுவை சிகிச்சை நேரம் முடிந்தது. மீண்டும் முயற்சிக்கவும்.</string>
     <string name="notification_playlist_export_complete">பிளேலிஸ்ட் சேமிப்பகத்திற்கு வெற்றிகரமாக ஏற்றுமதி செய்யப்பட்டது.</string>
-    <string name="notification_playlist_export_all_complete">சேமிப்பகத்திற்கு %1$d பிளேலிஸ்ட்கள் வெற்றிகரமாக ஏற்றுமதி செய்யப்பட்டன.</string>
+    <plurals name="notification_playlist_export_all_complete">
+        <item quantity="one">சேமிப்பகத்திற்கு %1$d பிளேலிஸ்ட்கள் வெற்றிகரமாக ஏற்றுமதி செய்யப்பட்டன.</item>
+        <item quantity="other">சேமிப்பகத்திற்கு %1$d பிளேலிஸ்ட்கள் வெற்றிகரமாக ஏற்றுமதி செய்யப்பட்டன.</item>
+    </plurals>
     <string name="notification_playlist_export_failed">பிளேலிஸ்ட் ஏற்றுமதி தோல்வியடைந்தது. மீண்டும் முயற்சிக்கவும்.</string>
-    <string name="notification_playlist_import_complete">%2$d பாடல்களுடன் \"%1$s\" வெற்றிகரமாக இறக்குமதி செய்யப்பட்டது.</string>
+    <plurals name="notification_playlist_import_complete">
+        <item quantity="one">%2$d பாடல்களுடன் \"%1$s\" வெற்றிகரமாக இறக்குமதி செய்யப்பட்டது.</item>
+        <item quantity="other">%2$d பாடல்களுடன் \"%1$s\" வெற்றிகரமாக இறக்குமதி செய்யப்பட்டது.</item>
+    </plurals>
     <string name="notification_playlist_import_failed">பிளேலிஸ்ட் இறக்குமதி தோல்வியடைந்தது. கோப்பு வடிவத்தை சரிபார்க்கவும்.</string>
     <string name="notification_updater_channel_name">Rhythm மேம்படுத்துபவர்</string>
     <string name="notification_updater_channel_desc">ஆப்ஸ் புதுப்பிப்புகளுக்கான பதிவிறக்க நிலை</string>
@@ -168,8 +167,14 @@
     <!-- Streaming Library Sync -->
     <string name="notification_streaming_sync_title">உங்கள் நூலகத்தை ஒத்திசைத்தல்</string>
     <string name="notification_streaming_sync_started">%1$s உடன் ஒத்திசைக்கிறது…</string>
-    <string name="notification_streaming_sync_progress">ஒத்திசைவு: %1$d பாடல்கள் • %2$d ஆல்பங்கள் • %3$d கலைஞர்கள்</string>
-    <string name="notification_streaming_sync_complete">✓ %2$s இலிருந்து %1$d பாடல்கள் ஒத்திசைக்கப்பட்டது!</string>
+    <plurals name="notification_streaming_sync_progress">
+        <item quantity="one">ஒத்திசைவு: %1$d பாடல்கள் • %2$d ஆல்பங்கள் • %3$d கலைஞர்கள்</item>
+        <item quantity="other">ஒத்திசைவு: %1$d பாடல்கள் • %2$d ஆல்பங்கள் • %3$d கலைஞர்கள்</item>
+    </plurals>
+    <plurals name="notification_streaming_sync_complete">
+        <item quantity="one">✓ %2$s இலிருந்து %1$d பாடல்கள் ஒத்திசைக்கப்பட்டது!</item>
+        <item quantity="other">✓ %2$s இலிருந்து %1$d பாடல்கள் ஒத்திசைக்கப்பட்டது!</item>
+    </plurals>
     <string name="notification_streaming_sync_failed">ஒத்திசைவு தோல்வியடைந்தது. உங்கள் இணைப்பைச் சரிபார்த்து மீண்டும் முயலவும்.</string>
     <!-- Streaming Liked Songs -->
     <string name="notification_streaming_liked_title">விரும்பப்பட்ட பாடல்கள் புதுப்பிக்கப்பட்டன</string>
@@ -188,7 +193,10 @@
     <!-- Streaming Offline -->
     <string name="notification_streaming_offline_title">ஆஃப்லைன் பயன்முறை</string>
     <string name="notification_streaming_offline_sync">ஆஃப்லைன் தற்காலிக சேமிப்பை %1$s உடன் ஒத்திசைக்கிறது…</string>
-    <string name="notification_streaming_offline_sync_complete">✓ %1$d பாடல்களுடன் ஆஃப்லைன் கேச் தயார்</string>
+    <plurals name="notification_streaming_offline_sync_complete">
+        <item quantity="one">✓ %1$d பாடல்களுடன் ஆஃப்லைன் கேச் தயார்</item>
+        <item quantity="other">✓ %1$d பாடல்களுடன் ஆஃப்லைன் கேச் தயார்</item>
+    </plurals>
     <string name="notification_streaming_offline_cache_cleared">தற்காலிக சேமிப்பு அழிக்கப்பட்டது. %1$s இடம் சேமிக்கப்பட்டது.</string>
     <!-- Streaming Errors -->
     <string name="notification_streaming_error_title">ஸ்ட்ரீமிங் பிரச்சினை</string>
@@ -197,7 +205,10 @@
     <string name="notification_streaming_error_account_issue">%1$s உடன் கணக்குச் சிக்கல். தயவுசெய்து மீண்டும் இணைக்கவும்.</string>
     <!-- Dialogs -->
     <string name="dialog_cleanup_empty_playlists_title">காலியான பிளேலிஸ்ட்களை சுத்தம் செய்யவா?</string>
-    <string name="dialog_cleanup_empty_playlists_message">இது %1$d வெற்று பிளேலிஸ்ட்டை%2$s நிரந்தரமாக நீக்கும். இந்தச் செயலைச் செயல்தவிர்க்க முடியாது.</string>
+    <plurals name="dialog_cleanup_empty_playlists_message">
+        <item quantity="one">இது %1$d வெற்று பிளேலிஸ்ட்டை நிரந்தரமாக நீக்கும். இந்தச் செயலைச் செயல்தவிர்க்க முடியாது.</item>
+        <item quantity="other">இது %1$d வெற்று பிளேலிஸ்ட்டை நிரந்தரமாக நீக்கும். இந்தச் செயலைச் செயல்தவிர்க்க முடியாது.</item>
+    </plurals>
     <string name="dialog_delete_playlist_title">பிளேலிஸ்ட்டை நீக்கவா?</string>
     <string name="dialog_delete_playlist_message">\"%1$s\" ஐ நிச்சயமாக நீக்க விரும்புகிறீர்களா? இந்தச் செயலைச் செயல்தவிர்க்க முடியாது.</string>
     <string name="dialog_delete">நீக்கு</string>
@@ -217,7 +228,10 @@
     <string name="playlist_reorder_songs_title">பாடல்களை மறுவரிசைப்படுத்துங்கள்</string>
     <string name="playlist_remove_song">பாடலை அகற்று</string>
     <string name="playlist_remove_song_confirm">இந்த பிளேலிஸ்ட்டில் இருந்து \'%1$s\' ஐ அகற்றவா?</string>
-    <string name="playlist_remove_songs_count">%1$d பாடல்களை அகற்று</string>
+    <plurals name="playlist_remove_songs_count">
+        <item quantity="one">%1$d பாடல்களை அகற்று</item>
+        <item quantity="other">%1$d பாடல்களை அகற்று</item>
+    </plurals>
     <string name="playlist_removed_from_playlist">பிளேலிஸ்ட்டில் இருந்து %1$s அகற்றப்பட்டது</string>
     <!-- Restart Dialog -->
     <string name="restart_now">இப்போது மீண்டும் தொடங்கவும்</string>
@@ -292,7 +306,6 @@
     <!-- HomeScreen -->
     <string name="home_title">Rhythm</string>
     <string name="home_settings_cd">அமைப்புகள்</string>
-    <string name="home_explore_music">அற்புதமான இசையை ஆராயுங்கள்</string>
     <string name="home_no_featured_albums">சிறப்பு ஆல்பங்கள் இல்லை</string>
     <string name="home_no_featured_albums_desc">பிரத்யேக உள்ளடக்கத்தைப் பார்க்க உங்கள் நூலகத்தில் சில ஆல்பங்களைச் சேர்க்கவும்</string>
     <string name="home_artists">கலைஞர்கள்</string>
@@ -350,7 +363,10 @@
     <string name="home_no_recent_activity_desc">நீங்கள் சமீபத்தில் இசைத்த பாடல்களைப் பார்க்க இங்கே கேட்கத் தொடங்குங்கள்</string>
     <!-- UI Actions -->
     <string name="ui_view_all">அனைத்தையும் காண்க</string>
-    <string name="ui_songs_count">%1$d பாடல்கள்</string>
+    <plurals name="ui_songs_count">
+        <item quantity="one">%1$d பாடல்கள்</item>
+        <item quantity="other">%1$d பாடல்கள்</item>
+    </plurals>
     <!-- Updates -->
     <string name="update_available_title">புதுப்பிப்பு கிடைக்கிறது</string>
     <string name="update_version">பதிப்பு %1$s</string>
@@ -384,12 +400,21 @@
     <string name="library_tap_browse">கோப்புகளை உலாவ தட்டவும்</string>
     <string name="library_play_all">அனைத்தையும் விளையாடு</string>
     <string name="library_check_permissions">கோப்புகள் தோன்றவில்லை என்றால் சேமிப்பக அனுமதிகளைச் சரிபார்க்கவும்</string>
-    <string name="library_creating_playlist">பிளேலிஸ்ட்டை உருவாக்கி %1$d பாடல்களைச் சேர்த்தல்…</string>
+    <plurals name="library_creating_playlist">
+        <item quantity="one">பிளேலிஸ்ட்டை உருவாக்கி %1$d பாடல்களைச் சேர்த்தல்…</item>
+        <item quantity="other">பிளேலிஸ்ட்டை உருவாக்கி %1$d பாடல்களைச் சேர்த்தல்…</item>
+    </plurals>
     <string name="library_playlist_name_empty">பிளேலிஸ்ட் பெயர் காலியாக இருக்கக்கூடாது</string>
     <string name="library_no_playlists">இன்னும் பிளேலிஸ்ட்கள் இல்லை</string>
     <string name="library_no_albums">இதுவரை ஆல்பங்கள் இல்லை</string>
-    <string name="library_playlists_count">%1$d பிளேலிஸ்ட்கள்</string>
-    <string name="library_albums_count">%1$d ஆல்பங்கள்</string>
+    <plurals name="library_playlists_count">
+        <item quantity="one">%1$d பிளேலிஸ்ட்கள்</item>
+        <item quantity="other">%1$d பிளேலிஸ்ட்கள்</item>
+    </plurals>
+    <plurals name="library_albums_count">
+        <item quantity="one">%1$d ஆல்பங்கள்</item>
+        <item quantity="other">%1$d ஆல்பங்கள்</item>
+    </plurals>
     <!-- Sort Options -->
     <string name="sort_name">பெயர்</string>
     <string name="sort_date_created">உருவாக்கப்பட்ட தேதி</string>
@@ -405,8 +430,6 @@
     <string name="player_queue">வரிசை</string>
     <string name="player_speed_label">வேகம்</string>
     <string name="player_pitch_label">சுருதி</string>
-    <string name="playback_speed">பின்னணி வேகம்</string>
-    <string name="sync_with_pitch">பிட்சுடன் ஒத்திசைவு</string>
     <string name="sync_with_speed">வேகத்துடன் ஒத்திசைவு</string>
     <!-- SearchScreen -->
     <string name="search_view_all_songs">அனைத்து பாடல்களையும் காண்க</string>
@@ -450,7 +473,6 @@
     <string name="updates_smart_polling_desc">GitHub API அழைப்புகளைக் குறைக்கும் போது புதுப்பிப்புகளைக் கண்டறிய திறமையான HTTP சோதனைகளைப் பயன்படுத்துதல். புதிய பதிப்புகள் வெளியிடப்படும் போது உடனடி அறிவிப்புகளைப் பெறுவீர்கள்.</string>
     <string name="updates_channel_desc">எந்த புதுப்பிப்பு சேனலைப் பின்பற்ற வேண்டும் என்பதைத் தேர்வுசெய்யவும்:</string>
     <!-- Onboarding -->
-    <string name="onboarding_welcome">வரவேற்கிறோம்</string>
     <string name="onboarding_welcome_to">வரவேற்கிறோம்</string>
     <string name="onboarding_welcome_subtitle">உங்கள் இசை, உங்கள் Rhythm</string>
     <string name="onboarding_get_started">தொடங்குங்கள்</string>
@@ -488,7 +510,6 @@
     <string name="onboarding_library_4">இயல்புநிலை பிளேலிஸ்ட்கள் (சமீபத்தில் சேர்க்கப்பட்டவை, அதிகம் விளையாடியவை) அமைப்புகள் &gt; பிளேலிஸ்ட்களில் மாற்றலாம்</string>
     <string name="onboarding_theme_title">Rhythm ஐ உங்களுடையதாக ஆக்குங்கள்</string>
     <string name="onboarding_theme_desc">உங்கள் பாணியைப் பொருத்த Rhythm இன் தோற்றத்தைத் தனிப்பயனாக்குங்கள். உங்கள் சிஸ்டம் தீம், எழுத்துரு அல்லது Material யூ டைனமிக் நிறங்களை (Android 12+) தேர்வு செய்யவும்.</string>
-    <string name="onboarding_live_preview">நேரடி முன்னோட்டம்</string>
     <string name="onboarding_more_tuner">அமைப்புகளில் மேலும் தனிப்பயனாக்கம்</string>
     <string name="onboarding_tuner_1">தனிப்பயன் வண்ணத் திட்டங்கள் மற்றும் ஆல்பம் கலை வண்ணப் பிரித்தெடுத்தல்</string>
     <string name="onboarding_tuner_2">எழுத்துரு தனிப்பயனாக்கம் மற்றும் அச்சுக்கலை அமைப்புகள்</string>
@@ -565,8 +586,6 @@
     <!-- Onboarding Library Setup -->
     
     <!-- Onboarding Theming -->
-    <string name="onboarding_dynamic_colors_title">டைனமிக் நிறங்கள் (Material நீங்கள்)</string>
-    <string name="onboarding_dynamic_colors_desc">ஒத்திசைவான தோற்றத்திற்காக உங்கள் சாதனத்தின் வால்பேப்பரிலிருந்து பிரித்தெடுக்கப்பட்ட வண்ணங்களைப் பயன்படுத்துங்கள்.</string>
     <string name="onboarding_player_theme_title">பின்னணி மற்றும் மினி பிளேயர் தீம்கள்</string>
     <string name="onboarding_player_theme_desc">உங்கள் பின்னணி இடைமுகங்களைத் தனிப்பயனாக்குங்கள். சுத்தமான, நவீன Rhythm வடிவமைப்பு அல்லது துடிப்பான, திரவ வெளிப்படுத்தும் வடிவமைப்பிற்கு இடையில் மாறவும்.</string>
     <!-- Onboarding Updater -->
@@ -633,28 +652,18 @@
     <!-- Onboarding: Widgets Step -->
     <string name="onboarding_widgets_title">துவக்கி விட்ஜெட்டுகள்</string>
     <string name="onboarding_widgets_desc">விரைவான இசைக் கட்டுப்பாட்டிற்காக உங்கள் துவக்கியில் Rhythm விட்ஜெட்களைச் சேர்க்கவும். என்ன தகவல் காட்டப்படும் மற்றும் விட்ஜெட் எப்படி இருக்கும் என்பதைத் தனிப்பயனாக்கவும்.</string>
-    <string name="onboarding_widget_album_art">ஆல்பம் கலையைக் காட்டு</string>
-    <string name="onboarding_widget_album_art_desc">விட்ஜெட்டில் ஆல்பம் கலைப்படைப்பைக் காண்பி</string>
     <string name="onboarding_widget_artist">கலைஞர் பெயரைக் காட்டு</string>
     <string name="onboarding_widget_artist_desc">விட்ஜெட்டில் தற்போதைய கலைஞரைக் காண்பி</string>
     <string name="onboarding_widget_album">ஆல்பத்தின் பெயரைக் காட்டு</string>
     <string name="onboarding_widget_album_desc">ஆல்பத்தின் தலைப்பை விட்ஜெட்டில் காட்டவும்</string>
     <string name="onboarding_widgets_tips_title">விட்ஜெட் குறிப்புகள்</string>
-    <string name="onboarding_widget_tip_1">பயன்பாட்டைத் திறக்க விட்ஜெட்டைத் தட்டவும்</string>
-    <string name="onboarding_widget_tip_2">வெவ்வேறு தளவமைப்புகளுக்கான விட்ஜெட்களின் அளவை மாற்றவும் (2x1 முதல் 5x5 வரை)</string>
-    <string name="onboarding_widget_tip_3">பிளேபேக்கின் போது விட்ஜெட்டுகள் நிகழ்நேரத்தில் புதுப்பிக்கப்படும்</string>
     <!-- Onboarding: Integrations Step -->
     <string name="onboarding_integrations_title">உங்கள் சேவைகளை இணைக்கவும்</string>
     <string name="onboarding_integrations_desc">வெளிப்புற சேவைகளுடன் இணைப்பதன் மூலம் உங்கள் கேட்கும் அனுபவத்தை மேம்படுத்தவும். ஆல்பம் கலை, பாடல் வரிகள், உங்கள் நாடகங்களை ஸ்க்ரோபிள் செய்து, நீங்கள் கேட்பதைப் பகிரவும்.</string>
     <string name="onboarding_integrations_apis">API சேவைகள்</string>
     <string name="onboarding_integration_deezer">Deezer</string>
-    <string name="onboarding_integration_deezer_desc">உயர்தர ஆல்பம் கலைப்படைப்பு மற்றும் மெட்டாடேட்டாவைப் பெறவும்</string>
     <string name="onboarding_integration_lrclib">LrcLib</string>
-    <string name="onboarding_integration_lrclib_desc">உங்கள் பாடல்களுக்கான ஒத்திசைக்கப்பட்ட வரிகளைப் பதிவிறக்கவும்</string>
     <string name="onboarding_integration_ytmusic">YouTube Music</string>
-    <string name="onboarding_integration_ytmusic_desc">YouTube Music இலிருந்து மெட்டாடேட்டா மற்றும் பரிந்துரைகளை அணுகவும்</string>
-    <string name="onboarding_integration_broadcast">ஒளிபரப்பு நிலை</string>
-    <string name="onboarding_integration_broadcast_desc">பிற பயன்பாடுகளுடன் பின்னணி நிலையைப் பகிரவும்</string>
     <string name="onboarding_integrations_info_title">தனியுரிமை குறிப்பு</string>
     <string name="onboarding_integrations_info_desc">இந்த அம்சங்கள் வெளிப்புற சேவைகளுக்கு வரையறுக்கப்பட்ட தரவை (பாடல் தலைப்புகள், கலைஞர்கள்) அனுப்புகின்றன. உங்கள் தனிப்பட்ட தரவு மற்றும் இசை கோப்புகள் உங்கள் சாதனத்தில் இருக்கும். அமைப்புகளில் எந்த நேரத்திலும் இவற்றை இயக்கலாம் அல்லது முடக்கலாம்.</string>
     <!-- Onboarding: Rhythm Stats Step -->
@@ -662,15 +671,11 @@
     <string name="onboarding_stats_desc">உங்கள் இசைப் பழக்கங்களைப் பற்றிய நுண்ணறிவுகளைக் கண்டறியவும். நீங்கள் கேட்கும் நேரம், அதிகம் இசைக்கப்பட்ட பாடல்கள், பிடித்த கலைஞர்கள் மற்றும் பலவற்றை அழகான காட்சிப்படுத்தல்களுடன் கண்காணிக்கவும்.</string>
     <string name="onboarding_stats_show_home">முகப்பு பற்றிய புள்ளிவிவரங்களைக் காட்டு</string>
     <string name="onboarding_stats_show_home_desc">உங்கள் முகப்புத் திரையில் கேட்கும் புள்ளிவிவர விட்ஜெட்டைக் காண்பிக்கவும்</string>
-    <string name="onboarding_stats_rating">பாடல் மதிப்பீடுகளை இயக்கவும்</string>
-    <string name="onboarding_stats_rating_desc">பிடித்தவற்றைக் கண்காணிக்க மற்றும் ஸ்மார்ட் பிளேலிஸ்ட்களை உருவாக்க உங்கள் பாடல்களை மதிப்பிடுங்கள்</string>
     <string name="onboarding_stats_features_title">புள்ளிவிவர அம்சங்கள்</string>
     <string name="onboarding_stats_feature_1">நாள், வாரம் அல்லது மாதத்தின் அடிப்படையில் கேட்கும் நேரத்தைக் கண்காணிக்கவும்</string>
     <string name="onboarding_stats_feature_2">நீங்கள் அதிகம் விளையாடிய பாடல்களைப் பார்க்கவும்</string>
     <string name="onboarding_stats_feature_3">உங்கள் சிறந்த கலைஞர்களைக் கண்டறியவும்</string>
     <string name="onboarding_stats_feature_4">ஆல்பம் கேட்கும் முறைகளை ஆராயுங்கள்</string>
-    <string name="onboarding_stats_info_title">இது எப்படி வேலை செய்கிறது</string>
-    <string name="onboarding_stats_info_desc">உங்கள் பின்னணி வரலாற்றின் அடிப்படையில் புள்ளிவிவரங்கள் உங்கள் சாதனத்தில் உள்ளூரில் கணக்கிடப்படுகின்றன. வெளிப்புற சேவையகங்களுக்கு தரவு எதுவும் அனுப்பப்படவில்லை. முகப்புத் திரை அல்லது அமைப்புகளில் எந்த நேரத்திலும் விரிவான புள்ளிவிவரங்களை அணுகலாம்.</string>
     <!-- MiniPlayer Swipe Hints -->
     <string name="miniplayer_swipe_up_hint">↑ முழு வீரர்</string>
     <string name="miniplayer_swipe_down_hint">↓ நிராகரி</string>
@@ -704,7 +709,7 @@
     <string name="cache_about">Cache பற்றி</string>
     <string name="cache_size_limit">தற்காலிக சேமிப்பு அளவு வரம்பு</string>
     <string name="cache_auto_trim">90% ஆட்டோ டிரிம்</string>
-    <string name="cache_auto_trim_desc">பயன்பாடு வரம்பின் 90% ஐ அடையும் போது தற்காலிக சேமிப்பு தானாகவே டிரிம் செய்யப்படுகிறது</string>
+    <string name="cache_auto_trim_desc">பயன்பாடு வரம்பின் 90%% ஐ அடையும் போது தற்காலிக சேமிப்பு தானாகவே டிரிம் செய்யப்படுகிறது</string>
     <!-- Lyrics -->
     <string name="lyrics_source_priority">பாடல் வரிகள் மூல முன்னுரிமை</string>
     <string name="lyrics_choose_source">பாடல் வரிகளை எங்கு தேடுவது என்பதை தேர்வு செய்யவும்</string>
@@ -726,16 +731,11 @@
     <string name="theme_color_source_desc">நிறங்கள் எவ்வாறு பிரித்தெடுக்கப்படுகின்றன என்பதைத் தேர்ந்தெடுக்கவும்</string>
     <string name="theme_font_source">எழுத்துரு மூலம்</string>
     <string name="theme_font_source_desc">எழுத்துருக்களை எங்கிருந்து ஏற்றுவது என்பதைத் தேர்ந்தெடுக்கவும்</string>
-    <string name="theme_color_schemes">வண்ணத் திட்டங்கள்</string>
-    <string name="theme_color_schemes_desc">முன்னமைக்கப்பட்ட வண்ணத் திட்டங்களிலிருந்து தேர்வு செய்யவும்</string>
-    <string name="theme_custom_picker">விருப்ப வண்ணத் தேர்வி</string>
-    <string name="theme_custom_picker_desc">உங்கள் சொந்த வண்ணத் திட்டத்தை உருவாக்கவும்</string>
     <string name="theme_font_selection">எழுத்துரு தேர்வு</string>
     <string name="theme_font_selection_desc">கிடைக்கக்கூடிய கணினி எழுத்துருக்களிலிருந்து தேர்வு செய்யவும்</string>
     <!-- Playlist Detail -->
     <string name="playlist_no_songs_yet">இன்னும் பாடல்கள் இல்லை</string>
     <!-- Components: Backup & Restore -->
-    <string name="backup_restore">காப்புப்பிரதியை மீட்டமை</string>
     <!-- Components: Blacklist Management -->
     
     <!-- Components: Queue -->
@@ -763,8 +763,7 @@
     <string name="playback_lyrics_priority_desc">பாடல் வரிகளின் ஆதாரங்கள், நடத்தைகள், தளவமைப்பு, அளவு மற்றும் ஸ்டைலிங் ஆகியவற்றை உள்ளமைக்கவும்</string>
     <string name="playback_settings">பின்னணி அமைப்புகள்</string>
     <!-- Components: Lyrics Editor -->
-    <string name="lyrics_sync_note">ஒத்திசைவு சரிசெய்தல் நேரம்-ஒத்திசைக்கப்பட்ட பாடல் வரிகளுடன் (LRC வடிவம்) மட்டுமே வேலை செய்கிறது. ஒத்திசைக்கப்பட்ட பாடல் வரிகள் இருந்தால், மீட்டமைப்பைப் பயன்படுத்தவும்.</string>
-    <string name="lyrics_placeholder">பாடல் வரிகளை இங்கே உள்ளிடவும்...\n\nநீங்கள் LRC வடிவமைப்பைப் பயன்படுத்தலாம்:\n[00:12.00] வரி ஒன்று\n[00:17.00] வரி இரண்டு</string>
+    <string name="lyrics_placeholder">பாடல் வரிகளை இங்கே உள்ளிடவும்…\n\nநீங்கள் LRC வடிவமைப்பைப் பயன்படுத்தலாம்:\n[00:12.00] வரி ஒன்று\n[00:17.00] வரி இரண்டு</string>
     <string name="lyrics_editor_title">பாடல் ஆசிரியர்</string>
     <!-- Components: Song Info -->
     <string name="song_info_title">பாடல் தகவல்</string>
@@ -775,16 +774,6 @@
     <string name="playlist_create_new">புதிய பிளேலிஸ்ட்டை உருவாக்கவும்</string>
     <string name="playlist_create_first">பாடல்களைச் சேர்க்க உங்கள் முதல் பிளேலிஸ்ட்டை உருவாக்கவும்</string>
     <!-- Components: Cache Management (Bottom Sheet) -->
-    <string name="cache_management">தற்காலிக சேமிப்பு</string>
-    <!-- Components: Beta Program -->
-    
-    <!-- Components: Equalizer -->
-    
-    <!-- Theme Customization Notes -->
-    <string name="theme_color_schemes_unavailable">தனிப்பயன் வண்ண மூலத்தைப் பயன்படுத்தும் போது மட்டுமே வண்ணத் திட்டங்கள் கிடைக்கும்.</string>
-    <string name="theme_color_schemes_switch">முன் வரையறுக்கப்பட்ட திட்டங்களை அணுக, வண்ண மூல அமைப்பில் விருப்பத்திற்கு மாறவும்.</string>
-    <string name="theme_custom_colors_unavailable">தனிப்பயன் வண்ண மூலத்தைப் பயன்படுத்தும் போது மட்டுமே தனிப்பயன் வண்ணங்கள் கிடைக்கும்.</string>
-    <string name="theme_custom_colors_switch">உங்கள் சொந்த வண்ணங்களை உருவாக்க, வண்ண மூல அமைப்பில் தனிப்பயனாக்கத்திற்கு மாறவும்.</string>
     <string name="theme_system_fonts_unavailable">சிஸ்டம் எழுத்துரு மூலத்தைப் பயன்படுத்தும் போது மட்டுமே கணினி எழுத்துருக்கள் கிடைக்கும்.</string>
     <string name="theme_system_fonts_switch">கிடைக்கக்கூடிய எழுத்துருக்களில் இருந்து தேர்வு செய்ய எழுத்துரு மூல அமைப்பில் கணினிக்கு மாறவும்.</string>
     <!-- PlaceholderScreens Additional -->
@@ -795,12 +784,6 @@
     <string name="library_reorder_tabs">உங்கள் நூலக அனுபவத்தைத் தனிப்பயனாக்க தாவல்களை மறுவரிசைப்படுத்தவும்</string>
     <string name="external_services_desc">உங்கள் இசை அனுபவத்தை மேம்படுத்த எந்த வெளிப்புற API சேவைகள் செயலில் உள்ளன என்பதைக் கட்டுப்படுத்தவும். தரவு பயன்பாடு மற்றும் செயல்பாட்டை நிர்வகிக்க, சேவைகளை இயக்க/முடக்கு.</string>
     <string name="lyrics_source_priority_title">பாடல் வரிகள் மூல முன்னுரிமை</string>
-    <string name="playlist_action_title">பிளேலிஸ்ட் டேப் ஆக்ஷன்</string>
-    <string name="playlist_action_desc">பிளேலிஸ்ட் தட்டுகளுக்கான இயல்புநிலை நடத்தை</string>
-    <string name="playlist_action_load_title">முழு பிளேலிஸ்ட்டையும் ஏற்றவும்</string>
-    <string name="playlist_action_load_desc">பிளேலிஸ்ட்டை ஏற்றி, தேர்ந்தெடுக்கப்பட்ட டிராக்கிலிருந்து தொடங்கவும்</string>
-    <string name="playlist_action_single_title">இந்தப் பாடலை மட்டும் இசைக்கவும்</string>
-    <string name="playlist_action_single_desc">தேர்ந்தெடுத்த டிராக்கை மட்டும் இயக்கவும்</string>
     <string name="queue_action_title">வரிசை மோதல் நடவடிக்கை</string>
     <string name="queue_action_choose">இயல்புநிலை வரிசை மோதல் செயலைத் தேர்ந்தெடுக்கவும்</string>
     <string name="queue_action_ask_title">ஒவ்வொரு முறையும் கேளுங்கள்</string>
@@ -811,9 +794,6 @@
     <string name="now_playing">இப்போது விளையாடுகிறேன்</string>
     <string name="install_update_now">இப்போது புதுப்பிப்பை நிறுவவும்</string>
     <string name="audio_settings">ஆடியோ அமைப்புகள்</string>
-    <string name="active_device">செயலில் உள்ள சாதனம்</string>
-    <string name="browse_library">நூலகத்தை உலாவுக</string>
-    <string name="add_more_songs">மேலும் பாடல்களைச் சேர்க்கவும்</string>
     <string name="edit_metadata">தடத்தை திருத்து</string>
     <!-- Updates Messages -->
     <string name="updates_disabled_message">ஆப்ஸ் புதுப்பிப்புகள் அமைப்புகளில் முடக்கப்பட்டுள்ளன</string>
@@ -823,13 +803,7 @@
     <string name="updates_experimental_coming">மேலும் சோதனை அம்சங்கள் எதிர்கால புதுப்பிப்புகளில் விரைவில் வரும்</string>
     <string name="settings_interval_every_48_hours">ஒவ்வொரு 48 மணிநேரமும்</string>
     <string name="settings_interval_every_72_hours">ஒவ்வொரு 72 மணிநேரமும்</string>
-    <!-- Cache -->
-    
-    <!-- Theme -->
-    <string name="theme_featured_schemes">சிறப்புத் திட்டங்கள்</string>
-    <string name="theme_more_schemes">மேலும் திட்டங்கள்</string>
     <string name="theme_quick_presets">விரைவு முன்னமைவுகள்</string>
-    <string name="theme_advanced_rgb">மேம்பட்ட RGB கட்டுப்பாடுகள்</string>
     <!-- Services -->
     <string name="external_services">வெளி சேவைகள்</string>
     <string name="api_services">ஒருங்கிணைந்த APIகள்</string>
@@ -846,7 +820,6 @@
     <string name="equalizer">சமநிலைப்படுத்தி</string>
     <string name="frequency_bands">அதிர்வெண் பட்டைகள்</string>
     <string name="audio_effects">ஆடியோ விளைவுகள்</string>
-    <string name="audio_normalization">ஆடியோ இயல்பாக்கம்</string>
     <string name="replay_gain">ரீப்ளே ஆதாயம்</string>
     <string name="replay_gain_desc">தொகுதிக்கு உட்பொதிக்கப்பட்ட ரீப்ளே ஆதாய குறிச்சொற்களைப் பயன்படுத்தவும்</string>
     <string name="bass_boost">பாஸ் பூஸ்ட்</string>
@@ -864,7 +837,6 @@
     <string name="sleep_timer_custom">தனிப்பயன் டைமர்</string>
     <string name="sleep_timer_action">டைமர் அதிரடி</string>
     <string name="sleep_timer_action_desc">டைமர் முடிந்ததும் என்ன நடக்கும்</string>
-    <string name="sleep_timer_select_duration">டைமர் கால அளவைத் தேர்ந்தெடுக்கவும்</string>
     <!-- Crash Reports -->
     <string name="crash_reports">விபத்து அறிக்கைகள்</string>
     <!-- Lyrics -->
@@ -954,7 +926,6 @@
     <string name="settings_experimental_features">பரிசோதனை அம்சங்கள்</string>
     <string name="settings_experimental_features_desc">அதிநவீன அம்சங்கள்</string>
     <string name="settings_select_option">Rhythm அமைப்புகள்</string>
-    <string name="settings_select_option_desc">கட்டமைக்க பட்டியலிலிருந்து ஒரு அமைப்பைத் தேர்ந்தெடுக்கவும்</string>
     <!-- Playlist Actions -->
     <string name="playlist_no_songs_available">பாடல்கள் எதுவும் கிடைக்கவில்லை</string>
     <string name="playlist_all_in_playlist">அனைத்து பாடல்களும் ஏற்கனவே இந்த பிளேலிஸ்ட்டில் உள்ளன.</string>
@@ -968,7 +939,7 @@
     <string name="metadata_genre">வகை</string>
     <string name="metadata_year">ஆண்டு</string>
     <string name="metadata_track">தடம்</string>
-    <string name="metadata_saving">சேமிக்கிறது...</string>
+    <string name="metadata_saving">சேமிக்கிறது…</string>
     <!-- Updates Actions -->
     <string name="updates_check_now_action">இப்போது சரிபார்க்கவும்</string>
     <string name="updates_check_again">மீண்டும் சரிபார்க்கவும்</string>
@@ -1055,24 +1026,17 @@
     <string name="lyrics_embed_success">பாடல் வரிகள் வெற்றிகரமாக கோப்பில் உட்பொதிக்கப்பட்டது</string>
     <string name="lyrics_embed_failed">கோப்பில் பாடல் வரிகளை உட்பொதிக்க முடியவில்லை</string>
     <!-- Bottom Sheet: Sleep Timer -->
-    <string name="bottomsheet_timer_remaining">மீதமுள்ளது</string>
     <string name="bottomsheet_timer_custom_desc">ஒரு குறிப்பிட்ட கால அளவை அமைக்கவும்</string>
     <string name="bottomsheet_timer_custom_title">தனிப்பயன் நேரத்தை அமைக்கவும்</string>
     <string name="bottomsheet_timer_set">டைமரை அமைக்கவும்</string>
     <string name="bottomsheet_timer_edit">திருத்து</string>
-    <string name="bottomsheet_timer_hours_minutes">தூக்க நேரத்திற்கான மணிநேரங்களையும் நிமிடங்களையும் அமைக்கவும்</string>
     <!-- Bottom Sheet: Playback -->
     <string name="bottomsheet_playback">பின்னணி</string>
     <string name="bottomsheet_no_device">சாதனம் இணைக்கப்படவில்லை</string>
-    <string name="bottomsheet_max">அதிகபட்சம்</string>
     <!-- Bottom Sheet: Album -->
-    <string name="bottomsheet_play_all">அனைத்தையும் விளையாடு</string>
-    <string name="bottomsheet_tracks">தடங்கள்</string>
     <string name="bottomsheet_sort_by">வரிசைப்படுத்தவும்</string>
     <string name="bottomsheet_all_discs">அனைத்து வட்டுகளும்</string>
     <string name="bottomsheet_disc_option">வட்டு %1$d</string>
-    <string name="bottomsheet_disc_filter">வட்டு மூலம் வடிகட்டவும்</string>
-    <string name="bottomsheet_no_songs_album">இந்த ஆல்பத்தில் பாடல்கள் இல்லை</string>
     <!-- Bottom Sheet: Home Section Order -->
     <string name="bottomsheet_home_section_order">முகப்புப் பிரிவு ஆணை</string>
     <string name="bottomsheet_reorder_toggle_visibility">தெரிவுநிலையை மறுவரிசைப்படுத்துதல் மற்றும் மாற்றுதல்</string>
@@ -1164,7 +1128,10 @@
     <string name="settings_rhythm_guard_mode_auto">ஆட்டோ</string>
     <string name="settings_rhythm_guard_mode_manual">கையேடு</string>
     <string name="settings_rhythm_guard_age_label">வயது விவரக்குறிப்பு: %1$d</string>
-    <string name="settings_rhythm_guard_age_desc">பரிந்துரைக்கப்பட்ட பாதுகாப்பான ஒலி அளவு %1$d%% வரை மற்றும் ஒரு நாளைக்கு சுமார் %2$d நிமிடங்கள்.</string>
+    <plurals name="settings_rhythm_guard_age_desc">
+        <item quantity="one">பரிந்துரைக்கப்பட்ட பாதுகாப்பான ஒலி அளவு %1$d%% வரை மற்றும் ஒரு நாளைக்கு சுமார் %2$d நிமிடங்கள்.</item>
+        <item quantity="other">பரிந்துரைக்கப்பட்ட பாதுகாப்பான ஒலி அளவு %1$d%% வரை மற்றும் ஒரு நாளைக்கு சுமார் %2$d நிமிடங்கள்.</item>
+    </plurals>
     <string name="settings_rhythm_guard_auto_policy_table_title">பாதுகாப்பான கேட்கும் வழிகாட்டி (வயது -&gt; தொகுதி / நாள்)</string>
     <string name="settings_rhythm_guard_auto_policy_band">வயது %1$d-%2$d</string>
     <string name="settings_rhythm_guard_auto_policy_value">%1$d%% / %2$d நிமிடம்</string>
@@ -1217,14 +1184,12 @@
     <string name="settings_rhythm_guard_start_countdown_value">%1$s இல் தொடங்குகிறது</string>
     <string name="settings_rhythm_guard_snapshot_widget_above_limit">பரிந்துரைக்கப்பட்ட வரம்புக்கு மேல்</string>
     <string name="settings_rhythm_guard_snapshot_widget_within_limit">பரிந்துரைக்கப்பட்ட வரம்புக்குள்</string>
-    <string name="settings_rhythm_guard_snapshot_widget_load_label">தற்போதைய சுமை காட்டி</string>
     <string name="settings_rhythm_guard_state_active">Rhythm காவலர் செயலில் உள்ளார்</string>
     <string name="settings_rhythm_guard_state_inactive">Rhythm காவலர் செயலற்றவர்</string>
     <string name="settings_rhythm_guard_state_timeout_active">கேட்கும் நேரம் முடிந்தது</string>
     <string name="settings_rhythm_guard_state_cooldown_active">சலுகை காலம் செயலில் உள்ளது</string>
     <string name="settings_rhythm_guard_state_timeout_remaining">இடைவேளை %1$s இல் முடிகிறது</string>
     <string name="settings_rhythm_guard_state_cooldown_remaining">சலுகை காலம் %1$s இல் முடிவடைகிறது</string>
-    <string name="settings_rhythm_guard_state_safety_score">பாதுகாப்பு மதிப்பெண்: %1$d%%</string>
     <string name="settings_rhythm_guard_protection_presets_title">பாதுகாப்பு முன்னமைவுகள்</string>
     <string name="settings_rhythm_guard_protection_presets_desc">உங்கள் கேட்கும் பாணிக்கு, சோதனை செய்யப்பட்ட காவலர் பந்தல்களை விரைவாகப் பயன்படுத்துங்கள்.</string>
     <string name="settings_rhythm_guard_protection_preset_gentle">மென்மையானவர்</string>
@@ -1269,9 +1234,6 @@
     <!-- Cache Management Complete -->
     
     <!-- Queue Playback Settings -->
-    <string name="queue_auto_add">வரிசையில் தானாக சேர்</string>
-    <string name="queue_clear_on_new">புதிய பாடலில் வரிசையை மாற்றவும்</string>
-    <string name="queue_playback_speed_desc">பின்னணி வேகத்தை சரிசெய்யவும்</string>
     <!-- Gestures Settings -->
     
     <!-- Playlist Settings Toggle -->
@@ -1290,8 +1252,6 @@
     <string name="cd_rhythm_logo">Rhythm லோகோ</string>
     <string name="cd_telegram_support">டெலிகிராம் ஆதரவு</string>
     <!-- Queue &amp; Playlist Dialogs -->
-    <string name="queue_action_dialog">வரிசை அதிரடி உரையாடல்</string>
-    <string name="playlist_action_dialog">பிளேலிஸ்ட் அதிரடி உரையாடல்</string>
     <!-- Artist Settings -->
     <string name="artists_title">கலைஞர்கள்</string>
     <string name="artist_multi_parsing">பல கலைஞர்கள் பாகுபடுத்துதல்</string>
@@ -1299,9 +1259,6 @@
     <string name="artist_enable_separation_desc">பல கலைஞர் குறிச்சொற்களைப் பிரிக்கவும் (எ.கா., \"கலைஞர்1/கலைஞர்2\")</string>
     <string name="artist_configure_delimiters">டிலிமிட்டர்களை உள்ளமைக்கவும்</string>
     <string name="artist_current_delimiters">நடப்பு: %1$s</string>
-    <string name="artist_library_organization">நூலக அமைப்பு</string>
-    <string name="artist_group_by_album_artist">ஆல்பம் கலைஞரின் குழு</string>
-    <string name="artist_group_by_album_artist_desc">முக்கிய கலைஞரின் கீழ் ஒத்துழைப்பு ஆல்பங்களைக் காட்டு</string>
     <!-- About Screen -->
     
     <!-- Equalizer -->
@@ -1310,9 +1267,6 @@
     <string name="content_desc_remove">அகற்று</string>
     <string name="content_desc_refresh_devices">சாதனங்களைப் புதுப்பிக்கவும்</string>
     <string name="content_desc_switch_device">சாதனத்தை மாற்றவும்</string>
-    <string name="content_desc_volume">தொகுதி</string>
-    <string name="content_desc_decrease_volume">அளவைக் குறைத்தல்</string>
-    <string name="content_desc_increase_volume">அளவை அதிகரிக்கவும்</string>
     <string name="content_desc_shuffle_play">ஷஃபிள் பிளே</string>
     <string name="content_desc_sort_songs">பாடல்களை வரிசைப்படுத்துங்கள்</string>
     <string name="content_desc_more_options">மேலும் விருப்பங்கள்</string>
@@ -1332,8 +1286,6 @@
     <!-- Context Menu Actions -->
     <string name="action_play_next">அடுத்து விளையாடு</string>
     <string name="action_add_to_queue">வரிசையில் சேர்</string>
-    <string name="action_remove_from_favorites">பிடித்தவற்றிலிருந்து அகற்று</string>
-    <string name="action_add_to_favorites">பிடித்தவைகளில் சேர்க்கவும்</string>
     <string name="action_song_info">பாடல் தகவல்</string>
     <string name="action_add_to_blacklist">தடுப்புப்பட்டியலில் சேர்க்கவும்</string>
     <string name="action_play_all">அனைத்தையும் விளையாடு</string>
@@ -1369,7 +1321,6 @@
     <string name="player_chip_favorite">பிடித்தது</string>
     <string name="player_chip_speed">பின்னணி வேகம்</string>
     <string name="player_chip_equalizer">சமநிலைப்படுத்தி</string>
-    <string name="player_chip_lyrics">பாடல் வரிகள்</string>
     <string name="player_chip_album">ஆல்பம்</string>
     <string name="player_chip_artist">கலைஞர்</string>
     <string name="player_chip_one_visible">குறைந்தபட்சம் ஒரு சிப் தெரியும்</string>
@@ -1385,7 +1336,6 @@
     <string name="autoeq_eq_settings_label">EQ அமைப்புகள்</string>
     <string name="autoeq_failed_read_file">கோப்பைப் படிக்க முடியவில்லை</string>
     <!-- Backup/Restore -->
-    <string name="backup_invalid_format">தவறான காப்பு வடிவம் அல்லது சிதைந்த தரவு</string>
     <string name="backup_unable_to_read">காப்பு கோப்பை படிக்க முடியவில்லை</string>
     <!-- Licenses -->
     <string name="license_autoeq_name">ஆட்டோஇக்யூ</string>
@@ -1408,7 +1358,6 @@
     <!-- Cache & Storage -->
     
     <!-- Version Info -->
-    <string name="download_progress">%1$d%%</string>
     <!-- GitHub & Links -->
     
     <!-- Contributors -->
@@ -1420,9 +1369,7 @@
     <string name="settings_full_player">முழு வீரர்</string>
     <string name="settings_header_customization">தலைப்பு தனிப்பயனாக்கம்</string>
     <string name="settings_header_display">தலைப்பு காட்சி</string>
-    <string name="settings_hue">சாயல்</string>
     <string name="settings_layout_options">தளவமைப்பு விருப்பங்கள்</string>
-    <string name="settings_lightness">லேசான தன்மை</string>
     <string name="settings_miniplayer">மினி பிளேயர்</string>
     <string name="settings_no_crash_logs">விபத்து பதிவுகள் எதுவும் காணப்படவில்லை. நல்ல வேலை!</string>
     <string name="settings_player_controls">வீரர் கட்டுப்பாடுகள்</string>
@@ -1431,7 +1378,6 @@
     <string name="settings_progress_display">முன்னேற்றக் காட்சி</string>
     <string name="settings_progress_hidden">முன்னேற்றம் மறைக்கப்பட்டுள்ளது</string>
     <string name="settings_reorder_toggle_sections">பிரிவுகளை மறுவரிசைப்படுத்துதல் &amp; நிலைமாற்று</string>
-    <string name="settings_saturation">செறிவு</string>
     <string name="settings_section_order_visibility">பிரிவு ஒழுங்கு &amp; பார்வை</string>
     <string name="settings_start_collapsed">சரிந்த தலைப்புடன் அனைத்து திரைகளையும் தொடங்கவும்</string>
     <string name="settings_statistics_update">கேட்கும் பழக்கத்தின் அடிப்படையில் புள்ளிவிவரங்கள் புதுப்பிக்கப்படுகின்றன</string>
@@ -1497,10 +1443,6 @@
     <string name="settings_queue_action_dialog_desc_ask">சிங்கிள்-டிராக் விளையாட்டிற்கான வரிசையை மாற்றும் அல்லது நீட்டிக்கும் முன் கேளுங்கள்.</string>
     <string name="settings_queue_action_dialog_desc_always">எப்பொழுதும் ஒற்றை-தட நாடகத்தை வரிசையில் சேர்க்கவும்.</string>
     <string name="settings_queue_action_dialog_desc_disabled">Play இல் Replace வரிசை இயக்கத்தில் இருக்கும்போது முடக்கப்பட்டது.</string>
-    <string name="settings_playlist_action_dialog">பிளேலிஸ்ட் ட்ராக் டேப் ஆக்ஷன்</string>
-    <string name="settings_playlist_action_play_all">முழு பிளேலிஸ்ட்டையும் வரிசையில் ஏற்றவும்</string>
-    <string name="settings_playlist_action_play_one">தேர்ந்தெடுத்த டிராக்கை மட்டும் இயக்கவும்</string>
-    <string name="settings_playlist_action_ask">ஒவ்வொரு முறையும் கேளுங்கள்</string>
     <string name="settings_list_queue_action_dialog">பட்டியல் ப்ளே க்யூ ஆக்ஷன்</string>
     <string name="settings_list_queue_action_replace">வரிசையை மாற்றி விளையாடு</string>
     <string name="settings_list_queue_action_ask">ஒவ்வொரு முறையும் கேளுங்கள்</string>
@@ -1521,7 +1463,10 @@
     <string name="list_queue_behavior_add_end_title">முடிவில் சேர்க்கவும்</string>
     <string name="list_queue_behavior_add_end_desc">வரிசையின் முடிவில் பட்டியலைச் சேர்த்து, நீங்கள் தேர்ந்தெடுத்த டிராக்கிலிருந்து தொடங்கவும்.</string>
     <string name="list_queue_action_dialog_title">வரிசை ஏற்கனவே செயலில் உள்ளது</string>
-    <string name="list_queue_action_dialog_body">தற்போதைய வரிசையில் %1$d தடங்கள் உள்ளன. உள்வரும் பட்டியலில் %2$d தடங்கள் உள்ளன.</string>
+    <plurals name="list_queue_action_dialog_body">
+        <item quantity="one">தற்போதைய வரிசையில் %1$d தடங்கள் உள்ளன. உள்வரும் பட்டியலில் %2$d தடங்கள் உள்ளன.</item>
+        <item quantity="other">தற்போதைய வரிசையில் %1$d தடங்கள் உள்ளன. உள்வரும் பட்டியலில் %2$d தடங்கள் உள்ளன.</item>
+    </plurals>
     <string name="list_queue_action_source">ஆதாரம்: %1$s</string>
     <string name="list_queue_action_replace_title">வரிசையை மாற்றவும்</string>
     <string name="list_queue_action_replace_desc">இப்போது செயலில் உள்ள வரிசையாக இந்தப் பட்டியலைத் தொடங்கவும்.</string>
@@ -1530,28 +1475,21 @@
     <string name="list_queue_action_add_end_title">முடிவில் சேர்க்கவும்</string>
     <string name="list_queue_action_add_end_desc">வரிசை முடிவில் இந்தப் பட்டியலைச் சேர்த்து, அதிலிருந்து பிளேபேக்கைத் தொடங்கவும்.</string>
     <!-- Audio Routing -->
-    <string name="settings_audio_routing">ஆடியோ ரூட்டிங்</string>
-    <string name="settings_dac_usb_audio">DAC / USB ஆடியோ</string>
-    <string name="settings_dac_usb_audio_desc">DAC இணைக்கப்பட்டிருக்கும் போது ஆடியோ எவ்வாறு வழியமைக்கப்படுகிறது. ஆப்ஸ் பயன்முறையானது ஆதரிக்கப்படும் சாதனங்களில் பிரத்தியேக USB பிட்-பெர்ஃபெக்ட் ரூட்டிங் கோருகிறது.</string>
-    <string name="settings_audio_routing_default">இயல்புநிலை</string>
-    <string name="settings_audio_routing_app">ஆப்</string>
-    <string name="settings_audio_routing_system">அமைப்பு</string>
-    <string name="settings_audio_routing_app_desc">Rhythm உயர் தெளிவுத்திறன் பயன்முறையில் நேரடியாக ஆடியோவைக் கையாளுகிறது மற்றும் ஆதரிக்கப்படும் சாதனங்களில் பிரத்தியேக USB பிட்-பெர்ஃபெக்ட் ரூட்டிங் கோருகிறது. மறுதொடக்கம் தேவை.</string>
-    <string name="settings_audio_routing_system_desc">Android சிஸ்டம் ஆடியோ ரூட்டிங் பயன்படுத்துகிறது. OS கலவை மூலம் ஆடியோவை 48 kHz க்கு மறு மாதிரியாக மாற்றலாம்.</string>
-    <string name="settings_audio_routing_default_desc">ஆடியோவை எவ்வாறு வழிநடத்துவது என்பதை Android தீர்மானிக்கிறது. மறு மாதிரி அமைப்பு அமைப்புகளைப் பொறுத்தது.</string>
     <!-- Library Storage -->
     <string name="settings_cache_backend">கேச் பின்தளம்</string>
     <string name="settings_storage_rebuild_room">அறை தரவுத்தளத்தை மீண்டும் உருவாக்குதல்</string>
     <string name="settings_storage_rebuild_room_desc">தற்போதைய நூலகத் தரவிலிருந்து அறை தரவுத்தளத்தை மீண்டும் ஒத்திசைக்கவும்</string>
     <string name="settings_storage_room_stats">அறை தரவுத்தள புள்ளிவிவரங்கள்</string>
-    <string name="settings_storage_song_count">%1$d பாடல்கள் சேமிக்கப்பட்டுள்ளன</string>
+    <plurals name="settings_storage_song_count">
+        <item quantity="one">%1$d பாடல்கள் சேமிக்கப்பட்டுள்ளன</item>
+        <item quantity="other">%1$d பாடல்கள் சேமிக்கப்பட்டுள்ளன</item>
+    </plurals>
     <string name="settings_storage_not_available">தற்போதைய பயன்முறையில் கிடைக்கவில்லை</string>
     <string name="settings_storage_rebuild_success">அறை தரவுத்தளம் வெற்றிகரமாக மீண்டும் கட்டப்பட்டது</string>
     <string name="settings_storage_rebuild_failed">அறை தரவுத்தளத்தை மீண்டும் உருவாக்க முடியவில்லை</string>
     <!-- Cache Management -->
     <string name="settings_cache">தற்காலிக சேமிப்பு</string>
     <string name="settings_cache_settings">தற்காலிக சேமிப்பு அமைப்புகள்</string>
-    <string name="settings_cache_clear_on_exit_desc">பயன்பாட்டிலிருந்து வெளியேறும் போது தானாகவே தற்காலிக சேமிப்பை அழிக்கவும்</string>
     <string name="settings_cache_actions">கேச் செயல்கள்</string>
     <string name="settings_clear_lyrics_cache">தெளிவான பாடல் வரிகள் கேச்</string>
     <string name="settings_clear_lyrics_cache_desc">தேக்ககப்படுத்தப்பட்ட பாடல் வரிகள் அனைத்தையும் அகற்றவும்</string>
@@ -1576,7 +1514,10 @@
     <string name="updates_retry">மீண்டும் முயற்சிக்கவும்</string>
     <string name="updates_enable_updates">புதுப்பிப்புகளை இயக்கு</string>
     <string name="settings_update_notifications">அறிவிப்புகளைப் புதுப்பிக்கவும்</string>
-    <string name="settings_check_interval_value">ஒவ்வொரு %1$d மணிநேரமும்</string>
+    <plurals name="settings_check_interval_value">
+        <item quantity="one">ஒவ்வொரு %1$d மணிநேரமும்</item>
+        <item quantity="other">ஒவ்வொரு %1$d மணிநேரமும்</item>
+    </plurals>
     <string name="settings_interval_every_hour">ஒவ்வொரு மணி நேரமும்</string>
     <string name="settings_interval_every_6_hours">ஒவ்வொரு 6 மணிநேரமும்</string>
     <string name="settings_interval_every_12_hours">ஒவ்வொரு 12 மணிநேரமும்</string>
@@ -1610,7 +1551,6 @@
     <string name="streaming_status_selected_service">தேர்ந்தெடுக்கப்பட்டது: %1$s</string>
     <string name="streaming_status_connected">கணக்கு இணைக்கப்பட்டுள்ளது</string>
     <string name="streaming_status_not_connected">அங்கீகாரம் நிலுவையில் உள்ளது</string>
-    <string name="streaming_status_loading">ஸ்ட்ரீமிங் ஊட்டத்தைப் புதுப்பிக்கிறது…</string>
     <string name="streaming_status_badge_connected">இணைக்கப்பட்டது</string>
     <string name="streaming_status_badge_pending">நிலுவையில் உள்ளது</string>
     <string name="streaming_status_badge_refreshing">புத்துணர்ச்சியூட்டும்</string>
@@ -1645,7 +1585,10 @@
     <string name="streaming_library_empty">இன்னும் நூலக உள்ளடக்கம் இல்லை</string>
     <string name="streaming_home_no_content_title">இதுவரை வீட்டு உள்ளடக்கம் இல்லை</string>
     <string name="streaming_home_no_content_hint">உங்கள் சேவை ஒத்திசைத்த பிறகு புதுப்பிக்க முயற்சிக்கவும்.</string>
-    <string name="streaming_home_widget_playlist_track_count">%1$d தடங்கள்</string>
+    <plurals name="streaming_home_widget_playlist_track_count">
+        <item quantity="one">%1$d தடங்கள்</item>
+        <item quantity="other">%1$d தடங்கள்</item>
+    </plurals>
     <string name="streaming_home_guard_break_active">பிரேக் ஆக்டிவ்: %1$s இடது</string>
     <string name="streaming_home_guard_exposure">இன்று: %1$d / %2$d நிமிடம்</string>
     <string name="streaming_not_selected">தேர்ந்தெடுக்கப்படவில்லை</string>
@@ -1686,7 +1629,6 @@
     <string name="settings_miniplayer_header">மினி பிளேயர்</string>
     <string name="settings_show_progress">முன்னேற்றத்தைக் காட்டு</string>
     <string name="settings_show_progress_desc">காட்சி முன்னேற்றம் காட்டி</string>
-    <string name="settings_progress_mode">முன்னேற்ற முறை</string>
     <string name="settings_show_artwork">கலைப்படைப்பைக் காட்டு</string>
     <string name="settings_show_artwork_desc">ஆல்பம் கலைப்படைப்பைக் காண்பி</string>
     <string name="settings_show_time">காட்சி நேரம்</string>
@@ -1702,7 +1644,6 @@
     <string name="settings_song_info_artwork_desc">ஆல்பம் கலையில் தலைப்பு மற்றும் கலைஞர் மேலடுக்கைக் காட்டு</string>
     <string name="settings_audio_quality_badges">ஆடியோ தர பேட்ஜ்கள்</string>
     <string name="settings_audio_quality_badges_desc">கோடெக் மற்றும் பிட்ரேட் தகவலைக் காண்பி</string>
-    <string name="settings_lyrics_customization">பாடல் வரிகள் தனிப்பயனாக்கம்</string>
     <string name="settings_show_lyrics_player">பாடல் வரிகளைக் காட்டு</string>
     <string name="settings_show_lyrics_player_desc">ஒத்திசைக்கப்பட்ட பாடல் வரிகளை பிளேயரில் காட்சிப்படுத்தவும்</string>
     <string name="settings_lyrics_transition">பாடல் வரிகள் மாற்றம்</string>
@@ -1729,8 +1670,6 @@
     <string name="settings_color_schemes">வண்ணத் திட்டங்கள்</string>
     <string name="settings_color_schemes_desc">முன் வரையறுக்கப்பட்ட வண்ணத் தட்டுகளை உலாவவும் தேர்ந்தெடுக்கவும்</string>
     <string name="settings_custom_only">தனிப்பயன் வண்ண மூலத்துடன் மட்டுமே கிடைக்கும்</string>
-    <string name="settings_custom_colors">விருப்ப வண்ணங்கள்</string>
-    <string name="settings_custom_colors_desc">உங்கள் சொந்த தனித்துவமான வண்ணத் தட்டுகளை உருவாக்கவும்</string>
     <string name="settings_font_customization">எழுத்துரு தனிப்பயனாக்கம்</string>
     <string name="settings_font_source">எழுத்துரு மூலம்</string>
     <string name="settings_font_source_system">கணினி எழுத்துரு - %1$s</string>
@@ -1788,8 +1727,6 @@
     <string name="settings_shapes_desc">வெளிப்படுத்தும் வடிவங்கள்</string>
     <string name="settings_skip_silence">நிசப்தம் தவிர்க்கவும்</string>
     <string name="settings_skip_silence_desc">தடங்களில் அமைதியான இடைவெளிகளைத் தானாகத் தவிர்க்கவும்.</string>
-    <string name="settings_song_ratings">பாடல் மதிப்பீடுகள்</string>
-    <string name="settings_song_ratings_desc">புள்ளிவிவரங்கள் மற்றும் வரிசைப்படுத்தலை மேம்படுத்த, நட்சத்திரங்களுடன் பாடல்களை மதிப்பிடவும்</string>
     <!-- Gestures Search Strings -->
     <string name="settings_gesture_miniplayer_swipe">மினிபிளேயர் ஸ்வைப் சைகைகள்</string>
     <string name="settings_gesture_miniplayer_swipe_desc">திற, நிராகரி, ஸ்வைப் செய்வதைத் தவிர்க்கவும்</string>
@@ -1819,7 +1756,6 @@
     <string name="settings_queue_hours_format_desc">நேர வடிவத்தில் மணிநேரம்</string>
     <string name="settings_queue_persistence">தொடர் வரிசை</string>
     <string name="settings_queue_persistence_desc">தொடக்கத்தில் வரிசையை மீட்டெடுக்கவும்</string>
-    <string name="settings_playlist_action_dialog_desc">ஒரு பிளேலிஸ்ட்டில் ஒரு தடத்தைத் தட்டும்போது நடத்தை</string>
     <string name="settings_list_queue_action_dialog_desc">பட்டியலுக்கான நடத்தை வரிசை செயலில் இருக்கும்போது செயல்களை இயக்கவும்</string>
     <!-- Experimental Features Search Strings -->
     <string name="settings_exp_festive_theme">பண்டிகை தீம்</string>
@@ -1929,8 +1865,6 @@
     <!-- MiniPlayer Customization Search Strings -->
     <string name="settings_miniplayer_show_progress">முன்னேற்றத்தைக் காட்டு</string>
     <string name="settings_miniplayer_show_progress_desc">மினி பிளேயரில் முன்னேற்றம் காட்டி காட்சி</string>
-    <string name="settings_miniplayer_circular_progress">சுற்றறிக்கை முன்னேற்றம்</string>
-    <string name="settings_miniplayer_circular_progress_desc">ப்ளே/பாஸ் பட்டனில் வட்ட முன்னேற்றத்தைப் பயன்படுத்தவும்</string>
     <string name="settings_miniplayer_progress_style">முன்னேற்ற நடை</string>
     <string name="settings_miniplayer_progress_style_desc">மினி பிளேயர் முன்னேற்றப் பட்டை பாணியைத் தேர்வு செய்யவும்</string>
     <string name="settings_miniplayer_show_artwork">கலைப்படைப்பைக் காட்டு</string>
@@ -1967,7 +1901,6 @@
     <string name="settings_backup_created">காப்புப்பிரதி வெற்றிகரமாக உருவாக்கப்பட்டது</string>
     <string name="settings_backup_settings">அமைப்புகள்</string>
     <string name="settings_center_aligned">மையம் சீரமைக்கப்பட்டது</string>
-    <string name="settings_choose_progress_style">முன்னேற்றம் காட்டி பாணியை தேர்வு செய்யவும்</string>
     <string name="settings_create_backup">கோப்பில் காப்புப்பிரதியை உருவாக்கவும்</string>
     <string name="settings_create_backup_desc">முழுமையான காப்புப்பிரதியை JSON கோப்பிற்கு ஏற்றுமதி செய்யவும்</string>
     <string name="settings_backup_action_short">காப்புப்பிரதி</string>
@@ -1985,13 +1918,11 @@
     <string name="settings_lyrics_source">பாடல் வரிகள்</string>
     <string name="settings_theme">தீம்</string>
     <string name="theme_auto_detect">விடுமுறை நாட்களைத் தானாகக் கண்டறிதல்</string>
-    <string name="theme_colors_applied">தனிப்பயன் வண்ணங்கள் பயன்படுத்தப்பட்டன!</string>
     <string name="theme_enable_festive">பண்டிகை தீம் இயக்கவும்</string>
     <string name="theme_festive_settings">பண்டிகை தீம் அமைப்புகள்</string>
     <string name="theme_font_import_failed">எழுத்துரு கோப்பை இறக்குமதி செய்ய முடியவில்லை</string>
     <string name="theme_font_imported">எழுத்துரு வெற்றிகரமாக இறக்குமதி செய்யப்பட்டது</string>
     <string name="theme_font_invalid">தவறான எழுத்துரு கோப்பு வடிவம்</string>
-    <string name="theme_import_font">தனிப்பயன் எழுத்துருவை இறக்குமதி செய்யவும்</string>
     <string name="ui_apply">விண்ணப்பிக்கவும்</string>
     <string name="crashactivity_uh_oh_looks_like">ஓ! Rhythm ஒரு புளிப்பு நோட்டைத் தாக்கியது போல் தெரிகிறது!</string>
     <string name="crashactivity_dont_fret_our_app">வருத்தப்பட வேண்டாம்! எங்கள் பயன்பாட்டில் கொஞ்சம் \'ஓப்ஸி\' இருந்தது. கீழே உள்ள செயலிழப்பு விவரங்களைப் பகிரவும் – இது எங்கள் டெவலப்பர்கள் விஷயங்களைச் சரிசெய்வதற்கான ரகசியச் செய்தியைப் போன்றது! பிறகு, அதை மீண்டும் முயற்சிப்போம், இல்லையா?</string>
@@ -2018,7 +1949,7 @@
     <string name="batchedittagssheet_tags">குறிச்சொற்கள்</string>
     <string name="batchedittagssheet_batch_artwork_preview">தொகுப்பு கலைப்படைப்பு முன்னோட்டம்</string>
     <string name="deviceconfigurationbottomsheet_supported_formats_fixedbandeq_text">Supported formats: • FixedBandEQ text (AutoEQ) • JSON format • CSV (10 band values)</string>
-    <string name="deviceconfigurationbottomsheet_paste_eq_data_here">EQ தரவை இங்கே ஒட்டவும்...</string>
+    <string name="deviceconfigurationbottomsheet_paste_eq_data_here">EQ தரவை இங்கே ஒட்டவும்…</string>
     <string name="deviceconfigurationbottomsheet_open_autoeqapp">autoeq.appஐத் திறக்கவும்</string>
     <string name="deviceconfigurationbottomsheet_export_eq_profile">EQ சுயவிவரத்தை ஏற்றுமதி செய்யவும்</string>
     <string name="deviceconfigurationbottomsheet_copied_to_clipboard">கிளிப்போர்டுக்கு நகலெடுக்கப்பட்டது</string>
@@ -2028,7 +1959,7 @@
     <string name="deviceconfigurationbottomsheet_brand_optional">பிராண்ட் (விரும்பினால்)</string>
     <string name="deviceconfigurationbottomsheet_eg_sony">எ.கா., சோனி</string>
     <string name="deviceconfigurationbottomsheet_select_autoeq_profile">AutoEQ சுயவிவரத்தைத் தேர்ந்தெடுக்கவும்</string>
-    <string name="deviceconfigurationbottomsheet_find_a_profile_for">இந்தச் சாதனத்திற்கான சுயவிவரத்தைக் கண்டறியவும்...</string>
+    <string name="deviceconfigurationbottomsheet_find_a_profile_for">இந்தச் சாதனத்திற்கான சுயவிவரத்தைக் கண்டறியவும்…</string>
     <string name="deviceconfigurationbottomsheet_no_matching_profiles_found">பொருந்தக்கூடிய சுயவிவரங்கள் எதுவும் இல்லை</string>
     <string name="multiselectionbottomsheet_go_to_album">ஆல்பத்திற்கு செல்க</string>
     <string name="multiselectionbottomsheet_go_to_artist">கலைஞரிடம் செல்லுங்கள்</string>
@@ -2045,7 +1976,7 @@
     <string name="localnavigation_metadata_saved_successfully_to">மெட்டாடேட்டா கோப்புக்கு வெற்றிகரமாக சேமிக்கப்பட்டது!</string>
     <string name="localnavigation_permission_required_to_modify">கோப்பு மெட்டாடேட்டாவை மாற்ற அனுமதி தேவை</string>
     <string name="localnavigation_stats">புள்ளிவிவரங்கள்</string>
-    <string name="addtoplaylistscreen_pick_a_tune_to">சேர்க்க ஒரு பாடலைத் தேர்ந்தெடுக்கவும்...</string>
+    <string name="addtoplaylistscreen_pick_a_tune_to">சேர்க்க ஒரு பாடலைத் தேர்ந்தெடுக்கவும்…</string>
     <string name="addtoplaylistscreen_tap_songs_to_select">பலவற்றைத் தேர்ந்தெடுக்க பாடல்களைத் தட்டவும், பின்னர் அனைத்தையும் ஒரே நேரத்தில் சேர்க்கவும்</string>
     <string name="equalizerscreen_reset_to_flat">பிளாட்டுக்கு மீட்டமைக்கவும்</string>
     <string name="equalizerscreen_autoeq_profiles">AutoEQ சுயவிவரங்கள்</string>
@@ -2063,7 +1994,6 @@
     <string name="libraryscreen_clear_selection">தெளிவான தேர்வு</string>
     <string name="onboardingscreen_media_scan_mode">மீடியா ஸ்கேன் பயன்முறை</string>
     <string name="onboardingscreen_tap_the_remove_action">கோப்புறை அணுகலைப் புதுப்பிக்க, அகற்றும் செயலைத் தட்டவும்</string>
-    <string name="onboardingscreen_enable_festive_decorations_and">பண்டிகை அலங்காரங்கள் மற்றும் பருவகால தீம்களை இயக்கவும்</string>
     <string name="onboardingscreen_interaction">தொடர்பு</string>
     <string name="onboardingscreen_choose_your_playback_mode">உங்கள் பிளேபேக் பயன்முறையைத் தேர்ந்தெடுக்கவும்</string>
     <string name="onboardingscreen_local_offline_player">உள்ளூர் ஆஃப்லைன் பிளேயர்</string>
@@ -2088,7 +2018,7 @@
     <string name="onboardingscreen_enter_server_username">சர்வர் பயனர் பெயரை உள்ளிடவும்</string>
     <string name="onboardingscreen_enter_server_password">சர்வர் கடவுச்சொல்லை உள்ளிடவும்</string>
     <string name="onboardingscreen_successfully_connected">வெற்றிகரமாக இணைக்கப்பட்டது!</string>
-    <string name="onboardingscreen_connecting">இணைக்கிறது...</string>
+    <string name="onboardingscreen_connecting">இணைக்கிறது…</string>
     <string name="onboardingscreen_connect_verify">இணைக்கவும் &amp; சரிபார்க்கவும்</string>
     <string name="splashscreen_go">Go</string>
     <string name="musicviewmodel_failed_to_add_to">வரிசையில் சேர்க்க முடியவில்லை: பிளேயர் துவக்கப்படவில்லை</string>
@@ -2107,8 +2037,6 @@
     <string name="streamingsettingsscreen_streaming_restricted">ஸ்ட்ரீமிங் தடைசெய்யப்பட்டுள்ளது</string>
     <string name="streamingmusicviewmodel_failed_to_play_next">அடுத்து விளையாடுவதில் தோல்வி: URL ஐத் தீர்க்க முடியவில்லை</string>
     <string name="streamingmusicviewmodel_failed_to_add_to">வரிசையில் சேர்க்க முடியவில்லை: URL ஐத் தீர்க்க முடியவில்லை</string>
-    <string name="legacywidgetpreview_str_12_vertical_widget">1×2 செங்குத்து விட்ஜெட்</string>
-    <string name="legacywidgetpreview_str_32_medium_widget">3×2 மீடியம் விட்ஜெட்</string>
     <string name="rhythmmusicwidget_album_art_placeholder">ஆல்பம் ஆர்ட் பிளேஸ்ஹோல்டர்</string>
     <string name="rhythmwidgetpreview_rhythm_glance_widget_previews">Rhythm Glance விட்ஜெட் முன்னோட்டங்கள்</string>
     <string name="rhythmwidgetpreview_str_11_compact_widget">1×1 காம்பாக்ட் விட்ஜெட்</string>
@@ -2131,15 +2059,14 @@
     <string name="songinfobottomsheet_change_artwork">கலைப்படைப்பை மாற்றவும்</string>
     <string name="songinfobottomsheet_remove_artwork">கலைப்படைப்பை அகற்று</string>
     <string name="songinfobottomsheet_artwork_fetched_successfully_click">கலைப்படைப்பு வெற்றிகரமாகப் பெறப்பட்டது! உட்பொதிக்க சேமி என்பதைக் கிளிக் செய்யவும்.</string>
-    <string name="songinfobottomsheet_failed_to_download_artwork">கலைப்படைப்பு பைட்டுகளைப் பதிவிறக்குவதில் தோல்வி</string>
     <string name="songinfobottomsheet_failed_to_download_artwork_1">URL இலிருந்து கலைப்படைப்பைப் பதிவிறக்குவதில் தோல்வி</string>
     <string name="songinfobottomsheet_no_artwork_found_for">ஆன்லைனில் இந்தப் பாடலுக்கான கலைப்படைப்பு எதுவும் கிடைக்கவில்லை</string>
     <string name="songinfobottomsheet_online_search_failed">ஆன்லைன் தேடல் தோல்வியடைந்தது</string>
     <string name="songinfobottomsheet_online_api_service_unavailable">ஆன்லைன் API சேவை கிடைக்கவில்லை</string>
-    <string name="songinfobottomsheet_fetching">எடுக்கிறது...</string>
+    <string name="songinfobottomsheet_fetching">எடுக்கிறது…</string>
     <string name="songinfobottomsheet_fetch_online_art">ஆன்லைன் கலையைப் பெறுங்கள்</string>
     <string name="songinfobottomsheet_update_artwork_and_tags">கலைப்படைப்பு மற்றும் குறிச்சொற்களைப் புதுப்பிக்கவும்</string>
-    <string name="songinfobottomsheet_fetching_artwork">கலைப்படைப்புகளைப் பெறுகிறது...</string>
+    <string name="songinfobottomsheet_fetching_artwork">கலைப்படைப்புகளைப் பெறுகிறது…</string>
     <string name="updatebottomsheet_install">நிறுவவும்</string>
     <string name="updatebottomsheet_update">புதுப்பித்தல்</string>
     <string name="collapsibleheader_app_icon">பயன்பாட்டு ஐகான்</string>
@@ -2147,7 +2074,7 @@
     <string name="expressivecomponents_seek_forward">முன்னோக்கி தேடுங்கள்</string>
     <string name="expressivescrollbar_scroll_indicator">உருள் காட்டி</string>
     <string name="navigationcomponents_scroll_to_top">மேலே உருட்டவும்</string>
-    <string name="autoeqprofileselector_find_eq_profiles_or">EQ சுயவிவரங்கள் அல்லது பிராண்டுகளைக் கண்டறிக...</string>
+    <string name="autoeqprofileselector_find_eq_profiles_or">EQ சுயவிவரங்கள் அல்லது பிராண்டுகளைக் கண்டறிக…</string>
     <string name="autoeqprofileselector_all">அனைத்தும்</string>
     <string name="autoeqsuggestiondialog_audio_device_detected">ஆடியோ சாதனம் கண்டறியப்பட்டது</string>
     <string name="autoeqsuggestiondialog_saved_configuration">சேமிக்கப்பட்ட கட்டமைப்பு</string>
@@ -2158,20 +2085,16 @@
     <string name="betaprogrampopup_early_access">ஆரம்பகால அணுகல்</string>
     <string name="betaprogrampopup_shape_the_future">எதிர்காலத்தை வடிவமைக்கவும்</string>
     <string name="betaprogrampopup_direct_feedback">நேரடி கருத்து</string>
-    <string name="betaprogrampopup_welcome_to_the_beta">பீட்டாவிற்கு வரவேற்கிறோம்</string>
     <string name="betaprogrampopup_youre_part_of_an">நீங்கள் Rhythm மியூசிக் பிளேயரின் எதிர்காலத்தை வடிவமைக்க உதவும் பிரத்யேக குழுவின் ஒரு பகுதியாக உள்ளீர்கள்</string>
     <string name="betaprogrampopup_start_exploring">ஆராய்வதைத் தொடங்குங்கள்</string>
-    <string name="playbackpitchdialog_adjust_audio_pitch">ஆடியோ சுருதியை சரிசெய்யவும்</string>
     <string name="switchmodedialog_switch_play">ஸ்விட்ச் &amp; ப்ளே</string>
     <string name="fullscreenlyricsview_cover_artwork">கவர் கலைப்படைப்பு</string>
-    <string name="fullscreenlyricsview_loading_synced_lyrics">ஒத்திசைக்கப்பட்ட பாடல் வரிகளை ஏற்றுகிறது...</string>
+    <string name="fullscreenlyricsview_loading_synced_lyrics">ஒத்திசைக்கப்பட்ட பாடல் வரிகளை ஏற்றுகிறது…</string>
     <string name="fullscreenlyricsview_lyrics_arent_available_for">இந்தப் பாடலுக்கான வரிகள் கிடைக்கவில்லை</string>
     <string name="fullscreenlyricsview_retry_fetching">எடுக்க மீண்டும் முயற்சிக்கவும்</string>
     <string name="fullscreenlyricsview_romanization">ரோமானியமயமாக்கல்</string>
     <string name="fullscreenlyricsview_translation">மொழிபெயர்ப்பு</string>
     <string name="fullscreenlyricsview_realtime_sync_adjustment">நிகழ்நேர ஒத்திசைவு சரிசெய்தல்</string>
-    <string name="fullscreenlyricsview_str_05s">-0.5வி</string>
-    <string name="fullscreenlyricsview_str_05s_1">+0.5வி</string>
     <string name="fullscreenlyricsview_reset_offset">ஆஃப்செட்டை மீட்டமைக்கவும்</string>
     <string name="lyricseditorbottomsheet_str_500ms">500ms</string>
     <string name="lyricseditorbottomsheet_str_100ms">100ms</string>
@@ -2183,14 +2106,12 @@
     <string name="rhythmstatsscreen_top_songs">சிறந்த பாடல்கள்</string>
     <string name="rhythmstatsscreen_listening_habits">கேட்கும் பழக்கம்</string>
     <string name="rhythmstatsscreen_listening_timeline">கேட்கும் காலவரிசை</string>
-    <string name="rhythmstatsscreen_favorites">பிடித்தவை</string>
-    <string name="rhythmstatsscreen_loved_4">நேசித்தேன் (4+)</string>
     <string name="rhythmstatsscreen_no_stats_available_yet">இதுவரை புள்ளிவிவரங்கள் எதுவும் கிடைக்கவில்லை</string>
     <string name="rhythmstatsscreen_keep_listening_to_build">உங்கள் இசைப் பயணத்தை உருவாக்க தொடர்ந்து கேளுங்கள்!</string>
     <string name="universalsearchscreen_remove_search">தேடலை அகற்று</string>
     <string name="universalsearchscreen_search_across_local_streaming">உள்ளூர் &amp; ஸ்ட்ரீமிங் முழுவதும் தேடுங்கள்</string>
-    <string name="universalsearchscreen_loading_streaming_results">ஸ்ட்ரீமிங் முடிவுகளை ஏற்றுகிறது...</string>
-    <string name="universalsearchscreen_search_everywhere">எல்லா இடங்களிலும் தேடு...</string>
+    <string name="universalsearchscreen_loading_streaming_results">ஸ்ட்ரீமிங் முடிவுகளை ஏற்றுகிறது…</string>
+    <string name="universalsearchscreen_search_everywhere">எல்லா இடங்களிலும் தேடு…</string>
     <string name="universalsearchscreen_removed_from_streaming_favorites">ஸ்ட்ரீமிங் பிடித்தவையிலிருந்து அகற்றப்பட்டது</string>
     <string name="universalsearchscreen_added_to_streaming_favorites">ஸ்ட்ரீமிங் பிடித்தவைகளில் சேர்க்கப்பட்டது</string>
     <string name="universalsearchscreen_album_not_found">ஆல்பம் கிடைக்கவில்லை</string>
@@ -2212,12 +2133,6 @@
     <string name="backuprestoresettingsscreen_choose_restore_sections">மீட்டெடுப்பு பிரிவுகளைத் தேர்ந்தெடுக்கவும்</string>
     <string name="backuprestoresettingsscreen_select_which_sections_from">காப்புப்பிரதியிலிருந்து எந்தப் பகுதிகளை மீட்டெடுக்க வேண்டும் என்பதைத் தேர்ந்தெடுக்கவும்.</string>
     <string name="crashloghistorysettingsscreen_no_crashes">விபத்துக்கள் இல்லை</string>
-    <string name="customcolorsdialog_color_preview">வண்ண முன்னோட்டம்</string>
-    <string name="customcolorsdialog_color_picker">கலர் பிக்கர்</string>
-    <string name="customcolorsdialog_color_inspirations">கலர் இன்ஸ்பிரேஷன்ஸ்</string>
-    <string name="customcolorsdialog_warm_cozy">சூடான மற்றும் வசதியான</string>
-    <string name="customcolorsdialog_cool_fresh">கூல் &amp; ஃப்ரெஷ்</string>
-    <string name="customcolorsdialog_nature_earth">இயற்கை &amp; பூமி</string>
     <string name="expressiveshapessettingsscreen_randomize_shapes">வடிவங்களை சீரமைக்கவும்</string>
     <string name="expressiveshapessettingsscreen_randomize_all_shapes">அனைத்து வடிவங்களையும் ரேண்டமைஸ் செய்யவும்</string>
     <string name="expressiveshapessettingsscreen_individual_shape_settings">தனிப்பட்ட வடிவ அமைப்புகள்</string>
@@ -2228,7 +2143,7 @@
     <string name="expressiveshapessettingsscreen_choose_an_expressive_shape">வெளிப்படையான வடிவத்தைத் தேர்வு செய்யவும்</string>
     <string name="festivesettingsscreen_festive_theme_type">பண்டிகை தீம் வகை</string>
     <string name="festivesettingsscreen_about_festive_themes">பண்டிகை தீம்கள் பற்றி</string>
-    <string name="festivesettingsscreen_festive_decorations_add_a">பண்டிகை அலங்காரங்கள் உங்கள் இசை அனுபவத்திற்கு கொண்டாட்டத்தை சேர்க்கின்றன. தானாக கண்டறிதல் இயக்கப்பட்டால், கிறிஸ்துமஸ் (டிசம்பர் 15-31) போன்ற விடுமுறை நாட்களில் அலங்காரங்கள் தானாகவே தோன்றும்.</string>
+    <string name="festivesettingsscreen_festive_decorations_add_a">பண்டிகை அலங்காரங்கள் உங்கள் இசை அனுபவத்திற்கு கொண்டாட்டத்தை சேர்க்கின்றன. தானாக கண்டறிதல் இயக்கப்பட்டால், கிறிஸ்துமஸ் (டிசம்பர் 15–31) போன்ற விடுமுறை நாட்களில் அலங்காரங்கள் தானாகவே தோன்றும்.</string>
     <string name="homescreencustomizationsettingsscreen_immersive_mode_is_active">மூழ்கும் முறை செயலில் உள்ளது. ஆதரிக்கப்படும் கண்டறிதல் கட்டுப்பாடுகள் மட்டுமே காட்டப்படுகின்றன.</string>
     <string name="homescreencustomizationsettingsscreen_album_count">ஆல்பம் எண்ணிக்கை</string>
     <string name="librarysettingsscreen_autofetch_artwork">ஆட்டோ-எடுத்து கலைப்படைப்பு</string>
@@ -2262,16 +2177,12 @@
     <string name="settingsscreen_audio_equalizer">ஆடியோ ஈக்வலைசர்</string>
     <string name="settingsscreen_library_settings">நூலக அமைப்புகள்</string>
     <string name="settingssearch_settings_suggestions">அமைப்புகள் பரிந்துரைகள்</string>
-    <string name="themecustomizationsettingsscreen_rgb_values">RGB மதிப்புகள்</string>
     <string name="updatessettingsscreen_simulating_update_installation_success">புதுப்பிப்பு நிறுவலை உருவகப்படுத்துதல் (வெற்றி!)</string>
     <string name="updatessettingsscreen_unable_to_open_release">வெளியீட்டுப் பக்கத்தைத் திறக்க முடியவில்லை</string>
     <string name="updatessettingsscreen_refer_to_release_notes">GitHub வெளியீடுகள் பக்கத்தில் வெளியீட்டு குறிப்புகளைப் பார்க்கவும்.</string>
     <string name="widgetsettingsscreen_widget_settings">விட்ஜெட் அமைப்புகள்</string>
     <string name="widgetsettingsscreen_show_favorite_button">பிடித்த பொத்தானைக் காட்டு</string>
     <string name="widgetsettingsscreen_widget_theme">விட்ஜெட் தீம்</string>
-    <string name="widgetsettingsscreen_rhythm_uses_material_3">Rhythm மாறும் வண்ணங்களுடன் Material 3 வெளிப்படையான வடிவமைப்பைப் பயன்படுத்துகிறது</string>
-    <string name="widgetsettingsscreen_widget_adapts_from_1x1">விட்ஜெட் 1x1 பிளே பொத்தானில் இருந்து 5x5+ முழு தளவமைப்பிற்கு மாற்றியமைக்கிறது</string>
-    <string name="widgetsettingsscreen_longpress_and_resize_for">வெவ்வேறு வெளிப்படையான தளவமைப்புகளுக்கு நீண்ட நேரம் அழுத்தி அளவை மாற்றவும்</string>
     <string name="widgetsettingsscreen_applies_to_glance_widgets">Glance விட்ஜெட்டுகளுக்கு மட்டுமே பொருந்தும்</string>
     <string name="widgetsettingsscreen_personalize_home_screen_widgets">முகப்புத் திரை விட்ஜெட்களைத் தனிப்பயனாக்குங்கள்</string>
     <string name="festivesplashgreeting_merry_christmas">இனிய கிறிஸ்துமஸ்!</string>
@@ -2301,7 +2212,10 @@
     <string name="artist_artwork_description">%1$s க்கான கலைஞர் கலைப்படைப்பு</string>
     <string name="explorer_item_icon_description">%1$s ஐகான்</string>
     <string name="song_added_to_blacklist_format">%1$s தடுப்புப்பட்டியலில் சேர்க்கப்பட்டது</string>
-    <string name="playlist_import_success">வெற்றிகரமாக %1$d பிளேலிஸ்ட்கள் இறக்குமதி செய்யப்பட்டன.\n%2$s\n\nமாற்றங்களைப் பயன்படுத்த, பயன்பாட்டை மறுதொடக்கம் செய்யவும்.</string>
+    <plurals name="playlist_import_success">
+        <item quantity="one">வெற்றிகரமாக %1$d பிளேலிஸ்ட்கள் இறக்குமதி செய்யப்பட்டன.\n%2$s\n\nமாற்றங்களைப் பயன்படுத்த, பயன்பாட்டை மறுதொடக்கம் செய்யவும்.</item>
+        <item quantity="other">வெற்றிகரமாக %1$d பிளேலிஸ்ட்கள் இறக்குமதி செய்யப்பட்டன.\n%2$s\n\nமாற்றங்களைப் பயன்படுத்த, பயன்பாட்டை மறுதொடக்கம் செய்யவும்.</item>
+    </plurals>
     <string name="play_artist">விளையாடு %1$s</string>
     <string name="will_play_next">%1$s அடுத்து விளையாடும்</string>
     <string name="added_to_queue">வரிசையில் %1$s சேர்க்கப்பட்டது</string>
@@ -2309,9 +2223,6 @@
     <string name="playing_next_simple">அடுத்து விளையாடுகிறது: %1$s</string>
     <string name="failed_to_request_permission">அனுமதி கோருவதில் தோல்வி: %1$s</string>
     <string name="unexpected_error">எதிர்பாராத பிழை: %1$s</string>
-    <string name="rating_stars_desc">%1$s - %2$d நட்சத்திரங்கள்</string>
-    <string name="rating_stars_count">%1$d நட்சத்திரங்கள்</string>
-    <string name="rating_unknown">தெரியவில்லை</string>
     <string name="album_artwork_description">%1$sக்கான ஆல்பம் கலைப்படைப்பு</string>
     <string name="error_fetching_artwork">கலைப்படைப்பைப் பெறுவதில் பிழை: %1$s</string>
     <string name="edit_lyrics">பாடல் வரிகளைத் திருத்தவும்</string>
@@ -2324,22 +2235,10 @@
     <string name="equalizer_open_error">சமநிலையை திறக்க முடியவில்லை: %1$s</string>
     <string name="track_artwork_description">டிராக்கிற்கான படம் %1$s</string>
     <string name="playlist_artwork_description">பிளேலிஸ்ட்டிற்கான படம் %1$s</string>
-    <string name="play">விளையாடு</string>
-    <string name="pause">இடைநிறுத்தம்</string>
-    <string name="playlist_remove_songs_confirm">இந்த பிளேலிஸ்ட்டில் இருந்து %1$d பாடல்களை நிச்சயமாக அகற்ற விரும்புகிறீர்களா?</string>
-    <string name="rating_not_rated">மதிப்பிடப்படவில்லை</string>
-    <string name="rating_liked">பிடித்திருந்தது</string>
-    <string name="rating_good">நல்லது</string>
-    <string name="rating_great">பெரியது</string>
-    <string name="rating_loved">நேசித்தேன்</string>
-    <string name="rating_absolute_favorite">முற்றிலும் பிடித்தமானது</string>
-    <string name="rating_desc_not_rated">மதிப்பீடு இல்லை</string>
-    <string name="rating_desc_liked">பிடித்தது - அவ்வப்போது கேட்பதற்கு நல்லது</string>
-    <string name="rating_desc_good">நல்லது - திடமான பாதை</string>
-    <string name="rating_desc_great">அருமை - இதை மிகவும் ரசிக்கிறேன்</string>
-    <string name="rating_desc_loved">நேசித்தேன் - எனக்கு பிடித்த ஒன்று</string>
-    <string name="rating_desc_absolute_favorite">முற்றிலும் பிடித்தமானது - மேல் அடுக்கு பாதை</string>
-    <string name="rating_desc_unknown">அறியப்படாத மதிப்பீடு</string>
+    <plurals name="playlist_remove_songs_confirm">
+        <item quantity="one">இந்த பிளேலிஸ்ட்டில் இருந்து %1$d பாடல்களை நிச்சயமாக அகற்ற விரும்புகிறீர்களா?</item>
+        <item quantity="other">இந்த பிளேலிஸ்ட்டில் இருந்து %1$d பாடல்களை நிச்சயமாக அகற்ற விரும்புகிறீர்களா?</item>
+    </plurals>
     <!-- Settings Toggles / Options Descriptions -->
     <string name="widget_show_favorite_button_desc">பெரிய விட்ஜெட்களில் பிடித்த நிலைமாற்றத்தைக் காண்பி</string>
     <string name="settings_clear_all_logs_desc">சேமிக்கப்பட்ட அனைத்து செயலிழப்பு அறிக்கைகளையும் அகற்றவும்</string>
@@ -2396,10 +2295,6 @@
     <string name="settings_tip_miniplayer_active_desc_2">மினி பிளேயரில் முன்னேற்றப் பட்டி செயலில் உள்ளது. அடுத்து வடிவம் மற்றும் மூலை மாற்றங்களை முயற்சிக்கவும்.</string>
     <string name="settings_tip_miniplayer_inactive_desc_1">மினி பிளேயர் முன்னேற்றம் மறைக்கப்பட்டுள்ளது. விரைவான பாதை விழிப்புணர்வுக்காக அதை இயக்கவும்.</string>
     <string name="settings_tip_miniplayer_inactive_desc_2">காம்பாக்ட் பயன்முறை இப்போது குறைவாக உள்ளது. சிறந்த பார்வைக்கு முன்னேற்றத்தை இயக்கவும்.</string>
-    <string name="settings_tip_library_active_desc_1">மதிப்பீடுகள் இயக்கப்பட்டுள்ளன. கண்டுபிடிப்பு மற்றும் வரிசைப்படுத்தலைக் கூர்மைப்படுத்த நூலக அமைப்புகளைப் பயன்படுத்தவும்.</string>
-    <string name="settings_tip_library_active_desc_2">உங்கள் நூலகம் மதிப்பீடுகளை ஆதரிக்கிறது. தூய்மையான உலாவலுக்கு ஸ்கேன் செய்து குழுவாக்குதல்.</string>
-    <string name="settings_tip_library_inactive_desc_1">மதிப்பீடுகள் முடக்கப்பட்டுள்ளன. நூலக அமைப்புகள் இன்னும் கட்டமைப்பையும் வேகத்தையும் மேம்படுத்தலாம்.</string>
-    <string name="settings_tip_library_inactive_desc_2">எளிமைப்படுத்தப்பட்ட நூலக முறை கண்டறியப்பட்டது. வேகமான வழிசெலுத்தலுக்கு குழுவாக்கத்தை சரிசெய்யவும்.</string>
     <!-- Lyrics Source Dialog -->
     <string name="lyrics_source_embedded_first">முதலில் உட்பொதிக்கப்பட்டது</string>
     <string name="lyrics_source_embedded_first_desc">ஆடியோ கோப்பு மெட்டாடேட்டா → ஆன்லைன் APIகள் → .lrc கோப்புகளை முயற்சிக்கவும்</string>
@@ -2453,10 +2348,6 @@
     <string name="color_scheme_emerald_desc">இயற்கையான வன சாயல்களுடன் கூடிய புதிய மரகத கீரைகள்</string>
     <string name="color_scheme_mint_title">புதினா</string>
     <string name="color_scheme_mint_desc">புதிய மற்றும் சுத்தமான சியான் மற்றும் புதினா பச்சை நிற டோன்கள்</string>
-    <!-- Color Preview Chips -->
-    <string name="theme_color_primary">முதன்மை</string>
-    <string name="theme_color_secondary">இரண்டாம் நிலை</string>
-    <string name="theme_color_tertiary">மூன்றாம் நிலை</string>
     <!-- Lyrics Settings Screen -->
     <string name="lyrics_settings_title">பாடல் வரிகள்</string>
     <string name="lyrics_settings_general">பொது அமைப்புகள்</string>
@@ -2494,12 +2385,14 @@
     <string name="lyrics_settings_word_by_word_translation_desc">கால அளவை விகிதாசாரமாக விநியோகிப்பதன் மூலம் வரி-ஒத்திசைக்கப்பட்ட பாடல் வரிகளுக்கான சொல்-நிலை நேரத்தை தானாக உருவாக்கவும்</string>
     <string name="lyrics_settings_info_bullets">கூடுதல் ஒத்திசைவு விவரங்கள்:\n• ஆன்லைன் APIகள் உயர்தர ஒத்திசைக்கப்பட்ட பாடல் வரிகளை வழங்குகின்றன\n• Rhythm வார்த்தைக்கு வார்த்தை ஒத்திசைவை வழங்குகிறது\n• LRCLib இலவச வரிக்கு வரி ஒத்திசைவை வழங்குகிறது</string>
     <!-- AutoEQ Preset Picker additions -->
-    <string name="autoeqpresetpickerbottomsheet_search_presets">தேடல் முன்னமைவுகள்...</string>
+    <string name="autoeqpresetpickerbottomsheet_search_presets">தேடல் முன்னமைவுகள்…</string>
     <string name="autoeqpresetpickerbottomsheet_disable">எதுவுமில்லை / AutoEQ ஐ முடக்கு</string>
     <string name="autoeqpresetpickerbottomsheet_disable_desc">ஹெட்ஃபோன் சுயவிவரத்தை அழிக்கவும், நிலையான EQ முன்னமைவுகளைப் பயன்படுத்தவும்</string>
-    <string name="autoeqpresetpickerbottomsheet_unknown_brand">தெரியாத பிராண்ட்</string>
     <!-- Device Configuration additions -->
-    <string name="device_configuration_devices_configured">%1$d சாதனங்கள் உள்ளமைக்கப்பட்டன</string>
+    <plurals name="device_configuration_devices_configured">
+        <item quantity="one">%1$d சாதனங்கள் உள்ளமைக்கப்பட்டன</item>
+        <item quantity="other">%1$d சாதனங்கள் உள்ளமைக்கப்பட்டன</item>
+    </plurals>
     <string name="device_configuration_device_recognized">சாதனம் அங்கீகரிக்கப்பட்டது</string>
     <string name="device_configuration_new_device_detected">புதிய சாதனம் கண்டறியப்பட்டது</string>
     <string name="device_configuration_configured_with">%1$s ஆனது %2$s உடன் கட்டமைக்கப்பட்டுள்ளது</string>
@@ -2519,7 +2412,10 @@
     <string name="device_configuration_save">சேமி</string>
     <string name="device_configuration_add">சேர்</string>
     <string name="device_configuration_for_device">%1$sக்கு</string>
-    <string name="device_configuration_profiles_available">%1$d சுயவிவரங்கள் உள்ளன</string>
+    <plurals name="device_configuration_profiles_available">
+        <item quantity="one">%1$d சுயவிவரங்கள் உள்ளன</item>
+        <item quantity="other">%1$d சுயவிவரங்கள் உள்ளன</item>
+    </plurals>
     <string name="device_configuration_disable_compensation">ஹெட்ஃபோன் இழப்பீட்டை முடக்கு</string>
     <!-- Common UI element strings -->
     <string name="common_none">இல்லை</string>
@@ -2548,7 +2444,10 @@
     <string name="blacklist_track_label">தடம் %1$d</string>
     <!-- Library & Playlist Dialog additions -->
     <string name="dialog_add_song_to_playlist">இந்த பிளேலிஸ்ட்டில் \"%1$s\" ஐச் சேர்க்கவும்</string>
-    <string name="dialog_songs_in_queue">தற்போதைய வரிசையில் உங்களிடம் %1$d பாடல்கள் உள்ளன.</string>
+    <plurals name="dialog_songs_in_queue">
+        <item quantity="one">தற்போதைய வரிசையில் உங்களிடம் %1$d பாடல்கள் உள்ளன.</item>
+        <item quantity="other">தற்போதைய வரிசையில் உங்களிடம் %1$d பாடல்கள் உள்ளன.</item>
+    </plurals>
     <string name="dialog_play_song_how">\"%1$s\" எப்படி விளையாட விரும்புகிறீர்கள்?</string>
     <string name="dialog_clear_and_play">க்ளியர் &amp; ப்ளே</string>
     <string name="dialog_clear_and_play_desc">வரிசையை மாற்றி இந்தப் பாடலை இயக்கவும்</string>
@@ -2556,7 +2455,10 @@
     <string name="dialog_add_to_queue_desc">தற்போதைய வரிசையை வைத்து பாடலைச் சேர்க்கவும்</string>
     <string name="dialog_restart_warning_message">அனைத்து இறக்குமதி செய்யப்பட்ட பிளேலிஸ்ட்களும் சரியாக வேலை செய்வதை உறுதிசெய்ய, பயன்பாட்டை மறுதொடக்கம் செய்ய பரிந்துரைக்கிறோம். நீங்கள் வழக்கமாக பயன்பாட்டைத் தொடரலாம், ஆனால் மறுதொடக்கம் செய்யும் வரை சில அம்சங்கள் எதிர்பார்த்தபடி வேலை செய்யாமல் போகலாம்.</string>
     <string name="dialog_export_playlist_to">\"%1$s\" ஐ இதற்கு ஏற்றுமதி செய்யவும்:</string>
-    <string name="dialog_export_playlists_to">இதற்கு %1$d பிளேலிஸ்ட்களை ஏற்றுமதி செய்யவும்:</string>
+    <plurals name="dialog_export_playlists_to">
+        <item quantity="one">இதற்கு %1$d பிளேலிஸ்ட்களை ஏற்றுமதி செய்யவும்:</item>
+        <item quantity="other">இதற்கு %1$d பிளேலிஸ்ட்களை ஏற்றுமதி செய்யவும்:</item>
+    </plurals>
     <!-- Mode dialog strings -->
     <string name="dialog_switch_to_go">Switch to Rhythm Go?</string>
     <string name="dialog_switch_to_local">உள்ளூர்க்கு மாறவா?</string>
@@ -2595,20 +2497,12 @@
     <string name="library_sort_date_modified">தேதி மாற்றப்பட்டது</string>
     <string name="library_sort_ascending">ஏறுதல்</string>
     <string name="library_sort_descending">இறங்குதல்</string>
-    <string name="library_scan_songs">பாடல்களை ஸ்கேன் செய்கிறது...</string>
-    <string name="library_scan_albums">ஆல்பங்களைச் செயலாக்குகிறது...</string>
-    <string name="library_scan_artists">செயலாக்க கலைஞர்கள்...</string>
-    <string name="library_scan_genres">வகைகளைக் கண்டறிதல்...</string>
-    <string name="library_scan_media">மீடியாவை ஸ்கேன் செய்கிறது...</string>
+    <string name="library_scan_songs">பாடல்களை ஸ்கேன் செய்கிறது…</string>
+    <string name="library_scan_media">மீடியாவை ஸ்கேன் செய்கிறது…</string>
     <string name="library_category_all">அனைத்தும்</string>
     <string name="library_category_favorites">❤️ பிடித்தவை</string>
-    <string name="library_category_absolute_favorites">⭐⭐⭐⭐⭐ முழுமையான பிடித்தவை</string>
-    <string name="library_category_loved">⭐⭐⭐⭐ நேசித்தேன்</string>
-    <string name="library_category_great">⭐⭐⭐ அருமை</string>
-    <string name="library_category_good">⭐⭐ நல்லது</string>
-    <string name="library_category_liked">⭐ விரும்பப்பட்டது</string>
     <string name="library_category_short">குறுகிய (&lt; 3 நிமிடம்)</string>
-    <string name="library_category_medium">நடுத்தரம் (3-5 நிமிடம்)</string>
+    <string name="library_category_medium">நடுத்தரம் (3–5 நிமிடம்)</string>
     <string name="library_category_long">நீளம் (&gt; 5 நிமிடம்)</string>
     <string name="library_category_mono">மோனோ</string>
     <string name="library_category_stereo">ஸ்டீரியோ</string>
@@ -2616,9 +2510,14 @@
     <string name="library_no_albums_yet">இதுவரை ஆல்பங்கள் இல்லை</string>
     <string name="library_no_artists_yet">இதுவரை கலைஞர்கள் இல்லை</string>
     <string name="library_action_add_to_playlist">பிளேலிஸ்ட்டில் சேர்க்கவும்</string>
-    <string name="library_action_rate_song">பாடலை மதிப்பிடுங்கள்</string>
-    <string name="library_selected_count_format">%1$d தேர்ந்தெடுக்கப்பட்டது</string>
-    <string name="library_from_tracks_format">%1$d தடங்களில் இருந்து</string>
+    <plurals name="library_selected_count_format">
+        <item quantity="one">%1$d தேர்ந்தெடுக்கப்பட்டது</item>
+        <item quantity="other">%1$d தேர்ந்தெடுக்கப்பட்டது</item>
+    </plurals>
+    <plurals name="library_from_tracks_format">
+        <item quantity="one">%1$d தடங்களில் இருந்து</item>
+        <item quantity="other">%1$d தடங்களில் இருந்து</item>
+    </plurals>
     <!-- Onboarding, Backup & Settings additions -->
     
     <string name="backup_restored_success">காப்புப்பிரதி வெற்றிகரமாக மீட்டெடுக்கப்பட்டது. எல்லா மாற்றங்களையும் பயன்படுத்த, பயன்பாட்டை மறுதொடக்கம் செய்யவும்.</string>
@@ -2651,75 +2550,40 @@
     <string name="shape_preset_custom">தனிப்பயன்</string>
     <string name="shape_preset_custom_desc">உங்கள் தனிப்பயனாக்கப்பட்ட தேர்வு</string>
     <string name="shape_option_square">சதுரம்</string>
-    <string name="shape_option_square_desc">வட்டமான சதுரம்</string>
     <string name="shape_option_oval">ஓவல்</string>
-    <string name="shape_option_oval_desc">நீளமான ஓவல்</string>
     <string name="shape_option_pill">மாத்திரை</string>
-    <string name="shape_option_pill_desc">காப்ஸ்யூல் வடிவம்</string>
     <string name="shape_option_diamond">வைரம்</string>
-    <string name="shape_option_diamond_desc">வைர வடிவம்</string>
     <string name="shape_option_triangle">முக்கோணம்</string>
-    <string name="shape_option_triangle_desc">வட்டமான முக்கோணம்</string>
     <string name="shape_option_pentagon">பென்டகன்</string>
-    <string name="shape_option_pentagon_desc">ஐந்து பக்க பலகோணம்</string>
     <string name="shape_option_flower">மலர்</string>
-    <string name="shape_option_flower_desc">இதழ்கள் கொண்ட மலர்</string>
     <string name="shape_option_heart">இதயம்</string>
-    <string name="shape_option_heart_desc">இதய வடிவம்</string>
     <string name="shape_option_bun">பன்</string>
-    <string name="shape_option_bun_desc">ரொட்டி/ரொட்டி வடிவம்</string>
     <string name="shape_option_boom">ஏற்றம்</string>
-    <string name="shape_option_boom_desc">வெடிப்பு வடிவம்</string>
     <string name="shape_option_soft_boom">மென்மையான பூம்</string>
-    <string name="shape_option_soft_boom_desc">மென்மையான வெடிப்பு</string>
     <string name="shape_option_burst">வெடிப்பு</string>
-    <string name="shape_option_burst_desc">நட்சத்திர வெடிப்பு வடிவம்</string>
     <string name="shape_option_soft_burst">மென்மையான வெடிப்பு</string>
-    <string name="shape_option_soft_burst_desc">மென்மையான நட்சத்திர வெடிப்பு</string>
     <string name="shape_option_sunny">சன்னி</string>
-    <string name="shape_option_sunny_desc">கதிர்கள் கொண்ட சூரியன்</string>
     <string name="shape_option_very_sunny">மிகவும் சன்னி</string>
-    <string name="shape_option_very_sunny_desc">அதிக கதிர்கள் கொண்ட சூரியன்</string>
     <string name="shape_option_cookie4">குக்கீ 4</string>
-    <string name="shape_option_cookie4_desc">4-பக்க குக்கீ</string>
     <string name="shape_option_cookie6">குக்கீ 6</string>
-    <string name="shape_option_cookie6_desc">6 பக்க குக்கீ</string>
     <string name="shape_option_cookie7">குக்கீ 7</string>
-    <string name="shape_option_cookie7_desc">7-பக்க குக்கீ</string>
     <string name="shape_option_cookie9">குக்கீ 9</string>
-    <string name="shape_option_cookie9_desc">9 பக்க குக்கீ</string>
     <string name="shape_option_cookie12">குக்கீ 12</string>
-    <string name="shape_option_cookie12_desc">12-பக்க குக்கீ</string>
     <string name="shape_option_ghostish">கோஸ்டிஷ்</string>
-    <string name="shape_option_ghostish_desc">பேய் போன்ற வடிவம்</string>
     <string name="shape_option_puffy">குண்டான</string>
-    <string name="shape_option_puffy_desc">மேகம் போன்ற வடிவம்</string>
     <string name="shape_option_puffy_diamond">பருத்த வைரம்</string>
-    <string name="shape_option_puffy_diamond_desc">பருத்த வைரம்</string>
     <string name="shape_option_fan">ரசிகர்</string>
-    <string name="shape_option_fan_desc">விசிறி வடிவம்</string>
     <string name="shape_option_circle">வட்டம்</string>
-    <string name="shape_option_circle_desc">ஒரு சரியான வட்டம்</string>
     <string name="shape_option_clover_4_leaf">4-இலை க்ளோவர்</string>
-    <string name="shape_option_clover_4_leaf_desc">நான்கு இலை க்ளோவர்</string>
     <string name="shape_option_clover_8_leaf">8-இலை க்ளோவர்</string>
-    <string name="shape_option_clover_8_leaf_desc">எட்டு இலை க்ளோவர்</string>
     <string name="shape_option_arrow">அம்பு</string>
-    <string name="shape_option_arrow_desc">அம்புக்குறி</string>
     <string name="shape_option_arch">ஆர்ச்</string>
-    <string name="shape_option_arch_desc">வளைவு வடிவம்</string>
     <string name="shape_option_clam_shell">கிளாம் ஷெல்</string>
-    <string name="shape_option_clam_shell_desc">ஷெல் வடிவம்</string>
     <string name="shape_option_gem">ரத்தினம்</string>
-    <string name="shape_option_gem_desc">ரத்தின வடிவம்</string>
     <string name="shape_option_semi_circle">அரை வட்டம்</string>
-    <string name="shape_option_semi_circle_desc">அரை வட்டம்</string>
     <string name="shape_option_slanted">சாய்ந்திருக்கும்</string>
-    <string name="shape_option_slanted_desc">சாய்ந்த சதுரம்</string>
     <string name="shape_option_pixel_circle">பிக்சல் வட்டம்</string>
-    <string name="shape_option_pixel_circle_desc">பிக்சலேட்டட் வட்டம்</string>
     <string name="shape_option_pixel_triangle">பிக்சல் முக்கோணம்</string>
-    <string name="shape_option_pixel_triangle_desc">பிக்சலேட்டட் முக்கோணம்</string>
     <string name="shape_group_basic">அடிப்படை</string>
     <string name="shape_group_organic">ஆர்கானிக்</string>
     <string name="shape_group_playful">விளையாட்டுத்தனமான</string>
@@ -2731,15 +2595,10 @@
     <string name="option_always">எப்போதும்</string>
     <string name="option_expanded">விரிவாக்கப்பட்டது</string>
     <string name="option_collapsed">சரிந்தது</string>
-    <string name="option_linear">நேரியல்</string>
-    <string name="option_circular">சுற்றறிக்கை</string>
     <string name="option_both">இரண்டும்</string>
     <string name="option_icon">ஐகான்</string>
     <string name="option_name">பெயர்</string>
     <!-- Theme settings additions -->
-    <string name="theme_color_red">சிவப்பு</string>
-    <string name="theme_color_green">பச்சை</string>
-    <string name="theme_color_blue">நீலம்</string>
     <!-- Color Scheme names -->
 
     <!-- Shape Utils category and descriptions -->
@@ -2752,7 +2611,6 @@
     <string name="metadata_album_artist">ஆல்பம் கலைஞர்</string>
     <string name="metadata_play_count">விளையாட்டு எண்ணிக்கை</string>
     <string name="metadata_total_played">விளையாடிய மொத்தம்</string>
-    <string name="metadata_rating">மதிப்பீடு</string>
     <string name="metadata_quality">தரம்</string>
     <string name="metadata_audio_tech">ஆடியோ தொழில்நுட்பம்</string>
     <string name="metadata_bit_depth">பிட் ஆழம்</string>
@@ -2796,7 +2654,7 @@
     <string name="lyric_widget_description">தற்போது இயங்கும் மீடியாவின் பாடல் வரிகளைக் காட்டும் விட்ஜெட்</string>
     <string name="edit_album_title">ஆல்பத்தை திருத்து</string>
     <string name="edit_album_desc">இந்த ஆல்பத்தில் உள்ள அனைத்து பாடல்களுக்கும் குறிச்சொற்கள் மற்றும் கலைப்படைப்புகளைத் திருத்தவும்.</string>
-    <string name="edit_album_saving">ஆல்பம் மெட்டாடேட்டாவைப் புதுப்பிக்கிறது...</string>
+    <string name="edit_album_saving">ஆல்பம் மெட்டாடேட்டாவைப் புதுப்பிக்கிறது…</string>
     <string name="streaming_service_setup_auto_detect">தானாக கண்டறிதல்</string>
     <string name="nearby_server_discovery_title">அருகிலுள்ள சேவையகங்கள்</string>
     <string name="nearby_server_discovery_desc">உங்கள் உள்ளூர் நெட்வொர்க்கில் கண்டறியப்பட்ட சேவையகத்தைத் தேர்ந்தெடுக்கவும்</string>
@@ -2810,8 +2668,6 @@
     <string name="fdroid_update_warning_title">பாதுகாப்பு எச்சரிக்கை</string>
     <string name="fdroid_update_warning_message">F-Droid கட்டமைப்பில் உள்ள-பயன்பாட்டு புதுப்பிப்புகளை இயக்குவது F-Droid இன் பாதுகாப்பு சோதனைகளை புறக்கணிக்கிறது. புதுப்பிப்புகள் வெளியீட்டாளரிடமிருந்து நேரடியாகப் பதிவிறக்கப்படும். தொடர வேண்டுமா?</string>
     <!-- Replay Gain Settings Screen -->
-    <string name="replay_gain_status_active">செயலில்</string>
-    <string name="replay_gain_status_disabled">ஊனமுற்றவர்</string>
     <string name="replay_gain_mode_title">ReplayGain பயன்முறை</string>
     <string name="replay_gain_mode_desc">டிராக் மெட்டாடேட்டா அல்லது ஆல்பம் மெட்டாடேட்டாவின் அடிப்படையில் வால்யூம் அளவைச் சரிசெய்யவும்.</string>
     <string name="replay_gain_mode_track">தடம்</string>
@@ -2834,7 +2690,10 @@
     <string name="backup_restore_section_insight_desc">விளையாட்டு எண்ணிக்கை, தினசரி புள்ளிவிவரங்கள், வகைகள் மற்றும் Rhythm காவலர் உள்ளமைவு.</string>
     <string name="backup_restore_status_included">சேர்க்கப்பட்டுள்ளது</string>
     <string name="backup_restore_status_excluded">விலக்கப்பட்டது</string>
-    <string name="backup_restore_sections_enabled">%2$d இல் %1$d இயக்கப்பட்டது</string>
+    <plurals name="backup_restore_sections_enabled">
+        <item quantity="one">%2$d இல் %1$d இயக்கப்பட்டது</item>
+        <item quantity="other">%2$d இல் %1$d இயக்கப்பட்டது</item>
+    </plurals>
     <!-- Settings status cards -->
     <string name="status_active">செயலில்</string>
     <!-- Sort menu options -->
@@ -2850,12 +2709,6 @@
     <string name="library_bottom_bar_more_actions">மேலும் செயல்கள்</string>
     <string name="library_play_selected">விளையாடு (%1$d)</string>
     <!-- Rhythm Guard Comic Status Subtitles -->
-    <string name="rhythm_guard_health_desc_good">உங்கள் காதுகள் ஒரு கச்சிதமான விருந்தைக் கொடுக்கின்றன. பொறுப்புடன் தொடர்ந்து இருங்கள்! 🎉</string>
-    <string name="rhythm_guard_health_desc_fair">அங்கே கொஞ்சம் காரமாக இருக்கிறது. பாதுகாவலர் உள்ளே நுழைவதற்கு முன்பு அதை ஒரு உச்சநிலையை குறைக்கலாமா? 🌶️</string>
-    <string name="rhythm_guard_health_desc_risk">ஓ ராக்ஸ்டார், நீங்கள் செவிப்பறை ஆபத்து மண்டலத்தில் இருக்கிறீர்கள்! பூட்டுகள் தூண்டப்படுவதற்கு முன் அதை மீண்டும் டயல் செய்யுங்கள்! 🎸🔥</string>
-    <string name="rhythm_guard_health_desc_cooldown">பாதுகாப்பான மண்டலம் செயலில் உள்ளது! Rhythm காபி ப்ரேக் நேரத்தில் காவலர் கடமையில் இருப்பதில்லை, எனவே நேரம் முடிவில்லாமல் தாராளமாக நெரிசல்! 🎫☕</string>
-    <string name="rhythm_guard_health_desc_timeout">ஒலியியலின் நேரம்-முடிவு செயலில் உள்ளது. உங்கள் செவித்திறனைப் பாதுகாக்க ஒரு கட்டாய காது தூக்கம் செயலில் உள்ளது! 😴🛑</string>
-    <string name="rhythm_guard_health_desc_off">Rhythm காவலர் பணியில் இல்லை. வால்யூம் பாதுகாப்பில் நீங்கள் முற்றிலும் தனியாக பறக்கிறீர்கள். இறைவேகம்! 🏍️💨</string>
     <!-- Player, Bottomsheet, and Popup translations -->
     <string name="unknown_track">தெரியாத தடம்</string>
     <string name="unknown_song">தெரியாத பாடல்</string>
@@ -2868,11 +2721,16 @@
     <string name="artist_options">கலைஞர் விருப்பங்கள்</string>
     <string name="edit_album_title_label">ஆல்பத்தின் தலைப்பு</string>
     <string name="edit_album_artist_label">ஆல்பம் கலைஞர்</string>
-    <string name="autoeq_profiles_available">%1$d சுயவிவரங்கள் உள்ளன</string>
+    <plurals name="autoeq_profiles_available">
+        <item quantity="one">%1$d சுயவிவரங்கள் உள்ளன</item>
+        <item quantity="other">%1$d சுயவிவரங்கள் உள்ளன</item>
+    </plurals>
     <string name="autoeq_no_brand">பிராண்ட் இல்லை</string>
     <string name="autoeq_change_profile">சுயவிவரத்தை மாற்றவும்</string>
     <string name="autoeq_configure_device">சாதனத்தை உள்ளமைக்கவும்</string>
-    <string name="playlist_count_format">%1$d பிளேலிஸ்ட்கள்</string>
-    <string name="ui_song_count">1 பாடல்</string>
+    <plurals name="playlist_count_format">
+        <item quantity="one">%1$d பிளேலிஸ்ட்கள்</item>
+        <item quantity="other">%1$d பிளேலிஸ்ட்கள்</item>
+    </plurals>
     <string name="duration_minutes_format">%1$dமீ</string>
 </resources>

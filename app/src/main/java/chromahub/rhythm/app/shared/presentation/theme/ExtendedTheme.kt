@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -18,12 +23,12 @@ object RhythmColors {
     val playerBackground: Color
         @Composable
         @ReadOnlyComposable
-        get() = if (isSystemInDarkTheme()) PlayerBackgroundDark else PlayerBackgroundLight
+        get() = MaterialTheme.colorScheme.background
     
     val playerButton: Color
         @Composable
         @ReadOnlyComposable
-        get() = if (isSystemInDarkTheme()) PlayerButtonColorDark else PlayerButtonColor
+        get() = MaterialTheme.colorScheme.primary
     
     val playerProgress: Color
         @Composable
@@ -33,7 +38,7 @@ object RhythmColors {
     val playerProgressBackground: Color
         @Composable
         @ReadOnlyComposable
-        get() = if (isSystemInDarkTheme()) PlayerProgressBackgroundDark else PlayerProgressBackgroundLight
+        get() = MaterialTheme.colorScheme.surfaceContainer
     
     /**
      * Status colors that adapt to the current theme

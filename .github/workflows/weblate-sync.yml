@@ -1,15 +1,30 @@
 name: Sync Weblate Translations
 
 on:
-  # Trigger when source English strings or en-US metadata change on main
+  # Trigger when the English source, any translation file, or en-US metadata
+  # changes on main. Watching values-*/strings.xml too means direct translation
+  # fixes committed to the repo (e.g. placeholder cleanups) are pulled back into
+  # Weblate instead of leaving Weblate's database stale.
   push:
     branches: [ "main" ]
     paths:
       - "app/src/main/res/values/strings.xml"
+      - "app/src/main/res/values-*/strings.xml"
       - "fastlane/metadata/android/en-US/**"
 
-  # Allow maintainers to manually trigger a source-string sync to Weblate
+  # Manual sync; can force-flush Weblate's pending translations back as a PR.
   workflow_dispatch:
+    inputs:
+      force_flush_pending:
+        description: "Force commit+push of Weblate's pending translations (opens a Weblate PR) even if Weblate reports none pending"
+        type: boolean
+        default: false
+
+# Serialize syncs: rapid pushes or a push + manual run must not race on PR
+# merges or on Weblate's lock/pull cycle.
+concurrency:
+  group: weblate-sync-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -22,114 +37,177 @@ jobs:
   sync-weblate:
     name: Sync Weblate Translations
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+
     steps:
-      - name: Find and merge open Weblate PR
-        if: github.event_name == 'push'
+      - uses: actions/checkout@v7
+
+      # Fail fast if the repository's translations carry placeholders the app
+      # cannot fill (the MissingFormatArgumentException crash class).
+      - name: Validate plural placeholders across locales
+        run: python3 scripts/check_plural_specifiers.py
+
+      # Merge every open Weblate PR that is mergeable and placeholder-clean.
+      # PRs with merge conflicts or bad placeholders are NOT silently skipped:
+      # they get a comment on the PR and fail this run so they can't be missed.
+      # Runs on push AND manual runs, so a manual flush that just created a PR
+      # can be merged by re-running the workflow instead of leaving it open.
+      - name: Merge open Weblate PRs
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Weblate opens PRs under the "weblate" login (OAuth app) or
-          # "weblate[bot]" (GitHub App). We check both.
-          for AUTHOR in "weblate" "weblate[bot]"; do
-            PR_NUMBER=$(gh pr list \
-              --repo "${{ github.repository }}" \
-              --author "$AUTHOR" \
-              --state open \
-              --json number \
-              --jq '.[0].number' 2>/dev/null || true)
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          BROKEN=""
 
-            if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
-              echo "Found Weblate PR #$PR_NUMBER (author: $AUTHOR) — merging"
-              # Use --squash (not --auto) so it merges immediately without
-              # waiting for branch-protection status checks that may not exist.
-              gh pr merge "$PR_NUMBER" \
-                --repo "${{ github.repository }}" \
-                --squash \
+          PRS=$(gh pr list --repo "$REPO" --state open --limit 100 \
+            --json number,author \
+            --jq '.[] | select(.author.login == "weblate" or .author.login == "weblate[bot]") | .number' || true)
+
+          if [ -z "$PRS" ]; then
+            echo "No open Weblate PRs."
+          fi
+
+          for PR in $PRS; do
+            echo "== Processing Weblate PR #$PR =="
+
+            # Validate the PR's translation changes before merging so a
+            # placeholder regression can never reach main through Weblate.
+            if git fetch --no-tags --quiet origin "pull/$PR/head:pr-$PR" 2>/dev/null; then
+              CHANGED=$(git diff --name-only "HEAD...pr-$PR" -- 'app/src/main/res/values-*/strings.xml' || true)
+              CHANGED=$(echo "$CHANGED" | grep -v '^app/src/main/res/values/strings.xml$' || true)
+              if [ -n "$CHANGED" ]; then
+                rm -rf "/tmp/pr-$PR" && mkdir -p "/tmp/pr-$PR"
+                EXTRACTED=""
+                for f in $CHANGED; do
+                  mkdir -p "/tmp/pr-$PR/$(dirname "$f")"
+                  # Skip files that no longer exist at the PR tip (deleted or
+                  # renamed); an empty file would fail the XML parse and falsely
+                  # block the PR.
+                  git show "pr-$PR:$f" > "/tmp/pr-$PR/$f" 2>/dev/null || true
+                  [ -s "/tmp/pr-$PR/$f" ] || continue
+                  EXTRACTED="$EXTRACTED /tmp/pr-$PR/$f"
+                done
+                if [ -n "$EXTRACTED" ]; then
+                  if ! python3 scripts/check_plural_specifiers.py --files $EXTRACTED; then
+                    echo "::error::Weblate PR #$PR introduces plural placeholder mismatches - skipping merge."
+                    gh pr comment "$PR" --repo "$REPO" --body "⚠️ This PR contains translations with format placeholders that are missing from the English source (e.g. a leftover %2\$s while the source only has %1\$d). It was not auto-merged. Please fix the placeholders in Weblate and update the PR. If the flagged unit was not actually changed by this PR, the branch base is stale — merge main into it first." || true
+                    BROKEN="$BROKEN $PR"
+                    continue
+                  fi
+                fi
+              fi
+            else
+              echo "::warning::Could not fetch PR #$PR head for validation - merging anyway."
+            fi
+
+            STATE=$(gh pr view "$PR" --repo "$REPO" --json mergeable --jq .mergeable 2>/dev/null || echo UNKNOWN)
+            echo "PR #$PR mergeable=$STATE"
+            if [ "$STATE" = "CONFLICTING" ]; then
+              echo "::error::Weblate PR #$PR has merge conflicts - cannot auto-merge."
+              gh pr comment "$PR" --repo "$REPO" --body "⚠️ Auto-sync could not merge this PR: merge conflicts (likely a direct repo edit and a Weblate edit touched the same lines). Please resolve them so translations can flow." || true
+              BROKEN="$BROKEN $PR"
+              continue
+            fi
+
+            if ! gh pr merge "$PR" --repo "$REPO" --squash --delete-branch \
                 --subject "chore(i18n): sync translations from Weblate" \
-                --body "Auto-merged by weblate-sync.yml workflow." || {
-                  echo "Merge failed (may already be merged or CI checks pending). Skipping."
-                }
-              break
+                --body "Auto-merged by weblate-sync.yml workflow."; then
+              echo "::error::Failed to merge Weblate PR #$PR"
+              BROKEN="$BROKEN $PR"
             fi
           done
-          echo "No open Weblate PR found."
 
-      - uses: actions/checkout@v4
+          if [ -n "$BROKEN" ]; then
+            echo "::error::The following Weblate PRs could not be merged:$BROKEN"
+            exit 1
+          fi
 
-      - name: Lock Weblate — Strings component
+      # Pull main into Weblate, then flush Weblate's pending translations back
+      # to the repo as a PR (commit + push) when it is safe to do so. Locks are
+      # always released, even if a step fails, via the EXIT trap.
+      - name: Sync Weblate components (lock, pull, flush, unlock)
         env:
           WEBLATE_TOKEN: ${{ secrets.WEBLATE_TOKEN }}
         run: |
           if [ -z "$WEBLATE_TOKEN" ]; then
-            echo "::warning::WEBLATE_TOKEN not set — skipping lock. Add it in repo Settings → Secrets → Actions."
-            exit 0
-          fi
-          RESULT=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-            -H "Authorization: Token $WEBLATE_TOKEN" \
-            "https://hosted.weblate.org/api/components/rhythm/strings/lock/" \
-            --data "lock=true")
-          echo "Lock strings HTTP status: $RESULT"
-          if [ "$RESULT" != "200" ]; then
-            echo "::warning::Failed to lock Strings component (HTTP $RESULT). Proceeding anyway."
-          fi
-
-      - name: Lock Weblate — Metadata component
-        env:
-          WEBLATE_TOKEN: ${{ secrets.WEBLATE_TOKEN }}
-        run: |
-          if [ -z "$WEBLATE_TOKEN" ]; then
-            exit 0
-          fi
-          RESULT=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-            -H "Authorization: Token $WEBLATE_TOKEN" \
-            "https://hosted.weblate.org/api/components/rhythm/metadata/lock/" \
-            --data "lock=true")
-          echo "Lock metadata HTTP status: $RESULT"
-
-      - name: Trigger Weblate pull (import new source strings)
-        env:
-          WEBLATE_TOKEN: ${{ secrets.WEBLATE_TOKEN }}
-        run: |
-          if [ -z "$WEBLATE_TOKEN" ]; then
+            echo "::warning::WEBLATE_TOKEN not set - skipping Weblate sync. Add it in repo Settings → Secrets → Actions."
             exit 0
           fi
 
-          pull_component() {
-            local COMPONENT="$1"
-            local HTTP_CODE
-            local BODY
-            BODY=$(curl -s -w "\n%{http_code}" -X POST \
-              -H "Authorization: Token $WEBLATE_TOKEN" \
-              "https://hosted.weblate.org/api/components/rhythm/${COMPONENT}/repository/" \
-              --data "operation=pull")
-            HTTP_CODE=$(echo "$BODY" | tail -n1)
-            RESPONSE=$(echo "$BODY" | head -n -1)
-            echo "Pull ${COMPONENT}: HTTP $HTTP_CODE — $RESPONSE"
-            if [ "$HTTP_CODE" != "200" ]; then
-              echo "::warning::Pull for ${COMPONENT} returned HTTP $HTTP_CODE"
+          set -euo pipefail
+          API="https://hosted.weblate.org/api/components/rhythm"
+          CURL=(curl -s --max-time 120 -H "Authorization: Token $WEBLATE_TOKEN")
+          LOCKED=""
+
+          unlock_all() {
+            for C in $LOCKED; do
+              "${CURL[@]}" -o /dev/null -w "unlock $C: HTTP %{http_code}\n" \
+                -X POST "$API/$C/lock/" --data "lock=false" || true
+            done
+          }
+          trap unlock_all EXIT
+
+          FORCE_FLUSH="false"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.force_flush_pending }}" = "true" ]; then
+            FORCE_FLUSH="true"
+            echo "Force flush requested via workflow_dispatch."
+          fi
+
+          for COMPONENT in strings metadata; do
+            echo "== $COMPONENT =="
+
+            LOCK=$("${CURL[@]}" -o /dev/null -w "%{http_code}" -X POST \
+              "$API/$COMPONENT/lock/" --data "lock=true")
+            echo "lock: HTTP $LOCK"
+            if [ "$LOCK" = "200" ]; then
+              LOCKED="$LOCKED $COMPONENT"
+            else
+              echo "::warning::Failed to lock $COMPONENT (HTTP $LOCK) - proceeding anyway."
             fi
-          }
 
-          pull_component "strings"
-          pull_component "metadata"
+            # Pull main into Weblate.
+            PULL_BODY=$("${CURL[@]}" -w "\n%{http_code}" -X POST \
+              "$API/$COMPONENT/repository/" --data "operation=pull" || echo "")
+            PULL_CODE=$(echo "$PULL_BODY" | tail -n1)
+            PULL_JSON=$(echo "$PULL_BODY" | head -n -1)
+            echo "pull: HTTP $PULL_CODE"
+            echo "  $PULL_JSON"
 
-      - name: Unlock Weblate components (always runs)
-        if: always()
-        env:
-          WEBLATE_TOKEN: ${{ secrets.WEBLATE_TOKEN }}
-        run: |
-          if [ -z "$WEBLATE_TOKEN" ]; then
-            exit 0
-          fi
+            PULL_OK="false"
+            if [ "$PULL_CODE" = "200" ]; then
+              PULL_OK=$(echo "$PULL_JSON" | python3 -c "import sys,json; d=json.load(sys.stdin); ok=d.get('result', True); detail=str(d.get('detail','')).lower(); print('false' if (not ok or 'conflict' in detail or 'error' in detail) else 'true')" 2>/dev/null || echo "false")
+            fi
 
-          unlock_component() {
-            local COMPONENT="$1"
-            RESULT=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
-              -H "Authorization: Token $WEBLATE_TOKEN" \
-              "https://hosted.weblate.org/api/components/rhythm/${COMPONENT}/lock/" \
-              --data "lock=false")
-            echo "Unlock ${COMPONENT}: HTTP $RESULT"
-          }
-
-          unlock_component "strings"
-          unlock_component "metadata"
+            # Flush pending translations (commit then push) when safe: only
+            # after a clean pull. Weblate's DB-held "pending units" are NOT
+            # reflected in the git repository status when the commit policy
+            # skips commits (the UI shows "N pending units skipped by the
+            # commit policy"), so operation=commit must be attempted
+            # unconditionally - it is a no-op when nothing is pending.
+            if [ "$PULL_OK" = "true" ]; then
+              COMMIT_CODE=$("${CURL[@]}" -o /dev/null -w "%{http_code}" -X POST \
+                "$API/$COMPONENT/repository/" --data "operation=commit")
+              echo "commit: HTTP $COMMIT_CODE"
+              if [ "$COMMIT_CODE" = "200" ]; then
+                STATUS=$("${CURL[@]}" "$API/$COMPONENT/repository/" || echo "{}")
+                NEEDS_PUSH=$(echo "$STATUS" | python3 -c "import sys,json; print(str(json.load(sys.stdin).get('needs_push','unknown')))" 2>/dev/null || echo unknown)
+                echo "status after commit: needs_push=$NEEDS_PUSH"
+                if [ "$FORCE_FLUSH" = "true" ] || [ "$NEEDS_PUSH" = "True" ] || [ "$NEEDS_PUSH" = "true" ]; then
+                  PUSH_CODE=$("${CURL[@]}" -o /dev/null -w "%{http_code}" -X POST \
+                    "$API/$COMPONENT/repository/" --data "operation=push")
+                  echo "push: HTTP $PUSH_CODE"
+                  if [ "$PUSH_CODE" != "200" ]; then
+                    echo "::warning::Push failed for $COMPONENT (HTTP $PUSH_CODE)"
+                  fi
+                else
+                  echo "No push needed."
+                fi
+              else
+                echo "::warning::Commit failed for $COMPONENT (HTTP $COMMIT_CODE)"
+              fi
+            else
+              echo "::warning::Pull for $COMPONENT did not complete cleanly - skipping flush to avoid committing on a conflicted repository."
+            fi
+          done

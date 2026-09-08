@@ -1,4 +1,11 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.bottomsheets
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
@@ -34,6 +41,8 @@ import coil.request.ImageRequest
 import chromahub.rhythm.app.shared.data.model.Playlist
 import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.shared.presentation.components.common.M3PlaceholderType
+import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveCookieEmptyState
+import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveScrollBar
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
 import chromahub.rhythm.app.util.ImageUtils
@@ -53,7 +62,10 @@ fun SongPickerBottomSheet(
     availableSongs: List<Song>,
     onDismissRequest: () -> Unit,
     onAddSongsToPlaylist: (List<Song>) -> Unit,
-    sheetState: androidx.compose.material3.SheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
+    sheetState: androidx.compose.material3.SheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
+    )
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
@@ -72,110 +84,119 @@ fun SongPickerBottomSheet(
         }
     }
 
-    var showContent by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        delay(80)
-        showContent = true
-    }
-
-    ModalBottomSheet(
+    RhythmAdaptiveModalSheet(
+        adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
+        lazyListState = listState,
         modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         dragHandle = { BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary) },
-        containerColor = MaterialTheme.colorScheme.background,
-        contentColor = MaterialTheme.colorScheme.onBackground,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         tonalElevation = 0.dp
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            AnimatedVisibility(
-                visible = showContent,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it }
+        StandardBottomSheetHeader(
+            title = stringResource(R.string.add_to_playlist_named, targetPlaylist.name),
+            subtitle = if (isSelectionMode) "${selectedSongs.size} selected" else "${filteredSongs.size} songs",
+            visible = true
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+        ) {
+            // Search + actions row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    // Centered title
-                    Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 6.dp), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "Add to ${targetPlaylist.name}",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                SettingsSearchBar(
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp),
+                    hint = "Pick a tune..."
+                )
 
-                    // Search + actions row
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        SettingsSearchBar(
-                            query = searchQuery,
-                            onQueryChange = { searchQuery = it },
-                            modifier = Modifier
-                                .weight(1f)
-                                .heightIn(min = 48.dp),
-                            hint = "Pick a tune..."
-                        )
+                Spacer(modifier = Modifier.width(8.dp))
 
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Column(verticalArrangement = Arrangement.Center) {
-                            AnimatedVisibility(visible = isSelectionMode && selectedSongs.isNotEmpty()) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    FilledTonalIconButton(
-                                        onClick = {
-                                            HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                            if (selectedSongs.size == filteredSongs.size) selectedSongs = emptySet()
-                                            else selectedSongs = filteredSongs.map { it.id }.toSet()
-                                        },
-                                        colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                                        )
-                                    ) {
-                                        Icon(
-                                            imageVector = if (selectedSongs.size == filteredSongs.size) MaterialSymbolIcon("deselect", filled = true) else RhythmIcons.SelectAll,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-
-                                    FilledIconButton(
-                                        onClick = {
-                                            HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                            val songsToAdd = filteredSongs.filter { selectedSongs.contains(it.id) }
-                                            onAddSongsToPlaylist(songsToAdd)
-                                            isSelectionMode = false
-                                            selectedSongs = emptySet()
-                                        },
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                    ) {
-                                        Icon(imageVector = RhythmIcons.Check, contentDescription = null, modifier = Modifier.size(20.dp))
-                                    }
-                                }
+                Column(verticalArrangement = Arrangement.Center) {
+                    AnimatedVisibility(visible = isSelectionMode) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilledTonalIconButton(
+                                onClick = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                    isSelectionMode = false
+                                    selectedSongs = emptySet()
+                                },
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = RhythmIcons.Close,
+                                    contentDescription = stringResource(R.string.addtoplaylistscreen_exit_selection),
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
 
-                            AnimatedVisibility(visible = !isSelectionMode) {
+                            if (selectedSongs.isNotEmpty()) {
                                 FilledTonalIconButton(
                                     onClick = {
-                                        HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                        isSelectionMode = !isSelectionMode
-                                        if (!isSelectionMode) selectedSongs = emptySet()
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                        if (selectedSongs.size == filteredSongs.size) selectedSongs = emptySet()
+                                        else selectedSongs = filteredSongs.map { it.id }.toSet()
                                     },
                                     colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                        containerColor = if (isSelectionMode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
-                                        contentColor = if (isSelectionMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                                     )
                                 ) {
-                                    Icon(imageVector = MaterialSymbolIcon("checklist", filled = true), contentDescription = null, modifier = Modifier.size(20.dp))
+                                    Icon(
+                                        imageVector = if (selectedSongs.size == filteredSongs.size) MaterialSymbolIcon("deselect", filled = true) else RhythmIcons.SelectAll,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
+                                FilledIconButton(
+                                    onClick = {
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                                        val songsToAdd = filteredSongs.filter { selectedSongs.contains(it.id) }
+                                        onAddSongsToPlaylist(songsToAdd)
+                                        isSelectionMode = false
+                                        selectedSongs = emptySet()
+                                    },
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                ) {
+                                    Icon(imageVector = RhythmIcons.Check, contentDescription = null, modifier = Modifier.size(20.dp))
                                 }
                             }
+                        }
+                    }
+
+                    AnimatedVisibility(visible = !isSelectionMode) {
+                        FilledTonalIconButton(
+                            onClick = {
+                                HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                                isSelectionMode = !isSelectionMode
+                                if (!isSelectionMode) selectedSongs = emptySet()
+                            },
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = if (isSelectionMode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = if (isSelectionMode) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        ) {
+                            Icon(imageVector = MaterialSymbolIcon("checklist", filled = true), contentDescription = null, modifier = Modifier.size(20.dp))
                         }
                     }
                 }
@@ -217,43 +238,48 @@ fun SongPickerBottomSheet(
             }
 
             // Body: song list
-            LazyColumn(
-                state = listState,
+            AdaptiveSheetScrollContainer(
+                lazyListState = listState,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                if (filteredSongs.isEmpty()) {
-                    item {
-                        EmptySongsState(hasSearch = searchQuery.isNotEmpty(), modifier = Modifier.padding(vertical = 48.dp))
-                    }
-                } else {
-                    itemsIndexed(items = filteredSongs, key = { index, song -> "addsong_${song.id}_$index" }) { index, song ->
-                        SongSelectionItem(
-                            song = song,
-                            isSelectionMode = isSelectionMode,
-                            isSelected = selectedSongs.contains(song.id),
-                            index = index,
-                            totalCount = filteredSongs.size,
-                            onSongClick = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                if (isSelectionMode) {
-                                    selectedSongs = if (selectedSongs.contains(song.id)) selectedSongs - song.id else selectedSongs + song.id
-                                } else {
-                                    onAddSongsToPlaylist(listOf(song))
-                                }
-                            },
-                            onLongClick = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                if (!isSelectionMode) {
-                                    isSelectionMode = true
-                                    selectedSongs = setOf(song.id)
-                                }
-                            },
-                            modifier = Modifier.animateItem()
-                        )
+                    .weight(1f)
+            ) { endPadding ->
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp + endPadding, top = 8.dp, bottom = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    if (filteredSongs.isEmpty()) {
+                        item {
+                            EmptySongsState(hasSearch = searchQuery.isNotEmpty(), modifier = Modifier.padding(vertical = 48.dp))
+                        }
+                    } else {
+                        itemsIndexed(items = filteredSongs, key = { index, song -> "addsong_${song.id}_$index" }) { index, song ->
+                            SongSelectionItem(
+                                song = song,
+                                isSelectionMode = isSelectionMode,
+                                isSelected = selectedSongs.contains(song.id),
+                                index = index,
+                                totalCount = filteredSongs.size,
+                                onSongClick = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                    if (isSelectionMode) {
+                                        selectedSongs = if (selectedSongs.contains(song.id)) selectedSongs - song.id else selectedSongs + song.id
+                                    } else {
+                                        onAddSongsToPlaylist(listOf(song))
+                                    }
+                                },
+                                onLongClick = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                                    if (!isSelectionMode) {
+                                        isSelectionMode = true
+                                        selectedSongs = setOf(song.id)
+                                    }
+                                },
+                                modifier = Modifier.animateItem()
+                            )
+                        }
                     }
                 }
             }
@@ -337,17 +363,14 @@ private fun groupedSongItemShape(index: Int, totalCount: Int): RoundedCornerShap
 
 @Composable
 private fun EmptySongsState(hasSearch: Boolean, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-
-    Column(modifier = modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(modifier = Modifier.size(72.dp), shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(imageVector = RhythmIcons.SearchFilled, contentDescription = null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = if (hasSearch) context.getString(R.string.nav_no_matching_songs) else "No songs available", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(text = if (hasSearch) context.getString(R.string.nav_try_different) else "All songs are already in this playlist", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-    }
+    ExpressiveCookieEmptyState(
+        modifier = modifier.fillMaxWidth(),
+        title = if (hasSearch) stringResource(R.string.nav_no_matching_songs) else stringResource(R.string.playlist_no_songs_available),
+        subtitle = if (hasSearch) stringResource(R.string.nav_try_different) else stringResource(R.string.playlist_all_in_playlist),
+        mainIcon = if (hasSearch) RhythmIcons.Search else RhythmIcons.MusicNote,
+        accentIcon = if (hasSearch) RhythmIcons.Search else RhythmIcons.MusicNote,
+        cornerIcon = RhythmIcons.MusicNote,
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+    )
 }

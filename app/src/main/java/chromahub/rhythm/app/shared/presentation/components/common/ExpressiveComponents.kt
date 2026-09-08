@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.components.common
@@ -62,7 +67,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
@@ -1676,12 +1680,12 @@ private fun ExpressiveMorphingPlayPauseButton(
     onClick: () -> Unit,
     isExtraSmallWidth: Boolean,
     isCompactWidth: Boolean,
+    modifier: Modifier = Modifier,
     isLoading: Boolean = false,
     showSeekButtons: Boolean = true,
     cornerRadius: Dp = 26.dp,
     useGlassEffect: Boolean = false,
-    isDark: Boolean = false,
-    modifier: Modifier = Modifier
+    isDark: Boolean = false
 ) {
     // Show PAUSE text after 2 seconds when paused
     var showPauseText by remember { mutableStateOf(false) }
@@ -1858,7 +1862,7 @@ fun ExpressiveToggleButtonGroup(
                 onClick = onToggleLyrics,
                 onLongClick = onLongClickLyrics,
                 icon = RhythmIcons.Player.Lyrics,
-                label = "Lyrics",
+                label = stringResource(R.string.player_chip_lyrics),
                 isDarkTheme = isDarkTheme,
                 isCompactHeight = isCompactHeight,
                 isCompactWidth = isCompactWidth
@@ -1874,7 +1878,7 @@ fun ExpressiveToggleButtonGroup(
                 2 -> RhythmIcons.Repeat
                 else -> RhythmIcons.Repeat
             },
-            label = "Repeat",
+            label = stringResource(R.string.player_chip_repeat),
             isDarkTheme = isDarkTheme,
             isCompactHeight = isCompactHeight,
             isCompactWidth = isCompactWidth
@@ -1892,9 +1896,9 @@ private fun ExpressiveMorphingToggleButton(
     icon: chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon,
     label: String,
     isDarkTheme: Boolean,
+    modifier: Modifier = Modifier,
     isCompactHeight: Boolean = false,
     isCompactWidth: Boolean = false,
-    modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }

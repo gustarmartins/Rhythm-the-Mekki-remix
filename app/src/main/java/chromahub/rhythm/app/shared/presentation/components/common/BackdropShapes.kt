@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.common
 
 import androidx.compose.animation.core.EaseInOut
@@ -144,7 +149,8 @@ fun buildSplashBackdropShapes(
     primaryColor: androidx.compose.ui.graphics.Color,
     secondaryColor: androidx.compose.ui.graphics.Color,
     tertiaryColor: androidx.compose.ui.graphics.Color,
-    neutralColor: androidx.compose.ui.graphics.Color
+    neutralColor: androidx.compose.ui.graphics.Color,
+    sizeScale: Float = 1f
 ): List<SplashBackdropShape> {
     val random = Random(seed)
     val colors = listOf(primaryColor, secondaryColor, tertiaryColor, neutralColor)
@@ -199,16 +205,26 @@ fun buildSplashBackdropShapes(
     val selectedAnchors = anchors.shuffled(random).take(count)
     val selectedShapeIds = shapePool.shuffled(random).take(count)
 
-    val virtualScale = 420f
+    val virtualScale = 420f * sizeScale
     val offsetLimitX = if (isCompact) 12 else 20
     val offsetLimitY = if (isCompact) 14 else 24
     val centerClearMin = if (isCompact) 0.24f else 0.28f
     val centerClearMax = 1f - centerClearMin
 
+    // Reserve extra space for rotation, pulse and drift so shapes never overlap
+    // mid-animation. Margins are physical dp normalized against a fixed
+    // reference scale (420dp) so they stay constant regardless of sizeScale.
+    val referenceScale = 420f
+    val rotationExtentFactor = 1.5f
+    val pulseFactor = 1.15f
+    val driftNorm = (if (isCompact) 8f else 12f) / referenceScale
+    val offsetNorm = maxOf(offsetLimitX, offsetLimitY) / referenceScale
+    val minGapNorm = (if (isCompact) 8f else 14f) / referenceScale
+
     var attemptsTotal = 0
     var placedCount = 0
     var i = 0
-    while (i < count && attemptsTotal < count * 30) {
+    while (i < count && attemptsTotal < count * 60) {
         attemptsTotal++
 
         val anchor = selectedAnchors.getOrElse(i) { anchors[random.nextInt(anchors.size)] }
@@ -220,66 +236,75 @@ fun buildSplashBackdropShapes(
             continue
         }
 
-        val sizeDp = (sizeMin + random.nextInt(0, sizeRange)).dp
-        val sizeVal = sizeDp.value
-        val radiusNorm = (sizeVal / virtualScale) / 2f
+        // Shrink until this slot is collision-free so shapes are never dropped.
+        val baseSizeDp = (sizeMin + random.nextInt(0, sizeRange)) * sizeScale
+        var placedHere = false
+        var shrinkAttempts = 0
+        while (!placedHere && shrinkAttempts < 4) {
+            val sizeDp = (baseSizeDp * (1f - 0.15f * shrinkAttempts)).coerceAtLeast(26f * sizeScale).dp
+            val sizeVal = sizeDp.value
+            val radiusNorm = (sizeVal / virtualScale) / 2f
+            val radiusEff = radiusNorm * rotationExtentFactor * pulseFactor + driftNorm + offsetNorm
 
-        val px = biasX
-        val py = biasY
+            val px = biasX
+            val py = biasY
 
-        val safe = placed.all { (pos, r) ->
-            val dx = pos.first - px
-            val dy = pos.second - py
-            val dist = kotlin.math.sqrt(dx * dx + dy * dy)
-            dist > (r + radiusNorm) * 1.6f
-        }
-
-        if (!safe) {
-            if (attemptsTotal % 6 == 0) {
-                i++
+            val safe = placed.all { (pos, r) ->
+                val dx = pos.first - px
+                val dy = pos.second - py
+                val dist = kotlin.math.sqrt(dx * dx + dy * dy)
+                dist > r + radiusEff + minGapNorm
             }
-            continue
+
+            if (safe) {
+                placed.add(Pair(Pair(px, py), radiusEff))
+
+                val alignment = BiasAlignment(px * 2f - 1f, py * 2f - 1f)
+                val offsetX = random.nextInt(-offsetLimitX, offsetLimitX).dp
+                val offsetY = random.nextInt(-offsetLimitY, offsetLimitY).dp
+                val driftXPx = random.nextInt(if (isCompact) 1 else 3, if (isCompact) 8 else 12).toFloat()
+                val driftYPx = random.nextInt(if (isCompact) 1 else 3, if (isCompact) 8 else 12).toFloat()
+                val pulseMin = pulseBaseMin + random.nextFloat() * pulseBaseRange
+                val pulseMax = pulseMin + 0.05f + random.nextFloat() * 0.08f
+                val pulseDurationMs = random.nextInt(4200, 10800)
+                val driftXDurationMs = random.nextInt(6800, 14800)
+                val driftYDurationMs = random.nextInt(7200, 15600)
+                val rotationDegrees = (rotMin + random.nextInt(0, rotRange)).toFloat()
+                val rotationDurationMs = random.nextInt(7600, 16200)
+                val selectedShapeId = selectedShapeIds.getOrElse(i) { shapePool[random.nextInt(shapePool.size)] }
+
+                results.add(
+                    SplashBackdropShape(
+                        shape = ExpressiveShapeProvider.getShapeById(selectedShapeId, ExpressiveShapes.ExtraLarge),
+                        alignment = alignment,
+                        offsetX = offsetX,
+                        offsetY = offsetY,
+                        size = sizeDp,
+                        color = colors[random.nextInt(colors.size)],
+                        alpha = 0.86f - (placedCount * 0.06f),
+                        driftXPx = driftXPx,
+                        driftYPx = driftYPx,
+                        pulseMin = pulseMin,
+                        pulseMax = pulseMax,
+                        pulseDurationMs = pulseDurationMs,
+                        driftXDurationMs = driftXDurationMs,
+                        driftYDurationMs = driftYDurationMs,
+                        rotationDegrees = rotationDegrees,
+                        rotationDurationMs = rotationDurationMs
+                    )
+                )
+
+                placedCount++
+                placedHere = true
+                i++
+            } else {
+                shrinkAttempts++
+            }
         }
 
-        placed.add(Pair(Pair(px, py), radiusNorm))
-
-        val alignment = BiasAlignment(px * 2f - 1f, py * 2f - 1f)
-        val offsetX = random.nextInt(-offsetLimitX, offsetLimitX).dp
-        val offsetY = random.nextInt(-offsetLimitY, offsetLimitY).dp
-        val driftXPx = random.nextInt(if (isCompact) 1 else 3, if (isCompact) 8 else 12).toFloat()
-        val driftYPx = random.nextInt(if (isCompact) 1 else 3, if (isCompact) 8 else 12).toFloat()
-        val pulseMin = pulseBaseMin + random.nextFloat() * pulseBaseRange
-        val pulseMax = pulseMin + 0.05f + random.nextFloat() * 0.08f
-        val pulseDurationMs = random.nextInt(4200, 10800)
-        val driftXDurationMs = random.nextInt(6800, 14800)
-        val driftYDurationMs = random.nextInt(7200, 15600)
-        val rotationDegrees = (rotMin + random.nextInt(0, rotRange)).toFloat()
-        val rotationDurationMs = random.nextInt(7600, 16200)
-        val selectedShapeId = selectedShapeIds.getOrElse(i) { shapePool[random.nextInt(shapePool.size)] }
-
-        results.add(
-            SplashBackdropShape(
-                shape = ExpressiveShapeProvider.getShapeById(selectedShapeId, ExpressiveShapes.ExtraLarge),
-                alignment = alignment,
-                offsetX = offsetX,
-                offsetY = offsetY,
-                size = sizeDp,
-                color = colors[random.nextInt(colors.size)],
-                alpha = 0.86f - (placedCount * 0.06f),
-                driftXPx = driftXPx,
-                driftYPx = driftYPx,
-                pulseMin = pulseMin,
-                pulseMax = pulseMax,
-                pulseDurationMs = pulseDurationMs,
-                driftXDurationMs = driftXDurationMs,
-                driftYDurationMs = driftYDurationMs,
-                rotationDegrees = rotationDegrees,
-                rotationDurationMs = rotationDurationMs
-            )
-        )
-
-        placedCount++
-        i++
+        if (!placedHere && attemptsTotal % 4 == 0) {
+            i++
+        }
     }
 
     if (results.isEmpty()) {

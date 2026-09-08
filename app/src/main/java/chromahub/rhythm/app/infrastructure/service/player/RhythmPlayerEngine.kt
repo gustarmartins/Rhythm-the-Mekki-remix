@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.infrastructure.service.player
 
 import android.content.Context
@@ -13,6 +18,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.DefaultDataSource
@@ -27,6 +33,7 @@ import kotlinx.coroutines.runBlocking
 import androidx.media3.datasource.cache.CacheDataSource
 import chromahub.rhythm.app.infrastructure.audio.RhythmBassBoostProcessor
 import chromahub.rhythm.app.infrastructure.audio.RhythmSpatializationProcessor
+import chromahub.rhythm.app.infrastructure.audio.RhythmMonoAudioProcessor
 import chromahub.rhythm.app.shared.data.model.TransitionSettings
 import chromahub.rhythm.app.infrastructure.service.player.replaygain.ReplayGainAudioProcessor
 import chromahub.rhythm.app.infrastructure.service.player.replaygain.ReplayGainUtil
@@ -36,11 +43,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import androidx.core.net.toUri
 
 /**
  * Manages two ExoPlayer instances (A and B) to enable seamless crossfade transitions.
@@ -54,13 +64,14 @@ import kotlinx.coroutines.launch
 class RhythmPlayerEngine(
     private val context: Context,
     private val bassBoostProcessor: RhythmBassBoostProcessor? = null,
-    private val spatializationProcessor: RhythmSpatializationProcessor? = null
+    private val spatializationProcessor: RhythmSpatializationProcessor? = null,
+    private val monoProcessor: RhythmMonoAudioProcessor? = null
 ) {
     companion object {
         private const val TAG = "RhythmPlayerEngine"
     }
 
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var transitionJob: Job? = null
     @Volatile
     private var transitionRunning = false
@@ -73,9 +84,14 @@ class RhythmPlayerEngine(
     private var playerBBassBoost: RhythmBassBoostProcessor? = null
     private var playerASpatialization: RhythmSpatializationProcessor? = null
     private var playerBSpatialization: RhythmSpatializationProcessor? = null
+    private var playerAMono: RhythmMonoAudioProcessor? = null
+    private var playerBMono: RhythmMonoAudioProcessor? = null
     private lateinit var playerAReplayGain: ReplayGainAudioProcessor
     private lateinit var playerBReplayGain: ReplayGainAudioProcessor
     private var activeReplayGainProcessor: ReplayGainAudioProcessor? = null
+    private var userVolume: Float = 1.0f
+    @Volatile
+    var isInternalVolumeAdjustment: Boolean = false
 
     private val onPlayerSwappedListeners = mutableListOf<(Player) -> Unit>()
 
@@ -138,7 +154,23 @@ class RhythmPlayerEngine(
                 activeReplayGainProcessor?.setRootFormat(format)
             }
         }
+
+        override fun onVolumeChanged(volume: Float) {
+            if (!transitionRunning && !isInternalVolumeAdjustment) {
+                userVolume = volume
+                Log.d(TAG, "User volume updated: $userVolume")
+            }
+        }
     }
+
+    fun setUserVolume(volume: Float) {
+        userVolume = volume.coerceIn(0f, 1f)
+        if (::playerA.isInitialized) {
+            playerA.volume = userVolume
+        }
+    }
+
+    fun getUserVolume(): Float = userVolume
 
     fun addPlayerSwapListener(listener: (Player) -> Unit) {
         onPlayerSwappedListeners.add(listener)
@@ -161,6 +193,11 @@ class RhythmPlayerEngine(
     fun initialize() {
         if (!isReleased && ::playerA.isInitialized && playerA.applicationLooper.thread.isAlive) return
 
+        // Recreate the scope if it was cancelled by a previous release()
+        if (!scope.isActive) {
+            scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+        }
+
         if (::playerA.isInitialized) {
             try { playerA.release() } catch (_: Exception) {}
         }
@@ -171,17 +208,21 @@ class RhythmPlayerEngine(
         // Instantiate child processors for Player A
         val aBass = bassBoostProcessor?.let { RhythmBassBoostProcessor().apply { setParent(it) } }
         val aSpatial = spatializationProcessor?.let { RhythmSpatializationProcessor().apply { setParent(it) } }
+        val aMono = monoProcessor?.let { RhythmMonoAudioProcessor().apply { setParent(it) } }
         val aReplayGain = ReplayGainAudioProcessor()
         playerABassBoost = aBass
         playerASpatialization = aSpatial
+        playerAMono = aMono
         playerAReplayGain = aReplayGain
 
         // Instantiate child processors for Player B
         val bBass = bassBoostProcessor?.let { RhythmBassBoostProcessor().apply { setParent(it) } }
         val bSpatial = spatializationProcessor?.let { RhythmSpatializationProcessor().apply { setParent(it) } }
+        val bMono = monoProcessor?.let { RhythmMonoAudioProcessor().apply { setParent(it) } }
         val bReplayGain = ReplayGainAudioProcessor()
         playerBBassBoost = bBass
         playerBSpatialization = bSpatial
+        playerBMono = bMono
         playerBReplayGain = bReplayGain
 
         // Apply settings initially
@@ -189,8 +230,12 @@ class RhythmPlayerEngine(
         applyReplayGainSettingsOnProcessor(aReplayGain, appSettings.replayGain.value)
         applyReplayGainSettingsOnProcessor(bReplayGain, appSettings.replayGain.value)
 
-        playerA = buildPlayer(handleAudioFocus = false, bassProcessor = aBass, spatialProcessor = aSpatial, replayGainProcessor = aReplayGain)
-        playerB = buildPlayer(handleAudioFocus = false, bassProcessor = bBass, spatialProcessor = bSpatial, replayGainProcessor = bReplayGain)
+        playerA = buildPlayer(handleAudioFocus = false, bassProcessor = aBass, spatialProcessor = aSpatial, monoProcessor = aMono, replayGainProcessor = aReplayGain)
+        playerB = buildPlayer(handleAudioFocus = false, bassProcessor = bBass, spatialProcessor = bSpatial, monoProcessor = bMono, replayGainProcessor = bReplayGain)
+
+        val initVolume = if (appSettings.useSystemVolume.value) 1.0f else appSettings.appVolume.value
+        userVolume = initVolume
+        playerA.volume = initVolume
 
         playerA.addListener(masterPlayerListener)
         activeReplayGainProcessor = aReplayGain
@@ -198,7 +243,7 @@ class RhythmPlayerEngine(
         _activeAudioSessionId.value = playerA.audioSessionId
 
         isReleased = false
-        Log.d(TAG, "RhythmPlayerEngine initialized. SessionA=${playerA.audioSessionId}")
+        Log.d(TAG, "RhythmPlayerEngine initialized. SessionA=${playerA.audioSessionId}, initialVolume=$initVolume")
 
         // Reactively update track selection parameters when settings change
         scope.launch {
@@ -207,6 +252,7 @@ class RhythmPlayerEngine(
             launch { appSettings.replayGain.collect { updateTrackSelectionParameters() } }
             launch { appSettings.bassBoostEnabled.collect { updateTrackSelectionParameters() } }
             launch { appSettings.virtualizerEnabled.collect { updateTrackSelectionParameters() } }
+            launch { appSettings.monoAudioEnabled.collect { updateTrackSelectionParameters() } }
             launch { appSettings.isAudioOffloadActive.collect { updateTrackSelectionParameters() } }
         }
     }
@@ -244,10 +290,12 @@ class RhythmPlayerEngine(
         handleAudioFocus: Boolean,
         bassProcessor: RhythmBassBoostProcessor? = null,
         spatialProcessor: RhythmSpatializationProcessor? = null,
+        monoProcessor: RhythmMonoAudioProcessor? = null,
         replayGainProcessor: ReplayGainAudioProcessor? = null
     ): ExoPlayer {
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(15_000, 30_000, 1_500, 2_500)
+            .setBackBuffer(10_000, false)
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
 
@@ -263,6 +311,9 @@ class RhythmPlayerEngine(
                 }
                 if (spatialProcessor != null) {
                     processors.add(spatialProcessor)
+                }
+                if (monoProcessor != null) {
+                    processors.add(monoProcessor)
                 }
                 if (replayGainProcessor != null) {
                     processors.add(replayGainProcessor)
@@ -304,7 +355,7 @@ class RhythmPlayerEngine(
                             // Run blocking is safe here as ExoPlayer calls resolveDataSpec on a background thread
                             val freshUrl = runBlocking { repository.getStreamingUrl(trackId) }
                             if (!freshUrl.isNullOrBlank()) {
-                                return dataSpec.withUri(Uri.parse(freshUrl))
+                                return dataSpec.withUri((freshUrl).toUri())
                             }
                         }
                     }
@@ -326,8 +377,9 @@ class RhythmPlayerEngine(
             val isReplayGainEnabled = appSettings.replayGain.value
             val isBassBoostEnabled = appSettings.bassBoostEnabled.value
             val isVirtualizerEnabled = appSettings.virtualizerEnabled.value
+            val isMonoAudioEnabled = appSettings.monoAudioEnabled.value
             val isOffloadSupported = appSettings.isAudioOffloadActive.value &&
-                (!isCrossfadeEnabled && !isEqualizerEnabled && !isReplayGainEnabled && !isBassBoostEnabled && !isVirtualizerEnabled)
+                (!isCrossfadeEnabled && !isEqualizerEnabled && !isReplayGainEnabled && !isBassBoostEnabled && !isVirtualizerEnabled && !isMonoAudioEnabled)
             val audioOffloadPreferences = TrackSelectionParameters.AudioOffloadPreferences.Builder()
                 .setAudioOffloadMode(
                     if (isOffloadSupported) {
@@ -344,12 +396,16 @@ class RhythmPlayerEngine(
         return ExoPlayer.Builder(context, renderersFactory)
             .setLoadControl(loadControl)
             .setMediaSourceFactory(mediaSourceFactory)
+            .setSeekBackIncrementMs(10_000L)
+            .setSeekForwardIncrementMs(10_000L)
             .build().apply {
+                setShuffleOrder(RhythmShuffleOrder(0))
                 this.trackSelectionParameters = trackSelectionParameters
                 setAudioAttributes(audioAttributes, handleAudioFocus)
                 setHandleAudioBecomingNoisy(true)
                 setWakeMode(C.WAKE_MODE_LOCAL)
                 setSkipSilenceEnabled(appSettings.skipSilenceEnabled.value)
+                setSeekParameters(SeekParameters.EXACT)
                 playWhenReady = false
             }
     }
@@ -412,6 +468,7 @@ class RhythmPlayerEngine(
      */
     fun cancelNext() {
         transitionJob?.cancel()
+        val wasTransitioning = transitionRunning
         transitionRunning = false
         if (::playerB.isInitialized && playerB.mediaItemCount > 0) {
             Log.d(TAG, "Cancelling next player")
@@ -419,7 +476,9 @@ class RhythmPlayerEngine(
             playerB.clearMediaItems()
         }
         if (::playerA.isInitialized) {
-            playerA.volume = 1f
+            if (wasTransitioning) {
+                playerA.volume = userVolume
+            }
             setPauseAtEndOfMediaItems(false)
         }
     }
@@ -442,7 +501,7 @@ class RhythmPlayerEngine(
                 Log.d(TAG, "Transition cancelled before completion.")
             } catch (e: Exception) {
                 Log.e(TAG, "Error performing transition", e)
-                playerA.volume = 1f
+                playerA.volume = userVolume
                 setPauseAtEndOfMediaItems(false)
                 playerB.stop()
             } finally {
@@ -462,13 +521,14 @@ class RhythmPlayerEngine(
      */
     private suspend fun performOverlapTransition(settings: TransitionSettings) {
         if (playerB.mediaItemCount == 0) {
-            playerA.volume = 1f
+            playerA.volume = userVolume
             setPauseAtEndOfMediaItems(false)
             return
         }
 
         val outgoingPlayer = playerA
         val incomingPlayer = playerB
+        val targetVolume = userVolume
 
         val isSelfTransition = outgoingPlayer.currentMediaItem?.mediaId == incomingPlayer.currentMediaItem?.mediaId
         val outgoingMediaItemCount = outgoingPlayer.mediaItemCount
@@ -500,8 +560,8 @@ class RhythmPlayerEngine(
             timelineTargetIndex in 0 until outgoingMediaItemCount && 
                 outgoingPlayer.getMediaItemAt(timelineTargetIndex).mediaId == incomingMediaId -> timelineTargetIndex
             incomingMediaId != null -> (0 until outgoingMediaItemCount)
-                .firstOrNull { index -> outgoingPlayer.getMediaItemAt(index).mediaId == incomingMediaId }
-                ?: currentOutgoingIndex
+            .firstOrNull { index -> outgoingPlayer.getMediaItemAt(index).mediaId == incomingMediaId }
+            ?: currentOutgoingIndex
             else -> currentOutgoingIndex
         }
 
@@ -525,6 +585,23 @@ class RhythmPlayerEngine(
 
         if (futureToTransfer.isNotEmpty()) {
             incomingPlayer.addMediaItems(futureToTransfer)
+        }
+
+        if (outgoingPlayer.shuffleModeEnabled && outgoingMediaItemCount > 0) {
+            val count = outgoingMediaItemCount
+            val shuffledIndices = IntArray(count)
+            val timeline = outgoingPlayer.currentTimeline
+            var idx = 0
+            var windowIndex = timeline.getFirstWindowIndex(true)
+            val visited = BooleanArray(count)
+            while (windowIndex != C.INDEX_UNSET && windowIndex in visited.indices && !visited[windowIndex] && idx < count) {
+                shuffledIndices[idx++] = windowIndex
+                visited[windowIndex] = true
+                windowIndex = timeline.getNextWindowIndex(windowIndex, Player.REPEAT_MODE_OFF, true)
+            }
+            if (idx == count) {
+                incomingPlayer.setShuffleOrder(RhythmShuffleOrder(shuffledIndices))
+            }
         }
 
         incomingPlayer.seekTo(incomingQueueIndex, 0)
@@ -571,7 +648,7 @@ class RhythmPlayerEngine(
 
         if (incomingReady || settings.isManualSkip) {
             playerA.volume = 0f
-            playerB.volume = 1f
+            playerB.volume = targetVolume
             if (!playerB.isPlaying && playerB.playbackState == Player.STATE_READY) {
                 playerB.play()
             }
@@ -599,11 +676,11 @@ class RhythmPlayerEngine(
 
             while (elapsed <= duration) {
                 val progress = (elapsed.toFloat() / duration).coerceIn(0f, 1f)
-                val volIn = envelope(progress, settings.curveIn)
-                val volOut = 1f - envelope(progress, settings.curveOut)
+                val volIn = envelope(progress, settings.curveIn) * targetVolume
+                val volOut = (1f - envelope(progress, settings.curveOut)) * targetVolume
 
-                playerA.volume = volIn
-                playerB.volume = volOut.coerceIn(0f, 1f)
+                playerA.volume = volIn.coerceIn(0f, targetVolume)
+                playerB.volume = volOut.coerceIn(0f, targetVolume)
 
                 if (playerA.playbackState == Player.STATE_ENDED || playerB.playbackState == Player.STATE_ENDED) {
                     break
@@ -613,7 +690,7 @@ class RhythmPlayerEngine(
                 elapsed += stepMs
             }
         } else {
-            playerA.volume = 1f
+            playerA.volume = targetVolume
             if (playerA.playbackState == Player.STATE_READY) {
                 playerA.play()
             } else {
@@ -622,7 +699,7 @@ class RhythmPlayerEngine(
         }
 
         playerB.volume = 0f
-        playerA.volume = 1f
+        playerA.volume = targetVolume
 
         playerB.pause()
         playerB.stop()
@@ -637,10 +714,12 @@ class RhythmPlayerEngine(
             val otherReplayGain = if (incomingReplayGain === playerAReplayGain) playerBReplayGain else playerAReplayGain
             val otherBassBoost = if (incomingReplayGain === playerAReplayGain) playerBBassBoost else playerABassBoost
             val otherSpatial = if (incomingReplayGain === playerAReplayGain) playerBSpatialization else playerASpatialization
+            val otherMono = if (incomingReplayGain === playerAReplayGain) playerBMono else playerAMono
             playerB = buildPlayer(
                 handleAudioFocus = false,
                 bassProcessor = otherBassBoost,
                 spatialProcessor = otherSpatial,
+                monoProcessor = otherMono,
                 replayGainProcessor = otherReplayGain
             )
         }
@@ -687,8 +766,9 @@ class RhythmPlayerEngine(
                 val isReplayGainEnabled = appSettings.replayGain.value
                 val isBassBoostEnabled = appSettings.bassBoostEnabled.value
                 val isVirtualizerEnabled = appSettings.virtualizerEnabled.value
+                val isMonoAudioEnabled = appSettings.monoAudioEnabled.value
                 val isOffloadSupported = appSettings.isAudioOffloadActive.value &&
-                    (!isCrossfadeEnabled && !isEqualizerEnabled && !isReplayGainEnabled && !isBassBoostEnabled && !isVirtualizerEnabled)
+                    (!isCrossfadeEnabled && !isEqualizerEnabled && !isReplayGainEnabled && !isBassBoostEnabled && !isVirtualizerEnabled && !isMonoAudioEnabled)
                 val audioOffloadPreferences = TrackSelectionParameters.AudioOffloadPreferences.Builder()
                     .setAudioOffloadMode(
                         if (isOffloadSupported) {
@@ -703,13 +783,17 @@ class RhythmPlayerEngine(
             val params = trackSelectionParametersBuilder.build()
             playerA.trackSelectionParameters = params
             playerB.trackSelectionParameters = params
-            Log.d(TAG, "Updated track selection parameters: offloadActive=${appSettings.isAudioOffloadActive.value}, crossfadeEnabled=${appSettings.crossfade.value}, eqEnabled=${appSettings.equalizerEnabled.value}, bassEnabled=${appSettings.bassBoostEnabled.value}, virtualizerEnabled=${appSettings.virtualizerEnabled.value}")
+            Log.d(TAG, "Updated track selection parameters: offloadActive=${appSettings.isAudioOffloadActive.value}, crossfadeEnabled=${appSettings.crossfade.value}, eqEnabled=${appSettings.equalizerEnabled.value}, bassEnabled=${appSettings.bassBoostEnabled.value}, virtualizerEnabled=${appSettings.virtualizerEnabled.value}, monoAudioEnabled=${appSettings.monoAudioEnabled.value}")
         }
     }
 
     fun release() {
         setPauseAtEndOfMediaItems(false)
         transitionJob?.cancel()
+        // Cancel the engine scope so long-running StateFlow collections
+        // (e.g. appSettings.bassBoostEnabled) don't keep this engine and its
+        // service context alive after the service is destroyed.
+        scope.cancel()
         abandonAudioFocus()
         if (::playerA.isInitialized) {
             playerA.removeListener(masterPlayerListener)

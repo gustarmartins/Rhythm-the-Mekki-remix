@@ -17,7 +17,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # Fetch all history for proper versioning and commit count
 
@@ -57,7 +57,7 @@ jobs:
 
       - name: set up JDK 17
         if: steps.check_version.outputs.should_run == 'true'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           java-version: '17'
           distribution: 'zulu'
@@ -65,7 +65,7 @@ jobs:
 
       - name: Setup Android-SDK
         if: steps.check_version.outputs.should_run == 'true'
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Create files for signing
         if: steps.check_version.outputs.should_run == 'true'
@@ -108,9 +108,9 @@ jobs:
             VERSION_NAME="5.2.421.1101 Beta"
           fi
           
-          # Git commit count for increasing version code
+          # Use base versionCode from build.gradle.kts to prevent inflating beyond future release builds
           COMMIT_COUNT=$(git rev-list --count HEAD)
-          NEW_VERSION_CODE=$((VERSION_CODE + COMMIT_COUNT))
+          NEW_VERSION_CODE=$VERSION_CODE
           
           # Extract short commit hash
           SHORT_SHA=$(git rev-parse --short HEAD)
@@ -127,6 +127,50 @@ jobs:
           echo "commit_count=$COMMIT_COUNT" >> $GITHUB_OUTPUT
           echo "Computed Version Code: $NEW_VERSION_CODE"
           echo "Computed Version Name: $NEW_VERSION_NAME"
+
+      - name: Compute recent commits for notifications
+        if: steps.check_version.outputs.should_run == 'true'
+        id: notif_changelog
+        run: |
+          # 1. Find previous nightly/release commit (starts with "Release ")
+          BASE_COMMIT=""
+          if git log -n 1 --format="%s" | grep -qE '^Release '; then
+            BASE_COMMIT=$(git log HEAD~1 --grep="^Release " -n 1 --format="%H" 2>/dev/null || true)
+          else
+            BASE_COMMIT=$(git log HEAD --grep="^Release " -n 1 --format="%H" 2>/dev/null || true)
+          fi
+
+          # 2. Fallback: previous commit modifying build.gradle.kts
+          if [ -z "$BASE_COMMIT" ]; then
+            BASE_COMMIT=$(git log HEAD~1 -n 1 --format="%H" -- app/build.gradle.kts 2>/dev/null || true)
+          fi
+
+          # 3. Fallback: most recent git tag
+          if [ -z "$BASE_COMMIT" ]; then
+            BASE_COMMIT=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          fi
+
+          echo "Calculated base commit for changelog: $BASE_COMMIT"
+
+          if [ -n "$BASE_COMMIT" ] && git rev-parse "$BASE_COMMIT" >/dev/null 2>&1; then
+            CHANGES=$(git log "$BASE_COMMIT"..HEAD --oneline --no-merges 2>/dev/null | sed -E 's/^[0-9a-f]+ //' | grep -viE '^Release |translation|l10n|localiz|^Minor |^Fix (warnings?|lint)|weblate|\.github|^bump ' | head -n 15)
+          else
+            CHANGES=$(git log HEAD --oneline -12 --no-merges 2>/dev/null | sed -E 's/^[0-9a-f]+ //')
+          fi
+          if [ -z "$CHANGES" ]; then
+            CHANGES="Minor bug fixes and performance improvements"
+          fi
+          # HTML-escape for Telegram rendering
+          CHANGES_HTML=$(printf '%s' "$CHANGES" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+          # JSON-escape for the Discord embed field
+          CHANGES_JSON=$(printf '%s' "$CHANGES" | sed 's/\\/\\\\/g; s/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+          # Short single-line version for the APK caption (1024-char limit)
+          CHANGES_SHORT=$(printf '%s' "$CHANGES" | head -n 5 | tr '\n' ' ' | cut -c1-200)
+          # Materialize to files; consumers read via $(cat ...) so commit-message
+          # content ($, backticks, quotes) can never break shell quoting
+          printf '%s\n' "$CHANGES_HTML" > /tmp/rhythm_changes_html.txt
+          printf '%s\n' "$CHANGES_JSON" > /tmp/rhythm_changes_json.txt
+          printf '%s\n' "$CHANGES_SHORT" > /tmp/rhythm_changes_short.txt
 
       - name: Send start notification to Telegram
         if: steps.check_version.outputs.should_run == 'true'
@@ -146,6 +190,10 @@ jobs:
           MESSAGE+="🔗 <b>Commit:</b> <code>${{ steps.version_info.outputs.short_sha }}</code>"
           MESSAGE+=$'\n\n'
           MESSAGE+="⏳ Build in progress... We will upload the APK upon completion."
+          MESSAGE+=$'\n\n'
+          MESSAGE+="📝 <b>Recent changes:</b>"
+          MESSAGE+=$'\n'
+          MESSAGE+="$(cat /tmp/rhythm_changes_html.txt)"
           MESSAGE+=$'\n\n'
           MESSAGE+="<a href=\"${RUN_URL}\">🔍 View Actions Run</a>"
           
@@ -171,13 +219,13 @@ jobs:
 
       - name: Upload Nightly APKs
         if: steps.check_version.outputs.should_run == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Rhythm-Nightly-Artifacts
           path: |
             app/build/outputs/apk/github/release/Rhythm-*-githubRelease*.apk
             app/build/outputs/apk/fdroid/release/Rhythm-*-fdroidRelease*.apk
-          retention-days: 14
+          retention-days: 30
 
       # ── Notifications ────────────────────────────────────────────────────────
 
@@ -220,6 +268,10 @@ jobs:
           CAPTION+="📅 <b>Date:</b> <code>$(date +%Y-%m-%d)</code>"
           CAPTION+=$'\n\n'
           CAPTION+="⚠️ <i>This is a nightly build. Report issues on GitHub.</i>"
+          CAPTION+=$'\n\n'
+          CAPTION+="📝 <b>Recent changes:</b>"
+          CAPTION+=$'\n'
+          CAPTION+="$(cat /tmp/rhythm_changes_short.txt)"
           CAPTION+=$'\n\n'
           CAPTION+="<a href=\"${RUN_URL}\">🔍 View Actions Run</a>"
           if [ ! -f "${{ steps.find_apk.outputs.path }}" ]; then
@@ -288,6 +340,11 @@ jobs:
                   {
                     "name": "📥 Download APK",
                     "value": "[Open Actions Run](${RUN_URL}) → Download from the Artifacts section",
+                    "inline": false
+                  },
+                  {
+                    "name": "📝 Recent changes",
+                    "value": "$(cat /tmp/rhythm_changes_json.txt)",
                     "inline": false
                   },
                   {

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.common
 
 import androidx.compose.runtime.Composable
@@ -59,8 +64,8 @@ fun MediaScanningLoader(
  */
 @Composable
 fun DataProcessingLoader(
-    progress: Float? = null,
     modifier: Modifier = Modifier,
+    progress: Float? = null,
     color: Color = MaterialTheme.colorScheme.primary,
     isExpressive: Boolean = true
 ) {
@@ -194,8 +199,8 @@ fun InitializationLoader(
  */
 @Composable
 fun FileOperationLoader(
-    progress: Float? = null,
     modifier: Modifier = Modifier,
+    progress: Float? = null,
     color: Color = MaterialTheme.colorScheme.primary,
     isExpressive: Boolean = true
 ) {
@@ -299,8 +304,8 @@ fun SearchingLoader(
  */
 @Composable
 fun MultiStageOperationLoader(
-    progress: Float? = null,
     modifier: Modifier = Modifier,
+    progress: Float? = null,
     isExpressive: Boolean = true
 ) {
     if (isExpressive) {

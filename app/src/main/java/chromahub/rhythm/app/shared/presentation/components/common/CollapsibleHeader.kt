@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.common
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
@@ -39,15 +44,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import chromahub.rhythm.app.ui.theme.RhythmTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
@@ -133,7 +136,7 @@ fun CollapsibleHeaderScreen(
     }
 
     val lazyListState = rememberLazyListState()
-    var expandedHeaderHeight by remember { mutableStateOf(0) }
+    var expandedHeaderHeight by remember { mutableIntStateOf(0) }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -347,7 +350,7 @@ fun ArtistCollapsibleHeaderScreen(
         canScroll = { true }
     )
 
-    var expandedHeaderHeight by remember { mutableStateOf(0) }
+    var expandedHeaderHeight by remember { mutableIntStateOf(0) }
 
     // Apply global collapse behavior or screen-specific override
     val shouldStartCollapsed = alwaysCollapsed || globalCollapseBehavior == 1
@@ -625,10 +628,10 @@ fun ArtistCollapsibleHeaderScreen(
 @Composable
 fun FixedHeaderScreen(
     title: String,
+    modifier: Modifier = Modifier,
     showBackButton: Boolean = false,
     onBackClick: () -> Unit = {},
     actions: @Composable () -> Unit = {},
-    screenModifier: Modifier = Modifier,
     containerColor: Color = Color.Transparent,
     backButtonContainerColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
     backButtonContentColor: Color = MaterialTheme.colorScheme.onSurface,
@@ -655,7 +658,7 @@ fun FixedHeaderScreen(
     )
 
     Scaffold(
-        modifier = screenModifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize(),
         containerColor = containerColor,
         contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         topBar = {

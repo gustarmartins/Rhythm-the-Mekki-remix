@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.common
 
 import androidx.compose.animation.core.Animatable
@@ -14,8 +19,10 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,8 +32,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,7 +55,9 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.sin
@@ -67,306 +78,95 @@ enum class ProgressStyle {
 }
 
 /**
- * Thumb style options for progress bar slider
+ * Thumb style options for the progress bar slider
  */
-enum class ThumbStyle {
-    NONE,       // No thumb
-    CIRCLE,     // Standard circular thumb
-    PILL,       // Pill-shaped vertical thumb
-    DIAMOND,    // Diamond/rhombus shaped thumb
-    LINE,       // Vertical line thumb
-    SQUARE,     // Rounded square thumb
-    GLOW,       // Circle with glow effect
-    ARROW,      // Arrow/chevron pointing right
-    DOT         // Small dot thumb
+enum class ThumbStyle(val shapeId: String?, val sizeScale: Float = 1f) {
+    NONE(null),                     // No thumb
+    DEFAULT(null),                  // Official M3 slider thumb composable
+    CIRCLE("CIRCLE"),               // M3 Circle
+    SQUARE("SQUARE"),               // M3 Square (rounded)
+    PILL("PILL", 1.25f),            // M3 Pill
+    DIAMOND("DIAMOND", 1.25f),      // M3 Diamond
+    FLOWER("FLOWER", 1.25f),        // M3 Flower
+    HEART("HEART", 1.25f),          // M3 Heart
+    COOKIE("COOKIE_6", 1.25f),      // M3 Cookie 6-sided
+    PUFFY("PUFFY", 1.25f);          // M3 Puffy
+
+    companion object {
+        /** Resolves a stored style name, mapping legacy names to the M3 set. */
+        fun fromStorage(value: String?): ThumbStyle = when (value) {
+            "NONE" -> NONE
+            "DEFAULT", "GLOW", "ARROW" -> DEFAULT
+            "OUTLINE", "DOT", "RING" -> CIRCLE
+            "CIRCLE" -> CIRCLE
+            "SQUARE" -> SQUARE
+            "PILL", "LINE" -> PILL
+            "DIAMOND" -> DIAMOND
+            "FLOWER" -> FLOWER
+            "HEART" -> HEART
+            "COOKIE" -> COOKIE
+            "PUFFY" -> PUFFY
+            else -> DEFAULT
+        }
+    }
 }
 
 /**
- * Helper function to draw different thumb styles
+ * Material 3 thumb for the progress bar slider.
+ * [ThumbStyle.DEFAULT] renders the official M3 slider thumb; the rest render
+ * Rhythm's M3 Expressive shapes.
  */
-private fun DrawScope.drawThumb(
-    thumbStyle: ThumbStyle,
-    progressColor: Color,
-    thumbSize: Float,
-    position: Offset
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun M3Thumb(
+    style: ThumbStyle,
+    color: Color,
+    size: Dp,
+    modifier: Modifier = Modifier,
+    isPlaying: Boolean = true,
+    rotateWhenPlaying: Boolean = false
 ) {
-    when (thumbStyle) {
-        ThumbStyle.NONE -> { /* No thumb */ }
-        ThumbStyle.CIRCLE -> {
-            // Multi-layered glow effect
-            for (i in 4 downTo 0) {
-                val alpha = 0.08f * (5 - i)
-                val radius = thumbSize / 2 + (i * 3f)
-                drawCircle(
-                    color = progressColor.copy(alpha = alpha),
-                    radius = radius,
-                    center = position
-                )
-            }
-            // Main circle with gradient
-            drawCircle(
-                color = progressColor,
-                radius = thumbSize / 2,
-                center = position
-            )
-            // Inner highlight with radial gradient effect
-            val highlightRadius = thumbSize / 2.2f
-            drawCircle(
-                color = Color.White.copy(alpha = 0.4f),
-                radius = highlightRadius,
-                center = Offset(position.x - thumbSize / 5, position.y - thumbSize / 5)
-            )
-            // Subtle inner shadow
-            drawCircle(
-                color = Color.Black.copy(alpha = 0.1f),
-                radius = thumbSize / 3,
-                center = Offset(position.x + thumbSize / 6, position.y + thumbSize / 6)
+    val effectiveSize = size * style.sizeScale
+
+    // Slow spin while playing (render thread only)
+    val rotation: Float = if (rotateWhenPlaying && isPlaying) {
+        val infiniteTransition = rememberInfiniteTransition(label = "thumbRotate")
+        infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 4000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "thumbRotation"
+        ).value
+    } else {
+        0f
+    }
+    val rotatedModifier = modifier.graphicsLayer { rotationZ = rotation }
+
+    when (style) {
+        ThumbStyle.NONE -> Unit
+        ThumbStyle.DEFAULT -> {
+            SliderDefaults.Thumb(
+                interactionSource = remember { MutableInteractionSource() },
+                modifier = rotatedModifier.size(effectiveSize),
+                colors = SliderDefaults.colors(thumbColor = color),
+                enabled = true,
+                thumbSize = DpSize(effectiveSize, effectiveSize)
             )
         }
-        ThumbStyle.PILL -> {
-            val pillWidth = thumbSize * 0.9f
-            val pillHeight = thumbSize * 1.6f
-            val cornerRadius = pillHeight / 2
-
-            // Soft shadow with multiple layers
-            for (i in 2 downTo 0) {
-                val alpha = 0.1f * (3 - i)
-                val offset = i * 2f
-                drawRoundRect(
-                    color = progressColor.copy(alpha = alpha),
-                    topLeft = Offset(position.x - pillWidth / 2 - offset, position.y - pillHeight / 2 - offset),
-                    size = Size(pillWidth + offset * 2, pillHeight + offset * 2),
-                    cornerRadius = CornerRadius(cornerRadius + offset)
-                )
+        else -> {
+            // M3 Expressive shape via Rhythm's shape system. No elevation shadow
+            // (path shadows on custom shapes are expensive and cause ANRs).
+            val shape = remember(style) {
+                ExpressiveShapeProvider.getShapeById(style.shapeId ?: "CIRCLE", CircleShape)
             }
-
-            // Main pill shape
-            drawRoundRect(
-                color = progressColor,
-                topLeft = Offset(position.x - pillWidth / 2, position.y - pillHeight / 2),
-                size = Size(pillWidth, pillHeight),
-                cornerRadius = CornerRadius(cornerRadius)
-            )
-
-            // Highlight stripe
-            drawRoundRect(
-                color = Color.White.copy(alpha = 0.3f),
-                topLeft = Offset(position.x - pillWidth / 2 + 3f, position.y - pillHeight / 2 + 3f),
-                size = Size(pillWidth - 6f, pillHeight / 2.5f),
-                cornerRadius = CornerRadius((pillHeight / 2.5f) / 2)
-            )
-        }
-        ThumbStyle.DIAMOND -> {
-            val diamondSize = thumbSize * 1.1f
-
-            // Outer glow
-            val glowPath = Path().apply {
-                moveTo(position.x, position.y - diamondSize / 2 - 4f)
-                lineTo(position.x + diamondSize / 2 + 4f, position.y)
-                lineTo(position.x, position.y + diamondSize / 2 + 4f)
-                lineTo(position.x - diamondSize / 2 - 4f, position.y)
-                close()
-            }
-            drawPath(glowPath, progressColor.copy(alpha = 0.2f))
-
-            // Main diamond
-            val mainPath = Path().apply {
-                moveTo(position.x, position.y - diamondSize / 2)
-                lineTo(position.x + diamondSize / 2, position.y)
-                lineTo(position.x, position.y + diamondSize / 2)
-                lineTo(position.x - diamondSize / 2, position.y)
-                close()
-            }
-            drawPath(mainPath, progressColor)
-
-            // Inner highlight facets
-            val highlightPath = Path().apply {
-                moveTo(position.x, position.y - diamondSize / 2 + 4f)
-                lineTo(position.x + diamondSize / 2 - 4f, position.y)
-                lineTo(position.x, position.y - 2f)
-                close()
-            }
-            drawPath(highlightPath, Color.White.copy(alpha = 0.4f))
-
-            // Bottom shadow facet
-            val shadowPath = Path().apply {
-                moveTo(position.x, position.y + diamondSize / 2 - 4f)
-                lineTo(position.x + diamondSize / 2 - 4f, position.y)
-                lineTo(position.x, position.y + 2f)
-                close()
-            }
-            drawPath(shadowPath, Color.Black.copy(alpha = 0.2f))
-        }
-        ThumbStyle.LINE -> {
-            val lineHeight = thumbSize * 3.2f
-            val lineWidth = thumbSize * 0.4f
-
-            // Soft glow around the line
-            drawRoundRect(
-                color = progressColor.copy(alpha = 0.25f),
-                topLeft = Offset(position.x - lineWidth - 3f, position.y - lineHeight / 2 - 3f),
-                size = Size(lineWidth * 2 + 6f, lineHeight + 6f),
-                cornerRadius = CornerRadius(lineWidth + 3f)
-            )
-
-            // Main line
-            drawRoundRect(
-                color = progressColor,
-                topLeft = Offset(position.x - lineWidth / 2, position.y - lineHeight / 2),
-                size = Size(lineWidth, lineHeight),
-                cornerRadius = CornerRadius(lineWidth / 2)
-            )
-
-            // Center highlight
-            drawRoundRect(
-                color = Color.White.copy(alpha = 0.3f),
-                topLeft = Offset(position.x - lineWidth / 3, position.y - lineHeight / 3),
-                size = Size(lineWidth * 0.66f, lineHeight * 0.66f),
-                cornerRadius = CornerRadius(lineWidth / 3)
-            )
-        }
-        ThumbStyle.SQUARE -> {
-            val squareSize = thumbSize * 1.2f
-            val cornerRadius = squareSize * 0.2f
-
-            // Multi-layer shadow effect
-            for (i in 3 downTo 0) {
-                val alpha = 0.08f * (4 - i)
-                val offset = i * 1.5f
-                drawRoundRect(
-                    color = progressColor.copy(alpha = alpha),
-                    topLeft = Offset(position.x - squareSize / 2 - offset, position.y - squareSize / 2 - offset),
-                    size = Size(squareSize + offset * 2, squareSize + offset * 2),
-                    cornerRadius = CornerRadius(cornerRadius + offset * 0.5f)
-                )
-            }
-
-            // Main square
-            drawRoundRect(
-                color = progressColor,
-                topLeft = Offset(position.x - squareSize / 2, position.y - squareSize / 2),
-                size = Size(squareSize, squareSize),
-                cornerRadius = CornerRadius(cornerRadius)
-            )
-
-            // Inner highlight
-            drawRoundRect(
-                color = Color.White.copy(alpha = 0.4f),
-                topLeft = Offset(position.x - squareSize / 2 + 4f, position.y - squareSize / 2 + 4f),
-                size = Size(squareSize - 8f, squareSize - 8f),
-                cornerRadius = CornerRadius(cornerRadius - 2f)
-            )
-
-            // Subtle inner shadow
-            drawRoundRect(
-                color = Color.Black.copy(alpha = 0.15f),
-                topLeft = Offset(position.x - squareSize / 2 + squareSize * 0.65f, position.y - squareSize / 2 + squareSize * 0.65f),
-                size = Size(squareSize * 0.3f, squareSize * 0.3f),
-                cornerRadius = CornerRadius(cornerRadius * 0.3f)
-            )
-        }
-        ThumbStyle.GLOW -> {
-            // Advanced multi-layer glow with varying alphas and sizes
-            val glowLayers = 6
-            for (i in glowLayers downTo 0) {
-                val progress = i.toFloat() / glowLayers
-                val alpha = 0.12f * (1f - progress * 0.7f)
-                val radius = thumbSize / 2 + (i * 6f)
-                drawCircle(
-                    color = progressColor.copy(alpha = alpha),
-                    radius = radius,
-                    center = position
-                )
-            }
-
-            // Pulsing inner core
-            drawCircle(
-                color = progressColor.copy(alpha = 0.9f),
-                radius = thumbSize / 2f,
-                center = position
-            )
-
-            // Bright center highlight
-            drawCircle(
-                color = Color.White.copy(alpha = 0.6f),
-                radius = thumbSize / 3f,
-                center = position
-            )
-
-            // Subtle color variation in core
-            drawCircle(
-                color = progressColor.copy(alpha = 0.3f),
-                radius = thumbSize / 4.5f,
-                center = Offset(position.x - thumbSize / 9, position.y - thumbSize / 9)
-            )
-        }
-        ThumbStyle.ARROW -> {
-            val arrowWidth = thumbSize * 1.4f
-            val arrowHeight = thumbSize * 1.1f
-
-            // Arrow shadow/glow
-            val shadowPath = Path().apply {
-                moveTo(position.x - arrowWidth / 3 - 3f, position.y - arrowHeight / 2 - 3f)
-                lineTo(position.x + arrowWidth / 2 + 3f, position.y)
-                lineTo(position.x - arrowWidth / 3 - 3f, position.y + arrowHeight / 2 + 3f)
-                lineTo(position.x - arrowWidth / 6 - 3f, position.y)
-                close()
-            }
-            drawPath(shadowPath, progressColor.copy(alpha = 0.2f))
-
-            // Main arrow
-            val arrowPath = Path().apply {
-                moveTo(position.x - arrowWidth / 3, position.y - arrowHeight / 2)
-                lineTo(position.x + arrowWidth / 2, position.y)
-                lineTo(position.x - arrowWidth / 3, position.y + arrowHeight / 2)
-                lineTo(position.x - arrowWidth / 6, position.y)
-                close()
-            }
-            drawPath(arrowPath, progressColor)
-
-            // Arrow tip highlight
-            val highlightPath = Path().apply {
-                moveTo(position.x + arrowWidth / 2 - 4f, position.y)
-                lineTo(position.x + arrowWidth / 3, position.y - arrowHeight / 3)
-                lineTo(position.x + arrowWidth / 3, position.y + arrowHeight / 3)
-                close()
-            }
-            drawPath(highlightPath, Color.White.copy(alpha = 0.4f))
-        }
-        ThumbStyle.DOT -> {
-            val dotSize = thumbSize * 0.7f
-
-            // Outer ripple rings
-            for (i in 2 downTo 0) {
-                val alpha = 0.15f * (3 - i)
-                val radius = dotSize + (i * 6f)
-                drawCircle(
-                    color = progressColor.copy(alpha = alpha),
-                    radius = radius,
-                    center = position,
-                    style = Stroke(width = 2f)
-                )
-            }
-
-            // Main dot with gradient effect
-            drawCircle(
-                color = progressColor,
-                radius = dotSize,
-                center = position
-            )
-
-            // Inner highlight
-            drawCircle(
-                color = Color.White.copy(alpha = 0.5f),
-                radius = dotSize * 0.5f,
-                center = Offset(position.x - dotSize * 0.25f, position.y - dotSize * 0.25f)
-            )
-
-            // Subtle shadow
-            drawCircle(
-                color = Color.Black.copy(alpha = 0.2f),
-                radius = dotSize * 0.4f,
-                center = Offset(position.x + dotSize * 0.2f, position.y + dotSize * 0.2f)
+            val thumbColor = SliderDefaults.colors(thumbColor = color).thumbColor
+            Box(
+                modifier = rotatedModifier
+                    .size(effectiveSize)
+                    .background(thumbColor, shape)
             )
         }
     }
@@ -386,8 +186,9 @@ fun StyledProgressBar(
     isPlaying: Boolean = true,
     animated: Boolean = true,
     showThumb: Boolean = false,
-    thumbStyle: ThumbStyle = ThumbStyle.CIRCLE,
+    thumbStyle: ThumbStyle = ThumbStyle.DEFAULT,
     thumbSize: Dp = 12.dp,
+    rotateThumbWhenPlaying: Boolean = false,
     waveAmplitudeWhenPlaying: Dp = 3.dp,
     waveLength: Dp = 40.dp
 ) {
@@ -398,9 +199,11 @@ fun StyledProgressBar(
             progressColor = progressColor,
             trackColor = trackColor,
             height = height,
+            isPlaying = isPlaying,
             showThumb = showThumb,
             thumbStyle = thumbStyle,
-            thumbSize = thumbSize
+            thumbSize = thumbSize,
+            rotateThumbWhenPlaying = rotateThumbWhenPlaying
         )
         ProgressStyle.WAVY -> WavyProgressBar(
             progress = progress,
@@ -418,36 +221,44 @@ fun StyledProgressBar(
             progressColor = progressColor,
             trackColor = trackColor,
             height = height,
+            isPlaying = isPlaying,
             showThumb = showThumb,
             thumbStyle = thumbStyle,
-            thumbSize = thumbSize
+            thumbSize = thumbSize,
+            rotateThumbWhenPlaying = rotateThumbWhenPlaying
         )
         ProgressStyle.THIN -> ThinProgressBar(
             progress = progress,
             modifier = modifier,
             progressColor = progressColor,
             trackColor = trackColor,
+            isPlaying = isPlaying,
             showThumb = showThumb,
             thumbStyle = thumbStyle,
-            thumbSize = thumbSize
+            thumbSize = thumbSize,
+            rotateThumbWhenPlaying = rotateThumbWhenPlaying
         )
         ProgressStyle.THICK -> ThickProgressBar(
             progress = progress,
             modifier = modifier,
             progressColor = progressColor,
             trackColor = trackColor,
+            isPlaying = isPlaying,
             showThumb = showThumb,
             thumbStyle = thumbStyle,
-            thumbSize = thumbSize
+            thumbSize = thumbSize,
+            rotateThumbWhenPlaying = rotateThumbWhenPlaying
         )
         ProgressStyle.GRADIENT -> GradientProgressBar(
             progress = progress,
             modifier = modifier,
             trackColor = trackColor,
             height = height,
+            isPlaying = isPlaying,
             showThumb = showThumb,
             thumbStyle = thumbStyle,
-            thumbSize = thumbSize
+            thumbSize = thumbSize,
+            rotateThumbWhenPlaying = rotateThumbWhenPlaying
         )
         ProgressStyle.SEGMENTED -> SegmentedProgressBar(
             progress = progress,
@@ -475,45 +286,55 @@ private fun NormalProgressBar(
     progressColor: Color,
     trackColor: Color,
     height: Dp,
+    isPlaying: Boolean = true,
     showThumb: Boolean = false,
-    thumbStyle: ThumbStyle = ThumbStyle.CIRCLE,
-    thumbSize: Dp = 12.dp
+    thumbStyle: ThumbStyle = ThumbStyle.DEFAULT,
+    thumbSize: Dp = 12.dp,
+    rotateThumbWhenPlaying: Boolean = false
 ) {
     if (showThumb && thumbStyle != ThumbStyle.NONE) {
-        Canvas(
+        val effectiveThumbSize = thumbSize * thumbStyle.sizeScale
+        BoxWithConstraints(
             modifier = modifier
                 .fillMaxWidth()
-                .height(height.coerceAtLeast(thumbSize))
+                .height(height.coerceAtLeast(effectiveThumbSize))
         ) {
-            val progressWidth = size.width * progress.coerceIn(0f, 1f)
-            val centerY = size.height / 2
-            val trackHeight = height.toPx()
-            
-            // Draw track
-            drawRoundRect(
-                color = trackColor,
-                topLeft = Offset(0f, centerY - trackHeight / 2),
-                size = androidx.compose.ui.geometry.Size(size.width, trackHeight),
-                cornerRadius = CornerRadius(trackHeight / 2)
-            )
-            
-            // Draw progress
-            if (progressWidth > 0) {
+            Canvas(Modifier.fillMaxSize()) {
+                val progressWidth = size.width * progress.coerceIn(0f, 1f)
+                val centerY = size.height / 2
+                val trackHeight = height.toPx()
+                
+                // Draw track
                 drawRoundRect(
-                    color = progressColor,
+                    color = trackColor,
                     topLeft = Offset(0f, centerY - trackHeight / 2),
-                    size = androidx.compose.ui.geometry.Size(progressWidth, trackHeight),
+                    size = androidx.compose.ui.geometry.Size(size.width, trackHeight),
                     cornerRadius = CornerRadius(trackHeight / 2)
                 )
+                
+                // Draw progress
+                if (progressWidth > 0) {
+                    drawRoundRect(
+                        color = progressColor,
+                        topLeft = Offset(0f, centerY - trackHeight / 2),
+                        size = androidx.compose.ui.geometry.Size(progressWidth, trackHeight),
+                        cornerRadius = CornerRadius(trackHeight / 2)
+                    )
+                }
             }
             
-            // Draw thumb based on style
-            if (progressWidth > 0) {
-                drawThumb(
-                    thumbStyle = thumbStyle,
-                    progressColor = progressColor,
-                    thumbSize = thumbSize.toPx(),
-                    position = Offset(progressWidth, centerY)
+            if (progress > 0f) {
+                val thumbCenterX = (maxWidth * progress.coerceIn(0f, 1f))
+                    .coerceIn(effectiveThumbSize / 2, maxWidth - effectiveThumbSize / 2)
+                M3Thumb(
+                    style = thumbStyle,
+                    color = progressColor,
+                    size = thumbSize,
+                    isPlaying = isPlaying,
+                    rotateWhenPlaying = rotateThumbWhenPlaying,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .offset(x = thumbCenterX - effectiveThumbSize / 2)
                 )
             }
         }
@@ -671,45 +492,57 @@ private fun RoundedProgressBar(
     progressColor: Color,
     trackColor: Color,
     height: Dp,
+    isPlaying: Boolean = true,
     showThumb: Boolean = false,
-    thumbStyle: ThumbStyle = ThumbStyle.CIRCLE,
-    thumbSize: Dp = 12.dp
+    thumbStyle: ThumbStyle = ThumbStyle.DEFAULT,
+    thumbSize: Dp = 12.dp,
+    rotateThumbWhenPlaying: Boolean = false
 ) {
     val actualHeight = height.coerceAtLeast(6.dp)
     
     if (showThumb && thumbStyle != ThumbStyle.NONE) {
-        Canvas(
+        val effectiveThumbSize = thumbSize * thumbStyle.sizeScale
+        BoxWithConstraints(
             modifier = modifier
                 .fillMaxWidth()
-                .height(actualHeight.coerceAtLeast(thumbSize))
+                .height(actualHeight.coerceAtLeast(effectiveThumbSize))
         ) {
-            val progressWidth = size.width * progress.coerceIn(0f, 1f)
-            val centerY = size.height / 2
-            val trackHeight = actualHeight.toPx()
-            
-            // Draw track
-            drawRoundRect(
-                color = trackColor,
-                topLeft = Offset(0f, centerY - trackHeight / 2),
-                size = Size(size.width, trackHeight),
-                cornerRadius = CornerRadius(trackHeight / 2)
-            )
-            
-            // Draw progress
-            if (progressWidth > 0) {
+            Canvas(Modifier.fillMaxSize()) {
+                val progressWidth = size.width * progress.coerceIn(0f, 1f)
+                val centerY = size.height / 2
+                val trackHeight = actualHeight.toPx()
+                
+                // Draw track
                 drawRoundRect(
-                    color = progressColor,
+                    color = trackColor,
                     topLeft = Offset(0f, centerY - trackHeight / 2),
-                    size = Size(progressWidth, trackHeight),
+                    size = Size(size.width, trackHeight),
                     cornerRadius = CornerRadius(trackHeight / 2)
                 )
                 
-                // Draw thumb
-                drawThumb(
-                    thumbStyle = thumbStyle,
-                    progressColor = progressColor,
-                    thumbSize = thumbSize.toPx(),
-                    position = Offset(progressWidth, centerY)
+                // Draw progress
+                if (progressWidth > 0) {
+                    drawRoundRect(
+                        color = progressColor,
+                        topLeft = Offset(0f, centerY - trackHeight / 2),
+                        size = Size(progressWidth, trackHeight),
+                        cornerRadius = CornerRadius(trackHeight / 2)
+                    )
+                }
+            }
+            
+            if (progress > 0f) {
+                val thumbCenterX = (maxWidth * progress.coerceIn(0f, 1f))
+                    .coerceIn(effectiveThumbSize / 2, maxWidth - effectiveThumbSize / 2)
+                M3Thumb(
+                    style = thumbStyle,
+                    color = progressColor,
+                    size = thumbSize,
+                    isPlaying = isPlaying,
+                    rotateWhenPlaying = rotateThumbWhenPlaying,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .offset(x = thumbCenterX - effectiveThumbSize / 2)
                 )
             }
         }
@@ -741,45 +574,87 @@ private fun ThinProgressBar(
     modifier: Modifier = Modifier,
     progressColor: Color,
     trackColor: Color,
+    isPlaying: Boolean = true,
     showThumb: Boolean = false,
-    thumbStyle: ThumbStyle = ThumbStyle.CIRCLE,
-    thumbSize: Dp = 10.dp
+    thumbStyle: ThumbStyle = ThumbStyle.DEFAULT,
+    thumbSize: Dp = 10.dp,
+    rotateThumbWhenPlaying: Boolean = false
 ) {
-    Canvas(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(if (showThumb && thumbStyle != ThumbStyle.NONE) thumbSize else 2.dp)
-    ) {
-        val width = size.width
-        val centerY = size.height / 2
-        
-        // Track
-        drawLine(
-            color = trackColor,
-            start = Offset(0f, centerY),
-            end = Offset(width, centerY),
-            strokeWidth = 2.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-        
-        // Progress
-        val progressWidth = width * progress.coerceIn(0f, 1f)
-        if (progressWidth > 0) {
+    if (showThumb && thumbStyle != ThumbStyle.NONE) {
+        val effectiveThumbSize = thumbSize * thumbStyle.sizeScale
+        BoxWithConstraints(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(effectiveThumbSize)
+        ) {
+            Canvas(Modifier.fillMaxSize()) {
+                val width = size.width
+                val centerY = size.height / 2
+                
+                // Track
+                drawLine(
+                    color = trackColor,
+                    start = Offset(0f, centerY),
+                    end = Offset(width, centerY),
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+                
+                // Progress
+                val progressWidth = width * progress.coerceIn(0f, 1f)
+                if (progressWidth > 0) {
+                    drawLine(
+                        color = progressColor,
+                        start = Offset(0f, centerY),
+                        end = Offset(progressWidth, centerY),
+                        strokeWidth = 2.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                }
+            }
+            
+            if (progress > 0f) {
+                val thumbCenterX = (maxWidth * progress.coerceIn(0f, 1f))
+                    .coerceIn(effectiveThumbSize / 2, maxWidth - effectiveThumbSize / 2)
+                M3Thumb(
+                    style = thumbStyle,
+                    color = progressColor,
+                    size = thumbSize,
+                    isPlaying = isPlaying,
+                    rotateWhenPlaying = rotateThumbWhenPlaying,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .offset(x = thumbCenterX - effectiveThumbSize / 2)
+                )
+            }
+        }
+    } else {
+        Canvas(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(2.dp)
+        ) {
+            val width = size.width
+            val centerY = size.height / 2
+            
+            // Track
             drawLine(
-                color = progressColor,
+                color = trackColor,
                 start = Offset(0f, centerY),
-                end = Offset(progressWidth, centerY),
+                end = Offset(width, centerY),
                 strokeWidth = 2.dp.toPx(),
                 cap = StrokeCap.Round
             )
             
-            // Draw thumb
-            if (showThumb && thumbStyle != ThumbStyle.NONE) {
-                drawThumb(
-                    thumbStyle = thumbStyle,
-                    progressColor = progressColor,
-                    thumbSize = thumbSize.toPx(),
-                    position = Offset(progressWidth, centerY)
+            // Progress
+            val progressWidth = width * progress.coerceIn(0f, 1f)
+            if (progressWidth > 0) {
+                drawLine(
+                    color = progressColor,
+                    start = Offset(0f, centerY),
+                    end = Offset(progressWidth, centerY),
+                    strokeWidth = 2.dp.toPx(),
+                    cap = StrokeCap.Round
                 )
             }
         }
@@ -795,43 +670,55 @@ private fun ThickProgressBar(
     modifier: Modifier = Modifier,
     progressColor: Color,
     trackColor: Color,
+    isPlaying: Boolean = true,
     showThumb: Boolean = false,
-    thumbStyle: ThumbStyle = ThumbStyle.CIRCLE,
-    thumbSize: Dp = 14.dp
+    thumbStyle: ThumbStyle = ThumbStyle.DEFAULT,
+    thumbSize: Dp = 14.dp,
+    rotateThumbWhenPlaying: Boolean = false
 ) {
     if (showThumb && thumbStyle != ThumbStyle.NONE) {
-        Canvas(
+        val effectiveThumbSize = thumbSize * thumbStyle.sizeScale
+        BoxWithConstraints(
             modifier = modifier
                 .fillMaxWidth()
-                .height(8.dp.coerceAtLeast(thumbSize))
+                .height(8.dp.coerceAtLeast(effectiveThumbSize))
         ) {
-            val progressWidth = size.width * progress.coerceIn(0f, 1f)
-            val centerY = size.height / 2
-            val trackHeight = 8.dp.toPx()
-            
-            // Draw track
-            drawRoundRect(
-                color = trackColor,
-                topLeft = Offset(0f, centerY - trackHeight / 2),
-                size = Size(size.width, trackHeight),
-                cornerRadius = CornerRadius(4.dp.toPx())
-            )
-            
-            // Draw progress
-            if (progressWidth > 0) {
+            Canvas(Modifier.fillMaxSize()) {
+                val progressWidth = size.width * progress.coerceIn(0f, 1f)
+                val centerY = size.height / 2
+                val trackHeight = 8.dp.toPx()
+                
+                // Draw track
                 drawRoundRect(
-                    color = progressColor,
+                    color = trackColor,
                     topLeft = Offset(0f, centerY - trackHeight / 2),
-                    size = Size(progressWidth, trackHeight),
+                    size = Size(size.width, trackHeight),
                     cornerRadius = CornerRadius(4.dp.toPx())
                 )
                 
-                // Draw thumb
-                drawThumb(
-                    thumbStyle = thumbStyle,
-                    progressColor = progressColor,
-                    thumbSize = thumbSize.toPx(),
-                    position = Offset(progressWidth, centerY)
+                // Draw progress
+                if (progressWidth > 0) {
+                    drawRoundRect(
+                        color = progressColor,
+                        topLeft = Offset(0f, centerY - trackHeight / 2),
+                        size = Size(progressWidth, trackHeight),
+                        cornerRadius = CornerRadius(4.dp.toPx())
+                    )
+                }
+            }
+            
+            if (progress > 0f) {
+                val thumbCenterX = (maxWidth * progress.coerceIn(0f, 1f))
+                    .coerceIn(effectiveThumbSize / 2, maxWidth - effectiveThumbSize / 2)
+                M3Thumb(
+                    style = thumbStyle,
+                    color = progressColor,
+                    size = thumbSize,
+                    isPlaying = isPlaying,
+                    rotateWhenPlaying = rotateThumbWhenPlaying,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .offset(x = thumbCenterX - effectiveThumbSize / 2)
                 )
             }
         }
@@ -863,9 +750,11 @@ private fun GradientProgressBar(
     modifier: Modifier = Modifier,
     trackColor: Color,
     height: Dp,
+    isPlaying: Boolean = true,
     showThumb: Boolean = false,
-    thumbStyle: ThumbStyle = ThumbStyle.CIRCLE,
-    thumbSize: Dp = 12.dp
+    thumbStyle: ThumbStyle = ThumbStyle.DEFAULT,
+    thumbSize: Dp = 12.dp,
+    rotateThumbWhenPlaying: Boolean = false
 ) {
     val gradientColors = listOf(
         MaterialTheme.colorScheme.primary,
@@ -876,38 +765,48 @@ private fun GradientProgressBar(
     val actualHeight = height.coerceAtLeast(4.dp)
     
     if (showThumb && thumbStyle != ThumbStyle.NONE) {
-        Canvas(
+        val effectiveThumbSize = thumbSize * thumbStyle.sizeScale
+        BoxWithConstraints(
             modifier = modifier
                 .fillMaxWidth()
-                .height(actualHeight.coerceAtLeast(thumbSize))
+                .height(actualHeight.coerceAtLeast(effectiveThumbSize))
         ) {
-            val progressWidth = size.width * progress.coerceIn(0f, 1f)
-            val centerY = size.height / 2
-            val trackHeight = actualHeight.toPx()
-            
-            // Draw track
-            drawRoundRect(
-                color = trackColor,
-                topLeft = Offset(0f, centerY - trackHeight / 2),
-                size = Size(size.width, trackHeight),
-                cornerRadius = CornerRadius(trackHeight / 2)
-            )
-            
-            // Draw gradient progress
-            if (progressWidth > 0) {
+            Canvas(Modifier.fillMaxSize()) {
+                val progressWidth = size.width * progress.coerceIn(0f, 1f)
+                val centerY = size.height / 2
+                val trackHeight = actualHeight.toPx()
+                
+                // Draw track
                 drawRoundRect(
-                    brush = Brush.horizontalGradient(gradientColors),
+                    color = trackColor,
                     topLeft = Offset(0f, centerY - trackHeight / 2),
-                    size = Size(progressWidth, trackHeight),
+                    size = Size(size.width, trackHeight),
                     cornerRadius = CornerRadius(trackHeight / 2)
                 )
                 
-                // Draw thumb with tertiary color (end of gradient)
-                drawThumb(
-                    thumbStyle = thumbStyle,
-                    progressColor = gradientColors.last(),
-                    thumbSize = thumbSize.toPx(),
-                    position = Offset(progressWidth, centerY)
+                // Draw gradient progress
+                if (progressWidth > 0) {
+                    drawRoundRect(
+                        brush = Brush.horizontalGradient(gradientColors),
+                        topLeft = Offset(0f, centerY - trackHeight / 2),
+                        size = Size(progressWidth, trackHeight),
+                        cornerRadius = CornerRadius(trackHeight / 2)
+                    )
+                }
+            }
+            
+            if (progress > 0f) {
+                val thumbCenterX = (maxWidth * progress.coerceIn(0f, 1f))
+                    .coerceIn(effectiveThumbSize / 2, maxWidth - effectiveThumbSize / 2)
+                M3Thumb(
+                    style = thumbStyle,
+                    color = gradientColors.last(),
+                    size = thumbSize,
+                    isPlaying = isPlaying,
+                    rotateWhenPlaying = rotateThumbWhenPlaying,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .offset(x = thumbCenterX - effectiveThumbSize / 2)
                 )
             }
         }

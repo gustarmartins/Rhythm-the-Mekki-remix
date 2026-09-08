@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
@@ -125,161 +130,20 @@ val WarningLight = Color(0xFFEF6C00) // Material orange
 val WarningDark = Color(0xFFFFB74D) // Light orange for dark theme
 
 // ============================================
-// Custom Color Scheme Presets
+// Material 3 Preset Theme Seeds
 // ============================================
 
-// Warm Theme - Sunset colors
-val WarmPrimaryLight = Color(0xFFFF6B35)
-val WarmOnPrimaryLight = Color(0xFFFFFFFF)
-val WarmPrimaryContainerLight = Color(0xFFFFDDD2)
-val WarmOnPrimaryContainerLight = Color(0xFF3E0400)
+val PresetDefaultSeed = Color(0xFF6750A4)
+val PresetWarmSeed = Color(0xFFFF6B35)
+val PresetCoolSeed = Color(0xFF1E88E5)
+val PresetForestSeed = Color(0xFF2E7D32)
+val PresetRoseSeed = Color(0xFFE91E63)
+val PresetMonochromeSeed = Color(0xFF757575)
+val PresetLavenderSeed = Color(0xFF7C4DFF)
+val PresetOceanSeed = Color(0xFF006064)
+val PresetAuroraSeed = Color(0xFF00C853)
+val PresetAmberSeed = Color(0xFFFF6F00)
+val PresetCrimsonSeed = Color(0xFFB71C1C)
+val PresetEmeraldSeed = Color(0xFF00897B)
+val PresetMintSeed = Color(0xFF0097A7)
 
-val WarmSecondaryLight = Color(0xFFF7931E)
-val WarmOnSecondaryLight = Color(0xFFFFFFFF)
-val WarmSecondaryContainerLight = Color(0xFFFFDDB6)
-val WarmOnSecondaryContainerLight = Color(0xFF2C1600)
-
-val WarmTertiaryLight = Color(0xFFFFC857)
-val WarmOnTertiaryLight = Color(0xFF432A0D)
-val WarmTertiaryContainerLight = Color(0xFFFFE8B6)
-val WarmOnTertiaryContainerLight = Color(0xFF261900)
-
-val WarmPrimaryDark = Color(0xFFFFB59A)
-val WarmOnPrimaryDark = Color(0xFF5F1500)
-val WarmPrimaryContainerDark = Color(0xFFC84520)
-val WarmOnPrimaryContainerDark = Color(0xFFFFDDD2)
-
-val WarmSecondaryDark = Color(0xFFFFD499)
-val WarmOnSecondaryDark = Color(0xFF4A2800)
-val WarmSecondaryContainerDark = Color(0xFFD97E00)
-val WarmOnSecondaryContainerDark = Color(0xFFFFDDB6)
-
-val WarmTertiaryDark = Color(0xFFFFE099)
-val WarmOnTertiaryDark = Color(0xFF442B00)
-val WarmTertiaryContainerDark = Color(0xFFFFA91F)
-val WarmOnTertiaryContainerDark = Color(0xFFFFE8B6)
-
-// Cool Theme - Ocean colors
-val CoolPrimaryLight = Color(0xFF1E88E5)
-val CoolOnPrimaryLight = Color(0xFFFFFFFF)
-val CoolPrimaryContainerLight = Color(0xFFD1E4FF)
-val CoolOnPrimaryContainerLight = Color(0xFF001D36)
-
-val CoolSecondaryLight = Color(0xFF00897B)
-val CoolOnSecondaryLight = Color(0xFFFFFFFF)
-val CoolSecondaryContainerLight = Color(0xFFB2DFDB)
-val CoolOnSecondaryContainerLight = Color(0xFF00201D)
-
-val CoolTertiaryLight = Color(0xFF80DEEA)
-val CoolOnTertiaryLight = Color(0xFF003640)
-val CoolTertiaryContainerLight = Color(0xFFB2EBF2)
-val CoolOnTertiaryContainerLight = Color(0xFF002025)
-
-val CoolPrimaryDark = Color(0xFF90CAF9)
-val CoolOnPrimaryDark = Color(0xFF003258)
-val CoolPrimaryContainerDark = Color(0xFF004A77)
-val CoolOnPrimaryContainerDark = Color(0xFFD1E4FF)
-
-val CoolSecondaryDark = Color(0xFF4DB6AC)
-val CoolOnSecondaryDark = Color(0xFF003731)
-val CoolSecondaryContainerDark = Color(0xFF005048)
-val CoolOnSecondaryContainerDark = Color(0xFFB2DFDB)
-
-val CoolTertiaryDark = Color(0xFF4DD0E1)
-val CoolOnTertiaryDark = Color(0xFF00363D)
-val CoolTertiaryContainerDark = Color(0xFF004F58)
-val CoolOnTertiaryContainerDark = Color(0xFFB2EBF2)
-
-// Forest Theme - Nature green
-val ForestPrimaryLight = Color(0xFF2E7D32)
-val ForestOnPrimaryLight = Color(0xFFFFFFFF)
-val ForestPrimaryContainerLight = Color(0xFFC8E6C9)
-val ForestOnPrimaryContainerLight = Color(0xFF0D5016)
-
-val ForestSecondaryLight = Color(0xFF558B2F)
-val ForestOnSecondaryLight = Color(0xFFFFFFFF)
-val ForestSecondaryContainerLight = Color(0xFFDCEDC8)
-val ForestOnSecondaryContainerLight = Color(0xFF1B5E20)
-
-val ForestTertiaryLight = Color(0xFF9CCC65)
-val ForestOnTertiaryLight = Color(0xFF2E5016)
-val ForestTertiaryContainerLight = Color(0xFFE7F5E1)
-val ForestOnTertiaryContainerLight = Color(0xFF223608)
-
-val ForestPrimaryDark = Color(0xFF81C784)
-val ForestOnPrimaryDark = Color(0xFF0D5016)
-val ForestPrimaryContainerDark = Color(0xFF1B5E20)
-val ForestOnPrimaryContainerDark = Color(0xFFC8E6C9)
-
-val ForestSecondaryDark = Color(0xFFAED581)
-val ForestOnSecondaryDark = Color(0xFF1B5E20)
-val ForestSecondaryContainerDark = Color(0xFF33691E)
-val ForestOnSecondaryContainerDark = Color(0xFFDCEDC8)
-
-val ForestTertiaryDark = Color(0xFFDCE775)
-val ForestOnTertiaryDark = Color(0xFF3F5100)
-val ForestTertiaryContainerDark = Color(0xFF5A7700)
-val ForestOnTertiaryContainerDark = Color(0xFFE7F5E1)
-
-// Rose Theme - Pink elegance
-val RosePrimaryLight = Color(0xFFE91E63)
-val RoseOnPrimaryLight = Color(0xFFFFFFFF)
-val RosePrimaryContainerLight = Color(0xFFF8BBD0)
-val RoseOnPrimaryContainerLight = Color(0xFF3E001D)
-
-val RoseSecondaryLight = Color(0xFFC2185B)
-val RoseOnSecondaryLight = Color(0xFFFFFFFF)
-val RoseSecondaryContainerLight = Color(0xFFFFCDD2)
-val RoseOnSecondaryContainerLight = Color(0xFF300016)
-
-val RoseTertiaryLight = Color(0xFFF8BBD0)
-val RoseTertiaryLight2 = Color(0xFFFF80AB)
-val RoseOnTertiaryLight = Color(0xFF5C002E)
-val RoseTertiaryContainerLight = Color(0xFFFFE0EC)
-val RoseOnTertiaryContainerLight = Color(0xFF31000F)
-
-val RosePrimaryDark = Color(0xFFF48FB1)
-val RoseOnPrimaryDark = Color(0xFF560027)
-val RosePrimaryContainerDark = Color(0xFFC2185B)
-val RoseOnPrimaryContainerDark = Color(0xFFF8BBD0)
-
-val RoseSecondaryDark = Color(0xFFFFAB91)
-val RoseOnSecondaryDark = Color(0xFF5F000A)
-val RoseSecondaryContainerDark = Color(0xFFAD1457)
-val RoseOnSecondaryContainerDark = Color(0xFFFFCDD2)
-
-val RoseTertiaryDark = Color(0xFFFF80AB)
-val RoseOnTertiaryDark = Color(0xFF5C002E)
-val RoseTertiaryContainerDark = Color(0xFFD81B60)
-val RoseOnTertiaryContainerDark = Color(0xFFFFE0EC)
-
-// Monochrome Theme - Minimalist grayscale
-val MonoPrimaryLight = Color(0xFF424242)
-val MonoOnPrimaryLight = Color(0xFFFFFFFF)
-val MonoPrimaryContainerLight = Color(0xFFE0E0E0)
-val MonoOnPrimaryContainerLight = Color(0xFF1C1C1C)
-
-val MonoSecondaryLight = Color(0xFF616161)
-val MonoOnSecondaryLight = Color(0xFFFFFFFF)
-val MonoSecondaryContainerLight = Color(0xFFEEEEEE)
-val MonoOnSecondaryContainerLight = Color(0xFF2C2C2C)
-
-val MonoTertiaryLight = Color(0xFF9E9E9E)
-val MonoOnTertiaryLight = Color(0xFF1C1C1C)
-val MonoTertiaryContainerLight = Color(0xFFF5F5F5)
-val MonoOnTertiaryContainerLight = Color(0xFF1C1C1C)
-
-val MonoPrimaryDark = Color(0xFFBDBDBD)
-val MonoOnPrimaryDark = Color(0xFF1C1C1C)
-val MonoPrimaryContainerDark = Color(0xFF424242)
-val MonoOnPrimaryContainerDark = Color(0xFFE0E0E0)
-
-val MonoSecondaryDark = Color(0xFF9E9E9E)
-val MonoOnSecondaryDark = Color(0xFF2C2C2C)
-val MonoSecondaryContainerDark = Color(0xFF616161)
-val MonoOnSecondaryContainerDark = Color(0xFFEEEEEE)
-
-val MonoTertiaryDark = Color(0xFF757575)
-val MonoOnTertiaryDark = Color(0xFFEEEEEE)
-val MonoTertiaryContainerDark = Color(0xFF424242)
-val MonoOnTertiaryContainerDark = Color(0xFFF5F5F5)

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.ui.theme.festive
 
 import androidx.compose.animation.core.LinearEasing
@@ -14,6 +19,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -23,6 +30,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.isActive
+import chromahub.rhythm.app.util.windowScreenWidthDp
+import chromahub.rhythm.app.util.windowScreenHeightDp
 
 /**
  * Snowfall Effect Composable
@@ -30,19 +39,18 @@ import kotlinx.coroutines.isActive
  */
 @Composable
 fun SnowfallEffect(
-    intensity: Float = 0.5f,
     modifier: Modifier = Modifier,
+    intensity: Float = 0.5f,
     enabled: Boolean = true,
     sizeMultiplier: Float = 1.0f,
     area: SnowflakeArea = SnowflakeArea.FULL_SCREEN
 ) {
     if (!enabled) return
     
-    val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     
-    val screenWidth = with(density) { configuration.screenWidthDp.dp.toPx() }
-    val screenHeight = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val screenWidth = with(density) { windowScreenWidthDp().dp.toPx() }
+    val screenHeight = with(density) { windowScreenHeightDp().dp.toPx() }
     
     // Generate snowflakes
     val snowflakes = remember(intensity, sizeMultiplier, area) {
@@ -62,8 +70,8 @@ fun SnowfallEffect(
     }
     
     // Animation state
-    var lastFrameTime by remember { mutableStateOf(0L) }
-    var animationFrame by remember { mutableStateOf(0) }
+    var lastFrameTime by remember { mutableLongStateOf(0L) }
+    var animationFrame by remember { mutableIntStateOf(0) }
     
     // Continuous animation loop
     LaunchedEffect(Unit) {
@@ -211,8 +219,8 @@ private fun DrawScope.drawDetailedSnowflake(snowflake: Snowflake) {
  */
 @Composable
 fun SnowfallWithSparkle(
-    intensity: Float = 0.5f,
     modifier: Modifier = Modifier,
+    intensity: Float = 0.5f,
     enabled: Boolean = true,
     detailedRendering: Boolean = false,
     sizeMultiplier: Float = 1.0f,
@@ -220,11 +228,10 @@ fun SnowfallWithSparkle(
 ) {
     if (!enabled) return
     
-    val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     
-    val screenWidth = with(density) { configuration.screenWidthDp.dp.toPx() }
-    val screenHeight = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val screenWidth = with(density) { windowScreenWidthDp().dp.toPx() }
+    val screenHeight = with(density) { windowScreenHeightDp().dp.toPx() }
     
     // Generate snowflakes
     val snowflakes = remember(intensity, sizeMultiplier, area) {
@@ -256,8 +263,8 @@ fun SnowfallWithSparkle(
     )
     
     // Animation state
-    var lastFrameTime by remember { mutableStateOf(0L) }
-    var animationFrame by remember { mutableStateOf(0) }
+    var lastFrameTime by remember { mutableLongStateOf(0L) }
+    var animationFrame by remember { mutableIntStateOf(0) }
     
     // Continuous animation loop
     LaunchedEffect(Unit) {

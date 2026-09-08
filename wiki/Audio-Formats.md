@@ -1,6 +1,6 @@
 # Audio Format Support
 
-Rhythm uses **Media3 ExoPlayer 1.10.1 + FFmpeg Decoder** for professional-grade audio playback. This page details supported formats, technical limitations, and recommendations.
+Rhythm uses **Media3 ExoPlayer 1.11.0 + FFmpeg Decoder** (Jellyfin media3-ffmpeg-decoder) for professional-grade audio playback. This page details supported formats, technical limitations, and recommendations.
 
 ---
 
@@ -14,6 +14,9 @@ These formats use Android's platform codecs and work on all supported devices:
 | **ALAC** | `.m4a` | Lossless | Up to 32-bit | Up to 384kHz | Apple Lossless Audio Codec |
 | **MP3** | `.mp3` | Lossy | N/A | Up to 48kHz | All bitrates, VBR support |
 | **AAC** | `.m4a`, `.aac`, `.mp4`, `.adts`, `.m4b` | Lossy | N/A | Up to 96kHz | AAC-LC, HE-AAC, HE-AACv2; ADTS, audiobook (M4B) |
+| **MP4 Audio** | `.mp4`, `.m4a` | Lossy/Lossless | N/A | Up to 96kHz | Audio tracks inside MP4 containers (AAC/ALAC/AC-3) |
+| **Matroska Audio** | `.mkv`, `.mka` | Lossy/Lossless | N/A | N/A | Audio streams inside MKV containers (EAC3-JOC, DTS, etc.) |
+| **OPA** | `.opa` | Lossless | N/A | N/A | Optimized audio format (OPUS-based) |
 | **Vorbis** | `.ogg`, `.oga` | Lossy | N/A | Up to 192kHz | Ogg Vorbis audio |
 | **Opus** | `.opus`, `.ogg` | Lossy/Lossless | N/A | Up to 48kHz | Modern, efficient codec |
 | **WAV** | `.wav` | Lossless | Up to 32-bit | Up to 192kHz | Uncompressed PCM audio |
@@ -123,8 +126,10 @@ Some containers can hold multiple codecs:
 
 Rhythm identifies the **actual codec** inside, not just the container.
 
-### Matroska Audio (.mka)
-Rhythm does not support Matroska Audio (`.mka`) files. Although ExoPlayer can play audio streams from Matroska container (`.mkv`) files when parsed as video streams, the dedicated `.mka` audio-only container is not registered for local media scanning. To play these files, we recommend extracting the underlying audio streams into standard FLAC, M4A, or MP3 containers.
+### MP4 / Matroska Audio (.mp4/.mkv/.mka)
+Rhythm scans and plays audio streams embedded in MP4 and Matroska containers (including `.mka` audio-only files). During media scan, `video/mp4`, `video/x-matroska`, and `application/x-matroska` MIME types are indexed alongside regular audio files. Files extracted from these containers are identified by their **actual codec** (AAC, ALAC, AC-3, E-AC-3, DTS, etc.), not just the container extension.
+
+> ⚠️ **Note:** MP4/MKV containers may be excluded from the default library if the **Allowed Formats** setting (`Settings → Library & Media → Media Scan → Allowed Formats`) is configured to filter them out — toggle the `mp4`/`mkv` formats there to include or exclude them.
 
 ### Hardware Dependencies
 - **Dolby/DTS**: Requires device-specific hardware decoders
@@ -133,7 +138,7 @@ Rhythm does not support Matroska Audio (`.mka`) files. Although ExoPlayer can pl
 - **Channel Configuration**: Stereo universally supported, multi-channel varies
 
 ### ExoPlayer Capabilities
-- **ExoPlayer 1.10.1 + FFmpeg**: Adds EAC3-JOC, AC-3, WMA decoding beyond ExoPlayer defaults
+- **ExoPlayer 1.11.0 + FFmpeg**: Adds EAC3-JOC, AC-3, AC-4, WMA decoding beyond ExoPlayer defaults
 - **Gapless Playback**: Supported for MP3, AAC, FLAC, Opus
 - **Seeking**: Accurate for most formats, approximate for some streaming codecs
 - **Metadata**: Depends on container format (ID3 for MP3, Vorbis comments for FLAC)
@@ -248,7 +253,7 @@ done
 
 ### Metadata Not Showing
 - **Re-tag files**: Use MP3Tag or Picard to fix metadata
-- **Rescan library**: Settings → Library → Rescan Media
+- **Rescan library**: Settings → Library & Media → Media Scan
 - **Check file permissions**: Ensure Rhythm has read access
 
 ---

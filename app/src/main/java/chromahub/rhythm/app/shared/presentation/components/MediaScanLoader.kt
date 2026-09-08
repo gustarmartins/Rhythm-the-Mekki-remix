@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -46,6 +51,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -95,7 +101,7 @@ fun MediaScanLoader(
     val artistsFound = artists.size
     
     // Track scanning progress
-    var displayProgress by remember { mutableStateOf(0f) }
+    var displayProgress by remember { mutableFloatStateOf(0f) }
     var currentStep by remember { mutableStateOf("Initializing...") }
     var isComplete by remember { mutableStateOf(false) }
     
@@ -378,21 +384,21 @@ private fun MediaScanStats(
         StatItem(
             icon = RhythmIcons.MusicNote,
             count = songsFound,
-            label = "Songs",
+            label = stringResource(R.string.bottomsheet_songs),
             color = MaterialTheme.colorScheme.primary
         )
         
         StatItem(
             icon = RhythmIcons.Album,
             count = albumsFound,
-            label = "Albums",
+            label = stringResource(R.string.bottomsheet_albums),
             color = MaterialTheme.colorScheme.secondary
         )
         
         StatItem(
             icon = RhythmIcons.Artist,
             count = artistsFound,
-            label = "Artists",
+            label = stringResource(R.string.artists_title),
             color = MaterialTheme.colorScheme.tertiary
         )
     }

@@ -10,7 +10,7 @@ Before diving into specific issues, try these general fixes:
 2. **Check permissions**: Settings → Apps → Rhythm → Permissions
 3. **Update app**: Ensure you're on the latest version
 4. **Clear cache**: Settings → Apps → Rhythm → Storage → Clear cache
-5. **Rescan media**: Rhythm Settings → Library → Rescan Media
+5. **Rescan media**: Rhythm Settings → Library & Media → Media Scan
 
 ---
 
@@ -38,7 +38,7 @@ Before diving into specific issues, try these general fixes:
    - Check if folders are blacklisted in Rhythm settings
 
 4. **Re-scan media:**
-   - Rhythm → Settings → Library → Rescan Media
+   - Rhythm → Settings → Library & Media → Media Scan
    - Wait for scan to complete
    - Rhythm performs a **full scan** to reliably pick up all changes
 
@@ -151,7 +151,7 @@ Before diving into specific issues, try these general fixes:
    - Embed artwork if missing
 
 2. **Enable online artwork:**
-   - Rhythm → Settings → Online Features
+   - Rhythm → Settings → Notifications & Services → API Management
    - Enable "Fetch album artwork from Deezer"
 
 3. **Clear image cache:**
@@ -171,7 +171,7 @@ Before diving into specific issues, try these general fixes:
 
 **Solutions:**
 1. **Edit metadata in Rhythm:**
-   - Long-press song → Edit Info
+   - Long-press song → Song info → Edit
    - Update title, artist, album, etc.
    - Requires storage write permission
 
@@ -220,7 +220,7 @@ Before diving into specific issues, try these general fixes:
 
 **Solutions:**
 1. **Enable lyrics sources:**
-   - Rhythm → Settings → Lyrics
+   - Rhythm → Settings → Audio & Effects → Lyrics
    - Enable LRCLib and embedded lyrics
 
 2. **Check internet connection:**
@@ -291,7 +291,7 @@ Before diving into specific issues, try these general fixes:
 
 **Solutions:**
 1. **Check update settings:**
-   - Rhythm → Settings → Updates
+   - Rhythm → Settings → Updates & Info → Updates
    - Enable automatic update checking
 
 2. **Verify internet access:**
@@ -299,7 +299,7 @@ Before diving into specific issues, try these general fixes:
    - Check firewall/VPN settings
 
 3. **Manual check:**
-   - Settings → About → Check for updates
+   - Settings → Updates & Info → About → Check for Updates
    - Download manually if needed
 
 ---
@@ -347,7 +347,7 @@ Before diving into specific issues, try these general fixes:
 
 3. **Launcher compatibility:**
    - Some launchers have widget sizing issues
-   - Try different launcher or legacy widget
+   - Try a different launcher
 
 ---
 
@@ -361,8 +361,8 @@ Before diving into specific issues, try these general fixes:
 
 **Solutions:**
 1. **Enable auto-resume:**
-   - Rhythm → Settings → Playback
-   - Enable "Resume on Bluetooth connect"
+   - Rhythm → Settings → Queue & Playback → Playback
+   - Enable "Resume on Device Reconnect"
 
 2. **Grant Bluetooth permission:**
    - Settings → Apps → Rhythm → Permissions
@@ -380,9 +380,9 @@ Before diving into specific issues, try these general fixes:
 - Audio output stuck
 
 **Solutions:**
-1. **Select output manually:**
-   - Rhythm player → Audio output icon
-   - Choose desired device
+1. **Select output via the system volume panel:**
+   - Open the Android volume panel and tap the output icon
+   - Choose the Bluetooth device
 
 2. **Restart Bluetooth:**
    - Turn Bluetooth off and on
@@ -501,7 +501,7 @@ Share logs in [GitHub Issues](https://github.com/cromaguy/Rhythm/issues) for deb
 When asking for help, provide:
 - Android version (e.g., Android 14)
 - Device model (e.g., Pixel 7)
-- Rhythm version (Settings → About)
+- Rhythm version (Settings → Updates & Info → About)
 - Detailed description of issue
 - Steps to reproduce
 - Screenshots/logs if possible

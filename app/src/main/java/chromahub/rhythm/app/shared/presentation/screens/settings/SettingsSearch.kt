@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.screens.settings
 
 
@@ -67,7 +72,13 @@ import chromahub.rhythm.app.shared.presentation.components.Material3SettingsGrou
 import chromahub.rhythm.app.shared.presentation.components.Material3SettingsItem
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
+import chromahub.rhythm.app.util.safeGetQuantityString
 import androidx.compose.ui.res.stringResource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.text.style.TextAlign
+import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveCookieEmptyState
+import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShape
 
 /**
  * Represents a searchable setting item with its metadata for search indexing
@@ -168,6 +179,96 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             route = SettingsRoutes.WIDGET,
             parentScreen = context.getString(R.string.settings_section_home_widgets)
         ))
+        add(SearchableSettingItem(
+            id = "widget_theme",
+            title = context.getString(R.string.widgetsettingsscreen_widget_theme),
+            description = context.getString(R.string.settings_widget_theme_desc),
+            keywords = listOf("widget theme", "dynamic", "solid", "translucent", "dark", "purple", "style"),
+            icon = MaterialSymbolIcon("widgets"),
+            route = SettingsRoutes.WIDGET,
+            parentScreen = context.getString(R.string.settings_widget),
+            settingKey = "widgetTheme"
+        ))
+        add(SearchableSettingItem(
+            id = "widget_show_album",
+            title = context.getString(R.string.onboarding_widget_album),
+            description = context.getString(R.string.widget_show_album_desc),
+            keywords = listOf("widget", "album", "name", "title", "show"),
+            icon = MaterialSymbolIcon("album"),
+            route = SettingsRoutes.WIDGET,
+            parentScreen = context.getString(R.string.settings_widget),
+            settingKey = "widgetShowAlbum"
+        ))
+        add(SearchableSettingItem(
+            id = "widget_show_artist",
+            title = context.getString(R.string.onboarding_widget_artist),
+            description = context.getString(R.string.widget_show_artist_desc),
+            keywords = listOf("widget", "artist", "name", "show", "title"),
+            icon = RhythmIcons.Artist,
+            route = SettingsRoutes.WIDGET,
+            parentScreen = context.getString(R.string.settings_widget),
+            settingKey = "widgetShowArtist"
+        ))
+        add(SearchableSettingItem(
+            id = "widget_favorite_button",
+            title = context.getString(R.string.widgetsettingsscreen_show_favorite_button),
+            description = context.getString(R.string.widget_show_favorite_button_desc),
+            keywords = listOf("widget", "favorite", "like", "heart", "button"),
+            icon = MaterialSymbolIcon("favorite"),
+            route = SettingsRoutes.WIDGET,
+            parentScreen = context.getString(R.string.settings_widget),
+            settingKey = "widgetShowFavoriteButton"
+        ))
+        add(SearchableSettingItem(
+            id = "widget_corner_radius",
+            title = context.getString(R.string.settings_miniplayer_corner_radius),
+            description = context.getString(R.string.widget_settings_radius_desc),
+            keywords = listOf("widget", "corner", "radius", "rounded", "shape"),
+            icon = MaterialSymbolIcon("rounded_corner"),
+            route = SettingsRoutes.WIDGET,
+            parentScreen = context.getString(R.string.settings_widget),
+            settingKey = "widgetCornerRadius"
+        ))
+        add(SearchableSettingItem(
+            id = "widget_cookie_bottom_left",
+            title = context.getString(R.string.widget_cookie_bottom_left),
+            description = context.getString(R.string.widget_cookie_section_title),
+            keywords = listOf("widget", "cookie", "bottom", "left", "action", "shuffle", "repeat", "favorite"),
+            icon = MaterialSymbolIcon("widgets"),
+            route = SettingsRoutes.WIDGET,
+            parentScreen = context.getString(R.string.settings_widget),
+            settingKey = "widgetCookieBottomLeft"
+        ))
+        add(SearchableSettingItem(
+            id = "widget_cookie_bottom_right",
+            title = context.getString(R.string.widget_cookie_bottom_right),
+            description = context.getString(R.string.widget_cookie_section_title),
+            keywords = listOf("widget", "cookie", "bottom", "right", "action", "shuffle", "repeat", "favorite"),
+            icon = MaterialSymbolIcon("widgets"),
+            route = SettingsRoutes.WIDGET,
+            parentScreen = context.getString(R.string.settings_widget),
+            settingKey = "widgetCookieBottomRight"
+        ))
+        add(SearchableSettingItem(
+            id = "widget_stats_range",
+            title = context.getString(R.string.widget_stats_time_range),
+            description = context.getString(R.string.widget_stats_section_title),
+            keywords = listOf("widget", "stats", "range", "time", "today", "week", "month"),
+            icon = MaterialSymbolIcon("calendar_today"),
+            route = SettingsRoutes.WIDGET,
+            parentScreen = context.getString(R.string.settings_widget),
+            settingKey = "widgetStatsRange"
+        ))
+        add(SearchableSettingItem(
+            id = "widget_stats_gem",
+            title = context.getString(R.string.widget_stats_gem),
+            description = context.getString(R.string.widget_stats_section_title),
+            keywords = listOf("widget", "stats", "gem", "streak", "days", "sessions"),
+            icon = MaterialSymbolIcon("auto_graph"),
+            route = SettingsRoutes.WIDGET,
+            parentScreen = context.getString(R.string.settings_widget),
+            settingKey = "widgetStatsGem"
+        ))
         
         // Navigation & Interaction Section
         add(SearchableSettingItem(
@@ -203,7 +304,7 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
         add(SearchableSettingItem(
             id = "settings_suggestions",
             title = context.getString(R.string.settingssearch_settings_suggestions),
-            description = "Show contextual suggestions at the top",
+            description = context.getString(R.string.settings_search_suggestions_desc),
             keywords = listOf("suggestions", "tips", "recommendations", "contextual", "settings"),
             icon = RhythmIcons.AutoAwesome,
             route = null,
@@ -282,7 +383,7 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
         add(SearchableSettingItem(
             id = "lyrics_api_priority",
             title = context.getString(R.string.lyricssourcesettingsscreen_lyrics_api_priority),
-            description = "Prefer Lyrically or LRCLib for online lyrics fetching",
+            description = context.getString(R.string.lyrics_api_priority_desc),
             keywords = listOf("lyrics", "api", "priority", "lyrically", "lrclib", "online"),
             icon = MaterialSymbolIcon("lyrics"),
             route = SettingsRoutes.LYRICS,
@@ -292,12 +393,22 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
         add(SearchableSettingItem(
             id = "lyrics_api_fallback",
             title = context.getString(R.string.lyricssourcesettingsscreen_retry_using_fallbacks),
-            description = "Attempt fallback APIs if the preferred API fails to return lyrics",
+            description = context.getString(R.string.lyrics_api_fallback_desc),
             keywords = listOf("lyrics", "fallback", "retry", "api", "online"),
             icon = MaterialSymbolIcon("compare_arrows"),
             route = SettingsRoutes.LYRICS,
             parentScreen = context.getString(R.string.settings_lyrics_source),
             settingKey = "lyricsApiFallbackRetry"
+        ))
+        add(SearchableSettingItem(
+            id = "lyrics_lrc_rename_behavior",
+            title = context.getString(R.string.lyrics_lrc_rename_behavior),
+            description = context.getString(R.string.lyrics_lrc_rename_behavior_desc),
+            keywords = listOf("lyrics", "lrc", "rename", "behavior", "ask", "always", "never", "tag", "file"),
+            icon = MaterialSymbolIcon("drive_file_rename_outline"),
+            route = SettingsRoutes.LYRICS,
+            parentScreen = context.getString(R.string.settings_lyrics_source),
+            settingKey = "lrcRenameBehavior"
         ))
         add(SearchableSettingItem(
             id = "queue_settings",
@@ -329,7 +440,7 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
         add(SearchableSettingItem(
             id = "battery_saver",
             title = context.getString(R.string.performancesettingsscreen_performance),
-            description = "Optimize haptics, decoding, and marquee for power consumption",
+            description = context.getString(R.string.performancesettingsscreen_performance_desc),
             keywords = listOf("battery", "power", "saver", "offload", "haptics", "marquee", "optimize"),
             icon = MaterialSymbolIcon("battery_charging_full"),
             route = SettingsRoutes.BATTERY_SAVER,
@@ -338,16 +449,26 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
         add(SearchableSettingItem(
             id = "audio_offload",
             title = context.getString(R.string.settingsscreen_audio_offload),
-            description = "Hardware-accelerated audio decoding to save device power",
+            description = context.getString(R.string.settingsscreen_audio_offload_desc),
             keywords = listOf("audio", "offload", "hardware", "dsp", "decode", "battery", "power"),
             icon = MaterialSymbolIcon("bolt"),
             route = SettingsRoutes.PLAYBACK,
             parentScreen = context.getString(R.string.settings_playback_title)
         ))
         add(SearchableSettingItem(
+            id = "mono_audio",
+            title = context.getString(R.string.settings_mono_audio),
+            description = context.getString(R.string.settings_mono_audio_desc),
+            keywords = listOf("mono", "mono audio", "downmix", "stereo", "single earpiece", "earpiece", "one ear", "center", "audio"),
+            icon = MaterialSymbolIcon("graphic_eq"),
+            route = SettingsRoutes.PLAYBACK,
+            parentScreen = context.getString(R.string.settings_playback_title),
+            settingKey = "monoAudioEnabled"
+        ))
+        add(SearchableSettingItem(
             id = "battery_saver_disable_haptics",
             title = context.getString(R.string.performancesettingsscreen_disable_haptics),
-            description = "Disable touch vibrations to extend battery life",
+            description = context.getString(R.string.performancesettingsscreen_disable_haptics_desc),
             keywords = listOf("battery", "performance", "disable haptics", "vibration", "vibrate", "feedback"),
             icon = MaterialSymbolIcon("touch_app"),
             route = SettingsRoutes.BATTERY_SAVER,
@@ -357,7 +478,7 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
         add(SearchableSettingItem(
             id = "battery_saver_enable_offload",
             title = context.getString(R.string.performancesettingsscreen_enable_audio_offload),
-            description = "Use hardware DSP decoding under Performance",
+            description = context.getString(R.string.performancesettingsscreen_enable_audio_offload_desc),
             keywords = listOf("battery", "performance", "audio offload", "dsp", "hardware decoding"),
             icon = MaterialSymbolIcon("bolt"),
             route = SettingsRoutes.BATTERY_SAVER,
@@ -367,7 +488,7 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
         add(SearchableSettingItem(
             id = "battery_saver_disable_marquee",
             title = context.getString(R.string.performancesettingsscreen_disable_text_marquee),
-            description = "Pause title sliding animations to save screen power",
+            description = context.getString(R.string.performancesettingsscreen_disable_text_marquee_desc),
             keywords = listOf("battery", "performance", "disable marquee", "slide animation", "marquee"),
             icon = MaterialSymbolIcon("slideshow"),
             route = SettingsRoutes.BATTERY_SAVER,
@@ -377,7 +498,7 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
         add(SearchableSettingItem(
             id = "battery_saver_disable_lossless_artwork",
             title = context.getString(R.string.performancesettingsscreen_disable_lossless_artwork),
-            description = "Use standard artwork instead of lossless under Performance",
+            description = context.getString(R.string.performancesettingsscreen_disable_lossless_artwork_desc),
             keywords = listOf("battery", "performance", "disable lossless artwork", "artwork quality", "compressed art"),
             icon = RhythmIcons.Image,
             route = SettingsRoutes.BATTERY_SAVER,
@@ -387,7 +508,7 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
         add(SearchableSettingItem(
             id = "battery_saver_disable_auto_fetch_artwork",
             title = context.getString(R.string.performancesettingsscreen_disable_auto_fetch_artwork),
-            description = "Disable auto-fetching artwork to reduce lag and network overhead",
+            description = context.getString(R.string.performancesettingsscreen_disable_auto_fetch_artwork_desc),
             keywords = listOf("battery", "performance", "disable auto fetch artwork", "network load", "lag"),
             icon = MaterialSymbolIcon("cloud_off"),
             route = SettingsRoutes.BATTERY_SAVER,
@@ -417,6 +538,88 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             settingKey = "includeHiddenWhitelistedMedia"
         ))
         add(SearchableSettingItem(
+            id = "media_scan_mode",
+            title = context.getString(R.string.settings_whitelist_mode),
+            description = context.getString(R.string.settings_whitelist_mode_desc),
+            keywords = listOf("scan mode", "whitelist", "blacklist", "allowlist", "blocklist", "media scan", "folder filter"),
+            icon = MaterialSymbolIcon("filter_list"),
+            route = SettingsRoutes.MEDIA_SCAN,
+            parentScreen = context.getString(R.string.settings_media_scan_title),
+            settingKey = "mediaScanMode"
+        ))
+        add(SearchableSettingItem(
+            id = "media_manage_folders",
+            title = context.getString(R.string.settings_manage_folders),
+            description = context.getString(R.string.settings_manage_folders_desc),
+            keywords = listOf("folders", "manage", "whitelisted folders", "blocked folders", "media scan"),
+            icon = MaterialSymbolIcon("folder_open"),
+            route = SettingsRoutes.MEDIA_SCAN,
+            parentScreen = context.getString(R.string.settings_media_scan_title)
+        ))
+        add(SearchableSettingItem(
+            id = "media_add_folder",
+            title = context.getString(R.string.settings_add_folder),
+            description = context.getString(R.string.settings_add_folder_desc),
+            keywords = listOf("add folder", "browse", "pick folder", "music folder", "include"),
+            icon = MaterialSymbolIcon("add"),
+            route = SettingsRoutes.MEDIA_SCAN,
+            parentScreen = context.getString(R.string.settings_media_scan_title)
+        ))
+        add(SearchableSettingItem(
+            id = "media_manage_songs",
+            title = context.getString(R.string.settings_manage_songs),
+            description = context.getString(R.string.settings_manage_songs_desc),
+            keywords = listOf("songs", "manage", "blocked songs", "hidden songs", "media scan"),
+            icon = MaterialSymbolIcon("library_music"),
+            route = SettingsRoutes.MEDIA_SCAN,
+            parentScreen = context.getString(R.string.settings_media_scan_title)
+        ))
+        add(SearchableSettingItem(
+            id = "media_clear_all_songs",
+            title = context.getString(R.string.settings_clear_all_songs),
+            description = context.getString(R.string.settings_clear_all_songs_desc, context.getString(R.string.settings_blocked)),
+            keywords = listOf("clear", "all songs", "remove songs", "blocked songs", "whitelisted songs", "reset", "media scan"),
+            icon = MaterialSymbolIcon("delete_sweep"),
+            route = SettingsRoutes.MEDIA_SCAN,
+            parentScreen = context.getString(R.string.settings_media_scan_title)
+        ))
+        add(SearchableSettingItem(
+            id = "media_clear_all_folders",
+            title = context.getString(R.string.settings_clear_all_folders),
+            description = context.getString(R.string.settings_clear_all_folders_desc, context.getString(R.string.settings_blocked)),
+            keywords = listOf("clear", "all folders", "remove folders", "blocked folders", "whitelisted folders", "reset", "media scan"),
+            icon = MaterialSymbolIcon("delete_sweep"),
+            route = SettingsRoutes.MEDIA_SCAN,
+            parentScreen = context.getString(R.string.settings_media_scan_title)
+        ))
+        add(SearchableSettingItem(
+            id = "media_allowed_formats",
+            title = context.getString(R.string.settings_allowed_formats),
+            description = context.getString(R.string.settings_allowed_formats_open_desc),
+            keywords = listOf(
+                "formats", "audio formats", "file types", "extensions", "codec", "mp3", "flac", "m4a",
+                "aac", "ogg", "opus", "wav", "alac", "ape", "wv", "dsd", "dts", "mp4", "mkv",
+                "allowed", "scan", "include formats", "exclude formats"
+            ),
+            icon = RhythmIcons.MusicNote,
+            route = SettingsRoutes.MEDIA_SCAN,
+            parentScreen = context.getString(R.string.settings_media_scan_title),
+            settingKey = "allowedFormats"
+        ))
+        add(SearchableSettingItem(
+            id = "media_minimum_duration",
+            title = context.getString(R.string.settings_min_duration),
+            description = context.getString(R.string.settings_min_duration_desc),
+            keywords = listOf(
+                "duration", "minimum duration", "filter", "short tracks", "opera", "ringtones",
+                "length", "song duration", "media scan", "filter duration", "scan filter"
+            ),
+            icon = RhythmIcons.Player.Timer,
+            route = SettingsRoutes.MEDIA_SCAN,
+            parentScreen = context.getString(R.string.settings_media_scan_title),
+            settingKey = "minimumDuration"
+        ))
+        add(SearchableSettingItem(
             id = "artist_parsing",
             title = context.getString(R.string.settings_artist_parsing),
             description = context.getString(R.string.settings_artist_parsing_desc),
@@ -424,6 +627,25 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             icon = RhythmIcons.Artist,
             route = SettingsRoutes.ARTIST_SEPARATORS,
             parentScreen = context.getString(R.string.settings_section_library_content)
+        ))
+        add(SearchableSettingItem(
+            id = "artist_separation",
+            title = context.getString(R.string.artist_enable_separation),
+            description = context.getString(R.string.artist_enable_separation_desc),
+            keywords = listOf("artist", "separation", "split", "feat", "featuring", "collaboration", "parsing"),
+            icon = RhythmIcons.Artist,
+            route = SettingsRoutes.ARTIST_SEPARATORS,
+            parentScreen = context.getString(R.string.settings_artist_parsing),
+            settingKey = "artistSeparatorEnabled"
+        ))
+        add(SearchableSettingItem(
+            id = "artist_multi_parsing",
+            title = context.getString(R.string.artist_multi_parsing),
+            description = context.getString(R.string.settings_about_multi_artist),
+            keywords = listOf("artist", "multi", "multiple artists", "delimiters", "ampersand", "comma", "parsing"),
+            icon = RhythmIcons.Artist,
+            route = SettingsRoutes.ARTIST_SEPARATORS,
+            parentScreen = context.getString(R.string.settings_artist_parsing)
         ))
         add(SearchableSettingItem(
             id = "playlists",
@@ -445,6 +667,42 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             settingKey = "defaultPlaylistsEnabled"
         ))
         add(SearchableSettingItem(
+            id = "playlists_create",
+            title = context.getString(R.string.settings_create_new_playlist),
+            description = context.getString(R.string.settings_create_new_playlist_desc),
+            keywords = listOf("playlist", "create", "new", "add"),
+            icon = MaterialSymbolIcon("playlist_add"),
+            route = SettingsRoutes.PLAYLISTS,
+            parentScreen = context.getString(R.string.settings_playlists_title)
+        ))
+        add(SearchableSettingItem(
+            id = "playlists_export",
+            title = context.getString(R.string.settings_export_all_playlists),
+            description = context.getString(R.string.settings_export_all_playlists_desc),
+            keywords = listOf("playlist", "export", "m3u", "save", "backup"),
+            icon = MaterialSymbolIcon("upload"),
+            route = SettingsRoutes.PLAYLISTS,
+            parentScreen = context.getString(R.string.settings_playlists_title)
+        ))
+        add(SearchableSettingItem(
+            id = "playlists_import",
+            title = context.getString(R.string.settings_import_playlists),
+            description = context.getString(R.string.settings_import_playlists_desc),
+            keywords = listOf("playlist", "import", "m3u", "load", "restore"),
+            icon = MaterialSymbolIcon("download"),
+            route = SettingsRoutes.PLAYLISTS,
+            parentScreen = context.getString(R.string.settings_playlists_title)
+        ))
+        add(SearchableSettingItem(
+            id = "playlists_cleanup_empty",
+            title = context.getString(R.string.settings_cleanup_empty_playlists),
+            description = context.resources.safeGetQuantityString(R.plurals.settings_cleanup_empty_playlists_desc, 1, 1),
+            keywords = listOf("playlist", "cleanup", "empty", "remove", "delete"),
+            icon = MaterialSymbolIcon("delete_sweep"),
+            route = SettingsRoutes.PLAYLISTS,
+            parentScreen = context.getString(R.string.settings_playlists_title)
+        ))
+        add(SearchableSettingItem(
             id = "library_settings",
             title = context.getString(R.string.settings_library_settings),
             description = context.getString(R.string.settings_library_settings_desc),
@@ -452,16 +710,6 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             icon = RhythmIcons.Library,
             route = SettingsRoutes.LIBRARY_SETTINGS,
             parentScreen = context.getString(R.string.settings_section_library_content)
-        ))
-        add(SearchableSettingItem(
-            id = "song_ratings",
-            title = context.getString(R.string.settings_song_ratings),
-            description = context.getString(R.string.settings_song_ratings_desc),
-            keywords = listOf("rating", "star", "favorite", "like", "score", "rate songs"),
-            icon = MaterialSymbolIcon("star"),
-            route = SettingsRoutes.LIBRARY_SETTINGS,
-            parentScreen = context.getString(R.string.settings_library_settings),
-            settingKey = "enableRatingSystem"
         ))
         add(SearchableSettingItem(
             id = "library_tab_order",
@@ -496,8 +744,8 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
         add(SearchableSettingItem(
             id = "auto_fetch_artwork",
             title = context.getString(R.string.librarysettingsscreen_autofetch_artwork),
-            description = "Automatically search online APIs for missing cover artwork on startup",
-            keywords = listOf("auto fetch", "fetch artwork", "online artwork", "missing cover", "startup"),
+            description = context.getString(R.string.library_auto_fetch_artwork_desc),
+            keywords = listOf("auto fetch", "fetch artwork", "online artwork", "missing cover", "embed artwork", "auto fetch artwork", "track artwork", "startup"),
             icon = MaterialSymbolIcon("cloud_download"),
             route = SettingsRoutes.LIBRARY_SETTINGS,
             parentScreen = context.getString(R.string.settings_library_settings),
@@ -544,6 +792,74 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             route = SettingsRoutes.API_MANAGEMENT,
             parentScreen = context.getString(R.string.settings_section_notifications_services)
         ))
+        add(SearchableSettingItem(
+            id = "api_deezer",
+            title = context.getString(R.string.onboarding_integration_deezer),
+            description = context.getString(R.string.settings_search_api_deezer_desc),
+            keywords = listOf("deezer", "api", "integration", "artwork", "artist images", "online"),
+            icon = MaterialSymbolIcon("cloud"),
+            route = SettingsRoutes.API_MANAGEMENT,
+            parentScreen = context.getString(R.string.settings_api_management),
+            settingKey = "deezerApiEnabled"
+        ))
+        add(SearchableSettingItem(
+            id = "api_lrclib",
+            title = context.getString(R.string.onboarding_integration_lrclib),
+            description = context.getString(R.string.settings_search_api_lrclib_desc),
+            keywords = listOf("lrclib", "api", "lyrics", "synced", "lrc"),
+            icon = MaterialSymbolIcon("lyrics"),
+            route = SettingsRoutes.API_MANAGEMENT,
+            parentScreen = context.getString(R.string.settings_api_management),
+            settingKey = "lrcLibApiEnabled"
+        ))
+        add(SearchableSettingItem(
+            id = "api_wikipedia",
+            title = context.getString(R.string.onboarding_integration_wikipedia),
+            description = context.getString(R.string.onboarding_integration_wikipedia_desc),
+            keywords = listOf("wikipedia", "api", "artist info", "biography", "online"),
+            icon = MaterialSymbolIcon("public"),
+            route = SettingsRoutes.API_MANAGEMENT,
+            parentScreen = context.getString(R.string.settings_api_management),
+            settingKey = "wikipediaApiEnabled"
+        ))
+        add(SearchableSettingItem(
+            id = "api_ytmusic",
+            title = context.getString(R.string.onboarding_integration_ytmusic),
+            description = context.getString(R.string.settings_search_api_ytmusic_desc),
+            keywords = listOf("youtube music", "ytmusic", "api", "search", "integration"),
+            icon = MaterialSymbolIcon("music_video"),
+            route = SettingsRoutes.API_MANAGEMENT,
+            parentScreen = context.getString(R.string.settings_api_management),
+            settingKey = "yTMusicApiEnabled"
+        ))
+        add(SearchableSettingItem(
+            id = "api_lyrically",
+            title = context.getString(R.string.apimanagementsettingsscreen_lyrically),
+            description = context.getString(R.string.settings_search_api_lyrically_desc),
+            keywords = listOf("lyrically", "api", "lyrics", "online", "fetch"),
+            icon = MaterialSymbolIcon("lyrics"),
+            route = SettingsRoutes.API_MANAGEMENT,
+            parentScreen = context.getString(R.string.settings_api_management),
+            settingKey = "lyricallyApiEnabled"
+        ))
+        add(SearchableSettingItem(
+            id = "api_github",
+            title = context.getString(R.string.apimanagementsettingsscreen_github),
+            description = context.getString(R.string.api_github_desc),
+            keywords = listOf("github", "api", "releases", "integration", "source"),
+            icon = MaterialSymbolIcon("code"),
+            route = SettingsRoutes.API_MANAGEMENT,
+            parentScreen = context.getString(R.string.settings_api_management)
+        ))
+        add(SearchableSettingItem(
+            id = "api_app_updates",
+            title = context.getString(R.string.apimanagementsettingsscreen_app_updates_and_release),
+            description = context.getString(R.string.api_app_updates_desc),
+            keywords = listOf("updates", "release", "app updates", "changelog", "version"),
+            icon = MaterialSymbolIcon("system_update"),
+            route = SettingsRoutes.API_MANAGEMENT,
+            parentScreen = context.getString(R.string.settings_api_management)
+        ))
         
         // Data & Storage Section
         add(SearchableSettingItem(
@@ -565,6 +881,52 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             parentScreen = context.getString(R.string.settings_cache_management_title)
         ))
         add(SearchableSettingItem(
+            id = "cache_max_size",
+            title = context.getString(R.string.cache_max_size),
+            description = context.getString(R.string.settings_cache_max_size_desc),
+            keywords = listOf("cache", "max size", "limit", "storage", "mb", "gb"),
+            icon = MaterialSymbolIcon("sd_storage"),
+            route = SettingsRoutes.CACHE_MANAGEMENT,
+            parentScreen = context.getString(R.string.settings_cache_management_title),
+            settingKey = "maxCacheSize"
+        ))
+        add(SearchableSettingItem(
+            id = "cache_auto_trim",
+            title = context.getString(R.string.cache_auto_trim),
+            description = context.getString(R.string.cache_auto_trim_desc),
+            keywords = listOf("cache", "auto trim", "automatic", "cleanup", "free space"),
+            icon = MaterialSymbolIcon("auto_delete"),
+            route = SettingsRoutes.CACHE_MANAGEMENT,
+            parentScreen = context.getString(R.string.settings_cache_management_title)
+        ))
+        add(SearchableSettingItem(
+            id = "cache_clear_all",
+            title = context.getString(R.string.settings_clear_all_cache),
+            description = context.getString(R.string.settings_clear_all_cache_desc),
+            keywords = listOf("clear", "cache", "delete", "free space", "wipe"),
+            icon = MaterialSymbolIcon("delete_sweep"),
+            route = SettingsRoutes.CACHE_MANAGEMENT,
+            parentScreen = context.getString(R.string.settings_cache_management_title)
+        ))
+        add(SearchableSettingItem(
+            id = "cache_clear_lyrics",
+            title = context.getString(R.string.settings_clear_lyrics_cache),
+            description = context.getString(R.string.settings_clear_lyrics_cache_desc),
+            keywords = listOf("clear", "lyrics cache", "delete", "cached lyrics"),
+            icon = MaterialSymbolIcon("lyrics"),
+            route = SettingsRoutes.CACHE_MANAGEMENT,
+            parentScreen = context.getString(R.string.settings_cache_management_title)
+        ))
+        add(SearchableSettingItem(
+            id = "cache_rebuild_storage",
+            title = context.getString(R.string.settings_storage_rebuild_room),
+            description = context.getString(R.string.settings_storage_rebuild_room_desc),
+            keywords = listOf("rebuild", "storage", "database", "room", "recreate", "fix"),
+            icon = MaterialSymbolIcon("dns"),
+            route = SettingsRoutes.CACHE_MANAGEMENT,
+            parentScreen = context.getString(R.string.settings_cache_management_title)
+        ))
+        add(SearchableSettingItem(
             id = "backup_restore",
             title = context.getString(R.string.settings_backup_restore_title),
             description = context.getString(R.string.settings_backup_restore_desc),
@@ -572,6 +934,43 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             icon = MaterialSymbolIcon("backup"),
             route = SettingsRoutes.BACKUP_RESTORE,
             parentScreen = context.getString(R.string.settings_section_storage_data)
+        ))
+        add(SearchableSettingItem(
+            id = "backup_create",
+            title = context.getString(R.string.settings_create_backup),
+            description = context.getString(R.string.settings_create_backup_desc),
+            keywords = listOf("backup", "create", "save", "export", "snapshot"),
+            icon = MaterialSymbolIcon("backup"),
+            route = SettingsRoutes.BACKUP_RESTORE,
+            parentScreen = context.getString(R.string.settings_backup_restore_title)
+        ))
+        add(SearchableSettingItem(
+            id = "backup_restore_clipboard",
+            title = context.getString(R.string.settings_restore_clipboard),
+            description = context.getString(R.string.settings_restore_clipboard_desc),
+            keywords = listOf("restore", "clipboard", "paste", "import", "recover"),
+            icon = MaterialSymbolIcon("content_paste"),
+            route = SettingsRoutes.BACKUP_RESTORE,
+            parentScreen = context.getString(R.string.settings_backup_restore_title)
+        ))
+        add(SearchableSettingItem(
+            id = "backup_restore_file",
+            title = context.getString(R.string.settings_restore_file),
+            description = context.getString(R.string.settings_restore_file_desc),
+            keywords = listOf("restore", "file", "open", "import", "recover"),
+            icon = MaterialSymbolIcon("file_open"),
+            route = SettingsRoutes.BACKUP_RESTORE,
+            parentScreen = context.getString(R.string.settings_backup_restore_title)
+        ))
+        add(SearchableSettingItem(
+            id = "backup_auto_backup",
+            title = context.getString(R.string.settings_auto_backup),
+            description = context.getString(R.string.settings_auto_backup_desc),
+            keywords = listOf("auto backup", "automatic", "schedule", "periodic"),
+            icon = MaterialSymbolIcon("autorenew"),
+            route = SettingsRoutes.BACKUP_RESTORE,
+            parentScreen = context.getString(R.string.settings_backup_restore_title),
+            settingKey = "autoBackupEnabled"
         ))
         add(SearchableSettingItem(
             id = "rhythm_stats",
@@ -734,6 +1133,55 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             settingKey = "updateCheckIntervalHours"
         ))
         add(SearchableSettingItem(
+            id = "updates_channel",
+            title = context.getString(R.string.updates_channel_title),
+            description = context.getString(R.string.updates_channel_desc),
+            keywords = listOf("update channel", "stable", "beta", "nightly", "release channel"),
+            icon = MaterialSymbolIcon("autorenew"),
+            route = SettingsRoutes.UPDATES,
+            parentScreen = context.getString(R.string.settings_updates_title),
+            settingKey = "updateChannel"
+        ))
+        add(SearchableSettingItem(
+            id = "updates_enable",
+            title = context.getString(R.string.updates_enable_updates),
+            description = context.getString(R.string.settings_updates_enable_desc),
+            keywords = listOf("update", "enable", "disable", "toggle", "switch"),
+            icon = RhythmIcons.Update,
+            route = SettingsRoutes.UPDATES,
+            parentScreen = context.getString(R.string.settings_updates_title),
+            settingKey = "updatesEnabled"
+        ))
+        add(SearchableSettingItem(
+            id = "updates_auto_check",
+            title = context.getString(R.string.updates_enable_auto_check),
+            description = context.getString(R.string.settings_updates_auto_check_desc),
+            keywords = listOf("update", "auto check", "automatic", "background"),
+            icon = MaterialSymbolIcon("sync"),
+            route = SettingsRoutes.UPDATES,
+            parentScreen = context.getString(R.string.settings_updates_title),
+            settingKey = "autoCheckForUpdates"
+        ))
+        add(SearchableSettingItem(
+            id = "updates_manual_check",
+            title = context.getString(R.string.updates_manual_check),
+            description = context.getString(R.string.settings_updates_manual_check_desc),
+            keywords = listOf("update", "check now", "manual", "refresh"),
+            icon = MaterialSymbolIcon("refresh"),
+            route = SettingsRoutes.UPDATES,
+            parentScreen = context.getString(R.string.settings_updates_title)
+        ))
+        add(SearchableSettingItem(
+            id = "updates_source",
+            title = context.getString(R.string.updates_source_title),
+            description = context.getString(R.string.updates_source_desc),
+            keywords = listOf("update source", "github", "fdroid", "installed", "apk", "download source"),
+            icon = MaterialSymbolIcon("cloud_download"),
+            route = SettingsRoutes.UPDATES,
+            parentScreen = context.getString(R.string.settings_updates_title),
+            settingKey = "updateSource"
+        ))
+        add(SearchableSettingItem(
             id = "about",
             title = context.getString(R.string.settings_about_title),
             description = context.getString(R.string.settings_about_desc),
@@ -754,12 +1202,12 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             parentScreen = context.getString(R.string.settings_section_advanced)
         ))
         add(SearchableSettingItem(
-            id = "experimental_features",
-            title = context.getString(R.string.settings_experimental_features),
-            description = context.getString(R.string.settings_experimental_features_desc),
-            keywords = listOf("experimental", "beta", "testing", "new features", "labs", "festive", "christmas", "decoration"),
+            id = "labs",
+            title = context.getString(R.string.settings_labs),
+            description = context.getString(R.string.settings_labs_desc),
+            keywords = listOf("labs", "experimental", "beta", "testing", "new features", "developer", "debug", "advanced"),
             icon = MaterialSymbolIcon("science"),
-            route = SettingsRoutes.EXPERIMENTAL_FEATURES,
+            route = SettingsRoutes.LABS,
             parentScreen = context.getString(R.string.settings_section_advanced)
         ))
         add(SearchableSettingItem(
@@ -768,8 +1216,35 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             description = context.getString(R.string.exp_go_mode_desc),
             keywords = listOf("go mode", "rhythm go", "streaming mode", "streaming navigation", "integration"),
             icon = MaterialSymbolIcon("cloud_queue"),
-            route = SettingsRoutes.EXPERIMENTAL_FEATURES,
-            parentScreen = context.getString(R.string.settings_experimental_features)
+            route = SettingsRoutes.LABS,
+            parentScreen = context.getString(R.string.settings_labs)
+        ))
+        add(SearchableSettingItem(
+            id = "go_preferred_service",
+            title = context.getString(R.string.streaming_settings_preferred_service),
+            description = context.getString(R.string.streaming_settings_service_sheet_desc),
+            keywords = listOf("preferred service", "subsonic", "jellyfin", "streaming provider", "go settings"),
+            icon = MaterialSymbolIcon("cloud_queue"),
+            route = SettingsRoutes.GO_SETTINGS,
+            parentScreen = context.getString(R.string.exp_go_mode)
+        ))
+        add(SearchableSettingItem(
+            id = "go_streaming_quality",
+            title = context.getString(R.string.streaming_settings_quality),
+            description = context.getString(R.string.streaming_settings_quality_sheet_desc),
+            keywords = listOf("streaming quality", "bitrate", "audio quality", "go settings", "data usage"),
+            icon = MaterialSymbolIcon("speed"),
+            route = SettingsRoutes.GO_SETTINGS,
+            parentScreen = context.getString(R.string.exp_go_mode)
+        ))
+        add(SearchableSettingItem(
+            id = "go_cellular_streaming",
+            title = context.getString(R.string.exp_cellular_streaming),
+            description = context.getString(R.string.gosettingsscreen_enable_streaming_over_mobile),
+            keywords = listOf("cellular", "mobile data", "streaming over cellular", "mobile network", "data usage", "go settings"),
+            icon = MaterialSymbolIcon("signal_cellular_alt"),
+            route = SettingsRoutes.GO_SETTINGS,
+            parentScreen = context.getString(R.string.exp_go_mode)
         ))
         
         // ======================== THEME CUSTOMIZATION SCREEN ========================
@@ -813,8 +1288,8 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
         ))
         add(SearchableSettingItem(
             id = "theme_use_exact_artwork_colors",
-            title = "Use Exact Artwork Colors",
-            description = "Use exact background and text colors from artwork",
+            title = context.getString(R.string.settings_use_exact_artwork_colors),
+            description = context.getString(R.string.settings_use_exact_artwork_colors_desc),
             keywords = listOf("exact", "artwork colors", "album art colors", "dynamic theme", "dynamic background"),
             icon = RhythmIcons.Palette,
             route = SettingsRoutes.THEME_CUSTOMIZATION,
@@ -827,15 +1302,6 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             description = context.getString(R.string.settings_theme_color_schemes_desc),
             keywords = listOf("color scheme", "palette", "preset", "default purple", "warm sunset", "cool ocean", "forest green", "rose pink"),
             icon = MaterialSymbolIcon("color_lens"),
-            route = SettingsRoutes.THEME_CUSTOMIZATION,
-            parentScreen = "Theme"
-        ))
-        add(SearchableSettingItem(
-            id = "theme_custom_colors",
-            title = context.getString(R.string.settings_custom_colors),
-            description = context.getString(R.string.settings_custom_colors_desc),
-            keywords = listOf("custom colors", "palette", "seed", "theme color", "hex code", "customize"),
-            icon = MaterialSymbolIcon("brush"),
             route = SettingsRoutes.THEME_CUSTOMIZATION,
             parentScreen = "Theme"
         ))
@@ -856,6 +1322,16 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             icon = MaterialSymbolIcon("file_upload"),
             route = SettingsRoutes.THEME_CUSTOMIZATION,
             parentScreen = "Theme"
+        ))
+        add(SearchableSettingItem(
+            id = "theme_font_selection",
+            title = context.getString(R.string.settings_font_selection),
+            description = context.getString(R.string.settings_font_selection_desc),
+            keywords = listOf("font", "choose font", "font family", "typography", "custom font", "system font"),
+            icon = MaterialSymbolIcon("text_fields"),
+            route = SettingsRoutes.THEME_CUSTOMIZATION,
+            parentScreen = "Theme",
+            settingKey = "customFont"
         ))
         add(SearchableSettingItem(
             id = "theme_festive_enabled",
@@ -957,6 +1433,16 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             parentScreen = "Theme",
             settingKey = "festiveShowBottomSnow"
         ))
+        add(SearchableSettingItem(
+            id = "theme_floating_navigation",
+            title = context.getString(R.string.settings_floating_navigation),
+            description = context.getString(R.string.settings_floating_navigation_desc),
+            keywords = listOf("floating", "docked", "navigation", "navigation bar", "bottom bar", "rail", "dock", "float"),
+            icon = MaterialSymbolIcon("dock_to_left"),
+            route = SettingsRoutes.THEME_CUSTOMIZATION,
+            parentScreen = "Theme",
+            settingKey = "floatingNavigationBar"
+        ))
         
         // ======================== PLAYER CUSTOMIZATION SCREEN ========================
         add(SearchableSettingItem(
@@ -1015,6 +1501,96 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             icon = RhythmIcons.MusicNote,
             route = SettingsRoutes.LYRICS,
             parentScreen = "Lyrics"
+        ))
+        add(SearchableSettingItem(
+            id = "lyrics_alignment",
+            title = context.getString(R.string.settings_lyrics_alignment),
+            description = context.getString(R.string.settings_lyrics_alignment_desc),
+            keywords = listOf("lyrics", "alignment", "left", "center", "right", "text position"),
+            icon = MaterialSymbolIcon("format_align_center"),
+            route = SettingsRoutes.LYRICS,
+            parentScreen = "Lyrics",
+            settingKey = "playerLyricsAlignment"
+        ))
+        add(SearchableSettingItem(
+            id = "lyrics_text_size",
+            title = context.getString(R.string.settings_lyrics_text_size),
+            description = context.getString(R.string.lyrics_settings_size_percentage),
+            keywords = listOf("lyrics", "text size", "font size", "percentage", "bigger", "smaller"),
+            icon = MaterialSymbolIcon("format_size"),
+            route = SettingsRoutes.LYRICS,
+            parentScreen = "Lyrics",
+            settingKey = "playerLyricsTextSize"
+        ))
+        add(SearchableSettingItem(
+            id = "lyrics_bold_text",
+            title = context.getString(R.string.lyrics_settings_bold_text),
+            description = context.getString(R.string.lyrics_settings_bold_text_desc),
+            keywords = listOf("lyrics", "bold", "text", "weight", "font"),
+            icon = MaterialSymbolIcon("format_bold"),
+            route = SettingsRoutes.LYRICS,
+            parentScreen = "Lyrics",
+            settingKey = "lyricBold"
+        ))
+        add(SearchableSettingItem(
+            id = "lyrics_trim",
+            title = context.getString(R.string.lyrics_settings_trim_lyrics),
+            description = context.getString(R.string.lyrics_settings_trim_lyrics_desc),
+            keywords = listOf("lyrics", "trim", "clean", "white space", "gaps"),
+            icon = MaterialSymbolIcon("content_cut"),
+            route = SettingsRoutes.LYRICS,
+            parentScreen = "Lyrics",
+            settingKey = "trimLyrics"
+        ))
+        add(SearchableSettingItem(
+            id = "lyrics_disable_animations",
+            title = context.getString(R.string.lyrics_settings_disable_animations),
+            description = context.getString(R.string.lyrics_settings_disable_animations_desc),
+            keywords = listOf("lyrics", "animations", "disable", "smooth", "transitions"),
+            icon = MaterialSymbolIcon("animation"),
+            route = SettingsRoutes.LYRICS,
+            parentScreen = "Lyrics",
+            settingKey = "lyricNoAnimation"
+        ))
+        add(SearchableSettingItem(
+            id = "lyrics_autohide_controls",
+            title = context.getString(R.string.lyrics_settings_autohide_controls),
+            description = context.getString(R.string.lyrics_settings_autohide_controls_desc),
+            keywords = listOf("lyrics", "auto hide", "controls", "immersive", "fullscreen"),
+            icon = MaterialSymbolIcon("visibility_off"),
+            route = SettingsRoutes.LYRICS,
+            parentScreen = "Lyrics",
+            settingKey = "autoHideLyricsControls"
+        ))
+        add(SearchableSettingItem(
+            id = "lyrics_word_by_word_translation",
+            title = context.getString(R.string.lyrics_settings_word_by_word_translation),
+            description = context.getString(R.string.lyrics_settings_word_by_word_translation_desc),
+            keywords = listOf("lyrics", "translation", "word by word", "wordwise", "translate"),
+            icon = MaterialSymbolIcon("translate"),
+            route = SettingsRoutes.LYRICS,
+            parentScreen = "Lyrics",
+            settingKey = "translationAutoWord"
+        ))
+        add(SearchableSettingItem(
+            id = "lyrics_background_artwork",
+            title = context.getString(R.string.settings_show_lyrics_background_artwork),
+            description = context.getString(R.string.settings_show_lyrics_background_artwork_desc),
+            keywords = listOf("lyrics", "background", "artwork", "blur", "ambient"),
+            icon = MaterialSymbolIcon("wallpaper"),
+            route = SettingsRoutes.LYRICS,
+            parentScreen = "Lyrics",
+            settingKey = "showLyricsBackgroundArtwork"
+        ))
+        add(SearchableSettingItem(
+            id = "lyrics_art_below",
+            title = context.getString(R.string.settings_show_art_below_lyrics),
+            description = context.getString(R.string.settings_show_art_below_lyrics_desc),
+            keywords = listOf("lyrics", "artwork", "below", "cover art", "display"),
+            icon = RhythmIcons.Album,
+            route = SettingsRoutes.LYRICS,
+            parentScreen = "Lyrics",
+            settingKey = "playerShowArtBelowLyrics"
         ))
         add(SearchableSettingItem(
             id = "lossless_artwork",
@@ -1080,6 +1656,66 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             route = SettingsRoutes.PLAYER_CUSTOMIZATION,
             parentScreen = "Player"
         ))
+        add(SearchableSettingItem(
+            id = "player_thumb_style",
+            title = context.getString(R.string.settings_thumb_style),
+            description = context.getString(R.string.settings_player_thumb_style_desc),
+            keywords = listOf("thumb", "progress thumb", "seekbar handle", "slider knob", "style", "progress"),
+            icon = MaterialSymbolIcon("touch_app"),
+            route = SettingsRoutes.PLAYER_CUSTOMIZATION,
+            parentScreen = "Player",
+            settingKey = "playerProgressThumbStyle"
+        ))
+        add(SearchableSettingItem(
+            id = "player_thumb_rotate",
+            title = context.getString(R.string.settings_thumb_rotate),
+            description = context.getString(R.string.settings_thumb_rotate_desc),
+            keywords = listOf("thumb", "rotate", "spin", "animation", "playing", "progress"),
+            icon = MaterialSymbolIcon("rotate_right"),
+            route = SettingsRoutes.PLAYER_CUSTOMIZATION,
+            parentScreen = "Player",
+            settingKey = "playerProgressThumbRotate"
+        ))
+        add(SearchableSettingItem(
+            id = "player_song_info_artwork",
+            title = context.getString(R.string.settings_song_info_artwork),
+            description = context.getString(R.string.settings_song_info_artwork_desc),
+            keywords = listOf("song info", "title on artwork", "artist overlay", "artwork text", "overlay"),
+            icon = RhythmIcons.Info,
+            route = SettingsRoutes.PLAYER_CUSTOMIZATION,
+            parentScreen = "Player",
+            settingKey = "playerShowSongInfoOnArtwork"
+        ))
+        add(SearchableSettingItem(
+            id = "player_artwork_overlay",
+            title = context.getString(R.string.settings_artwork_overlay),
+            description = context.getString(R.string.settings_artwork_overlay_desc),
+            keywords = listOf("overlay", "gradient overlay", "artwork effect", "shade", "player"),
+            icon = MaterialSymbolIcon("gradient"),
+            route = SettingsRoutes.PLAYER_CUSTOMIZATION,
+            parentScreen = "Player",
+            settingKey = "playerShowGradientOverlay"
+        ))
+        add(SearchableSettingItem(
+            id = "player_ambient_backdrop",
+            title = context.getString(R.string.player_ambient_backdrop),
+            description = context.getString(R.string.player_ambient_desc),
+            keywords = listOf("ambient", "backdrop", "blur", "artwork background", "player background", "glass"),
+            icon = MaterialSymbolIcon("blur_on"),
+            route = SettingsRoutes.PLAYER_CUSTOMIZATION,
+            parentScreen = "Player",
+            settingKey = "playerAmbientBackdropEnabled"
+        ))
+        add(SearchableSettingItem(
+            id = "player_ambient_motion_zoom",
+            title = context.getString(R.string.player_ambient_motion_zoom),
+            description = context.getString(R.string.player_ambient_motion_zoom_desc),
+            keywords = listOf("ambient", "motion", "zoom", "infinite zoom", "ken burns", "breathing", "animation"),
+            icon = MaterialSymbolIcon("zoom_out_map"),
+            route = SettingsRoutes.PLAYER_CUSTOMIZATION,
+            parentScreen = "Player",
+            settingKey = "playerAmbientInfiniteZoom"
+        ))
         
         // ======================== MINIPLAYER CUSTOMIZATION SCREEN ========================
         add(SearchableSettingItem(
@@ -1088,15 +1724,6 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             description = context.getString(R.string.settings_miniplayer_show_progress_desc),
             keywords = listOf("miniplayer progress", "progress bar", "indicator", "mini player"),
             icon = RhythmIcons.Visibility,
-            route = SettingsRoutes.MINIPLAYER_CUSTOMIZATION,
-            parentScreen = "MiniPlayer"
-        ))
-        add(SearchableSettingItem(
-            id = "miniplayer_circular_progress",
-            title = context.getString(R.string.settings_miniplayer_circular_progress),
-            description = context.getString(R.string.settings_miniplayer_circular_progress_desc),
-            keywords = listOf("circular", "progress", "round", "play button", "miniplayer"),
-            icon = MaterialSymbolIcon("change_circle"),
             route = SettingsRoutes.MINIPLAYER_CUSTOMIZATION,
             parentScreen = "MiniPlayer"
         ))
@@ -1192,6 +1819,69 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             route = SettingsRoutes.GESTURES,
             parentScreen = "Gestures"
         ))
+        add(SearchableSettingItem(
+            id = "gesture_artwork_single_tap",
+            title = context.getString(R.string.settings_tap_artwork_lyrics),
+            description = context.getString(R.string.settings_tap_artwork_lyrics_desc),
+            keywords = listOf("tap", "artwork", "album art", "lyrics", "gesture", "toggle"),
+            icon = MaterialSymbolIcon("music_note", filled = true),
+            route = SettingsRoutes.GESTURES,
+            parentScreen = "Gestures"
+        ))
+        add(SearchableSettingItem(
+            id = "gesture_miniplayer_swipe_tracks",
+            title = context.getString(R.string.settings_miniplayer_swipe_tracks),
+            description = context.getString(R.string.settings_miniplayer_swipe_tracks_desc),
+            keywords = listOf("miniplayer", "swipe", "tracks", "skip", "next", "previous", "gesture"),
+            icon = MaterialSymbolIcon("fast_forward", filled = true),
+            route = SettingsRoutes.GESTURES,
+            parentScreen = "Gestures"
+        ))
+        add(SearchableSettingItem(
+            id = "gesture_miniplayer_swipe_dismiss",
+            title = context.getString(R.string.settings_miniplayer_swipe_dismiss),
+            description = context.getString(R.string.settings_miniplayer_swipe_dismiss_desc),
+            keywords = listOf("miniplayer", "swipe", "dismiss", "open", "close", "expand", "gesture"),
+            icon = MaterialSymbolIcon("swipe_vertical", filled = true),
+            route = SettingsRoutes.GESTURES,
+            parentScreen = "Gestures"
+        ))
+        add(SearchableSettingItem(
+            id = "gesture_queue_swipe_remove",
+            title = context.getString(R.string.settings_queue_swipe_remove),
+            description = context.getString(R.string.settings_queue_swipe_remove_desc),
+            keywords = listOf("queue", "swipe", "remove", "delete", "dismiss", "gesture"),
+            icon = MaterialSymbolIcon("delete_sweep", filled = true),
+            route = SettingsRoutes.GESTURES,
+            parentScreen = "Gestures"
+        ))
+        add(SearchableSettingItem(
+            id = "gesture_library_swipe_tabs",
+            title = context.getString(R.string.settings_library_swipe_tabs),
+            description = context.getString(R.string.settings_library_swipe_tabs_desc),
+            keywords = listOf("library", "swipe", "tabs", "switch", "pager", "gesture"),
+            icon = MaterialSymbolIcon("tab", filled = true),
+            route = SettingsRoutes.GESTURES,
+            parentScreen = "Gestures"
+        ))
+        add(SearchableSettingItem(
+            id = "gesture_lyrics_tap_seek",
+            title = context.getString(R.string.settings_lyrics_tap_seek),
+            description = context.getString(R.string.settings_lyrics_tap_seek_desc),
+            keywords = listOf("lyrics", "tap", "seek", "jump", "playback", "gesture"),
+            icon = MaterialSymbolIcon("ads_click", filled = true),
+            route = SettingsRoutes.GESTURES,
+            parentScreen = "Gestures"
+        ))
+        add(SearchableSettingItem(
+            id = "gesture_disable_unused",
+            title = context.getString(R.string.settings_disable_unused_gestures),
+            description = context.getString(R.string.settings_gesture_disable_unused_desc),
+            keywords = listOf("gestures", "disable", "unused", "off", "customize"),
+            icon = MaterialSymbolIcon("gesture"),
+            route = SettingsRoutes.GESTURES,
+            parentScreen = "Gestures"
+        ))
         
         // ======================== QUEUE & PLAYBACK SCREEN ========================
         add(SearchableSettingItem(
@@ -1206,19 +1896,19 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
         ))
         add(SearchableSettingItem(
             id = "queue_auto_add",
-            title = context.getString(R.string.settings_queue_auto_add),
-            description = context.getString(R.string.settings_queue_auto_add_desc),
-            keywords = listOf("auto queue", "add", "automatic", "playlist"),
-            icon = RhythmIcons.Queue,
+            title = context.getString(R.string.settings_auto_queue),
+            description = context.getString(R.string.settings_auto_queue_desc),
+            keywords = listOf("auto add", "auto queue", "add", "related", "similar songs", "automatic"),
+            icon = RhythmIcons.AddToQueue,
             route = SettingsRoutes.QUEUE,
             parentScreen = "Queue",
             settingKey = "autoAddToQueue"
         ))
         add(SearchableSettingItem(
             id = "queue_clear_on_new",
-            title = context.getString(R.string.settings_queue_clear_on_new),
-            description = context.getString(R.string.settings_queue_clear_on_new_desc),
-            keywords = listOf("clear queue", "new song", "replace", "reset"),
+            title = context.getString(R.string.settings_clear_queue_on_new_song),
+            description = context.getString(R.string.settings_clear_queue_on_new_song_desc),
+            keywords = listOf("clear queue", "new song", "replace", "reset", "empty", "fresh"),
             icon = RhythmIcons.Delete,
             route = SettingsRoutes.QUEUE,
             parentScreen = "Queue",
@@ -1238,11 +1928,41 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             id = "queue_action_dialog",
             title = context.getString(R.string.settings_queue_action_dialog),
             description = context.getString(R.string.settings_queue_action_dialog_desc),
-            keywords = listOf("queue dialog", "ask", "prompt", "action", "replace queue"),
-            icon = RhythmIcons.Queue,
+            keywords = listOf("queue", "new song", "playing", "ask", "prompt", "add", "dialog"),
+            icon = MaterialSymbolIcon("help", filled = true),
             route = SettingsRoutes.QUEUE,
             parentScreen = "Queue",
             settingKey = "showQueueDialog"
+        ))
+        add(SearchableSettingItem(
+            id = "queue_behavior",
+            title = context.getString(R.string.list_queue_behavior_title),
+            description = context.getString(R.string.list_queue_behavior_desc),
+            keywords = listOf("queue behavior", "play next", "add to end", "replace", "ask", "tap song"),
+            icon = MaterialSymbolIcon("queue_music"),
+            route = SettingsRoutes.QUEUE,
+            parentScreen = "Queue",
+            settingKey = "listQueueActionBehavior"
+        ))
+        add(SearchableSettingItem(
+            id = "queue_context_persistence",
+            title = context.getString(R.string.settings_context_queue_persistence),
+            description = context.getString(R.string.settings_context_queue_persistence_desc),
+            keywords = listOf("context queue", "persistence", "ephemeral", "persistent", "auto queue"),
+            icon = MaterialSymbolIcon("history"),
+            route = SettingsRoutes.QUEUE,
+            parentScreen = "Queue",
+            settingKey = "contextQueuePersistence"
+        ))
+        add(SearchableSettingItem(
+            id = "queue_context_preference",
+            title = context.getString(R.string.settings_context_queue_preference),
+            description = context.getString(R.string.settings_context_queue_preference_desc),
+            keywords = listOf("auto add", "similar", "related", "artist", "genre", "preference", "match"),
+            icon = MaterialSymbolIcon("tune", filled = true),
+            route = SettingsRoutes.QUEUE,
+            parentScreen = "Queue",
+            settingKey = "contextQueuePreference"
         ))
         add(SearchableSettingItem(
             id = "queue_repeat_persistence",
@@ -1263,6 +1983,16 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             route = SettingsRoutes.PLAYBACK,
             parentScreen = "Playback",
             settingKey = "shuffleModePersistence"
+        ))
+        add(SearchableSettingItem(
+            id = "keep_shuffle_on_selection",
+            title = context.getString(R.string.settings_keep_shuffle_on_selection),
+            description = context.getString(R.string.settings_keep_shuffle_on_selection_desc),
+            keywords = listOf("shuffle", "persist", "library", "select", "song", "keep", "queue", "random"),
+            icon = RhythmIcons.Shuffle,
+            route = SettingsRoutes.PLAYBACK,
+            parentScreen = "Playback",
+            settingKey = "keepShuffleOnSelection"
         ))
         add(SearchableSettingItem(
             id = "queue_stop_on_close",
@@ -1292,6 +2022,16 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             route = SettingsRoutes.PLAYBACK,
             parentScreen = "Playback",
             settingKey = "useHoursInTimeFormat"
+        ))
+        add(SearchableSettingItem(
+            id = "show_remaining_time",
+            title = context.getString(R.string.settings_show_remaining_time),
+            description = context.getString(R.string.settings_show_remaining_time_desc),
+            keywords = listOf("remaining", "time", "duration", "display", "countdown", "total"),
+            icon = RhythmIcons.AccessTime,
+            route = SettingsRoutes.PLAYBACK,
+            parentScreen = "Playback",
+            settingKey = "showRemainingTime"
         ))
         add(SearchableSettingItem(
             id = "gapless_playback",
@@ -1345,46 +2085,36 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
         ))
         add(SearchableSettingItem(
             id = "queue_persistence",
-            title = context.getString(R.string.settings_queue_persistence),
-            description = context.getString(R.string.settings_queue_persistence_desc),
-            keywords = listOf("queue", "remember", "save", "restore", "persistence", "restart", "app"),
+            title = context.getString(R.string.settings_remember_queue),
+            description = context.getString(R.string.settings_remember_queue_desc),
+            keywords = listOf("queue", "remember", "save", "restore", "persistence", "restart", "reopen", "app"),
             icon = RhythmIcons.Queue,
             route = SettingsRoutes.QUEUE,
             parentScreen = "Queue",
             settingKey = "queuePersistenceEnabled"
         ))
         add(SearchableSettingItem(
-            id = "playlist_action_dialog",
-            title = context.getString(R.string.settings_playlist_action_dialog),
-            description = context.getString(R.string.settings_playlist_action_dialog_desc),
-            keywords = listOf("playlist", "action", "dialog", "click", "behavior", "load", "play"),
-            icon = RhythmIcons.Queue,
+            id = "respect_album_on_play",
+            title = context.getString(R.string.settings_respect_album_on_play),
+            description = context.getString(R.string.settings_respect_album_on_play_desc),
+            keywords = listOf("album", "artist", "context", "queue", "play", "respect"),
+            icon = RhythmIcons.Album,
             route = SettingsRoutes.QUEUE,
             parentScreen = "Queue",
-            settingKey = "playlistClickBehavior"
-        ))
-        add(SearchableSettingItem(
-            id = "list_queue_action_dialog",
-            title = context.getString(R.string.settings_list_queue_action_dialog),
-            description = context.getString(R.string.settings_list_queue_action_dialog_desc),
-            keywords = listOf("queue", "play all", "section", "replace", "play next", "add to end", "behavior", "rule"),
-            icon = RhythmIcons.Queue,
-            route = SettingsRoutes.QUEUE,
-            parentScreen = "Queue",
-            settingKey = "listQueueActionBehavior"
+            settingKey = "respectAlbumOnPlay"
         ))
         
-        // ======================== EXPERIMENTAL FEATURES SCREEN ========================
+        // ======================== LABS & RELOCATED SETTINGS ========================
         
-        // Skip Silence
+        // Skip Silence (Moved to Playback Settings)
         add(SearchableSettingItem(
             id = "skip_silence",
             title = context.getString(R.string.settings_skip_silence),
             description = context.getString(R.string.settings_skip_silence_desc),
             keywords = listOf("skip silence", "silence", "cut silence", "audio effects", "smart play", "gapless", "playback"),
             icon = MaterialSymbolIcon("hearing"),
-            route = SettingsRoutes.EXPERIMENTAL_FEATURES,
-            parentScreen = "Experimental",
+            route = SettingsRoutes.PLAYBACK,
+            parentScreen = context.getString(R.string.settings_playback_title),
             settingKey = "skipSilenceEnabled"
         ))
         
@@ -1400,14 +2130,44 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             settingKey = "replayGain"
         ))
         add(SearchableSettingItem(
-            id = "skip_silence",
-            title = context.getString(R.string.settings_skip_silence),
-            description = context.getString(R.string.settings_skip_silence_desc),
-            keywords = listOf("skip silence", "silence", "gap", "mute", "quiet", "audio detection", "auto skip"),
-            icon = MaterialSymbolIcon("hearing"),
-            route = SettingsRoutes.EXPERIMENTAL_FEATURES,
-            parentScreen = "Experimental",
-            settingKey = "skipSilenceEnabled"
+            id = "replay_gain_mode",
+            title = context.getString(R.string.replay_gain_mode_title),
+            description = context.getString(R.string.replay_gain_mode_desc),
+            keywords = listOf("replay gain", "mode", "album", "track", "volume normalization"),
+            icon = MaterialSymbolIcon("graphic_eq"),
+            route = SettingsRoutes.REPLAY_GAIN,
+            parentScreen = context.getString(R.string.settings_playback_title),
+            settingKey = "replayGainMode"
+        ))
+        add(SearchableSettingItem(
+            id = "replay_gain_preamp_tagged",
+            title = context.getString(R.string.replay_gain_preamp_tagged),
+            description = context.getString(R.string.replay_gain_preamp_tagged_desc),
+            keywords = listOf("replay gain", "preamp", "tagged", "gain offset", "boost"),
+            icon = MaterialSymbolIcon("volume_up"),
+            route = SettingsRoutes.REPLAY_GAIN,
+            parentScreen = context.getString(R.string.settings_playback_title),
+            settingKey = "replayGainPreamp"
+        ))
+        add(SearchableSettingItem(
+            id = "replay_gain_preamp_untagged",
+            title = context.getString(R.string.replay_gain_preamp_untagged),
+            description = context.getString(R.string.replay_gain_preamp_untagged_desc),
+            keywords = listOf("replay gain", "preamp", "untagged", "no tags", "offset"),
+            icon = MaterialSymbolIcon("volume_up"),
+            route = SettingsRoutes.REPLAY_GAIN,
+            parentScreen = context.getString(R.string.settings_playback_title),
+            settingKey = "replayGainPreampUntagged"
+        ))
+        add(SearchableSettingItem(
+            id = "replay_gain_prevent_clipping",
+            title = context.getString(R.string.replay_gain_prevent_clipping),
+            description = context.getString(R.string.replay_gain_prevent_clipping_desc),
+            keywords = listOf("replay gain", "clipping", "prevent", "drc", "limiter"),
+            icon = MaterialSymbolIcon("volume_off"),
+            route = SettingsRoutes.REPLAY_GAIN,
+            parentScreen = context.getString(R.string.settings_playback_title),
+            settingKey = "replayGainDrc"
         ))
 
         
@@ -1417,8 +2177,8 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             description = context.getString(R.string.settings_exp_festive_theme_desc),
             keywords = listOf("festive", "christmas", "new year", "decoration", "snow", "snowflake"),
             icon = MaterialSymbolIcon("celebration"),
-            route = SettingsRoutes.EXPERIMENTAL_FEATURES,
-            parentScreen = "Experimental"
+            route = SettingsRoutes.THEME_CUSTOMIZATION,
+            parentScreen = context.getString(R.string.settings_theme)
         ))
         add(SearchableSettingItem(
             id = "exp_auto_detect_holidays",
@@ -1426,8 +2186,8 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             description = context.getString(R.string.settings_exp_auto_detect_holidays_desc),
             keywords = listOf("auto detect", "holiday", "automatic", "festive", "seasonal"),
             icon = RhythmIcons.AutoAwesome,
-            route = SettingsRoutes.EXPERIMENTAL_FEATURES,
-            parentScreen = "Experimental"
+            route = SettingsRoutes.THEME_CUSTOMIZATION,
+            parentScreen = context.getString(R.string.settings_theme)
         ))
         add(SearchableSettingItem(
             id = "exp_ignore_mediastore",
@@ -1445,8 +2205,8 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             description = context.getString(R.string.settings_exp_codec_monitoring_desc),
             keywords = listOf("codec", "debug", "log", "monitoring", "audio format"),
             icon = RhythmIcons.Code,
-            route = SettingsRoutes.EXPERIMENTAL_FEATURES,
-            parentScreen = "Experimental"
+            route = SettingsRoutes.LABS,
+            parentScreen = context.getString(R.string.settings_labs)
         ))
         add(SearchableSettingItem(
             id = "exp_audio_device_logging",
@@ -1454,17 +2214,37 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             description = context.getString(R.string.settings_exp_audio_device_logging_desc),
             keywords = listOf("audio device", "bluetooth", "headphones", "log", "debug"),
             icon = RhythmIcons.Headphones,
-            route = SettingsRoutes.EXPERIMENTAL_FEATURES,
-            parentScreen = "Experimental"
+            route = SettingsRoutes.LABS,
+            parentScreen = context.getString(R.string.settings_labs)
         ))
         add(SearchableSettingItem(
-            id = "exp_launch_onboarding",
-            title = context.getString(R.string.settings_exp_launch_onboarding),
-            description = context.getString(R.string.settings_exp_launch_onboarding_desc),
-            keywords = listOf("rhythm tour", "tour", "reset", "restart", "welcome", "setup", "intro", "onboarding"),
+            id = "exp_force_compact_mode",
+            title = context.getString(R.string.exp_force_player_compact_mode),
+            description = context.getString(R.string.exp_force_player_compact_mode_desc),
+            keywords = listOf("compact mode", "force", "player", "expressive", "experimental"),
+            icon = MaterialSymbolIcon("developer_mode"),
+            route = SettingsRoutes.LABS,
+            parentScreen = context.getString(R.string.settings_labs),
+            settingKey = "forcePlayerCompactMode"
+        ))
+        add(SearchableSettingItem(
+            id = "exp_track_error_checker",
+            title = context.getString(R.string.exp_track_error_checker),
+            description = context.getString(R.string.exp_track_error_checker_desc),
+            keywords = listOf("track error", "checker", "validation", "debug", "experimental"),
+            icon = MaterialSymbolIcon("bug_report"),
+            route = SettingsRoutes.LABS,
+            parentScreen = context.getString(R.string.settings_labs),
+            settingKey = "trackErrorCheckerEnabled"
+        ))
+        add(SearchableSettingItem(
+            id = "app_launch_onboarding",
+            title = context.getString(R.string.about_replay_tour),
+            description = context.getString(R.string.about_replay_tour_desc),
+            keywords = listOf("rhythm tour", "tour", "reset", "restart", "welcome", "setup", "intro", "onboarding", "guide"),
             icon = MaterialSymbolIcon("restart_alt"),
-            route = SettingsRoutes.EXPERIMENTAL_FEATURES,
-            parentScreen = "Experimental"
+            route = SettingsRoutes.ABOUT,
+            parentScreen = "About"
         ))
         add(SearchableSettingItem(
             id = "exp_test_crash",
@@ -1472,8 +2252,8 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             description = context.getString(R.string.settings_exp_test_crash_desc),
             keywords = listOf("crash", "test", "debug", "error", "reporting"),
             icon = RhythmIcons.BugReport,
-            route = SettingsRoutes.EXPERIMENTAL_FEATURES,
-            parentScreen = "Experimental"
+            route = SettingsRoutes.LABS,
+            parentScreen = context.getString(R.string.settings_labs)
         ))
 
         add(SearchableSettingItem(
@@ -1482,18 +2262,18 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             description = context.getString(R.string.settings_broadcast_status_enabled_desc),
             keywords = listOf("broadcast", "status", "playback", "share", "other apps"),
             icon = RhythmIcons.Info,
-            route = SettingsRoutes.EXPERIMENTAL_FEATURES,
-            parentScreen = "Experimental",
+            route = SettingsRoutes.NOTIFICATIONS,
+            parentScreen = context.getString(R.string.settings_notifications),
             settingKey = "broadcastStatusEnabled"
         ))
         add(SearchableSettingItem(
             id = "bluetooth_lyrics_enabled",
             title = context.getString(R.string.settings_bluetooth_lyrics_enabled),
             description = context.getString(R.string.settings_bluetooth_lyrics_enabled_desc),
-            keywords = listOf("bluetooth", "lyrics", "avrcp", "metadata", "rokid", "smart glasses"),
+            keywords = listOf("notification lyrics", "lyrics", "notification", "bluetooth", "broadcast", "avrcp", "metadata", "rokid", "smart glasses", "wearables", "ticker", "smart watch"),
             icon = MaterialSymbolIcon("lyrics"),
-            route = SettingsRoutes.EXPERIMENTAL_FEATURES,
-            parentScreen = "Experimental",
+            route = SettingsRoutes.NOTIFICATIONS,
+            parentScreen = context.getString(R.string.settings_notifications),
             settingKey = "bluetoothLyricsEnabled"
         ))
         add(SearchableSettingItem(
@@ -1541,8 +2321,8 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             description = context.getString(R.string.settings_enable_album_editing_desc),
             keywords = listOf("album editing", "batch edit", "album metadata", "edit album", "artwork", "batch"),
             icon = MaterialSymbolIcon("edit"),
-            route = SettingsRoutes.EXPERIMENTAL_FEATURES,
-            parentScreen = "Experimental",
+            route = SettingsRoutes.LABS,
+            parentScreen = context.getString(R.string.settings_labs),
             settingKey = "enableAlbumEditing"
         ))
         add(SearchableSettingItem(
@@ -1587,6 +2367,103 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             description = context.getString(R.string.settings_home_carousel_auto_scroll_desc),
             keywords = listOf("auto scroll", "carousel", "automatic", "slide"),
             icon = MaterialSymbolIcon("play_circle_filled"),
+            route = SettingsRoutes.HOME_SCREEN,
+            parentScreen = "Home"
+        ))
+        add(SearchableSettingItem(
+            id = "home_carousel_style",
+            title = context.getString(R.string.settings_carousel_style),
+            description = context.getString(R.string.settings_carousel_style_desc),
+            keywords = listOf("carousel", "style", "hero", "default", "discover", "banner"),
+            icon = MaterialSymbolIcon("view_carousel"),
+            route = SettingsRoutes.HOME_SCREEN,
+            parentScreen = "Home"
+        ))
+        add(SearchableSettingItem(
+            id = "home_always_start_collapsed",
+            title = context.getString(R.string.settings_always_start_collapsed),
+            description = context.getString(R.string.settings_home_start_collapsed_desc),
+            keywords = listOf("collapsed", "header", "start", "expand", "home layout"),
+            icon = MaterialSymbolIcon("unfold_less"),
+            route = SettingsRoutes.HOME_SCREEN,
+            parentScreen = "Home",
+            settingKey = "headerCollapseBehavior"
+        ))
+        add(SearchableSettingItem(
+            id = "home_choose_header_content",
+            title = context.getString(R.string.settings_choose_header_content),
+            description = context.getString(R.string.settings_home_header_content_desc),
+            keywords = listOf("header", "greeting", "content", "display", "home"),
+            icon = RhythmIcons.Info,
+            route = SettingsRoutes.HOME_SCREEN,
+            parentScreen = "Home",
+            settingKey = "homeHeaderDisplayMode"
+        ))
+        add(SearchableSettingItem(
+            id = "home_discover_album_name",
+            title = context.getString(R.string.settings_discover_album_name),
+            description = context.getString(R.string.settings_discover_album_name_desc),
+            keywords = listOf("discover", "album name", "carousel", "label"),
+            icon = MaterialSymbolIcon("album"),
+            route = SettingsRoutes.HOME_SCREEN,
+            parentScreen = "Home",
+            settingKey = "homeDiscoverShowAlbumName"
+        ))
+        add(SearchableSettingItem(
+            id = "home_discover_artist_name",
+            title = context.getString(R.string.settings_discover_artist_name),
+            description = context.getString(R.string.settings_discover_artist_name_desc),
+            keywords = listOf("discover", "artist name", "carousel", "label"),
+            icon = RhythmIcons.Artist,
+            route = SettingsRoutes.HOME_SCREEN,
+            parentScreen = "Home",
+            settingKey = "homeDiscoverShowArtistName"
+        ))
+        add(SearchableSettingItem(
+            id = "home_discover_gradient_overlay",
+            title = context.getString(R.string.settings_discover_gradient_overlay),
+            description = context.getString(R.string.settings_discover_gradient_overlay_desc),
+            keywords = listOf("discover", "gradient", "overlay", "carousel", "text contrast"),
+            icon = MaterialSymbolIcon("gradient"),
+            route = SettingsRoutes.HOME_SCREEN,
+            parentScreen = "Home",
+            settingKey = "homeDiscoverShowGradient"
+        ))
+        add(SearchableSettingItem(
+            id = "home_discover_play_button",
+            title = context.getString(R.string.settings_discover_play_button),
+            description = context.getString(R.string.settings_discover_play_button_desc),
+            keywords = listOf("discover", "play button", "carousel", "quick play"),
+            icon = MaterialSymbolIcon("play_circle_filled"),
+            route = SettingsRoutes.HOME_SCREEN,
+            parentScreen = "Home",
+            settingKey = "homeDiscoverShowPlayButton"
+        ))
+        add(SearchableSettingItem(
+            id = "home_discover_release_year",
+            title = context.getString(R.string.settings_discover_release_year),
+            description = context.getString(R.string.settings_discover_release_year_desc),
+            keywords = listOf("discover", "release year", "carousel", "date"),
+            icon = MaterialSymbolIcon("calendar_today"),
+            route = SettingsRoutes.HOME_SCREEN,
+            parentScreen = "Home",
+            settingKey = "homeDiscoverShowYear"
+        ))
+        add(SearchableSettingItem(
+            id = "home_disable_unused_sections",
+            title = context.getString(R.string.settings_disable_unused_sections),
+            description = context.getString(R.string.settings_home_hide_unused_sections_desc),
+            keywords = listOf("sections", "hide", "disable", "home layout", "visibility"),
+            icon = MaterialSymbolIcon("visibility_off"),
+            route = SettingsRoutes.HOME_SCREEN,
+            parentScreen = "Home"
+        ))
+        add(SearchableSettingItem(
+            id = "home_widget_item_counts",
+            title = context.getString(R.string.settings_widget_item_counts),
+            description = context.getString(R.string.settings_home_widget_counts_desc),
+            keywords = listOf("widget", "counts", "numbers", "item count", "home"),
+            icon = MaterialSymbolIcon("data_usage"),
             route = SettingsRoutes.HOME_SCREEN,
             parentScreen = "Home"
         ))
@@ -1641,6 +2518,25 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             route = SettingsRoutes.NOTIFICATIONS,
             parentScreen = "Notifications",
             settingKey = "rhythmPulseNotificationIntervalHours"
+        ))
+        add(SearchableSettingItem(
+            id = "notifications_library_operations",
+            title = context.getString(R.string.settings_library_operations_notifications),
+            description = context.getString(R.string.settings_library_operations_notifications_desc),
+            keywords = listOf("library", "operations", "scan", "notifications", "sync"),
+            icon = RhythmIcons.Notifications,
+            route = SettingsRoutes.NOTIFICATIONS,
+            parentScreen = "Notifications",
+            settingKey = "libraryOperationsNotificationsEnabled"
+        ))
+        add(SearchableSettingItem(
+            id = "notifications_system_channels",
+            title = context.getString(R.string.settings_system_notification_channels),
+            description = context.getString(R.string.settings_system_notification_channels_desc),
+            keywords = listOf("system", "notification channels", "categories", "android channels"),
+            icon = MaterialSymbolIcon("settings"),
+            route = SettingsRoutes.NOTIFICATIONS,
+            parentScreen = "Notifications"
         ))
         
         // ======================== EXPRESSIVE SHAPES SCREEN ========================
@@ -1880,31 +2776,18 @@ fun SettingsSearchResults(
     ) {
         if (results.isEmpty()) {
             item {
-                Column(
+                ExpressiveCookieEmptyState(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 48.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = RhythmIcons.Search,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.size(64.dp)
+                    title = context.getString(R.string.no_results_found),
+                    subtitle = context.getString(R.string.try_different_search),
+                    mainIcon = RhythmIcons.Search,
+                    accentIcon = RhythmIcons.Search,
+                    cornerIcon = RhythmIcons.Tune,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = context.getString(R.string.no_results_found),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = context.getString(R.string.try_different_search),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
-                }
             }
         } else {
             // Group results by parent screen

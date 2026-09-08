@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.shared.presentation.components.dialogs
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
@@ -43,6 +48,7 @@ import chromahub.rhythm.app.R
 import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 
 @Composable
@@ -53,6 +59,7 @@ fun CreatePlaylistDialog(
     onConfirmWithSong: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
     var playlistName by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
     var addSong by remember { mutableStateOf(song != null) }
@@ -105,7 +112,10 @@ fun CreatePlaylistDialog(
                     ) {
                         Checkbox(
                             checked = addSong,
-                            onCheckedChange = { addSong = it }
+                            onCheckedChange = {
+                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                addSong = it
+                            }
                         )
                         
                         Text(
@@ -188,7 +198,7 @@ fun QueueActionDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = context.getString(R.string.dialog_songs_in_queue, queueSize),
+                    text = pluralStringResource(R.plurals.dialog_songs_in_queue, queueSize, queueSize),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
@@ -344,8 +354,9 @@ fun QueueListActionDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = context.getString(
-                        R.string.list_queue_action_dialog_body,
+                    text = pluralStringResource(
+                        R.plurals.list_queue_action_dialog_body,
+                        queueSize,
                         queueSize,
                         incomingCount
                     ),

@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 
 package chromahub.rhythm.app.shared.presentation.screens.settings
@@ -25,7 +30,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.animation.core.Spring
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import chromahub.rhythm.app.R
@@ -85,12 +89,10 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import chromahub.rhythm.app.BuildConfig
-import chromahub.rhythm.app.shared.data.model.AppSettings
 import chromahub.rhythm.app.shared.data.model.Playlist
 import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.shared.data.repository.PlaybackStatsRepository
@@ -115,10 +117,7 @@ import chromahub.rhythm.app.shared.presentation.components.bottomsheets.Licenses
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.UpdateBottomSheet
 import chromahub.rhythm.app.ui.utils.LazyListStateSaver
 import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel
-import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeProvider
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapes
-import chromahub.rhythm.app.shared.presentation.components.common.buildSplashBackdropShapes
-import chromahub.rhythm.app.shared.presentation.components.common.SplashBackgroundOrbs
 import chromahub.rhythm.app.shared.presentation.viewmodel.AppUpdaterViewModel
 import chromahub.rhythm.app.shared.presentation.viewmodel.rememberAppUpdaterViewModel
 import chromahub.rhythm.app.shared.presentation.viewmodel.AppVersion
@@ -157,11 +156,9 @@ import chromahub.rhythm.app.shared.presentation.components.Material3SettingsItem
 import chromahub.rhythm.app.shared.presentation.screens.settings.TunerSettingRow
 import chromahub.rhythm.app.shared.presentation.screens.settings.TunerAnimatedSwitch
 import chromahub.rhythm.app.shared.presentation.screens.settings.TunerSettingCard
-import chromahub.rhythm.app.shared.presentation.screens.settings.SettingItem
 import chromahub.rhythm.app.shared.presentation.screens.settings.SettingGroup
-
-
-// SpotifyApiConfigDialog removed - Canvas API has been removed
+import chromahub.rhythm.app.shared.data.model.AppSettings
+import androidx.core.net.toUri
 
 
 
@@ -173,10 +170,11 @@ fun AboutScreen(
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     val appUpdaterViewModel: AppUpdaterViewModel = rememberAppUpdaterViewModel()
+    val appSettings = remember { AppSettings.getInstance(context) }
     var showLicensesSheet by remember { mutableStateOf(false) }
 
     val openUrl: (String) -> Unit = { url ->
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+        val intent = Intent(Intent.ACTION_VIEW, (url).toUri()).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)
@@ -187,7 +185,7 @@ fun AboutScreen(
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText(label, text)
         clipboard.setPrimaryClip(clip)
-        Toast.makeText(context, "$label copied!", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.about_copied_format, label), Toast.LENGTH_SHORT).show()
     }
 
     CollapsibleHeaderScreen(
@@ -213,68 +211,12 @@ fun AboutScreen(
             item { Spacer(modifier = Modifier.height(8.dp)) }
 
             item {
-                val appSettings = remember { AppSettings.getInstance(context) }
-                val expressiveShapesEnabled by appSettings.expressiveShapesEnabled.collectAsState()
-                val expressiveShapeA by appSettings.expressiveShapeSongArt.collectAsState()
-                val expressiveShapeB by appSettings.expressiveShapePlayerArt.collectAsState()
-                val expressiveShapeC by appSettings.expressiveShapeAlbumArt.collectAsState()
-                val expressiveShapeD by appSettings.expressiveShapePlaylistArt.collectAsState()
-                val expressiveShapeE by appSettings.expressiveShapeArtistArt.collectAsState()
-                val expressiveShapeF by appSettings.expressiveShapePlayerControls.collectAsState()
-                val expressiveShapeG by appSettings.expressiveShapeMiniPlayer.collectAsState()
-
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                        if (expressiveShapesEnabled) {
-                            val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-                            val screenWidthDp = configuration.screenWidthDp
-                            val screenHeightDp = configuration.screenHeightDp
-                            val expressivePreset by appSettings.expressiveShapePreset.collectAsState()
-                            val seed = System.nanoTime().toInt()
-                            val primaryBackdropColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.9f)
-                            val secondaryBackdropColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.82f)
-                            val tertiaryBackdropColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.7f)
-                            val neutralBackdropColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-
-                            val aboutBackdropShapes = remember(
-                                seed,
-                                expressiveShapeA,
-                                expressiveShapeB,
-                                expressiveShapeC,
-                                expressiveShapeD,
-                                expressiveShapeE,
-                                expressiveShapeF,
-                                expressiveShapeG,
-                                expressivePreset
-                            ) {
-                                buildSplashBackdropShapes(
-                                    seed = seed,
-                                    shapeIds = listOf(
-                                        expressiveShapeA,
-                                        expressiveShapeB,
-                                        expressiveShapeC,
-                                        expressiveShapeD,
-                                        expressiveShapeE,
-                                        expressiveShapeF,
-                                        expressiveShapeG
-                                    ),
-                                    preset = expressivePreset,
-                                    screenWidthDp = screenWidthDp,
-                                    screenHeightDp = screenHeightDp,
-                                    primaryColor = primaryBackdropColor,
-                                    secondaryColor = secondaryBackdropColor,
-                                    tertiaryColor = tertiaryBackdropColor,
-                                    neutralColor = neutralBackdropColor
-                                )
-                            }
-
-                            SplashBackgroundOrbs(shapes = aboutBackdropShapes)
-                        }
-
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -335,89 +277,77 @@ fun AboutScreen(
                     .joinToString(separator = ", ")
                     .ifBlank { context.getString(R.string.settings_about_architecture_value) }
 
-                val detailsItems = listOf(
-                    Material3SettingsItem(
+                val detailCards = listOf(
+                    ProjectDetailCardData(
                         icon = RhythmIcons.Info,
-                        title = { Text(context.getString(R.string.settings_about_version_label)) },
-                        description = { Text(BuildConfig.VERSION_NAME) },
-                        onClick = { copyToClipboard("Version", BuildConfig.VERSION_NAME) },
-                        trailingContent = {
-                            Icon(
-                                imageVector = MaterialSymbolIcon("content_copy"),
-                                contentDescription = "Copy",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        label = context.getString(R.string.settings_about_version_label),
+                        value = BuildConfig.VERSION_NAME
                     ),
-                    Material3SettingsItem(
+                    ProjectDetailCardData(
                         icon = MaterialSymbolIcon("build"),
-                        title = { Text(context.getString(R.string.settings_about_build)) },
-                        description = { Text("${BuildConfig.VERSION_CODE} • $buildVariant") },
-                        onClick = { copyToClipboard("Build Info", "${BuildConfig.VERSION_CODE} • $buildVariant") },
-                        trailingContent = {
-                            Icon(
-                                imageVector = MaterialSymbolIcon("content_copy"),
-                                contentDescription = "Copy",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        label = context.getString(R.string.settings_about_build),
+                        value = "${BuildConfig.VERSION_CODE} • $buildVariant"
                     ),
-                    Material3SettingsItem(
+                    ProjectDetailCardData(
                         icon = MaterialSymbolIcon("developer_mode"),
-                        title = { Text(context.getString(R.string.settings_about_target_sdk)) },
-                        description = { Text(appInfo.targetSdkVersion.toString()) },
-                        onClick = { copyToClipboard("Target SDK", appInfo.targetSdkVersion.toString()) },
-                        trailingContent = {
-                            Icon(
-                                imageVector = MaterialSymbolIcon("content_copy"),
-                                contentDescription = "Copy",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
+                        label = context.getString(R.string.settings_about_target_sdk),
+                        value = appInfo.targetSdkVersion.toString()
                     ),
-                    Material3SettingsItem(
+                    ProjectDetailCardData(
                         icon = MaterialSymbolIcon("memory"),
-                        title = { Text(context.getString(R.string.settings_about_architecture)) },
-                        description = { Text(detectedAbis) },
-                        onClick = { copyToClipboard("Architecture", detectedAbis) },
-                        trailingContent = {
-                            Icon(
-                                imageVector = MaterialSymbolIcon("content_copy"),
-                                contentDescription = "Copy",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    ),
-                    Material3SettingsItem(
-                        icon = MaterialSymbolIcon("content_copy"),
-                        title = { Text("Copy System Info") },
-                        description = { Text("Copy all version and hardware details to clipboard") },
-                        onClick = {
-                            val allInfo = """
-                                App: Rhythm
-                                Version: ${BuildConfig.VERSION_NAME}
-                                Build: ${BuildConfig.VERSION_CODE} ($buildVariant)
-                                Target SDK: ${appInfo.targetSdkVersion}
-                                Device OS: Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})
-                                Brand/Manufacturer: ${Build.BRAND} / ${Build.MANUFACTURER}
-                                Model (Product): ${Build.MODEL} (${Build.PRODUCT})
-                                Board/Hardware: ${Build.BOARD} / ${Build.HARDWARE}
-                                Architecture (ABIs): ${Build.SUPPORTED_ABIS.joinToString(", ")}
-                            """.trimIndent()
-                            copyToClipboard("System Info", allInfo)
-                        }
+                        label = context.getString(R.string.settings_about_architecture),
+                        value = detectedAbis
                     )
                 )
 
-                Material3SettingsGroup(
-                    title = context.getString(R.string.settings_about_project_details),
-                    items = detailsItems,
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    detailCards.chunked(2).forEachIndexed { rowIndex, rowCards ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(IntrinsicSize.Max)
+                        ) {
+                            rowCards.forEachIndexed { colIndex, card ->
+                                ProjectDetailCard(
+                                    icon = card.icon,
+                                    label = card.label,
+                                    value = card.value,
+                                    shape = getDetailCardShape(rowIndex * 2 + colIndex, detailCards.size),
+                                    onClick = { copyToClipboard(card.label, card.value) },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
                 )
+            }
+                        }
+                    }
+
+                    ProjectDetailCard(
+                        icon = MaterialSymbolIcon("content_copy"),
+                        label = context.getString(R.string.about_copy_system_info),
+                        value = context.getString(R.string.about_copy_system_info_desc),
+                        shape = RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 20.dp, bottomEnd = 20.dp),
+                        onClick = {
+                            val allInfo = buildString {
+                                appendLine("App: Rhythm")
+                                appendLine("Version: ${BuildConfig.VERSION_NAME}")
+                                appendLine("Build: ${BuildConfig.VERSION_CODE} ($buildVariant)")
+                                appendLine("Target SDK: ${appInfo.targetSdkVersion}")
+                                appendLine("Device OS: Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+                                appendLine("Brand/Manufacturer: ${Build.BRAND} / ${Build.MANUFACTURER}")
+                                appendLine("Model (Product): ${Build.MODEL} (${Build.PRODUCT})")
+                                appendLine("Board/Hardware: ${Build.BOARD} / ${Build.HARDWARE}")
+                                append("Architecture (ABIs): ${Build.SUPPORTED_ABIS.joinToString(", ")}")
+                            }
+                            copyToClipboard(context.getString(R.string.about_copy_system_info), allInfo)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
             item {
@@ -430,59 +360,16 @@ fun AboutScreen(
 
                 DeveloperCard(
                     name = "Anjishnu Nandi",
-                    role = "Lead Developer & Project Architect",
                     githubUsername = "cromaguy",
                     avatarUrl = "https://github.com/cromaguy.png",
                     supportUrl = "https://ko-fi.com/anjishnunandi",
+                    teamTitle = context.getString(R.string.settings_about_team_chromahub),
+                    teamDescription = context.getString(R.string.settings_about_team_desc),
                     openUrl = openUrl
                 )
-                
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    shape = ExpressiveShapes.Large,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = MaterialSymbolIcon("diversity_3", filled = true),
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = context.getString(R.string.settings_about_team_chromahub),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = context.getString(R.string.settings_about_team_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
-                        )
-                    }
-                }
             }
 
             item {
-                Text(
-                    text = context.getString(R.string.settings_about_community),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 8.dp, top = 18.dp)
-                )
-                
                 val maintainerItems = remember(context, haptics) {
                     listOf(
                         createCommunityMemberItem(
@@ -521,14 +408,6 @@ fun AboutScreen(
 
                 val collaboratorItems = remember(context, haptics) {
                     listOf(
-                        createCommunityMemberItem(
-                            context = context,
-                            haptics = haptics,
-                            name = "Christian",
-                            role = "Guide & Booming Music's Lead Dev",
-                            githubUsername = "mardous",
-                            avatarUrl = "https://github.com/mardous.png"
-                        ),
                         createCommunityMemberItem(
                             context = context,
                             haptics = haptics,
@@ -580,14 +459,6 @@ fun AboutScreen(
                             role = "UI Concept Designer",
                             githubUsername = "soykane",
                             avatarUrl = "https://github.com/soykane.png"
-                        ),
-                        createCommunityMemberItem(
-                            context = context,
-                            haptics = haptics,
-                            name = "firefly-sylestia",
-                            role = "Beta Tester & QA",
-                            githubUsername = "firefly-sylestia",
-                            avatarUrl = "https://github.com/firefly-sylestia.png"
                         )
                     )
                 }
@@ -674,6 +545,18 @@ fun AboutScreen(
                             description = "t.me/RhythmSupport",
                             onClick = { openUrl("https://t.me/RhythmSupport") }
                         )
+                    ),
+                    toMaterial3SettingsItem(
+                        context = context,
+                        hapticFeedback = haptics,
+                        item = SettingItem(
+                            icon = MaterialSymbolIcon("restart_alt", filled = true),
+                            title = stringResource(R.string.about_replay_tour),
+                            description = stringResource(R.string.about_replay_tour_desc),
+                            onClick = {
+                                appSettings.setOnboardingCompleted(false)
+                            }
+                        )
                     )
                 )
 
@@ -699,43 +582,32 @@ fun AboutScreen(
 @Composable
 fun DeveloperCard(
     name: String,
-    role: String,
     githubUsername: String,
     avatarUrl: String,
     supportUrl: String,
+    teamTitle: String,
+    teamDescription: String,
     openUrl: (String) -> Unit
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
     
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
-        label = "press_scale"
-    )
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            },
-        shape = ExpressiveShapes.ExtraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+    Column(
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Box(
-            modifier = Modifier
-                .padding(20.dp)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 8.dp, bottomEnd = 8.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
             ) {
                 val fallbackPainter = painterResource(id = R.drawable.ic_music_note)
+                val cookieShape = rememberExpressiveShape("COOKIE_12")
                 AsyncImage(
                     model = ImageRequest.Builder(context)
                         .data(avatarUrl)
@@ -743,8 +615,8 @@ fun DeveloperCard(
                         .build(),
                     contentDescription = name,
                     modifier = Modifier
-                        .size(88.dp)
-                        .clip(ExpressiveShapes.SquircleLarge)
+                        .size(96.dp)
+                        .clip(cookieShape)
                         .background(MaterialTheme.colorScheme.surface),
                     error = fallbackPainter,
                     placeholder = fallbackPainter
@@ -760,51 +632,59 @@ fun DeveloperCard(
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-                Surface(
-                    shape = ExpressiveShapes.Full,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+                ExpressiveButtonGroup(
+                    style = ButtonGroupStyle.Tonal,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = role,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable {
+                    ExpressiveGroupButton(
+                        onClick = {
                             HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                            openUrl("https://github.com/$githubUsername")
-                        }
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                            openUrl("https://rhythmweb.vercel.app/")
+                        },
+                        isStart = true,
+                        modifier = Modifier.weight(1f)
                 ) {
                     Icon(
-                        imageVector = RhythmIcons.Link,
+                            imageVector = RhythmIcons.Language,
                         contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.secondary
+                            modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "@$githubUsername",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontWeight = FontWeight.SemiBold
+                            text = context.getString(R.string.settings_about_visit_website),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
                     )
                 }
+                    ExpressiveGroupButton(
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                            openUrl("https://github.com/$githubUsername")
+                        },
+                        isEnd = true,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = RhythmIcons.Code,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = context.getString(R.string.settings_about_view_github),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Button(
                     onClick = {
@@ -831,6 +711,38 @@ fun DeveloperCard(
                         style = MaterialTheme.typography.titleMedium
                     )
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 28.dp, bottomEnd = 28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                Text(
+                    text = teamTitle,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = teamDescription,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
@@ -884,7 +796,7 @@ private fun createCommunityMemberItem(
         },
         onClick = {
             HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/$githubUsername")).apply {
+            val intent = Intent(Intent.ACTION_VIEW, ("https://github.com/$githubUsername").toUri()).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
@@ -1047,5 +959,89 @@ fun CreditItem(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 2.dp)
         )
+    }
+}
+private data class ProjectDetailCardData(
+    val icon: Any,
+    val label: String,
+    val value: String
+)
+
+private fun getDetailCardShape(index: Int, totalItems: Int): RoundedCornerShape {
+    if (totalItems <= 1) {
+        return RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 6.dp, bottomEnd = 6.dp)
+    }
+    if (totalItems == 2) {
+        return if (index == 0) {
+            RoundedCornerShape(topStart = 20.dp, topEnd = 6.dp, bottomStart = 6.dp, bottomEnd = 6.dp)
+        } else {
+            RoundedCornerShape(topStart = 6.dp, topEnd = 20.dp, bottomStart = 6.dp, bottomEnd = 6.dp)
+        }
+    }
+    return when (index) {
+        0 -> RoundedCornerShape(topStart = 20.dp, topEnd = 6.dp, bottomStart = 6.dp, bottomEnd = 6.dp)
+        1 -> RoundedCornerShape(topStart = 6.dp, topEnd = 20.dp, bottomStart = 6.dp, bottomEnd = 6.dp)
+        else -> RoundedCornerShape(6.dp)
+    }
+}
+
+@Composable
+private fun ProjectDetailCard(
+    icon: Any,
+    label: String,
+    value: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    shape: RoundedCornerShape = RoundedCornerShape(20.dp)
+) {
+    val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+    Card(
+        modifier = modifier,
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .clickable {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                    onClick()
+                }
+                .padding(16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (icon is ImageVector) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                } else {
+                    Icon(
+                        imageVector = icon as MaterialSymbolIcon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }

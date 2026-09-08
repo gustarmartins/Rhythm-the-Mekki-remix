@@ -5,33 +5,20 @@
     <string name="home">Головна</string>
     <string name="library">Бібліотека</string>
     <string name="search">Пошук</string>
-    <string name="settings">Налаштування</string>
     <!-- Media3 notification configuration -->
     <string name="media3_notification_channel_name">Rhythm Музика</string>
     <string name="media3_notification_channel_description">Елементи керування відтворенням медіа</string>
     <!-- Widget strings -->
-    <string name="widget_description">Rhythm Музичний віджет - керуйте відтворенням за допомогою адаптивних макетів, які підтримують розміри сітки від 2x1 до 5x5</string>
     <string name="widget_description_glance">Rhythm Музика – керуйте відтворенням за допомогою 9 адаптивних макетів, Material 3 дизайну та оновлення стану в реальному часі</string>
     <string name="widget_name_glance">Rhythm Музика</string>
-    <string name="no_song_playing">Пісня не відтворюється</string>
     <string name="unknown_artist">Невідомий художник</string>
-    <string name="unknown_album">Невідомий альбом</string>
-    <string name="album_art">Обкладинка альбому</string>
     <string name="play_pause">Відтворення/пауза</string>
-    <string name="skip_next">Пропустити далі</string>
-    <string name="skip_previous">Пропустити попередній</string>
     <!-- Widget Settings -->
     <string name="settings_widget">Віджет</string>
     <string name="settings_widget_desc">Віджети головного екрана</string>
-    <string name="widget_show_album_art">Показати обкладинку альбому</string>
-    <string name="widget_show_album_art_desc">Відображати обкладинку альбому у віджеті</string>
-    <string name="widget_show_artist">Показати ім’я виконавця</string>
     <string name="widget_show_artist_desc">Відображення інформації про виконавця</string>
-    <string name="widget_show_album">Показати назву альбому</string>
     <string name="widget_show_album_desc">Відображення інформації про альбом</string>
     <string name="widget_appearance">Зовнішній вигляд</string>
-    <string name="widget_corner_radius">Радіус кута</string>
-    <string name="widget_auto_update">Автоматичне оновлення</string>
     <string name="widget_tip_controls">Торкніться віджета, щоб відкрити програму, кнопки керують відтворенням</string>
     <!-- Content Descriptions -->
     <string name="cd_navigate">Навігація</string>
@@ -108,7 +95,12 @@
     <string name="settings_export_all_playlists">Експортувати всі списки відтворення</string>
     <string name="settings_export_all_playlists_desc">Резервне копіювання всіх списків відтворення у файл</string>
     <string name="settings_cleanup_empty_playlists">Очищення порожніх списків відтворення</string>
-    <string name="settings_cleanup_empty_playlists_desc">Видалити %1$d порожній список відтворення%2$s</string>
+    <plurals name="settings_cleanup_empty_playlists_desc">
+        <item quantity="one">Видалити %1$d порожній список відтворення</item>
+        <item quantity="few">Видалити %1$d порожній список відтворення</item>
+        <item quantity="many">Видалити %1$d порожній список відтворення</item>
+        <item quantity="other">Видалити %1$d порожній список відтворення</item>
+    </plurals>
     <string name="settings_default_playlists">Списки відтворення за замовчуванням</string>
     <string name="settings_no_default_playlists">Немає списків відтворення за замовчуванням</string>
     <string name="settings_no_default_playlists_desc">Списки відтворення за замовчуванням створюються автоматично</string>
@@ -136,14 +128,29 @@
     <string name="notification_playlist_export_title">Rhythm Експорт бібліотеки</string>
     <string name="notification_playlist_import_title">Rhythm Імпорт бібліотеки</string>
     <string name="notification_library_setup_title">Rhythm Налаштування бібліотеки</string>
-    <string name="notification_library_setup_complete_summary">Бібліотека оптимізована та готова: %1$d треків, %2$d альбомів, %3$d виконавців</string>
+    <plurals name="notification_library_setup_complete_summary">
+        <item quantity="one">Бібліотека оптимізована та готова: %1$d треків, %2$d альбомів, %3$d виконавців</item>
+        <item quantity="few">Бібліотека оптимізована та готова: %1$d треків, %2$d альбомів, %3$d виконавців</item>
+        <item quantity="many">Бібліотека оптимізована та готова: %1$d треків, %2$d альбомів, %3$d виконавців</item>
+        <item quantity="other">Бібліотека оптимізована та готова: %1$d треків, %2$d альбомів, %3$d виконавців</item>
+    </plurals>
     <string name="notification_playlist_not_found">Експорт скасовано: цільовий список відтворення не знайдено.</string>
     <string name="notification_no_playlists_to_export">Експорт скасовано: не знайдено списків відтворення для резервного копіювання.</string>
     <string name="notification_operation_timed_out">Час очікування операції минув. Спробуйте ще раз.</string>
     <string name="notification_playlist_export_complete">Список відтворення успішно експортовано в сховище.</string>
-    <string name="notification_playlist_export_all_complete">У сховище успішно експортовано %1$d списків відтворення.</string>
+    <plurals name="notification_playlist_export_all_complete">
+        <item quantity="one">У сховище успішно експортовано %1$d списків відтворення.</item>
+        <item quantity="few">У сховище успішно експортовано %1$d списків відтворення.</item>
+        <item quantity="many">У сховище успішно експортовано %1$d списків відтворення.</item>
+        <item quantity="other">У сховище успішно експортовано %1$d списків відтворення.</item>
+    </plurals>
     <string name="notification_playlist_export_failed">Помилка експорту списку відтворення. Спробуйте знову.</string>
-    <string name="notification_playlist_import_complete">Успішно імпортовано \"%1$s\" з %2$d піснями.</string>
+    <plurals name="notification_playlist_import_complete">
+        <item quantity="one">Успішно імпортовано \"%1$s\" з %2$d піснями.</item>
+        <item quantity="few">Успішно імпортовано \"%1$s\" з %2$d піснями.</item>
+        <item quantity="many">Успішно імпортовано \"%1$s\" з %2$d піснями.</item>
+        <item quantity="other">Успішно імпортовано \"%1$s\" з %2$d піснями.</item>
+    </plurals>
     <string name="notification_playlist_import_failed">Не вдалося імпортувати список відтворення. Перевірте формат файлу.</string>
     <string name="notification_updater_channel_name">Rhythm Оновлення</string>
     <string name="notification_updater_channel_desc">Статус завантаження оновлень програми</string>
@@ -168,8 +175,18 @@
     <!-- Streaming Library Sync -->
     <string name="notification_streaming_sync_title">Синхронізація вашої бібліотеки</string>
     <string name="notification_streaming_sync_started">Синхронізація з %1$s…</string>
-    <string name="notification_streaming_sync_progress">Синхронізація: %1$d пісень • %2$d альбомів • %3$d виконавців</string>
-    <string name="notification_streaming_sync_complete">✓ Синхронізовано %1$d пісень від %2$s!</string>
+    <plurals name="notification_streaming_sync_progress">
+        <item quantity="one">Синхронізація: %1$d пісень • %2$d альбомів • %3$d виконавців</item>
+        <item quantity="few">Синхронізація: %1$d пісень • %2$d альбомів • %3$d виконавців</item>
+        <item quantity="many">Синхронізація: %1$d пісень • %2$d альбомів • %3$d виконавців</item>
+        <item quantity="other">Синхронізація: %1$d пісень • %2$d альбомів • %3$d виконавців</item>
+    </plurals>
+    <plurals name="notification_streaming_sync_complete">
+        <item quantity="one">✓ Синхронізовано %1$d пісень від %2$s!</item>
+        <item quantity="few">✓ Синхронізовано %1$d пісень від %2$s!</item>
+        <item quantity="many">✓ Синхронізовано %1$d пісень від %2$s!</item>
+        <item quantity="other">✓ Синхронізовано %1$d пісень від %2$s!</item>
+    </plurals>
     <string name="notification_streaming_sync_failed">Помилка синхронізації. Перевірте підключення та повторіть спробу.</string>
     <!-- Streaming Liked Songs -->
     <string name="notification_streaming_liked_title">Пісні, які сподобалися, оновлено</string>
@@ -188,7 +205,12 @@
     <!-- Streaming Offline -->
     <string name="notification_streaming_offline_title">Автономний режим</string>
     <string name="notification_streaming_offline_sync">Синхронізація офлайн-кешу з %1$s…</string>
-    <string name="notification_streaming_offline_sync_complete">✓ Готовий офлайн-кеш із %1$d піснями</string>
+    <plurals name="notification_streaming_offline_sync_complete">
+        <item quantity="one">✓ Готовий офлайн-кеш із %1$d піснями</item>
+        <item quantity="few">✓ Готовий офлайн-кеш із %1$d піснями</item>
+        <item quantity="many">✓ Готовий офлайн-кеш із %1$d піснями</item>
+        <item quantity="other">✓ Готовий офлайн-кеш із %1$d піснями</item>
+    </plurals>
     <string name="notification_streaming_offline_cache_cleared">Кеш очищено. Збережено %1$s місця.</string>
     <!-- Streaming Errors -->
     <string name="notification_streaming_error_title">Проблема потокового передавання</string>
@@ -197,7 +219,12 @@
     <string name="notification_streaming_error_account_issue">Проблема з обліковим записом %1$s. Підключіться повторно.</string>
     <!-- Dialogs -->
     <string name="dialog_cleanup_empty_playlists_title">Очистити порожні списки відтворення?</string>
-    <string name="dialog_cleanup_empty_playlists_message">Це назавжди видалить %1$d порожній список відтворення%2$s. Цю дію не можна скасувати.</string>
+    <plurals name="dialog_cleanup_empty_playlists_message">
+        <item quantity="one">Це назавжди видалить %1$d порожній список відтворення. Цю дію не можна скасувати.</item>
+        <item quantity="few">Це назавжди видалить %1$d порожній список відтворення. Цю дію не можна скасувати.</item>
+        <item quantity="many">Це назавжди видалить %1$d порожній список відтворення. Цю дію не можна скасувати.</item>
+        <item quantity="other">Це назавжди видалить %1$d порожній список відтворення. Цю дію не можна скасувати.</item>
+    </plurals>
     <string name="dialog_delete_playlist_title">Видалити список відтворення?</string>
     <string name="dialog_delete_playlist_message">Ви впевнені, що хочете видалити \"%1$s\"? Цю дію не можна скасувати.</string>
     <string name="dialog_delete">Видалити</string>
@@ -217,7 +244,12 @@
     <string name="playlist_reorder_songs_title">Змінити порядок пісень</string>
     <string name="playlist_remove_song">Видалити пісню</string>
     <string name="playlist_remove_song_confirm">Видалити \"%1$s\" із цього списку відтворення?</string>
-    <string name="playlist_remove_songs_count">Видалити %1$d пісень</string>
+    <plurals name="playlist_remove_songs_count">
+        <item quantity="one">Видалити %1$d пісень</item>
+        <item quantity="few">Видалити %1$d пісень</item>
+        <item quantity="many">Видалити %1$d пісень</item>
+        <item quantity="other">Видалити %1$d пісень</item>
+    </plurals>
     <string name="playlist_removed_from_playlist">Видалено %1$s зі списку відтворення</string>
     <!-- Restart Dialog -->
     <string name="restart_now">Перезапустіть зараз</string>
@@ -292,7 +324,6 @@
     <!-- HomeScreen -->
     <string name="home_title">Rhythm</string>
     <string name="home_settings_cd">Налаштування</string>
-    <string name="home_explore_music">Досліджуйте дивовижну музику</string>
     <string name="home_no_featured_albums">Немає рекомендованих альбомів</string>
     <string name="home_no_featured_albums_desc">Додайте кілька альбомів у свою бібліотеку, щоб переглянути рекомендований вміст</string>
     <string name="home_artists">Художники</string>
@@ -350,7 +381,12 @@
     <string name="home_no_recent_activity_desc">Почніть прослуховувати тут пісні, які ви нещодавно відтворювали</string>
     <!-- UI Actions -->
     <string name="ui_view_all">Переглянути все</string>
-    <string name="ui_songs_count">%1$d пісень</string>
+    <plurals name="ui_songs_count">
+        <item quantity="one">%1$d пісень</item>
+        <item quantity="few">%1$d пісень</item>
+        <item quantity="many">%1$d пісень</item>
+        <item quantity="other">%1$d пісень</item>
+    </plurals>
     <!-- Updates -->
     <string name="update_available_title">Оновлення доступне</string>
     <string name="update_version">Версія %1$s</string>
@@ -384,12 +420,27 @@
     <string name="library_tap_browse">Торкніться, щоб переглянути файли</string>
     <string name="library_play_all">Грати все</string>
     <string name="library_check_permissions">Якщо файли не відображаються, перевірте дозволи на зберігання</string>
-    <string name="library_creating_playlist">Створення списку відтворення та додавання %1$d пісень…</string>
+    <plurals name="library_creating_playlist">
+        <item quantity="one">Створення списку відтворення та додавання %1$d пісень…</item>
+        <item quantity="few">Створення списку відтворення та додавання %1$d пісень…</item>
+        <item quantity="many">Створення списку відтворення та додавання %1$d пісень…</item>
+        <item quantity="other">Створення списку відтворення та додавання %1$d пісень…</item>
+    </plurals>
     <string name="library_playlist_name_empty">Назва списку відтворення не може бути пустою</string>
     <string name="library_no_playlists">Списків відтворення ще немає</string>
     <string name="library_no_albums">Альбомів ще немає</string>
-    <string name="library_playlists_count">%1$d списків відтворення</string>
-    <string name="library_albums_count">%1$d альбомів</string>
+    <plurals name="library_playlists_count">
+        <item quantity="one">%1$d списків відтворення</item>
+        <item quantity="few">%1$d списків відтворення</item>
+        <item quantity="many">%1$d списків відтворення</item>
+        <item quantity="other">%1$d списків відтворення</item>
+    </plurals>
+    <plurals name="library_albums_count">
+        <item quantity="one">%1$d альбомів</item>
+        <item quantity="few">%1$d альбомів</item>
+        <item quantity="many">%1$d альбомів</item>
+        <item quantity="other">%1$d альбомів</item>
+    </plurals>
     <!-- Sort Options -->
     <string name="sort_name">Ім\'я</string>
     <string name="sort_date_created">Дата створення</string>
@@ -405,8 +456,6 @@
     <string name="player_queue">Черга</string>
     <string name="player_speed_label">Швидкість</string>
     <string name="player_pitch_label">Висота</string>
-    <string name="playback_speed">Швидкість відтворення</string>
-    <string name="sync_with_pitch">Синхронізація з кроком</string>
     <string name="sync_with_speed">Синхронізація зі швидкістю</string>
     <!-- SearchScreen -->
     <string name="search_view_all_songs">Переглянути всі пісні</string>
@@ -450,7 +499,6 @@
     <string name="updates_smart_polling_desc">Використання ефективних перевірок HTTP для виявлення оновлень при мінімізації викликів GitHub API. Ви отримаєте миттєві сповіщення про випуск нових версій.</string>
     <string name="updates_channel_desc">Виберіть, на який канал оновлення стежити:</string>
     <!-- Onboarding -->
-    <string name="onboarding_welcome">Ласкаво просимо</string>
     <string name="onboarding_welcome_to">Ласкаво просимо до</string>
     <string name="onboarding_welcome_subtitle">Ваша музика, ваш Rhythm</string>
     <string name="onboarding_get_started">Початок роботи</string>
@@ -488,7 +536,6 @@
     <string name="onboarding_library_4">Списки відтворення за умовчанням (Нещодавно додані, Найчастіше відтворювані) можна перемикати в меню «Налаштування» &gt; «Списки відтворення»</string>
     <string name="onboarding_theme_title">Зробіть Rhythm своїм</string>
     <string name="onboarding_theme_desc">Персоналізуйте зовнішність Rhythm відповідно до свого стилю. Виберіть тему системи, шрифт або Material динамічні кольори (Android 12+).</string>
-    <string name="onboarding_live_preview">Попередній перегляд</string>
     <string name="onboarding_more_tuner">Більше налаштувань у налаштуваннях</string>
     <string name="onboarding_tuner_1">Користувальницькі колірні схеми та виділення кольорів обкладинок альбомів</string>
     <string name="onboarding_tuner_2">Налаштування шрифтів і типографіки</string>
@@ -565,8 +612,6 @@
     <!-- Onboarding Library Setup -->
     
     <!-- Onboarding Theming -->
-    <string name="onboarding_dynamic_colors_title">Динамічні кольори (Material Ви)</string>
-    <string name="onboarding_dynamic_colors_desc">Застосуйте кольори, витягнуті з шпалер вашого пристрою, для створення цілісного вигляду.</string>
     <string name="onboarding_player_theme_title">Теми відтворення та міні-плеєра</string>
     <string name="onboarding_player_theme_desc">Персоналізуйте інтерфейси відтворення. Перемикайтеся між чистим, сучасним дизайном Rhythm або яскравим, плавним експресивним дизайном.</string>
     <!-- Onboarding Updater -->
@@ -633,28 +678,18 @@
     <!-- Onboarding: Widgets Step -->
     <string name="onboarding_widgets_title">Віджети панелі запуску</string>
     <string name="onboarding_widgets_desc">Додайте віджети Rhythm до панелі запуску для швидкого керування музикою. Налаштуйте, яка інформація відображатиметься та як виглядатиме віджет.</string>
-    <string name="onboarding_widget_album_art">Показати обкладинку альбому</string>
-    <string name="onboarding_widget_album_art_desc">Відображати обкладинку альбому у віджеті</string>
     <string name="onboarding_widget_artist">Показати ім’я виконавця</string>
     <string name="onboarding_widget_artist_desc">Відображення поточного виконавця у віджеті</string>
     <string name="onboarding_widget_album">Показати назву альбому</string>
     <string name="onboarding_widget_album_desc">Відображення назви альбому у віджеті</string>
     <string name="onboarding_widgets_tips_title">Поради щодо віджетів</string>
-    <string name="onboarding_widget_tip_1">Торкніться віджета, щоб відкрити програму</string>
-    <string name="onboarding_widget_tip_2">Зміна розміру віджетів для різних макетів (2x1 до 5x5)</string>
-    <string name="onboarding_widget_tip_3">Віджети оновлюються в реальному часі під час відтворення</string>
     <!-- Onboarding: Integrations Step -->
     <string name="onboarding_integrations_title">Підключіть свої послуги</string>
     <string name="onboarding_integrations_desc">Покращуйте враження від прослуховування, підключившись до зовнішніх служб. Отримуйте обкладинки альбомів, тексти пісень, гортайте свої п’єси та діліться тим, що ви слухаєте.</string>
     <string name="onboarding_integrations_apis">API Послуги</string>
     <string name="onboarding_integration_deezer">Deezer</string>
-    <string name="onboarding_integration_deezer_desc">Отримати високоякісні обкладинки альбомів і метадані</string>
     <string name="onboarding_integration_lrclib">LrcLib</string>
-    <string name="onboarding_integration_lrclib_desc">Завантажте синхронізовані тексти пісень</string>
     <string name="onboarding_integration_ytmusic">YouTube Music</string>
-    <string name="onboarding_integration_ytmusic_desc">Доступ до метаданих і рекомендацій від YouTube Music</string>
-    <string name="onboarding_integration_broadcast">Статус трансляції</string>
-    <string name="onboarding_integration_broadcast_desc">Діліться статусом відтворення з іншими програмами</string>
     <string name="onboarding_integrations_info_title">Примітка про конфіденційність</string>
     <string name="onboarding_integrations_info_desc">Ці функції надсилають обмежені дані (назви пісень, виконавців) зовнішнім службам. Ваші особисті дані та музичні файли залишаються на вашому пристрої. Ви можете будь-коли ввімкнути або вимкнути їх у налаштуваннях.</string>
     <!-- Onboarding: Rhythm Stats Step -->
@@ -662,15 +697,11 @@
     <string name="onboarding_stats_desc">Дізнайтеся про свої музичні звички. Відстежуйте час прослуховування, пісні, які найчастіше слухали, улюблених виконавців тощо за допомогою красивих візуалізацій.</string>
     <string name="onboarding_stats_show_home">Показати статистику на головній сторінці</string>
     <string name="onboarding_stats_show_home_desc">Відобразити віджет статистики прослуховування на головному екрані</string>
-    <string name="onboarding_stats_rating">Увімкнути рейтинги пісень</string>
-    <string name="onboarding_stats_rating_desc">Оцінюйте свої пісні, щоб відстежувати улюблені та створювати розумні списки відтворення</string>
     <string name="onboarding_stats_features_title">Функції статистики</string>
     <string name="onboarding_stats_feature_1">Відстежуйте загальну тривалість прослуховування за днями, тижнями чи місяцями</string>
     <string name="onboarding_stats_feature_2">Перегляньте пісні, які ви найчастіше слухаєте</string>
     <string name="onboarding_stats_feature_3">Відкрийте для себе найкращих виконавців</string>
     <string name="onboarding_stats_feature_4">Дослідіть моделі прослуховування альбому</string>
-    <string name="onboarding_stats_info_title">Як це працює</string>
-    <string name="onboarding_stats_info_desc">Статистика обчислюється локально на вашому пристрої на основі вашої історії відтворення. Жодні дані не надсилаються на зовнішні сервери. Отримайте доступ до детальної статистики в будь-який час із головного екрана чи налаштувань.</string>
     <!-- MiniPlayer Swipe Hints -->
     <string name="miniplayer_swipe_up_hint">↑ Повний програвач</string>
     <string name="miniplayer_swipe_down_hint">↓ Відхилити</string>
@@ -704,7 +735,7 @@
     <string name="cache_about">Про кеш</string>
     <string name="cache_size_limit">Обмеження розміру кешу</string>
     <string name="cache_auto_trim">Автоматичне обрізання на 90%</string>
-    <string name="cache_auto_trim_desc">Кеш автоматично очищається, коли використання досягає 90% ліміту</string>
+    <string name="cache_auto_trim_desc">Кеш автоматично очищається, коли використання досягає 90%% ліміту</string>
     <!-- Lyrics -->
     <string name="lyrics_source_priority">Пріоритет джерела тексту</string>
     <string name="lyrics_choose_source">Виберіть, де шукати тексти пісень</string>
@@ -726,16 +757,11 @@
     <string name="theme_color_source_desc">Виберіть спосіб виділення кольорів</string>
     <string name="theme_font_source">Джерело шрифту</string>
     <string name="theme_font_source_desc">Виберіть, звідки завантажувати шрифти</string>
-    <string name="theme_color_schemes">Кольорові схеми</string>
-    <string name="theme_color_schemes_desc">Виберіть із попередньо встановлених схем кольорів</string>
-    <string name="theme_custom_picker">Спеціальний вибір кольорів</string>
-    <string name="theme_custom_picker_desc">Створіть власну колірну схему</string>
     <string name="theme_font_selection">Вибір шрифту</string>
     <string name="theme_font_selection_desc">Виберіть із доступних системних шрифтів</string>
     <!-- Playlist Detail -->
     <string name="playlist_no_songs_yet">Пісень ще немає</string>
     <!-- Components: Backup & Restore -->
-    <string name="backup_restore">ВІДНОВИТИ РЕЗЕРВНУ КОПІЮ</string>
     <!-- Components: Blacklist Management -->
     
     <!-- Components: Queue -->
@@ -763,7 +789,6 @@
     <string name="playback_lyrics_priority_desc">Налаштуйте джерела, поведінку, макет, розмір і стиль текстів</string>
     <string name="playback_settings">Налаштування відтворення</string>
     <!-- Components: Lyrics Editor -->
-    <string name="lyrics_sync_note">Налаштування синхронізації працює лише з синхронізованими за часом текстами (формат LRC). Скористайтеся «Скинути», щоб отримати синхронізовані тексти пісень, якщо вони доступні.</string>
     <string name="lyrics_placeholder">Введіть текст сюди…\n\nВи можете використовувати формат LRC:\n[00:12.00] Перший рядок\n[00:17.00] Другий рядок</string>
     <string name="lyrics_editor_title">Редактор текстів</string>
     <!-- Components: Song Info -->
@@ -775,16 +800,6 @@
     <string name="playlist_create_new">Створити новий список відтворення</string>
     <string name="playlist_create_first">Створіть свій перший список відтворення, щоб додати пісні</string>
     <!-- Components: Cache Management (Bottom Sheet) -->
-    <string name="cache_management">Кеш</string>
-    <!-- Components: Beta Program -->
-    
-    <!-- Components: Equalizer -->
-    
-    <!-- Theme Customization Notes -->
-    <string name="theme_color_schemes_unavailable">Схеми кольорів доступні, лише якщо використовується власне джерело кольорів.</string>
-    <string name="theme_color_schemes_switch">Щоб отримати доступ до попередньо визначених схем, у налаштуваннях «Джерело кольору» виберіть «Користувацький».</string>
-    <string name="theme_custom_colors_unavailable">Користувацькі кольори доступні, лише якщо використовується спеціальне джерело кольорів.</string>
-    <string name="theme_custom_colors_switch">Щоб створити власні кольори, у налаштуваннях «Джерело кольорів» виберіть «Настроюваний».</string>
     <string name="theme_system_fonts_unavailable">Системні шрифти доступні лише за використання джерела системних шрифтів.</string>
     <string name="theme_system_fonts_switch">Перейдіть на «Система» в налаштуваннях «Джерело шрифту», щоб вибрати з доступних шрифтів.</string>
     <!-- PlaceholderScreens Additional -->
@@ -795,12 +810,6 @@
     <string name="library_reorder_tabs">Змініть порядок вкладок, щоб налаштувати бібліотеку</string>
     <string name="external_services_desc">Контролюйте, які зовнішні служби API активні, щоб покращити ваш музичний досвід. Увімкніть/вимкніть служби, щоб керувати використанням даних і функціями.</string>
     <string name="lyrics_source_priority_title">Пріоритет джерела тексту</string>
-    <string name="playlist_action_title">Список відтворення Натисніть Дія</string>
-    <string name="playlist_action_desc">Поведінка за замовчуванням для натискань списку відтворення</string>
-    <string name="playlist_action_load_title">Завантажити весь список відтворення</string>
-    <string name="playlist_action_load_desc">Завантажити список відтворення та почати з вибраного треку</string>
-    <string name="playlist_action_single_title">Відтворити лише цю пісню</string>
-    <string name="playlist_action_single_desc">Відтворення лише вибраного треку</string>
     <string name="queue_action_title">Дія щодо конфлікту черги</string>
     <string name="queue_action_choose">Виберіть дію за умовчанням у разі конфлікту черги</string>
     <string name="queue_action_ask_title">Запитуйте щоразу</string>
@@ -811,9 +820,6 @@
     <string name="now_playing">ЗАРАЗ ГРАЄТЬСЯ</string>
     <string name="install_update_now">Установіть оновлення зараз</string>
     <string name="audio_settings">Параметри звуку</string>
-    <string name="active_device">АКТИВНИЙ ПРИСТРІЙ</string>
-    <string name="browse_library">Огляд бібліотеки</string>
-    <string name="add_more_songs">Додати більше пісень</string>
     <string name="edit_metadata">Редагувати трек</string>
     <!-- Updates Messages -->
     <string name="updates_disabled_message">Оновлення програм вимкнено в налаштуваннях</string>
@@ -823,13 +829,7 @@
     <string name="updates_experimental_coming">Більше експериментальних функцій незабаром з’являться в наступних оновленнях</string>
     <string name="settings_interval_every_48_hours">Кожні 48 годин</string>
     <string name="settings_interval_every_72_hours">Кожні 72 години</string>
-    <!-- Cache -->
-    
-    <!-- Theme -->
-    <string name="theme_featured_schemes">ІНФОРМАЦІЙНІ СХЕМИ</string>
-    <string name="theme_more_schemes">БІЛЬШЕ СХЕМ</string>
     <string name="theme_quick_presets">Швидкі налаштування</string>
-    <string name="theme_advanced_rgb">Розширені елементи керування RGB</string>
     <!-- Services -->
     <string name="external_services">Зовнішні служби</string>
     <string name="api_services">Інтегровані API</string>
@@ -846,7 +846,6 @@
     <string name="equalizer">Еквалайзер</string>
     <string name="frequency_bands">Діапазони частот</string>
     <string name="audio_effects">Аудіоефекти</string>
-    <string name="audio_normalization">Нормалізація звуку</string>
     <string name="replay_gain">Посилення повторного відтворення</string>
     <string name="replay_gain_desc">Використовуйте вбудовані теги посилення відтворення для гучності</string>
     <string name="bass_boost">Підсилення басів</string>
@@ -864,7 +863,6 @@
     <string name="sleep_timer_custom">Спеціальний таймер</string>
     <string name="sleep_timer_action">Дія таймера</string>
     <string name="sleep_timer_action_desc">Що відбувається, коли таймер закінчується</string>
-    <string name="sleep_timer_select_duration">Виберіть Тривалість таймера</string>
     <!-- Crash Reports -->
     <string name="crash_reports">Звіти про збої</string>
     <!-- Lyrics -->
@@ -954,7 +952,6 @@
     <string name="settings_experimental_features">Експериментальні характеристики</string>
     <string name="settings_experimental_features_desc">Передові функції</string>
     <string name="settings_select_option">Rhythm Налаштування</string>
-    <string name="settings_select_option_desc">Виберіть параметр зі списку для налаштування</string>
     <!-- Playlist Actions -->
     <string name="playlist_no_songs_available">Немає доступних пісень</string>
     <string name="playlist_all_in_playlist">Усі пісні вже є в цьому списку відтворення.</string>
@@ -968,7 +965,7 @@
     <string name="metadata_genre">Жанр</string>
     <string name="metadata_year">Рік</string>
     <string name="metadata_track">Трек</string>
-    <string name="metadata_saving">Збереження...</string>
+    <string name="metadata_saving">Збереження…</string>
     <!-- Updates Actions -->
     <string name="updates_check_now_action">Перевірте зараз</string>
     <string name="updates_check_again">Перевірте ще раз</string>
@@ -1055,24 +1052,17 @@
     <string name="lyrics_embed_success">Тексти пісень успішно вбудовано у файл</string>
     <string name="lyrics_embed_failed">Не вдалося вставити текст пісні у файл</string>
     <!-- Bottom Sheet: Sleep Timer -->
-    <string name="bottomsheet_timer_remaining">залишилося</string>
     <string name="bottomsheet_timer_custom_desc">Встановіть певну тривалість часу</string>
     <string name="bottomsheet_timer_custom_title">Встановити власний час</string>
     <string name="bottomsheet_timer_set">Встановити таймер</string>
     <string name="bottomsheet_timer_edit">Редагувати</string>
-    <string name="bottomsheet_timer_hours_minutes">Встановіть години та хвилини для таймера сну</string>
     <!-- Bottom Sheet: Playback -->
     <string name="bottomsheet_playback">Відтворення</string>
     <string name="bottomsheet_no_device">Немає підключених пристроїв</string>
-    <string name="bottomsheet_max">Макс</string>
     <!-- Bottom Sheet: Album -->
-    <string name="bottomsheet_play_all">Грати все</string>
-    <string name="bottomsheet_tracks">Доріжки</string>
     <string name="bottomsheet_sort_by">Сортувати за</string>
     <string name="bottomsheet_all_discs">Усі диски</string>
     <string name="bottomsheet_disc_option">Диск %1$d</string>
-    <string name="bottomsheet_disc_filter">Фільтрувати за диском</string>
-    <string name="bottomsheet_no_songs_album">У цьому альбомі немає пісень</string>
     <!-- Bottom Sheet: Home Section Order -->
     <string name="bottomsheet_home_section_order">Порядок домашнього розділу</string>
     <string name="bottomsheet_reorder_toggle_visibility">Зміна порядку та перемикання видимості</string>
@@ -1164,7 +1154,12 @@
     <string name="settings_rhythm_guard_mode_auto">Авто</string>
     <string name="settings_rhythm_guard_mode_manual">Посібник</string>
     <string name="settings_rhythm_guard_age_label">Віковий профіль: %1$d</string>
-    <string name="settings_rhythm_guard_age_desc">Рекомендований безпечний обсяг до %1$d%% і близько %2$d хвилин на день.</string>
+    <plurals name="settings_rhythm_guard_age_desc">
+        <item quantity="one">Рекомендований безпечний обсяг до %1$d%% і близько %2$d хвилин на день.</item>
+        <item quantity="few">Рекомендований безпечний обсяг до %1$d%% і близько %2$d хвилин на день.</item>
+        <item quantity="many">Рекомендований безпечний обсяг до %1$d%% і близько %2$d хвилин на день.</item>
+        <item quantity="other">Рекомендований безпечний обсяг до %1$d%% і близько %2$d хвилин на день.</item>
+    </plurals>
     <string name="settings_rhythm_guard_auto_policy_table_title">Посібник із безпечного прослуховування (Вік -&gt; Гучність / День)</string>
     <string name="settings_rhythm_guard_auto_policy_band">Вік %1$d-%2$d</string>
     <string name="settings_rhythm_guard_auto_policy_value">%1$d%% / %2$d хв</string>
@@ -1217,14 +1212,12 @@
     <string name="settings_rhythm_guard_start_countdown_value">Починається через %1$s</string>
     <string name="settings_rhythm_guard_snapshot_widget_above_limit">Вище рекомендованої межі</string>
     <string name="settings_rhythm_guard_snapshot_widget_within_limit">У межах рекомендованого ліміту</string>
-    <string name="settings_rhythm_guard_snapshot_widget_load_label">Індикатор поточного навантаження</string>
     <string name="settings_rhythm_guard_state_active">Rhythm Охоронець активний</string>
     <string name="settings_rhythm_guard_state_inactive">Rhythm Охорона неактивна</string>
     <string name="settings_rhythm_guard_state_timeout_active">Триває тайм-аут прослуховування</string>
     <string name="settings_rhythm_guard_state_cooldown_active">Пільговий період активний</string>
     <string name="settings_rhythm_guard_state_timeout_remaining">Перерва закінчується через %1$s</string>
     <string name="settings_rhythm_guard_state_cooldown_remaining">Пільговий період закінчується %1$s</string>
-    <string name="settings_rhythm_guard_state_safety_score">Оцінка безпеки: %1$d%%</string>
     <string name="settings_rhythm_guard_protection_presets_title">Попередні налаштування захисту</string>
     <string name="settings_rhythm_guard_protection_presets_desc">Швидко застосуйте перевірені комплекти огорожі для свого стилю прослуховування.</string>
     <string name="settings_rhythm_guard_protection_preset_gentle">Ніжний</string>
@@ -1269,9 +1262,6 @@
     <!-- Cache Management Complete -->
     
     <!-- Queue Playback Settings -->
-    <string name="queue_auto_add">Автоматичне додавання в чергу</string>
-    <string name="queue_clear_on_new">Замінити чергу на нову пісню</string>
-    <string name="queue_playback_speed_desc">Налаштувати швидкість відтворення</string>
     <!-- Gestures Settings -->
     
     <!-- Playlist Settings Toggle -->
@@ -1290,8 +1280,6 @@
     <string name="cd_rhythm_logo">Rhythm Логотип</string>
     <string name="cd_telegram_support">Підтримка Telegram</string>
     <!-- Queue &amp; Playlist Dialogs -->
-    <string name="queue_action_dialog">Діалогове вікно дій черги</string>
-    <string name="playlist_action_dialog">Діалогове вікно дій зі списком відтворення</string>
     <!-- Artist Settings -->
     <string name="artists_title">Художники</string>
     <string name="artist_multi_parsing">Розбір кількох виконавців</string>
@@ -1299,9 +1287,6 @@
     <string name="artist_enable_separation_desc">Розділення тегів кількох виконавців (наприклад, «Виконавець1/Виконавець2»)</string>
     <string name="artist_configure_delimiters">Налаштувати роздільники</string>
     <string name="artist_current_delimiters">Поточний: %1$s</string>
-    <string name="artist_library_organization">Організація бібліотеки</string>
-    <string name="artist_group_by_album_artist">Групування за виконавцем альбому</string>
-    <string name="artist_group_by_album_artist_desc">Показати спільні альбоми під головним виконавцем</string>
     <!-- About Screen -->
     
     <!-- Equalizer -->
@@ -1310,9 +1295,6 @@
     <string name="content_desc_remove">Видалити</string>
     <string name="content_desc_refresh_devices">Оновити пристрої</string>
     <string name="content_desc_switch_device">Перемикач пристрою</string>
-    <string name="content_desc_volume">Том</string>
-    <string name="content_desc_decrease_volume">Зменшити гучність</string>
-    <string name="content_desc_increase_volume">Збільшити гучність</string>
     <string name="content_desc_shuffle_play">Відтворення у довільному порядку</string>
     <string name="content_desc_sort_songs">Сортування пісень</string>
     <string name="content_desc_more_options">Додаткові параметри</string>
@@ -1332,8 +1314,6 @@
     <!-- Context Menu Actions -->
     <string name="action_play_next">Грати далі</string>
     <string name="action_add_to_queue">Додати до черги</string>
-    <string name="action_remove_from_favorites">Видалити з вибраного</string>
-    <string name="action_add_to_favorites">Додати до вибраного</string>
     <string name="action_song_info">Інформація про пісню</string>
     <string name="action_add_to_blacklist">Додати до чорного списку</string>
     <string name="action_play_all">Грати все</string>
@@ -1369,7 +1349,6 @@
     <string name="player_chip_favorite">Улюблений</string>
     <string name="player_chip_speed">Швидкість відтворення</string>
     <string name="player_chip_equalizer">Еквалайзер</string>
-    <string name="player_chip_lyrics">Лірика</string>
     <string name="player_chip_album">Альбом</string>
     <string name="player_chip_artist">Художник</string>
     <string name="player_chip_one_visible">Принаймні одна фішка має бути видимою</string>
@@ -1385,7 +1364,6 @@
     <string name="autoeq_eq_settings_label">Налаштування еквалайзера</string>
     <string name="autoeq_failed_read_file">Не вдалося прочитати файл</string>
     <!-- Backup/Restore -->
-    <string name="backup_invalid_format">Недійсний формат резервної копії або пошкоджені дані</string>
     <string name="backup_unable_to_read">Неможливо прочитати файл резервної копії</string>
     <!-- Licenses -->
     <string name="license_autoeq_name">AutoEQ</string>
@@ -1408,7 +1386,6 @@
     <!-- Cache & Storage -->
     
     <!-- Version Info -->
-    <string name="download_progress">%1$d%%</string>
     <!-- GitHub & Links -->
     
     <!-- Contributors -->
@@ -1420,9 +1397,7 @@
     <string name="settings_full_player">Повний програвач</string>
     <string name="settings_header_customization">Налаштування заголовка</string>
     <string name="settings_header_display">Дисплей заголовка</string>
-    <string name="settings_hue">Відтінок</string>
     <string name="settings_layout_options">Параметри макета</string>
-    <string name="settings_lightness">Легкість</string>
     <string name="settings_miniplayer">Міні-програвач</string>
     <string name="settings_no_crash_logs">Журнали збоїв не знайдено. хороша робота!</string>
     <string name="settings_player_controls">Елементи керування гравцем</string>
@@ -1431,7 +1406,6 @@
     <string name="settings_progress_display">Відображення прогресу</string>
     <string name="settings_progress_hidden">Прогрес приховано</string>
     <string name="settings_reorder_toggle_sections">Зміна порядку та перемикання розділів</string>
-    <string name="settings_saturation">Насиченість</string>
     <string name="settings_section_order_visibility">Порядок і видимість розділів</string>
     <string name="settings_start_collapsed">Починати всі екрани зі згорнутим заголовком</string>
     <string name="settings_statistics_update">Оновлення статистики на основі звичок слухання</string>
@@ -1497,10 +1471,6 @@
     <string name="settings_queue_action_dialog_desc_ask">Запитувати перед заміною або розширенням черги для відтворення однієї доріжки.</string>
     <string name="settings_queue_action_dialog_desc_always">Завжди додавайте в чергу відтворення однієї доріжки.</string>
     <string name="settings_queue_action_dialog_desc_disabled">Вимкнено, коли ввімкнено функцію заміни черги у Play.</string>
-    <string name="settings_playlist_action_dialog">Дія дотику доріжки списку відтворення</string>
-    <string name="settings_playlist_action_play_all">Завантажити повний список відтворення в чергу</string>
-    <string name="settings_playlist_action_play_one">Відтворення лише вибраного треку</string>
-    <string name="settings_playlist_action_ask">Запитуйте кожного разу</string>
     <string name="settings_list_queue_action_dialog">Дія черги відтворення списку</string>
     <string name="settings_list_queue_action_replace">Замініть чергу та грайте</string>
     <string name="settings_list_queue_action_ask">Запитуйте кожного разу</string>
@@ -1521,7 +1491,12 @@
     <string name="list_queue_behavior_add_end_title">Додати до кінця</string>
     <string name="list_queue_behavior_add_end_desc">Додайте список у кінець черги та почніть із вибраного треку.</string>
     <string name="list_queue_action_dialog_title">Черга вже активна</string>
-    <string name="list_queue_action_dialog_body">Поточна черга містить %1$d треків. Вхідний список містить %2$d треків.</string>
+    <plurals name="list_queue_action_dialog_body">
+        <item quantity="one">Поточна черга містить %1$d треків. Вхідний список містить %2$d треків.</item>
+        <item quantity="few">Поточна черга містить %1$d треків. Вхідний список містить %2$d треків.</item>
+        <item quantity="many">Поточна черга містить %1$d треків. Вхідний список містить %2$d треків.</item>
+        <item quantity="other">Поточна черга містить %1$d треків. Вхідний список містить %2$d треків.</item>
+    </plurals>
     <string name="list_queue_action_source">Джерело: %1$s</string>
     <string name="list_queue_action_replace_title">Замінити чергу</string>
     <string name="list_queue_action_replace_desc">Розпочати цей список як активну чергу зараз.</string>
@@ -1530,28 +1505,23 @@
     <string name="list_queue_action_add_end_title">Додати до кінця</string>
     <string name="list_queue_action_add_end_desc">Додайте цей список до кінця черги та почніть відтворення з нього.</string>
     <!-- Audio Routing -->
-    <string name="settings_audio_routing">Маршрутизація аудіо</string>
-    <string name="settings_dac_usb_audio">Аудіо ЦАП / USB</string>
-    <string name="settings_dac_usb_audio_desc">Як аудіо маршрутизується, коли підключено ЦАП. Режим додатка запитує ексклюзивну розрядну маршрутизацію USB на підтримуваних пристроях.</string>
-    <string name="settings_audio_routing_default">За замовчуванням</string>
-    <string name="settings_audio_routing_app">Приклад</string>
-    <string name="settings_audio_routing_system">Система</string>
-    <string name="settings_audio_routing_app_desc">Rhythm обробляє аудіо безпосередньо в режимі високої роздільної здатності та запитує ексклюзивну ідеальну маршрутизацію USB на підтримуваних пристроях. Потрібен перезапуск.</string>
-    <string name="settings_audio_routing_system_desc">Використовує системну маршрутизацію аудіо Android. Аудіо може бути передискретизовано до 48 кГц мікшером ОС.</string>
-    <string name="settings_audio_routing_default_desc">Android вирішує, як маршрутизувати аудіо. Перевибірка залежить від налаштувань системи.</string>
     <!-- Library Storage -->
     <string name="settings_cache_backend">Кеш серверної частини</string>
     <string name="settings_storage_rebuild_room">Перебудувати базу даних номерів</string>
     <string name="settings_storage_rebuild_room_desc">Повторно синхронізувати базу даних кімнати з даних поточної бібліотеки</string>
     <string name="settings_storage_room_stats">Статистика бази даних номерів</string>
-    <string name="settings_storage_song_count">%1$d пісень збережено</string>
+    <plurals name="settings_storage_song_count">
+        <item quantity="one">%1$d пісень збережено</item>
+        <item quantity="few">%1$d пісень збережено</item>
+        <item quantity="many">%1$d пісень збережено</item>
+        <item quantity="other">%1$d пісень збережено</item>
+    </plurals>
     <string name="settings_storage_not_available">Недоступно в поточному режимі</string>
     <string name="settings_storage_rebuild_success">Базу даних номерів успішно відновлено</string>
     <string name="settings_storage_rebuild_failed">Не вдалося відновити базу даних Room</string>
     <!-- Cache Management -->
     <string name="settings_cache">Кеш</string>
     <string name="settings_cache_settings">Параметри кешу</string>
-    <string name="settings_cache_clear_on_exit_desc">Автоматично очищати кеш під час виходу з програми</string>
     <string name="settings_cache_actions">Дії кешу</string>
     <string name="settings_clear_lyrics_cache">Очистити кеш пісень</string>
     <string name="settings_clear_lyrics_cache_desc">Видалити всі кешовані дані пісень</string>
@@ -1576,7 +1546,12 @@
     <string name="updates_retry">Повторити спробу</string>
     <string name="updates_enable_updates">Увімкнути оновлення</string>
     <string name="settings_update_notifications">Сповіщення про оновлення</string>
-    <string name="settings_check_interval_value">Кожні %1$d год</string>
+    <plurals name="settings_check_interval_value">
+        <item quantity="one">Кожні %1$d год</item>
+        <item quantity="few">Кожні %1$d год</item>
+        <item quantity="many">Кожні %1$d год</item>
+        <item quantity="other">Кожні %1$d год</item>
+    </plurals>
     <string name="settings_interval_every_hour">Щогодини</string>
     <string name="settings_interval_every_6_hours">Кожні 6 годин</string>
     <string name="settings_interval_every_12_hours">Кожні 12 годин</string>
@@ -1610,7 +1585,6 @@
     <string name="streaming_status_selected_service">Вибрано: %1$s</string>
     <string name="streaming_status_connected">Обліковий запис підключено</string>
     <string name="streaming_status_not_connected">Автентифікація очікує</string>
-    <string name="streaming_status_loading">Оновлення стрічки потокового передавання…</string>
     <string name="streaming_status_badge_connected">Підключено</string>
     <string name="streaming_status_badge_pending">Очікує на розгляд</string>
     <string name="streaming_status_badge_refreshing">Освіжає</string>
@@ -1645,7 +1619,12 @@
     <string name="streaming_library_empty">Вмісту бібліотеки ще немає</string>
     <string name="streaming_home_no_content_title">Домашнього вмісту ще немає</string>
     <string name="streaming_home_no_content_hint">Спробуйте оновити після завершення синхронізації служби.</string>
-    <string name="streaming_home_widget_playlist_track_count">%1$d треків</string>
+    <plurals name="streaming_home_widget_playlist_track_count">
+        <item quantity="one">%1$d треків</item>
+        <item quantity="few">%1$d треків</item>
+        <item quantity="many">%1$d треків</item>
+        <item quantity="other">%1$d треків</item>
+    </plurals>
     <string name="streaming_home_guard_break_active">Розрив активний: залишилося %1$s</string>
     <string name="streaming_home_guard_exposure">Сьогодні: %1$d / %2$d хв</string>
     <string name="streaming_not_selected">Не вибрано</string>
@@ -1686,7 +1665,6 @@
     <string name="settings_miniplayer_header">Міні-програвач</string>
     <string name="settings_show_progress">Показати прогрес</string>
     <string name="settings_show_progress_desc">Відображення індикатора прогресу</string>
-    <string name="settings_progress_mode">Режим прогресу</string>
     <string name="settings_show_artwork">Показати ілюстрації</string>
     <string name="settings_show_artwork_desc">Показати обкладинку альбому</string>
     <string name="settings_show_time">Show Time</string>
@@ -1702,7 +1680,6 @@
     <string name="settings_song_info_artwork_desc">Показати накладення назви та виконавця на обкладинці альбому</string>
     <string name="settings_audio_quality_badges">Значки якості звуку</string>
     <string name="settings_audio_quality_badges_desc">Відображення інформації про кодек і бітрейт</string>
-    <string name="settings_lyrics_customization">Налаштування текстів пісень</string>
     <string name="settings_show_lyrics_player">Показати текст пісні</string>
     <string name="settings_show_lyrics_player_desc">Відображення синхронізованих текстів у програвачі</string>
     <string name="settings_lyrics_transition">Тексти пісень Transition</string>
@@ -1729,8 +1706,6 @@
     <string name="settings_color_schemes">Кольорові схеми</string>
     <string name="settings_color_schemes_desc">Перегляньте та виберіть попередньо визначені палітри кольорів</string>
     <string name="settings_custom_only">Доступно лише з власним джерелом кольорів</string>
-    <string name="settings_custom_colors">Спеціальні кольори</string>
-    <string name="settings_custom_colors_desc">Створіть власну унікальну палітру кольорів</string>
     <string name="settings_font_customization">Налаштування шрифту</string>
     <string name="settings_font_source">Джерело шрифту</string>
     <string name="settings_font_source_system">Системний шрифт - %1$s</string>
@@ -1788,8 +1763,6 @@
     <string name="settings_shapes_desc">Виразні форми</string>
     <string name="settings_skip_silence">Пропустити тишу</string>
     <string name="settings_skip_silence_desc">Автоматично пропускати інтервали мовчання в треках.</string>
-    <string name="settings_song_ratings">Оцінки пісень</string>
-    <string name="settings_song_ratings_desc">Оцінюйте пісні зірочками, щоб покращити статистику та сортування</string>
     <!-- Gestures Search Strings -->
     <string name="settings_gesture_miniplayer_swipe">Жести пальцем у міні-плеєрі</string>
     <string name="settings_gesture_miniplayer_swipe_desc">Відкрити, закрити, пропустити</string>
@@ -1819,7 +1792,6 @@
     <string name="settings_queue_hours_format_desc">Години у форматі часу</string>
     <string name="settings_queue_persistence">Черга збереження</string>
     <string name="settings_queue_persistence_desc">Відновити чергу під час запуску</string>
-    <string name="settings_playlist_action_dialog_desc">Поведінка під час торкання доріжки в списку відтворення</string>
     <string name="settings_list_queue_action_dialog_desc">Поведінка для дій відтворення списку, коли черга активна</string>
     <!-- Experimental Features Search Strings -->
     <string name="settings_exp_festive_theme">Святкова тема</string>
@@ -1929,8 +1901,6 @@
     <!-- MiniPlayer Customization Search Strings -->
     <string name="settings_miniplayer_show_progress">Показати прогрес</string>
     <string name="settings_miniplayer_show_progress_desc">Відображення індикатора прогресу в міні-плеєрі</string>
-    <string name="settings_miniplayer_circular_progress">Круговий прогрес</string>
-    <string name="settings_miniplayer_circular_progress_desc">Використовуйте круговий прогрес на кнопці відтворення/паузи</string>
     <string name="settings_miniplayer_progress_style">Стиль прогресу</string>
     <string name="settings_miniplayer_progress_style_desc">Виберіть стиль панелі прогресу міні-плеєра</string>
     <string name="settings_miniplayer_show_artwork">Показати ілюстрації</string>
@@ -1967,7 +1937,6 @@
     <string name="settings_backup_created">Резервну копію створено успішно</string>
     <string name="settings_backup_settings">Налаштування</string>
     <string name="settings_center_aligned">Вирівнювання по центру</string>
-    <string name="settings_choose_progress_style">Виберіть стиль індикатора прогресу</string>
     <string name="settings_create_backup">Створити резервну копію у файл</string>
     <string name="settings_create_backup_desc">Експортуйте повну резервну копію у файл JSON</string>
     <string name="settings_backup_action_short">Резервне копіювання</string>
@@ -1985,13 +1954,11 @@
     <string name="settings_lyrics_source">Лірика</string>
     <string name="settings_theme">Тема</string>
     <string name="theme_auto_detect">Автоматичне визначення свят</string>
-    <string name="theme_colors_applied">Застосовано власні кольори!</string>
     <string name="theme_enable_festive">Увімкнути святкову тему</string>
     <string name="theme_festive_settings">Налаштування святкової теми</string>
     <string name="theme_font_import_failed">Не вдалося імпортувати файл шрифту</string>
     <string name="theme_font_imported">Шрифт успішно імпортовано</string>
     <string name="theme_font_invalid">Недійсний формат файлу шрифту</string>
-    <string name="theme_import_font">Імпорт спеціального шрифту</string>
     <string name="ui_apply">Застосувати</string>
     <string name="crashactivity_uh_oh_looks_like">Ой ой! Схоже, Rhythm потрапив на кислу ноту!</string>
     <string name="crashactivity_dont_fret_our_app">Не хвилюйтеся! У нашому додатку просто виникла невелика помилка. Будь ласка, поділіться інформацією про збій нижче – це як секретне повідомлення для наших розробників, щоб виправити речі! Тоді давайте спробуємо це ще раз, добре?</string>
@@ -2018,7 +1985,7 @@
     <string name="batchedittagssheet_tags">Теги</string>
     <string name="batchedittagssheet_batch_artwork_preview">Пакетний попередній перегляд ілюстрації</string>
     <string name="deviceconfigurationbottomsheet_supported_formats_fixedbandeq_text">Supported formats: • FixedBandEQ text (AutoEQ) • JSON format • CSV (10 band values)</string>
-    <string name="deviceconfigurationbottomsheet_paste_eq_data_here">Вставте дані еквалайзера сюди...</string>
+    <string name="deviceconfigurationbottomsheet_paste_eq_data_here">Вставте дані еквалайзера сюди…</string>
     <string name="deviceconfigurationbottomsheet_open_autoeqapp">Відкрийте autoeq.app</string>
     <string name="deviceconfigurationbottomsheet_export_eq_profile">Експорт профілю еквалайзера</string>
     <string name="deviceconfigurationbottomsheet_copied_to_clipboard">Скопійовано в буфер обміну</string>
@@ -2028,7 +1995,7 @@
     <string name="deviceconfigurationbottomsheet_brand_optional">Бренд (необов’язково)</string>
     <string name="deviceconfigurationbottomsheet_eg_sony">наприклад, Sony</string>
     <string name="deviceconfigurationbottomsheet_select_autoeq_profile">Виберіть профіль AutoEQ</string>
-    <string name="deviceconfigurationbottomsheet_find_a_profile_for">Знайти профіль для цього пристрою...</string>
+    <string name="deviceconfigurationbottomsheet_find_a_profile_for">Знайти профіль для цього пристрою…</string>
     <string name="deviceconfigurationbottomsheet_no_matching_profiles_found">Відповідних профілів не знайдено</string>
     <string name="multiselectionbottomsheet_go_to_album">Перейти до альбому</string>
     <string name="multiselectionbottomsheet_go_to_artist">Перейти до виконавця</string>
@@ -2045,7 +2012,7 @@
     <string name="localnavigation_metadata_saved_successfully_to">Метадані успішно збережено у файл!</string>
     <string name="localnavigation_permission_required_to_modify">Для зміни метаданих файлу потрібен дозвіл</string>
     <string name="localnavigation_stats">Статистика</string>
-    <string name="addtoplaylistscreen_pick_a_tune_to">Виберіть мелодію, щоб додати...</string>
+    <string name="addtoplaylistscreen_pick_a_tune_to">Виберіть мелодію, щоб додати…</string>
     <string name="addtoplaylistscreen_tap_songs_to_select">Торкніться пісень, щоб вибрати кілька, а потім додайте їх усі одночасно</string>
     <string name="equalizerscreen_reset_to_flat">Скинути до Flat</string>
     <string name="equalizerscreen_autoeq_profiles">Профілі AutoEQ</string>
@@ -2063,7 +2030,6 @@
     <string name="libraryscreen_clear_selection">Очистити вибір</string>
     <string name="onboardingscreen_media_scan_mode">Режим сканування носіїв</string>
     <string name="onboardingscreen_tap_the_remove_action">Торкніться дії видалення, щоб оновити доступ до папки</string>
-    <string name="onboardingscreen_enable_festive_decorations_and">Увімкніть святкові прикраси та сезонні теми</string>
     <string name="onboardingscreen_interaction">Взаємодія</string>
     <string name="onboardingscreen_choose_your_playback_mode">Виберіть режим відтворення</string>
     <string name="onboardingscreen_local_offline_player">Локальний автономний програвач</string>
@@ -2088,7 +2054,7 @@
     <string name="onboardingscreen_enter_server_username">Введіть ім’я користувача сервера</string>
     <string name="onboardingscreen_enter_server_password">Введіть пароль сервера</string>
     <string name="onboardingscreen_successfully_connected">Успішне підключення!</string>
-    <string name="onboardingscreen_connecting">Підключення...</string>
+    <string name="onboardingscreen_connecting">Підключення…</string>
     <string name="onboardingscreen_connect_verify">Підключитися та перевірити</string>
     <string name="splashscreen_go">Go</string>
     <string name="musicviewmodel_failed_to_add_to">Не вдалося додати до черги: програвач не ініціалізовано</string>
@@ -2107,8 +2073,6 @@
     <string name="streamingsettingsscreen_streaming_restricted">Потокове передавання обмежено</string>
     <string name="streamingmusicviewmodel_failed_to_play_next">Не вдалося відтворити далі: не вдається розпізнати URL-адресу</string>
     <string name="streamingmusicviewmodel_failed_to_add_to">Не вдалося додати до черги: не вдалося вирішити URL-адресу</string>
-    <string name="legacywidgetpreview_str_12_vertical_widget">Вертикальний віджет 1×2</string>
-    <string name="legacywidgetpreview_str_32_medium_widget">Середній віджет 3×2</string>
     <string name="rhythmmusicwidget_album_art_placeholder">Обкладинка альбому</string>
     <string name="rhythmwidgetpreview_rhythm_glance_widget_previews">Rhythm Glance Попередній перегляд віджетів</string>
     <string name="rhythmwidgetpreview_str_11_compact_widget">Компактний віджет 1×1</string>
@@ -2131,15 +2095,14 @@
     <string name="songinfobottomsheet_change_artwork">Змінити обкладинку</string>
     <string name="songinfobottomsheet_remove_artwork">Видалити ілюстрації</string>
     <string name="songinfobottomsheet_artwork_fetched_successfully_click">Ілюстрацію успішно отримано! Натисніть «Зберегти», щоб вставити.</string>
-    <string name="songinfobottomsheet_failed_to_download_artwork">Не вдалося завантажити байти ілюстрації</string>
     <string name="songinfobottomsheet_failed_to_download_artwork_1">Не вдалося завантажити ілюстрацію з URL-адреси</string>
     <string name="songinfobottomsheet_no_artwork_found_for">Для цієї пісні в Інтернеті не знайдено обкладинки</string>
     <string name="songinfobottomsheet_online_search_failed">Помилка онлайн-пошуку</string>
     <string name="songinfobottomsheet_online_api_service_unavailable">Онлайн-служба API недоступна</string>
-    <string name="songinfobottomsheet_fetching">Отримання...</string>
+    <string name="songinfobottomsheet_fetching">Отримання…</string>
     <string name="songinfobottomsheet_fetch_online_art">Отримати мистецтво онлайн</string>
     <string name="songinfobottomsheet_update_artwork_and_tags">Оновлення ілюстрації та тегів</string>
-    <string name="songinfobottomsheet_fetching_artwork">Отримання ілюстрації...</string>
+    <string name="songinfobottomsheet_fetching_artwork">Отримання ілюстрації…</string>
     <string name="updatebottomsheet_install">Встановити</string>
     <string name="updatebottomsheet_update">Оновлення</string>
     <string name="collapsibleheader_app_icon">Піктограма програми</string>
@@ -2147,7 +2110,7 @@
     <string name="expressivecomponents_seek_forward">Перейти вперед</string>
     <string name="expressivescrollbar_scroll_indicator">Індикатор прокрутки</string>
     <string name="navigationcomponents_scroll_to_top">Прокрутіть догори</string>
-    <string name="autoeqprofileselector_find_eq_profiles_or">Знайдіть профілі або бренди еквалайзера...</string>
+    <string name="autoeqprofileselector_find_eq_profiles_or">Знайдіть профілі або бренди еквалайзера…</string>
     <string name="autoeqprofileselector_all">Усі</string>
     <string name="autoeqsuggestiondialog_audio_device_detected">Аудіопристрій виявлено</string>
     <string name="autoeqsuggestiondialog_saved_configuration">Збережена конфігурація</string>
@@ -2158,20 +2121,16 @@
     <string name="betaprogrampopup_early_access">Ранній доступ</string>
     <string name="betaprogrampopup_shape_the_future">Формуйте майбутнє</string>
     <string name="betaprogrampopup_direct_feedback">Прямий зворотний зв\'язок</string>
-    <string name="betaprogrampopup_welcome_to_the_beta">Ласкаво просимо до бета-версії</string>
     <string name="betaprogrampopup_youre_part_of_an">Ви є частиною ексклюзивної групи, яка допомагає формувати майбутнє музичного плеєра Rhythm</string>
     <string name="betaprogrampopup_start_exploring">Розпочніть дослідження</string>
-    <string name="playbackpitchdialog_adjust_audio_pitch">Налаштувати висоту звуку</string>
     <string name="switchmodedialog_switch_play">Switch &amp; Play</string>
     <string name="fullscreenlyricsview_cover_artwork">Обкладинка</string>
-    <string name="fullscreenlyricsview_loading_synced_lyrics">Завантаження синхронізованих текстів...</string>
+    <string name="fullscreenlyricsview_loading_synced_lyrics">Завантаження синхронізованих текстів…</string>
     <string name="fullscreenlyricsview_lyrics_arent_available_for">Слова для цієї пісні недоступні</string>
     <string name="fullscreenlyricsview_retry_fetching">Повторити отримання</string>
     <string name="fullscreenlyricsview_romanization">Романізація</string>
     <string name="fullscreenlyricsview_translation">Переклад</string>
     <string name="fullscreenlyricsview_realtime_sync_adjustment">Налаштування синхронізації в реальному часі</string>
-    <string name="fullscreenlyricsview_str_05s">-0,5с</string>
-    <string name="fullscreenlyricsview_str_05s_1">+0,5 с</string>
     <string name="fullscreenlyricsview_reset_offset">Скинути зсув</string>
     <string name="lyricseditorbottomsheet_str_500ms">500 мс</string>
     <string name="lyricseditorbottomsheet_str_100ms">100 мс</string>
@@ -2183,14 +2142,12 @@
     <string name="rhythmstatsscreen_top_songs">Найкращі пісні</string>
     <string name="rhythmstatsscreen_listening_habits">Звички слухати</string>
     <string name="rhythmstatsscreen_listening_timeline">Хронологія прослуховування</string>
-    <string name="rhythmstatsscreen_favorites">Вибране</string>
-    <string name="rhythmstatsscreen_loved_4">Люблю (4+)</string>
     <string name="rhythmstatsscreen_no_stats_available_yet">Статистичних даних ще немає</string>
     <string name="rhythmstatsscreen_keep_listening_to_build">Продовжуйте слухати, щоб побудувати свою музичну подорож!</string>
     <string name="universalsearchscreen_remove_search">Видалити пошук</string>
     <string name="universalsearchscreen_search_across_local_streaming">Локальний пошук і потоковий пошук</string>
-    <string name="universalsearchscreen_loading_streaming_results">Завантаження результатів трансляції...</string>
-    <string name="universalsearchscreen_search_everywhere">Шукати всюди...</string>
+    <string name="universalsearchscreen_loading_streaming_results">Завантаження результатів трансляції…</string>
+    <string name="universalsearchscreen_search_everywhere">Шукати всюди…</string>
     <string name="universalsearchscreen_removed_from_streaming_favorites">Вилучено з вибраного потокового передавання</string>
     <string name="universalsearchscreen_added_to_streaming_favorites">Додано до вибраного потокового відео</string>
     <string name="universalsearchscreen_album_not_found">Альбом не знайдено</string>
@@ -2212,12 +2169,6 @@
     <string name="backuprestoresettingsscreen_choose_restore_sections">Виберіть «Відновити розділи».</string>
     <string name="backuprestoresettingsscreen_select_which_sections_from">Виберіть, які розділи з резервної копії потрібно відновити.</string>
     <string name="crashloghistorysettingsscreen_no_crashes">Жодних збоїв</string>
-    <string name="customcolorsdialog_color_preview">Попередній перегляд кольорів</string>
-    <string name="customcolorsdialog_color_picker">Палітра кольорів</string>
-    <string name="customcolorsdialog_color_inspirations">Кольорове натхнення</string>
-    <string name="customcolorsdialog_warm_cozy">Тепло та затишно</string>
-    <string name="customcolorsdialog_cool_fresh">Круто та свіжо</string>
-    <string name="customcolorsdialog_nature_earth">Природа і земля</string>
     <string name="expressiveshapessettingsscreen_randomize_shapes">Рандомізуйте форми</string>
     <string name="expressiveshapessettingsscreen_randomize_all_shapes">Рандомізуйте всі форми</string>
     <string name="expressiveshapessettingsscreen_individual_shape_settings">Індивідуальні параметри форми</string>
@@ -2262,16 +2213,12 @@
     <string name="settingsscreen_audio_equalizer">Еквалайзер звуку</string>
     <string name="settingsscreen_library_settings">Параметри бібліотеки</string>
     <string name="settingssearch_settings_suggestions">Пропозиції налаштувань</string>
-    <string name="themecustomizationsettingsscreen_rgb_values">Значення RGB</string>
     <string name="updatessettingsscreen_simulating_update_installation_success">Імітація встановлення оновлення (успішно!)</string>
     <string name="updatessettingsscreen_unable_to_open_release">Неможливо відкрити сторінку випуску</string>
     <string name="updatessettingsscreen_refer_to_release_notes">Див. примітки до випуску на сторінці випусків GitHub.</string>
     <string name="widgetsettingsscreen_widget_settings">Налаштування віджетів</string>
     <string name="widgetsettingsscreen_show_favorite_button">Показати кнопку «Вибране».</string>
     <string name="widgetsettingsscreen_widget_theme">Тема віджета</string>
-    <string name="widgetsettingsscreen_rhythm_uses_material_3">Rhythm використовує Material 3 Виразний дизайн із динамічними кольорами</string>
-    <string name="widgetsettingsscreen_widget_adapts_from_1x1">Віджет адаптується від кнопки відтворення 1x1 до повного макета 5x5+</string>
-    <string name="widgetsettingsscreen_longpress_and_resize_for">Утримуйте та змінюйте розмір для різних виразних макетів</string>
     <string name="widgetsettingsscreen_applies_to_glance_widgets">Застосовується лише до віджетів Glance</string>
     <string name="widgetsettingsscreen_personalize_home_screen_widgets">Персоналізуйте віджети головного екрана</string>
     <string name="festivesplashgreeting_merry_christmas">З Різдвом Христовим!</string>
@@ -2301,7 +2248,12 @@
     <string name="artist_artwork_description">Ілюстрація художника для %1$s</string>
     <string name="explorer_item_icon_description">Значок %1$s</string>
     <string name="song_added_to_blacklist_format">%1$s додано до чорного списку</string>
-    <string name="playlist_import_success">Успішно імпортовано %1$d списків відтворення.\n%2$s\n\nПерезапустіть програму, щоб застосувати зміни.</string>
+    <plurals name="playlist_import_success">
+        <item quantity="one">Успішно імпортовано %1$d списків відтворення.\n%2$s\n\nПерезапустіть програму, щоб застосувати зміни.</item>
+        <item quantity="few">Успішно імпортовано %1$d списків відтворення.\n%2$s\n\nПерезапустіть програму, щоб застосувати зміни.</item>
+        <item quantity="many">Успішно імпортовано %1$d списків відтворення.\n%2$s\n\nПерезапустіть програму, щоб застосувати зміни.</item>
+        <item quantity="other">Успішно імпортовано %1$d списків відтворення.\n%2$s\n\nПерезапустіть програму, щоб застосувати зміни.</item>
+    </plurals>
     <string name="play_artist">Грати %1$s</string>
     <string name="will_play_next">Наступним зіграє %1$s</string>
     <string name="added_to_queue">%1$s додано до черги</string>
@@ -2309,9 +2261,6 @@
     <string name="playing_next_simple">Далі грає: %1$s</string>
     <string name="failed_to_request_permission">Не вдалося запитати дозвіл: %1$s</string>
     <string name="unexpected_error">Неочікувана помилка: %1$s</string>
-    <string name="rating_stars_desc">%1$s - %2$d зірок</string>
-    <string name="rating_stars_count">%1$d зірок</string>
-    <string name="rating_unknown">Невідомо</string>
     <string name="album_artwork_description">Обкладинка альбому %1$s</string>
     <string name="error_fetching_artwork">Помилка отримання ілюстрації: %1$s</string>
     <string name="edit_lyrics">Редагувати текст</string>
@@ -2324,22 +2273,12 @@
     <string name="equalizer_open_error">Не вдалося відкрити еквалайзер: %1$s</string>
     <string name="track_artwork_description">Зображення для доріжки %1$s</string>
     <string name="playlist_artwork_description">Зображення для списку відтворення %1$s</string>
-    <string name="play">Грати</string>
-    <string name="pause">Пауза</string>
-    <string name="playlist_remove_songs_confirm">Ви впевнені, що хочете видалити %1$d пісень із цього списку відтворення?</string>
-    <string name="rating_not_rated">Без рейтингу</string>
-    <string name="rating_liked">Сподобалось</string>
-    <string name="rating_good">Добре</string>
-    <string name="rating_great">Чудово</string>
-    <string name="rating_loved">Любив</string>
-    <string name="rating_absolute_favorite">Абсолютний фаворит</string>
-    <string name="rating_desc_not_rated">Без рейтингу</string>
-    <string name="rating_desc_liked">Сподобалось – добре для часового прослуховування</string>
-    <string name="rating_desc_good">Хороший – надійний трек</string>
-    <string name="rating_desc_great">Чудово – це справді подобається</string>
-    <string name="rating_desc_loved">Люблю – один із моїх улюблених</string>
-    <string name="rating_desc_absolute_favorite">Абсолютний фаворит – трек найвищого рівня</string>
-    <string name="rating_desc_unknown">Невідомий рейтинг</string>
+    <plurals name="playlist_remove_songs_confirm">
+        <item quantity="one">Ви впевнені, що хочете видалити %1$d пісень із цього списку відтворення?</item>
+        <item quantity="few">Ви впевнені, що хочете видалити %1$d пісень із цього списку відтворення?</item>
+        <item quantity="many">Ви впевнені, що хочете видалити %1$d пісень із цього списку відтворення?</item>
+        <item quantity="other">Ви впевнені, що хочете видалити %1$d пісень із цього списку відтворення?</item>
+    </plurals>
     <!-- Settings Toggles / Options Descriptions -->
     <string name="widget_show_favorite_button_desc">Відображати улюблені перемикачі на великих віджетах</string>
     <string name="settings_clear_all_logs_desc">Видалити всі збережені звіти про збої</string>
@@ -2396,10 +2335,6 @@
     <string name="settings_tip_miniplayer_active_desc_2">Індикатор прогресу активний у міні-програвачі. Далі спробуйте змінити форму та кути.</string>
     <string name="settings_tip_miniplayer_inactive_desc_1">Прогрес міні-програвача приховано. Увімкніть його для швидкого відстеження.</string>
     <string name="settings_tip_miniplayer_inactive_desc_2">Компактний режим тепер мінімальний. Увімкніть прогрес для кращої видимості.</string>
-    <string name="settings_tip_library_active_desc_1">Рейтинги ввімкнено. Використовуйте налаштування бібліотеки, щоб покращити виявлення та сортування.</string>
-    <string name="settings_tip_library_active_desc_2">Ваша бібліотека підтримує рейтинги. Налаштуйте сканування та групування для чистішого перегляду.</string>
-    <string name="settings_tip_library_inactive_desc_1">Рейтинги вимкнено. Налаштування бібліотеки можуть покращити структуру та швидкість.</string>
-    <string name="settings_tip_library_inactive_desc_2">Виявлено режим спрощеної бібліотеки. Налаштуйте групування для швидшої навігації.</string>
     <!-- Lyrics Source Dialog -->
     <string name="lyrics_source_embedded_first">Спочатку вбудовано</string>
     <string name="lyrics_source_embedded_first_desc">Спробуйте метадані аудіофайлів → Онлайн-інтерфейси API → Файли .lrc</string>
@@ -2453,10 +2388,6 @@
     <string name="color_scheme_emerald_desc">Свіжа смарагдова зелень із природними лісовими відтінками</string>
     <string name="color_scheme_mint_title">Монетний двір</string>
     <string name="color_scheme_mint_desc">Свіжі та чисті блакитні та м’ятно-зелені тони</string>
-    <!-- Color Preview Chips -->
-    <string name="theme_color_primary">Первинний</string>
-    <string name="theme_color_secondary">Вторинний</string>
-    <string name="theme_color_tertiary">Третинний</string>
     <!-- Lyrics Settings Screen -->
     <string name="lyrics_settings_title">Лірика</string>
     <string name="lyrics_settings_general">Загальні налаштування</string>
@@ -2494,12 +2425,16 @@
     <string name="lyrics_settings_word_by_word_translation_desc">Автоматично генерувати хронометраж на рівні слова для тексту, синхронізованого рядками, пропорційно розподіляючи тривалість</string>
     <string name="lyrics_settings_info_bullets">Додаткові відомості про синхронізацію:\n• Онлайн-інтерфейси API забезпечують високоякісні синхронізовані тексти пісень\n• Rhythm пропонують синхронізацію слово за словом\n• LRCLib забезпечує безкоштовну синхронізацію рядків за рядками</string>
     <!-- AutoEQ Preset Picker additions -->
-    <string name="autoeqpresetpickerbottomsheet_search_presets">Попередні налаштування пошуку...</string>
+    <string name="autoeqpresetpickerbottomsheet_search_presets">Попередні налаштування пошуку…</string>
     <string name="autoeqpresetpickerbottomsheet_disable">Немає / Вимкнути AutoEQ</string>
     <string name="autoeqpresetpickerbottomsheet_disable_desc">Очистити профіль навушників, використовувати стандартні налаштування еквалайзера</string>
-    <string name="autoeqpresetpickerbottomsheet_unknown_brand">Невідомий бренд</string>
     <!-- Device Configuration additions -->
-    <string name="device_configuration_devices_configured">%1$d пристроїв налаштовано</string>
+    <plurals name="device_configuration_devices_configured">
+        <item quantity="one">%1$d пристроїв налаштовано</item>
+        <item quantity="few">%1$d пристроїв налаштовано</item>
+        <item quantity="many">%1$d пристроїв налаштовано</item>
+        <item quantity="other">%1$d пристроїв налаштовано</item>
+    </plurals>
     <string name="device_configuration_device_recognized">Пристрій розпізнано</string>
     <string name="device_configuration_new_device_detected">Виявлено новий пристрій</string>
     <string name="device_configuration_configured_with">%1$s налаштовано за допомогою %2$s</string>
@@ -2519,7 +2454,12 @@
     <string name="device_configuration_save">Зберегти</string>
     <string name="device_configuration_add">Додати</string>
     <string name="device_configuration_for_device">Для %1$s</string>
-    <string name="device_configuration_profiles_available">Доступні профілі %1$d</string>
+    <plurals name="device_configuration_profiles_available">
+        <item quantity="one">Доступні профілі %1$d</item>
+        <item quantity="few">Доступні профілі %1$d</item>
+        <item quantity="many">Доступні профілі %1$d</item>
+        <item quantity="other">Доступні профілі %1$d</item>
+    </plurals>
     <string name="device_configuration_disable_compensation">Вимкнути компенсацію навушників</string>
     <!-- Common UI element strings -->
     <string name="common_none">Жодного</string>
@@ -2548,7 +2488,12 @@
     <string name="blacklist_track_label">Доріжка %1$d</string>
     <!-- Library & Playlist Dialog additions -->
     <string name="dialog_add_song_to_playlist">Додайте \"%1$s\" до цього списку відтворення</string>
-    <string name="dialog_songs_in_queue">Ви маєте %1$d пісень у поточній черзі.</string>
+    <plurals name="dialog_songs_in_queue">
+        <item quantity="one">Ви маєте %1$d пісень у поточній черзі.</item>
+        <item quantity="few">Ви маєте %1$d пісень у поточній черзі.</item>
+        <item quantity="many">Ви маєте %1$d пісень у поточній черзі.</item>
+        <item quantity="other">Ви маєте %1$d пісень у поточній черзі.</item>
+    </plurals>
     <string name="dialog_play_song_how">Як би ви хотіли зіграти в \"%1$s\"?</string>
     <string name="dialog_clear_and_play">Clear &amp; Play</string>
     <string name="dialog_clear_and_play_desc">Замінити чергу та відтворити цю пісню</string>
@@ -2556,7 +2501,12 @@
     <string name="dialog_add_to_queue_desc">Зберегти поточну чергу та додати пісню</string>
     <string name="dialog_restart_warning_message">Щоб усі імпортовані списки відтворення працювали належним чином, радимо перезапустити програму. Ви можете продовжувати користуватися програмою в звичайному режимі, але деякі функції можуть не працювати належним чином до перезавантаження.</string>
     <string name="dialog_export_playlist_to">Експорт \"%1$s\" до:</string>
-    <string name="dialog_export_playlists_to">Експорт %1$d списків відтворення до:</string>
+    <plurals name="dialog_export_playlists_to">
+        <item quantity="one">Експорт %1$d списків відтворення до:</item>
+        <item quantity="few">Експорт %1$d списків відтворення до:</item>
+        <item quantity="many">Експорт %1$d списків відтворення до:</item>
+        <item quantity="other">Експорт %1$d списків відтворення до:</item>
+    </plurals>
     <!-- Mode dialog strings -->
     <string name="dialog_switch_to_go">Switch to Rhythm Go?</string>
     <string name="dialog_switch_to_local">Перейти на локальний?</string>
@@ -2595,20 +2545,12 @@
     <string name="library_sort_date_modified">Дата зміни</string>
     <string name="library_sort_ascending">За зростанням</string>
     <string name="library_sort_descending">За спаданням</string>
-    <string name="library_scan_songs">Сканування пісень...</string>
-    <string name="library_scan_albums">Обробка альбомів...</string>
-    <string name="library_scan_artists">Обробка виконавців...</string>
-    <string name="library_scan_genres">Виявлення жанрів...</string>
-    <string name="library_scan_media">Сканування носія...</string>
+    <string name="library_scan_songs">Сканування пісень…</string>
+    <string name="library_scan_media">Сканування носія…</string>
     <string name="library_category_all">Усі</string>
     <string name="library_category_favorites">❤️ Вибране</string>
-    <string name="library_category_absolute_favorites">⭐⭐⭐⭐⭐ Абсолютні фаворити</string>
-    <string name="library_category_loved">⭐⭐⭐⭐ Люблю</string>
-    <string name="library_category_great">⭐⭐⭐ Чудово</string>
-    <string name="library_category_good">⭐⭐ Добре</string>
-    <string name="library_category_liked">⭐ Сподобалось</string>
     <string name="library_category_short">Короткий (&lt; 3 хв)</string>
-    <string name="library_category_medium">Середній (3-5 хв)</string>
+    <string name="library_category_medium">Середній (3–5 хв)</string>
     <string name="library_category_long">Довгий (&gt; 5 хв)</string>
     <string name="library_category_mono">Моно</string>
     <string name="library_category_stereo">Стерео</string>
@@ -2616,9 +2558,18 @@
     <string name="library_no_albums_yet">Альбомів ще немає</string>
     <string name="library_no_artists_yet">Виконавців ще немає</string>
     <string name="library_action_add_to_playlist">Додати до списку відтворення</string>
-    <string name="library_action_rate_song">Оцініть пісню</string>
-    <string name="library_selected_count_format">%1$d Вибрано</string>
-    <string name="library_from_tracks_format">із %1$d треків</string>
+    <plurals name="library_selected_count_format">
+        <item quantity="one">%1$d Вибрано</item>
+        <item quantity="few">%1$d Вибрано</item>
+        <item quantity="many">%1$d Вибрано</item>
+        <item quantity="other">%1$d Вибрано</item>
+    </plurals>
+    <plurals name="library_from_tracks_format">
+        <item quantity="one">із %1$d треків</item>
+        <item quantity="few">із %1$d треків</item>
+        <item quantity="many">із %1$d треків</item>
+        <item quantity="other">із %1$d треків</item>
+    </plurals>
     <!-- Onboarding, Backup & Settings additions -->
     
     <string name="backup_restored_success">Резервну копію успішно відновлено. Перезапустіть програму, щоб застосувати всі зміни.</string>
@@ -2651,75 +2602,40 @@
     <string name="shape_preset_custom">Звичайний</string>
     <string name="shape_preset_custom_desc">Ваш персональний вибір</string>
     <string name="shape_option_square">Квадрат</string>
-    <string name="shape_option_square_desc">Округлений квадрат</string>
     <string name="shape_option_oval">Овал</string>
-    <string name="shape_option_oval_desc">Подовжений овал</string>
     <string name="shape_option_pill">Таблетка</string>
-    <string name="shape_option_pill_desc">Форма капсули</string>
     <string name="shape_option_diamond">Діамант</string>
-    <string name="shape_option_diamond_desc">Форма ромба</string>
     <string name="shape_option_triangle">Трикутник</string>
-    <string name="shape_option_triangle_desc">Округлений трикутник</string>
     <string name="shape_option_pentagon">Пентагон</string>
-    <string name="shape_option_pentagon_desc">П\'ятикутник</string>
     <string name="shape_option_flower">Квітка</string>
-    <string name="shape_option_flower_desc">Квітка з пелюстками</string>
     <string name="shape_option_heart">Серце</string>
-    <string name="shape_option_heart_desc">Форма серця</string>
     <string name="shape_option_bun">Булочка</string>
-    <string name="shape_option_bun_desc">Форма булочки/хліба</string>
     <string name="shape_option_boom">Бум</string>
-    <string name="shape_option_boom_desc">Форма вибуху</string>
     <string name="shape_option_soft_boom">М\'яка стріла</string>
-    <string name="shape_option_soft_boom_desc">М\'якший вибух</string>
     <string name="shape_option_burst">Вибух</string>
-    <string name="shape_option_burst_desc">Форма зорепаду</string>
     <string name="shape_option_soft_burst">М\'який сплеск</string>
-    <string name="shape_option_soft_burst_desc">М\'якше зорепад</string>
     <string name="shape_option_sunny">Сонячно</string>
-    <string name="shape_option_sunny_desc">Сонце з променями</string>
     <string name="shape_option_very_sunny">Дуже сонячно</string>
-    <string name="shape_option_very_sunny_desc">Сонце з більшою кількістю променів</string>
     <string name="shape_option_cookie4">Файл cookie 4</string>
-    <string name="shape_option_cookie4_desc">4-стороннє печиво</string>
     <string name="shape_option_cookie6">Файл cookie 6</string>
-    <string name="shape_option_cookie6_desc">6-стороннє печиво</string>
     <string name="shape_option_cookie7">Файл cookie 7</string>
-    <string name="shape_option_cookie7_desc">7-стороннє печиво</string>
     <string name="shape_option_cookie9">Файл cookie 9</string>
-    <string name="shape_option_cookie9_desc">9-стороннє печиво</string>
     <string name="shape_option_cookie12">Файл cookie 12</string>
-    <string name="shape_option_cookie12_desc">12-гранне печиво</string>
     <string name="shape_option_ghostish">Ghostish</string>
-    <string name="shape_option_ghostish_desc">Форма, схожа на привид</string>
     <string name="shape_option_puffy">Пухлий</string>
-    <string name="shape_option_puffy_desc">Хмароподібна форма</string>
     <string name="shape_option_puffy_diamond">Puffy Diamond</string>
-    <string name="shape_option_puffy_diamond_desc">Роздутий діамант</string>
     <string name="shape_option_fan">Вентилятор</string>
-    <string name="shape_option_fan_desc">Форма віяла</string>
     <string name="shape_option_circle">Коло</string>
-    <string name="shape_option_circle_desc">Ідеальне коло</string>
     <string name="shape_option_clover_4_leaf">4-листа конюшина</string>
-    <string name="shape_option_clover_4_leaf_desc">Конюшина чотирилисна</string>
     <string name="shape_option_clover_8_leaf">8-листкова конюшина</string>
-    <string name="shape_option_clover_8_leaf_desc">Восьмилисник</string>
     <string name="shape_option_arrow">Стрілка</string>
-    <string name="shape_option_arrow_desc">Покажчик зі стрілкою</string>
     <string name="shape_option_arch">Арх</string>
-    <string name="shape_option_arch_desc">Форма арки</string>
     <string name="shape_option_clam_shell">Мушля молюска</string>
-    <string name="shape_option_clam_shell_desc">Форма мушлі</string>
     <string name="shape_option_gem">Gem</string>
-    <string name="shape_option_gem_desc">Форма дорогоцінного каменю</string>
     <string name="shape_option_semi_circle">Півколо</string>
-    <string name="shape_option_semi_circle_desc">Півколо</string>
     <string name="shape_option_slanted">Похилий</string>
-    <string name="shape_option_slanted_desc">Косий квадрат</string>
     <string name="shape_option_pixel_circle">Піксельне коло</string>
-    <string name="shape_option_pixel_circle_desc">Нерівне коло</string>
     <string name="shape_option_pixel_triangle">Піксельний трикутник</string>
-    <string name="shape_option_pixel_triangle_desc">Нерівний трикутник</string>
     <string name="shape_group_basic">Основні</string>
     <string name="shape_group_organic">Органічний</string>
     <string name="shape_group_playful">Грайливий</string>
@@ -2731,15 +2647,10 @@
     <string name="option_always">Завжди</string>
     <string name="option_expanded">Розширено</string>
     <string name="option_collapsed">Згорнуто</string>
-    <string name="option_linear">Лінійний</string>
-    <string name="option_circular">Циркуляр</string>
     <string name="option_both">Обидва</string>
     <string name="option_icon">Значок</string>
     <string name="option_name">Ім\'я</string>
     <!-- Theme settings additions -->
-    <string name="theme_color_red">Червоний</string>
-    <string name="theme_color_green">Зелений</string>
-    <string name="theme_color_blue">Синій</string>
     <!-- Color Scheme names -->
 
     <!-- Shape Utils category and descriptions -->
@@ -2752,7 +2663,6 @@
     <string name="metadata_album_artist">Виконавець альбому</string>
     <string name="metadata_play_count">Лічильник відтворення</string>
     <string name="metadata_total_played">Усього зіграно</string>
-    <string name="metadata_rating">Рейтинг</string>
     <string name="metadata_quality">Якість</string>
     <string name="metadata_audio_tech">Audio Tech</string>
     <string name="metadata_bit_depth">Розрядність</string>
@@ -2796,7 +2706,7 @@
     <string name="lyric_widget_description">Віджет, який показує тексти медіафайлів, які зараз відтворюються</string>
     <string name="edit_album_title">Редагувати альбом</string>
     <string name="edit_album_desc">Редагувати теги та обкладинку для всіх пісень у цьому альбомі.</string>
-    <string name="edit_album_saving">Оновлення метаданих альбому...</string>
+    <string name="edit_album_saving">Оновлення метаданих альбому…</string>
     <string name="streaming_service_setup_auto_detect">Автоматичне визначення</string>
     <string name="nearby_server_discovery_title">Сервери поблизу</string>
     <string name="nearby_server_discovery_desc">Виберіть сервер, виявлений у вашій локальній мережі</string>
@@ -2810,8 +2720,6 @@
     <string name="fdroid_update_warning_title">Попередження безпеки</string>
     <string name="fdroid_update_warning_message">Увімкнення оновлень у програмі на збірці F-Droid обходить перевірки безпеки F-Droid. Оновлення будуть завантажені безпосередньо від видавця. Ви бажаєте продовжити?</string>
     <!-- Replay Gain Settings Screen -->
-    <string name="replay_gain_status_active">Активний</string>
-    <string name="replay_gain_status_disabled">Вимкнено</string>
     <string name="replay_gain_mode_title">Режим ReplayGain</string>
     <string name="replay_gain_mode_desc">Налаштуйте рівні гучності на основі метаданих композиції або метаданих альбому.</string>
     <string name="replay_gain_mode_track">Трек</string>
@@ -2834,7 +2742,12 @@
     <string name="backup_restore_section_insight_desc">Кількість відтворень, щоденна статистика, жанри та конфігурація Rhythm Guard.</string>
     <string name="backup_restore_status_included">Включено</string>
     <string name="backup_restore_status_excluded">Виключено</string>
-    <string name="backup_restore_sections_enabled">%1$d з %2$d увімкнено</string>
+    <plurals name="backup_restore_sections_enabled">
+        <item quantity="one">%1$d з %2$d увімкнено</item>
+        <item quantity="few">%1$d з %2$d увімкнено</item>
+        <item quantity="many">%1$d з %2$d увімкнено</item>
+        <item quantity="other">%1$d з %2$d увімкнено</item>
+    </plurals>
     <!-- Settings status cards -->
     <string name="status_active">Активний</string>
     <!-- Sort menu options -->
@@ -2850,12 +2763,6 @@
     <string name="library_bottom_bar_more_actions">Більше дій</string>
     <string name="library_play_selected">Грати (%1$d)</string>
     <!-- Rhythm Guard Comic Status Subtitles -->
-    <string name="rhythm_guard_health_desc_good">Ваші вуха влаштовують вечірку ідеального об’єму. Продовжуйте вітатися відповідально! 🎉</string>
-    <string name="rhythm_guard_health_desc_fair">Тут стає трохи гостро. Може, трохи зменшити його, перш ніж охоронець ввійде? 🌶️</string>
-    <string name="rhythm_guard_health_desc_risk">Ой, рок-зірко, ти в небезпечній зоні барабанної перетинки! Наберіть назад, перш ніж спрацюють блокування! 🎸🔥</string>
-    <string name="rhythm_guard_health_desc_cooldown">Безпечна зона активна! Rhythm Охоронець вільний від служби під час перерви на каву, тому джемуйте вільно без тайм-аутів! 🎫☕</string>
-    <string name="rhythm_guard_health_desc_timeout">Акустичний тайм-аут активний. Триває обов’язковий сон на вухах, щоб захистити ваш слух! 😴🛑</string>
-    <string name="rhythm_guard_health_desc_off">Rhythm Охоронець не працює. Ви літаєте абсолютно самостійно з безпечним об’ємом. Божої дари! 🏍️💨</string>
     <!-- Player, Bottomsheet, and Popup translations -->
     <string name="unknown_track">Невідомий трек</string>
     <string name="unknown_song">Невідома пісня</string>
@@ -2868,20 +2775,26 @@
     <string name="artist_options">Параметри виконавця</string>
     <string name="edit_album_title_label">Назва альбому</string>
     <string name="edit_album_artist_label">Виконавець альбому</string>
-    <string name="autoeq_profiles_available">Доступні профілі %1$d</string>
+    <plurals name="autoeq_profiles_available">
+        <item quantity="one">Доступні профілі %1$d</item>
+        <item quantity="few">Доступні профілі %1$d</item>
+        <item quantity="many">Доступні профілі %1$d</item>
+        <item quantity="other">Доступні профілі %1$d</item>
+    </plurals>
     <string name="autoeq_no_brand">Без марки</string>
     <string name="autoeq_change_profile">Змінити профіль</string>
     <string name="autoeq_configure_device">Налаштувати пристрій</string>
-    <string name="playlist_count_format">%1$d списки відтворення</string>
-    <string name="ui_song_count">1 пісня</string>
+    <plurals name="playlist_count_format">
+        <item quantity="one">%1$d списки відтворення</item>
+        <item quantity="few">%1$d списки відтворення</item>
+        <item quantity="many">%1$d списки відтворення</item>
+        <item quantity="other">%1$d списки відтворення</item>
+    </plurals>
     <string name="duration_minutes_format">%1$dм</string>
-    <string name="updates_channel_beta_title">Бета-версія.</string>
-    <string name="updates_channel_nightly_title">Нічна</string>
     <string name="settings_rhythm_guard_first_break_dialog_title">Про Музичні Зупинки</string>
     <string name="settings_rhythm_guard_first_break_dialog_turn_off">Вимкнути Rhytm Guard</string>
     <string name="settings_rhythm_guard_locked_during_break">Заблоковано протягом музичної паузи</string>
     <string name="lyrically_sources_title">Ліричні Джерела</string>
-    <string name="updates_channel_stable_title">Стабільна</string>
     <string name="updates_channel_stable_desc">Отримувати лише стабільні релізи.</string>
     <string name="updates_channel_beta_desc">Отримувати пререлізи та реліз-кандидати.</string>
     <string name="updates_channel_nightly_desc">Отримувати найновіші нічні збірки, комільовані з головної гілки.</string>

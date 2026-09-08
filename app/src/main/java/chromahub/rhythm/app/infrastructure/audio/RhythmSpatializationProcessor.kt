@@ -1,3 +1,8 @@
+/*
+ * SPDX-FileCopyrightText: 2024-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 package chromahub.rhythm.app.infrastructure.audio
 
 import android.util.Log
@@ -28,10 +33,13 @@ class RhythmSpatializationProcessor : RhythmAudioProcessor() {
     }
     
     // Parent processor for dynamic configuration sharing (crossfade thread safety)
+    @Volatile
     private var parentProcessor: RhythmSpatializationProcessor? = null
 
     // Spatialization strength (0-1000)
+    @Volatile
     private var strength: Short = 0
+    @Volatile
     private var enabled: Boolean = false
     
     /**

@@ -4,32 +4,13 @@
     <!-- Updated for more vibrant, expressive design with better contrast -->
     
     <!-- Background colors with subtle translucency for depth -->
-    <color name="widget_background">#F2E7F9EF</color> <!-- Light translucent surface -->
-    <color name="widget_background_dark">#E61C1B1F</color> <!-- Dark translucent surface -->
-    <color name="widget_surface">#E7F9EF</color> <!-- Light surface with slight tint -->
-    <color name="widget_surface_dark">#1C1B1F</color> <!-- Dark surface -->
     
     <!-- Primary colors - More vibrant and expressive -->
-    <color name="widget_primary">#7B5AE2</color> <!-- Bright expressive purple -->
-    <color name="widget_primary_dark">#9B7DFF</color> <!-- Lighter purple for dark mode -->
-    <color name="widget_primary_container">#EADDFF</color> <!-- Light purple container -->
-    <color name="widget_primary_container_dark">#4A3680</color> <!-- Dark purple container -->
     
     <!-- Secondary colors -->
-    <color name="widget_secondary_container">#E8DEF8</color> <!-- Light secondary -->
-    <color name="widget_secondary_container_dark">#3E3546</color> <!-- Dark secondary -->
     
     <!-- Text colors with better contrast -->
-    <color name="widget_on_surface">#1C1B1F</color> <!-- Dark text on light -->
-    <color name="widget_on_surface_dark">#E6E1E5</color> <!-- Light text on dark -->
-    <color name="widget_on_surface_variant">#49454F</color> <!-- Secondary text light -->
-    <color name="widget_on_surface_variant_dark">#CAC4D0</color> <!-- Secondary text dark -->
-    <color name="widget_on_primary">#FFFFFF</color> <!-- White on primary -->
-    <color name="widget_on_primary_dark">#FFFFFF</color> <!-- White on primary dark -->
     
     <!-- Accent colors for highlights and states -->
-    <color name="widget_accent">#FF4081</color> <!-- Pink accent for playing state -->
-    <color name="widget_outline">#79747E</color> <!-- Outline for light mode -->
-    <color name="widget_outline_dark">#938F99</color> <!-- Outline for dark mode -->
 </resources>
 

@@ -5,33 +5,20 @@
     <string name="home">Thuis</string>
     <string name="library">Bibliotheek</string>
     <string name="search">Zoeken</string>
-    <string name="settings">Instellingen</string>
     <!-- Media3 notification configuration -->
     <string name="media3_notification_channel_name">Rhythm Muziek</string>
     <string name="media3_notification_channel_description">Bedieningselementen voor het afspelen van media</string>
     <!-- Widget strings -->
-    <string name="widget_description">Rhythm Muziekwidget - Regel het afspelen met responsieve lay-outs die rastergroottes van 2x1 tot 5x5 ondersteunen</string>
     <string name="widget_description_glance">Rhythm Muziek - Regel het afspelen met 9 responsieve lay-outs, Material 3 ontwerp en realtime statusupdates</string>
     <string name="widget_name_glance">Rhythm Muziek</string>
-    <string name="no_song_playing">Er wordt geen nummer afgespeeld</string>
     <string name="unknown_artist">Onbekende kunstenaar</string>
-    <string name="unknown_album">Onbekend album</string>
-    <string name="album_art">Albumhoezen</string>
     <string name="play_pause">Afspelen/pauzeren</string>
-    <string name="skip_next">Volgende overslaan</string>
-    <string name="skip_previous">Vorige overslaan</string>
     <!-- Widget Settings -->
     <string name="settings_widget">Widget</string>
     <string name="settings_widget_desc">Widgets op het startscherm</string>
-    <string name="widget_show_album_art">Albumhoezen tonen</string>
-    <string name="widget_show_album_art_desc">Geef albumillustraties weer in de widget</string>
-    <string name="widget_show_artist">Naam artiest tonen</string>
     <string name="widget_show_artist_desc">Artiestinformatie weergeven</string>
-    <string name="widget_show_album">Albumnaam tonen</string>
     <string name="widget_show_album_desc">Albuminformatie weergeven</string>
     <string name="widget_appearance">Uiterlijk</string>
-    <string name="widget_corner_radius">Hoekradius</string>
-    <string name="widget_auto_update">Automatische update</string>
     <string name="widget_tip_controls">Tik op de widget om de app te openen, knoppen regelen het afspelen</string>
     <!-- Content Descriptions -->
     <string name="cd_navigate">Navigeren</string>
@@ -108,7 +95,10 @@
     <string name="settings_export_all_playlists">Exporteer alle afspeellijsten</string>
     <string name="settings_export_all_playlists_desc">Maak een back-up van alle afspeellijsten naar een bestand</string>
     <string name="settings_cleanup_empty_playlists">Lege afspeellijsten opruimen</string>
-    <string name="settings_cleanup_empty_playlists_desc">Verwijder %1$d lege afspeellijst%2$s</string>
+    <plurals name="settings_cleanup_empty_playlists_desc">
+        <item quantity="one">Verwijder %1$d lege afspeellijst</item>
+        <item quantity="other">Verwijder %1$d lege afspeellijst</item>
+    </plurals>
     <string name="settings_default_playlists">Standaardafspeellijsten</string>
     <string name="settings_no_default_playlists">Geen standaardafspeellijsten</string>
     <string name="settings_no_default_playlists_desc">Standaardafspeellijsten worden automatisch aangemaakt</string>
@@ -121,29 +111,38 @@
     <string name="settings_enable_default_playlists">Standaardafspeellijsten inschakelen</string>
     <string name="settings_enable_default_playlists_desc">Maak automatisch recent toegevoegde en meest afgespeelde afspeellijsten</string>
     <!-- Operation Progress -->
-    <string name="operation_exporting_playlists">Een back-up maken van uw aangepaste afspeellijsten...</string>
-    <string name="operation_exporting_playlists_location">Een back-up maken van afspeellijsten naar opslag...</string>
+    <string name="operation_exporting_playlists">Een back-up maken van uw aangepaste afspeellijsten…</string>
+    <string name="operation_exporting_playlists_location">Een back-up maken van afspeellijsten naar opslag…</string>
     <string name="operation_importing_playlist">Afspeellijstbestand importeren…</string>
     <string name="notification_operations_channel_name">Rhythm Bibliotheek</string>
     <string name="notification_operations_channel_desc">Voortgang en resultaten voor bibliotheekscans en afspeellijstacties</string>
     <string name="notification_media_scan_title">Rhythm Bibliotheekscan</string>
-    <string name="notification_media_scan_stage_songs">Apparaatopslag scannen voor audiotracks...</string>
-    <string name="notification_media_scan_stage_saving">Audiotrackdatabase optimaliseren en opslaan...</string>
-    <string name="notification_media_scan_stage_finishing">Audio-indexering voltooien...</string>
-    <string name="notification_media_scan_complete_pending_setup">Audioscannen voltooid, achtergrondtaken worden geïnitialiseerd...</string>
+    <string name="notification_media_scan_stage_songs">Apparaatopslag scannen voor audiotracks…</string>
+    <string name="notification_media_scan_stage_saving">Audiotrackdatabase optimaliseren en opslaan…</string>
+    <string name="notification_media_scan_stage_finishing">Audio-indexering voltooien…</string>
+    <string name="notification_media_scan_complete_pending_setup">Audioscannen voltooid, achtergrondtaken worden geïnitialiseerd…</string>
     <string name="notification_media_scan_cancelled">Bibliotheekscan is geannuleerd.</string>
     <string name="notification_media_scan_failed">Bibliotheekscan mislukt. Controleer de opslagrechten en probeer het opnieuw.</string>
     <string name="notification_playlist_export_title">Rhythm Bibliotheekexport</string>
     <string name="notification_playlist_import_title">Rhythm Bibliotheekimport</string>
     <string name="notification_library_setup_title">Rhythm Bibliotheekinstellingen</string>
-    <string name="notification_library_setup_complete_summary">Bibliotheek is geoptimaliseerd en klaar: %1$d nummers, %2$d albums, %3$d artiesten</string>
+    <plurals name="notification_library_setup_complete_summary">
+        <item quantity="one">Bibliotheek is geoptimaliseerd en klaar: %1$d nummers, %2$d albums, %3$d artiesten</item>
+        <item quantity="other">Bibliotheek is geoptimaliseerd en klaar: %1$d nummers, %2$d albums, %3$d artiesten</item>
+    </plurals>
     <string name="notification_playlist_not_found">Export afgebroken: doelafspeellijst is niet gevonden.</string>
     <string name="notification_no_playlists_to_export">Export afgebroken: geen afspeellijsten gevonden voor back-up.</string>
     <string name="notification_operation_timed_out">Er is een time-out opgetreden tijdens de bewerking. Probeer het opnieuw.</string>
     <string name="notification_playlist_export_complete">Afspeellijst succesvol geëxporteerd naar opslag.</string>
-    <string name="notification_playlist_export_all_complete">%1$d afspeellijsten zijn succesvol geëxporteerd naar opslag.</string>
+    <plurals name="notification_playlist_export_all_complete">
+        <item quantity="one">%1$d afspeellijsten zijn succesvol geëxporteerd naar opslag.</item>
+        <item quantity="other">%1$d afspeellijsten zijn succesvol geëxporteerd naar opslag.</item>
+    </plurals>
     <string name="notification_playlist_export_failed">Exporteren van afspeellijst mislukt. Probeer het opnieuw.</string>
-    <string name="notification_playlist_import_complete">Succesvol geïmporteerd \"%1$s\" met %2$d nummers.</string>
+    <plurals name="notification_playlist_import_complete">
+        <item quantity="one">Succesvol geïmporteerd \"%1$s\" met %2$d nummers.</item>
+        <item quantity="other">Succesvol geïmporteerd \"%1$s\" met %2$d nummers.</item>
+    </plurals>
     <string name="notification_playlist_import_failed">Importeren van afspeellijst mislukt. Controleer het bestandsformaat.</string>
     <string name="notification_updater_channel_name">Rhythm Updater</string>
     <string name="notification_updater_channel_desc">Downloadstatus voor app-updates</string>
@@ -168,8 +167,14 @@
     <!-- Streaming Library Sync -->
     <string name="notification_streaming_sync_title">Uw bibliotheek synchroniseren</string>
     <string name="notification_streaming_sync_started">Synchroniseren met %1$s…</string>
-    <string name="notification_streaming_sync_progress">Synchroniseren: %1$d nummers • %2$d albums • %3$d artiesten</string>
-    <string name="notification_streaming_sync_complete">✓ %1$d nummers van %2$s gesynchroniseerd!</string>
+    <plurals name="notification_streaming_sync_progress">
+        <item quantity="one">Synchroniseren: %1$d nummers • %2$d albums • %3$d artiesten</item>
+        <item quantity="other">Synchroniseren: %1$d nummers • %2$d albums • %3$d artiesten</item>
+    </plurals>
+    <plurals name="notification_streaming_sync_complete">
+        <item quantity="one">✓ %1$d nummers van %2$s gesynchroniseerd!</item>
+        <item quantity="other">✓ %1$d nummers van %2$s gesynchroniseerd!</item>
+    </plurals>
     <string name="notification_streaming_sync_failed">Synchronisatie mislukt. Controleer uw verbinding en probeer het opnieuw.</string>
     <!-- Streaming Liked Songs -->
     <string name="notification_streaming_liked_title">Gelikete nummers bijgewerkt</string>
@@ -188,7 +193,10 @@
     <!-- Streaming Offline -->
     <string name="notification_streaming_offline_title">Offlinemodus</string>
     <string name="notification_streaming_offline_sync">Offline cache synchroniseren met %1$s…</string>
-    <string name="notification_streaming_offline_sync_complete">✓ Offline cache gereed met %1$d nummers</string>
+    <plurals name="notification_streaming_offline_sync_complete">
+        <item quantity="one">✓ Offline cache gereed met %1$d nummers</item>
+        <item quantity="other">✓ Offline cache gereed met %1$d nummers</item>
+    </plurals>
     <string name="notification_streaming_offline_cache_cleared">Cache gewist. %1$s ruimte bespaard.</string>
     <!-- Streaming Errors -->
     <string name="notification_streaming_error_title">Streamingprobleem</string>
@@ -197,7 +205,10 @@
     <string name="notification_streaming_error_account_issue">Accountprobleem met %1$s. Maak opnieuw verbinding.</string>
     <!-- Dialogs -->
     <string name="dialog_cleanup_empty_playlists_title">Lege afspeellijsten opruimen?</string>
-    <string name="dialog_cleanup_empty_playlists_message">Hiermee wordt %1$d lege afspeellijst%2$s definitief verwijderd. Deze actie kan niet ongedaan worden gemaakt.</string>
+    <plurals name="dialog_cleanup_empty_playlists_message">
+        <item quantity="one">Hiermee wordt %1$d lege afspeellijst definitief verwijderd. Deze actie kan niet ongedaan worden gemaakt.</item>
+        <item quantity="other">Hiermee wordt %1$d lege afspeellijst definitief verwijderd. Deze actie kan niet ongedaan worden gemaakt.</item>
+    </plurals>
     <string name="dialog_delete_playlist_title">Afspeellijst verwijderen?</string>
     <string name="dialog_delete_playlist_message">Weet u zeker dat u \"%1$s\" wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.</string>
     <string name="dialog_delete">Verwijderen</string>
@@ -217,7 +228,10 @@
     <string name="playlist_reorder_songs_title">Nummers opnieuw ordenen</string>
     <string name="playlist_remove_song">Nummer verwijderen</string>
     <string name="playlist_remove_song_confirm">\'%1$s\' uit deze afspeellijst verwijderen?</string>
-    <string name="playlist_remove_songs_count">Verwijder %1$d nummers</string>
+    <plurals name="playlist_remove_songs_count">
+        <item quantity="one">Verwijder %1$d nummers</item>
+        <item quantity="other">Verwijder %1$d nummers</item>
+    </plurals>
     <string name="playlist_removed_from_playlist">%1$s verwijderd uit afspeellijst</string>
     <!-- Restart Dialog -->
     <string name="restart_now">Start nu opnieuw</string>
@@ -292,7 +306,6 @@
     <!-- HomeScreen -->
     <string name="home_title">Rhythm</string>
     <string name="home_settings_cd">Instellingen</string>
-    <string name="home_explore_music">Ontdek geweldige muziek</string>
     <string name="home_no_featured_albums">Geen aanbevolen albums</string>
     <string name="home_no_featured_albums_desc">Voeg enkele albums toe aan je bibliotheek om aanbevolen inhoud te bekijken</string>
     <string name="home_artists">Kunstenaars</string>
@@ -350,7 +363,10 @@
     <string name="home_no_recent_activity_desc">Begin hier met luisteren om je onlangs afgespeelde nummers te bekijken</string>
     <!-- UI Actions -->
     <string name="ui_view_all">Bekijk alles</string>
-    <string name="ui_songs_count">%1$d nummers</string>
+    <plurals name="ui_songs_count">
+        <item quantity="one">%1$d nummers</item>
+        <item quantity="other">%1$d nummers</item>
+    </plurals>
     <!-- Updates -->
     <string name="update_available_title">Update beschikbaar</string>
     <string name="update_version">Versie %1$s</string>
@@ -363,14 +379,14 @@
     <string name="library_your_albums">Jouw albums</string>
     <string name="library_your_artists">Jouw artiesten</string>
     <string name="library_loading_songs">Nummers laden…</string>
-    <string name="library_loading_playlists">Afspeellijsten laden...</string>
+    <string name="library_loading_playlists">Afspeellijsten laden…</string>
     <string name="library_loading_albums">Albums laden…</string>
-    <string name="library_loading_artists">Artiesten laden...</string>
+    <string name="library_loading_artists">Artiesten laden…</string>
     <!-- Background Processing States -->
     <string name="scanning_media">Audiobestanden indexeren…</string>
-    <string name="detecting_genres">Trackgenres analyseren...</string>
-    <string name="fetching_artwork">Albumhoezen oplossen...</string>
-    <string name="extracting_metadata">Trackdetails extraheren...</string>
+    <string name="detecting_genres">Trackgenres analyseren…</string>
+    <string name="fetching_artwork">Albumhoezen oplossen…</string>
+    <string name="extracting_metadata">Trackdetails extraheren…</string>
     <string name="processing_library">Bibliotheek optimaliseren…</string>
     <string name="library_no_songs">Nog geen nummers</string>
     <string name="library_no_artists">Geen artiesten gevonden</string>
@@ -384,12 +400,21 @@
     <string name="library_tap_browse">Tik om door bestanden te bladeren</string>
     <string name="library_play_all">Alles afspelen</string>
     <string name="library_check_permissions">Controleer de opslagrechten als bestanden niet verschijnen</string>
-    <string name="library_creating_playlist">Afspeellijst maken en %1$d nummers toevoegen...</string>
+    <plurals name="library_creating_playlist">
+        <item quantity="one">Afspeellijst maken en %1$d nummers toevoegen…</item>
+        <item quantity="other">Afspeellijst maken en %1$d nummers toevoegen…</item>
+    </plurals>
     <string name="library_playlist_name_empty">De naam van de afspeellijst mag niet leeg zijn</string>
     <string name="library_no_playlists">Nog geen afspeellijsten</string>
     <string name="library_no_albums">Nog geen albums</string>
-    <string name="library_playlists_count">%1$d afspeellijsten</string>
-    <string name="library_albums_count">%1$d albums</string>
+    <plurals name="library_playlists_count">
+        <item quantity="one">%1$d afspeellijsten</item>
+        <item quantity="other">%1$d afspeellijsten</item>
+    </plurals>
+    <plurals name="library_albums_count">
+        <item quantity="one">%1$d albums</item>
+        <item quantity="other">%1$d albums</item>
+    </plurals>
     <!-- Sort Options -->
     <string name="sort_name">Naam</string>
     <string name="sort_date_created">Aanmaakdatum</string>
@@ -405,8 +430,6 @@
     <string name="player_queue">Wachtrij</string>
     <string name="player_speed_label">Snelheid</string>
     <string name="player_pitch_label">Hoogte</string>
-    <string name="playback_speed">Afspeelsnelheid</string>
-    <string name="sync_with_pitch">Synchroniseren met toonhoogte</string>
     <string name="sync_with_speed">Synchroniseren met snelheid</string>
     <!-- SearchScreen -->
     <string name="search_view_all_songs">Bekijk alle nummers</string>
@@ -420,7 +443,7 @@
     <string name="common_library">Bibliotheek</string>
     <!-- Splash/Loading -->
     <string name="splash_tagline">Jouw muziek, jouw Rhythm</string>
-    <string name="splash_loading">Je muziekbibliotheek voorbereiden...</string>
+    <string name="splash_loading">Je muziekbibliotheek voorbereiden…</string>
     <string name="splash_loading_streaming">Je streaming-installatie voorbereiden…</string>
     <string name="splash_ready">Klaar om te grooven!</string>
     <!-- Audio Quality -->
@@ -429,7 +452,7 @@
     <string name="nav_no_matching_songs">Geen overeenkomende nummers gevonden</string>
     <string name="nav_try_different">Probeer een andere zoekopdracht</string>
     <!-- Updates Section -->
-    <string name="updates_checking">Controleren op updates...</string>
+    <string name="updates_checking">Controleren op updates…</string>
     <string name="updates_available">Update beschikbaar</string>
     <string name="updates_disabled">Updates uitgeschakeld</string>
     <string name="updates_manual_check">Alleen handmatige controle</string>
@@ -450,7 +473,6 @@
     <string name="updates_smart_polling_desc">Efficiënte HTTP-controles gebruiken om updates te detecteren en tegelijkertijd GitHub API-aanroepen te minimaliseren. U ontvangt direct meldingen wanneer er nieuwe versies worden uitgebracht.</string>
     <string name="updates_channel_desc">Kies welk updatekanaal je wilt volgen:</string>
     <!-- Onboarding -->
-    <string name="onboarding_welcome">Welkom</string>
     <string name="onboarding_welcome_to">Welkom bij</string>
     <string name="onboarding_welcome_subtitle">Jouw muziek, jouw Rhythm</string>
     <string name="onboarding_get_started">Aan de slag</string>
@@ -488,7 +510,6 @@
     <string name="onboarding_library_4">Standaardafspeellijsten (recent toegevoegd, meest afgespeeld) kunnen worden gewijzigd in Instellingen &gt; Afspeellijsten</string>
     <string name="onboarding_theme_title">Maak Rhythm van jou</string>
     <string name="onboarding_theme_desc">Personaliseer het uiterlijk van Rhythm zodat het bij jouw stijl past. Kies uw systeemthema, lettertype of Material uw dynamische kleuren (Android 12+).</string>
-    <string name="onboarding_live_preview">Livevoorbeeld</string>
     <string name="onboarding_more_tuner">Meer maatwerk in Instellingen</string>
     <string name="onboarding_tuner_1">Aangepaste kleurenschema\'s en kleurextractie van albumhoezen</string>
     <string name="onboarding_tuner_2">Lettertypeaanpassing en typografie-instellingen</string>
@@ -565,15 +586,13 @@
     <!-- Onboarding Library Setup -->
     
     <!-- Onboarding Theming -->
-    <string name="onboarding_dynamic_colors_title">Dynamische kleuren (Material jij)</string>
-    <string name="onboarding_dynamic_colors_desc">Pas kleuren toe die uit de achtergrond van je apparaat zijn gehaald voor een samenhangend uiterlijk.</string>
     <string name="onboarding_player_theme_title">Thema\'s voor afspelen en minispelers</string>
     <string name="onboarding_player_theme_desc">Personaliseer uw afspeelinterfaces. Schakel tussen het strakke, moderne Rhythm-ontwerp of het levendige, vloeiende, expressieve ontwerp.</string>
     <!-- Onboarding Updater -->
     <string name="onboarding_update_check_failed">Updatecontrole mislukt</string>
     <string name="onboarding_ready_to_install">Klaar voor installatie</string>
     <string name="onboarding_downloading_update">Update downloaden</string>
-    <string name="onboarding_checking_updates">Controleren op updates...</string>
+    <string name="onboarding_checking_updates">Controleren op updates…</string>
     <string name="onboarding_update_available">Update beschikbaar</string>
     <string name="onboarding_stay_up_to_date">Blijf op de hoogte</string>
     <string name="onboarding_update_default_desc">Ontvang de nieuwste functies, verbeteringen en bugfixes automatisch van GitHub.</string>
@@ -633,28 +652,18 @@
     <!-- Onboarding: Widgets Step -->
     <string name="onboarding_widgets_title">Launcher-widgets</string>
     <string name="onboarding_widgets_desc">Voeg Rhythm widgets toe aan je opstartprogramma voor snelle muziekbediening. Pas aan welke informatie wordt weergegeven en hoe de widget eruitziet.</string>
-    <string name="onboarding_widget_album_art">Albumhoezen tonen</string>
-    <string name="onboarding_widget_album_art_desc">Geef albumillustraties weer in de widget</string>
     <string name="onboarding_widget_artist">Naam artiest tonen</string>
     <string name="onboarding_widget_artist_desc">Geef de huidige artiest weer in de widget</string>
     <string name="onboarding_widget_album">Albumnaam tonen</string>
     <string name="onboarding_widget_album_desc">Geef de albumtitel weer in de widget</string>
     <string name="onboarding_widgets_tips_title">Widgettips</string>
-    <string name="onboarding_widget_tip_1">Tik op de widget om de app te openen</string>
-    <string name="onboarding_widget_tip_2">Formaat van widgets wijzigen voor verschillende lay-outs (2x1 tot 5x5)</string>
-    <string name="onboarding_widget_tip_3">Widgets worden tijdens het afspelen in realtime bijgewerkt</string>
     <!-- Onboarding: Integrations Step -->
     <string name="onboarding_integrations_title">Verbind uw services</string>
     <string name="onboarding_integrations_desc">Verbeter uw luisterervaring door verbinding te maken met externe services. Ontvang albumhoezen en songteksten, scrobble je toneelstukken en deel waar je naar luistert.</string>
     <string name="onboarding_integrations_apis">API Diensten</string>
     <string name="onboarding_integration_deezer">Deezer</string>
-    <string name="onboarding_integration_deezer_desc">Haal albumillustraties en metadata van hoge kwaliteit op</string>
     <string name="onboarding_integration_lrclib">LrcLib</string>
-    <string name="onboarding_integration_lrclib_desc">Download gesynchroniseerde songteksten voor uw liedjes</string>
     <string name="onboarding_integration_ytmusic">YouTube Music</string>
-    <string name="onboarding_integration_ytmusic_desc">Toegang tot metadata en aanbevelingen van YouTube Music</string>
-    <string name="onboarding_integration_broadcast">Uitzendstatus</string>
-    <string name="onboarding_integration_broadcast_desc">Deel de afspeelstatus met andere apps</string>
     <string name="onboarding_integrations_info_title">Privacyopmerking</string>
     <string name="onboarding_integrations_info_desc">Deze functies sturen beperkte gegevens (titels van nummers, artiesten) naar externe diensten. Uw persoonlijke gegevens en muziekbestanden blijven op uw apparaat staan. U kunt deze op elk gewenst moment in- of uitschakelen via Instellingen.</string>
     <!-- Onboarding: Rhythm Stats Step -->
@@ -662,15 +671,11 @@
     <string name="onboarding_stats_desc">Ontdek inzichten over je muziekgewoonten. Houd uw luistertijd, meest gespeelde nummers, favoriete artiesten en meer bij met prachtige visualisaties.</string>
     <string name="onboarding_stats_show_home">Statistieken op Home weergeven</string>
     <string name="onboarding_stats_show_home_desc">Geef een luisterstatistiekenwidget weer op uw startscherm</string>
-    <string name="onboarding_stats_rating">Nummerbeoordelingen inschakelen</string>
-    <string name="onboarding_stats_rating_desc">Beoordeel uw nummers om favorieten bij te houden en slimme afspeellijsten samen te stellen</string>
     <string name="onboarding_stats_features_title">Statistische functies</string>
     <string name="onboarding_stats_feature_1">Houd de totale luistertijd bij per dag, week of maand</string>
     <string name="onboarding_stats_feature_2">Bekijk je meest gespeelde nummers</string>
     <string name="onboarding_stats_feature_3">Ontdek je topartiesten</string>
     <string name="onboarding_stats_feature_4">Ontdek luisterpatronen voor albums</string>
-    <string name="onboarding_stats_info_title">Hoe het werkt</string>
-    <string name="onboarding_stats_info_desc">Statistieken worden lokaal op je apparaat berekend op basis van je afspeelgeschiedenis. Er worden geen gegevens naar externe servers verzonden. Krijg op elk gewenst moment toegang tot gedetailleerde statistieken vanaf het startscherm of via de instellingen.</string>
     <!-- MiniPlayer Swipe Hints -->
     <string name="miniplayer_swipe_up_hint">↑ Volledige speler</string>
     <string name="miniplayer_swipe_down_hint">↓ Afwijzen</string>
@@ -704,7 +709,7 @@
     <string name="cache_about">Over cache</string>
     <string name="cache_size_limit">Limiet cachegrootte</string>
     <string name="cache_auto_trim">Automatisch trimmen op 90%</string>
-    <string name="cache_auto_trim_desc">De cache wordt automatisch bijgesneden wanneer het gebruik 90% van de limiet bereikt</string>
+    <string name="cache_auto_trim_desc">De cache wordt automatisch bijgesneden wanneer het gebruik 90%% van de limiet bereikt</string>
     <!-- Lyrics -->
     <string name="lyrics_source_priority">Prioriteit van de songtekstbron</string>
     <string name="lyrics_choose_source">Kies waar je naar songteksten wilt zoeken</string>
@@ -726,16 +731,11 @@
     <string name="theme_color_source_desc">Kies hoe kleuren worden geëxtraheerd</string>
     <string name="theme_font_source">Lettertypebron</string>
     <string name="theme_font_source_desc">Kies waar u lettertypen wilt laden</string>
-    <string name="theme_color_schemes">Kleurenschema\'s</string>
-    <string name="theme_color_schemes_desc">Kies uit vooraf ingestelde kleurenschema\'s</string>
-    <string name="theme_custom_picker">Aangepaste kleurkiezer</string>
-    <string name="theme_custom_picker_desc">Creëer je eigen kleurenschema</string>
     <string name="theme_font_selection">Lettertypeselectie</string>
     <string name="theme_font_selection_desc">Kies uit beschikbare systeemlettertypen</string>
     <!-- Playlist Detail -->
     <string name="playlist_no_songs_yet">Nog geen nummers</string>
     <!-- Components: Backup & Restore -->
-    <string name="backup_restore">BACK-UP HERSTELLEN</string>
     <!-- Components: Blacklist Management -->
     
     <!-- Components: Queue -->
@@ -763,8 +763,7 @@
     <string name="playback_lyrics_priority_desc">Configureer bronnen, gedrag, lay-out, grootte en stijl van songteksten</string>
     <string name="playback_settings">Afspeelinstellingen</string>
     <!-- Components: Lyrics Editor -->
-    <string name="lyrics_sync_note">Synchronisatie-aanpassing werkt alleen met tijdgesynchroniseerde songteksten (LRC-formaat). Gebruik Reset om gesynchroniseerde songteksten op te halen, indien beschikbaar.</string>
-    <string name="lyrics_placeholder">Voer hier de songtekst in...\n\nJe kunt het LRC-formaat gebruiken:\n[00:12.00] Regel één\n[00:17.00] Regel twee</string>
+    <string name="lyrics_placeholder">Voer hier de songtekst in…\n\nJe kunt het LRC-formaat gebruiken:\n[00:12.00] Regel één\n[00:17.00] Regel twee</string>
     <string name="lyrics_editor_title">Songteksteditor</string>
     <!-- Components: Song Info -->
     <string name="song_info_title">Nummerinformatie</string>
@@ -775,16 +774,6 @@
     <string name="playlist_create_new">Nieuwe afspeellijst maken</string>
     <string name="playlist_create_first">Maak je eerste afspeellijst om nummers toe te voegen</string>
     <!-- Components: Cache Management (Bottom Sheet) -->
-    <string name="cache_management">Cache</string>
-    <!-- Components: Beta Program -->
-    
-    <!-- Components: Equalizer -->
-    
-    <!-- Theme Customization Notes -->
-    <string name="theme_color_schemes_unavailable">Kleurenschema\'s zijn alleen beschikbaar bij gebruik van de aangepaste kleurbron.</string>
-    <string name="theme_color_schemes_switch">Schakel naar Aangepast in de instelling Kleurbron om toegang te krijgen tot vooraf gedefinieerde schema\'s.</string>
-    <string name="theme_custom_colors_unavailable">Aangepaste kleuren zijn alleen beschikbaar als u de aangepaste kleurbron gebruikt.</string>
-    <string name="theme_custom_colors_switch">Schakel naar Aangepast in de instelling Kleurbron om uw eigen kleuren te creëren.</string>
     <string name="theme_system_fonts_unavailable">Systeemlettertypen zijn alleen beschikbaar als u de systeemlettertypebron gebruikt.</string>
     <string name="theme_system_fonts_switch">Schakel naar Systeem in de instelling Lettertypebron om uit de beschikbare lettertypen te kiezen.</string>
     <!-- PlaceholderScreens Additional -->
@@ -795,12 +784,6 @@
     <string name="library_reorder_tabs">Herschik de tabbladen om uw bibliotheekervaring aan te passen</string>
     <string name="external_services_desc">Bepaal welke externe API-services actief zijn om uw muziekervaring te verbeteren. Schakel services in/uit om het datagebruik en de functionaliteit te beheren.</string>
     <string name="lyrics_source_priority_title">Prioriteit van songtekstbron</string>
-    <string name="playlist_action_title">Afspeellijst Tikactie</string>
-    <string name="playlist_action_desc">Standaardgedrag voor het tikken op afspeellijsten</string>
-    <string name="playlist_action_load_title">Laad de volledige afspeellijst</string>
-    <string name="playlist_action_load_desc">Laad de afspeellijst en begin vanaf het geselecteerde nummer</string>
-    <string name="playlist_action_single_title">Speel alleen dit nummer</string>
-    <string name="playlist_action_single_desc">Speel alleen het geselecteerde nummer af</string>
     <string name="queue_action_title">Actie wachtrijconflict</string>
     <string name="queue_action_choose">Selecteer de standaardwachtrijconflictactie</string>
     <string name="queue_action_ask_title">Vraag het elke keer</string>
@@ -811,9 +794,6 @@
     <string name="now_playing">NU SPEELT</string>
     <string name="install_update_now">Update nu installeren</string>
     <string name="audio_settings">Audio-instellingen</string>
-    <string name="active_device">ACTIEF APPARAAT</string>
-    <string name="browse_library">Blader door de bibliotheek</string>
-    <string name="add_more_songs">Voeg meer nummers toe</string>
     <string name="edit_metadata">Track bewerken</string>
     <!-- Updates Messages -->
     <string name="updates_disabled_message">App-updates zijn uitgeschakeld in de instellingen</string>
@@ -823,13 +803,7 @@
     <string name="updates_experimental_coming">Binnenkort meer experimentele functies in toekomstige updates</string>
     <string name="settings_interval_every_48_hours">Elke 48 uur</string>
     <string name="settings_interval_every_72_hours">Elke 72 uur</string>
-    <!-- Cache -->
-    
-    <!-- Theme -->
-    <string name="theme_featured_schemes">AANBEVOLEN SCHEMA\'S</string>
-    <string name="theme_more_schemes">MEER REGELINGEN</string>
     <string name="theme_quick_presets">Snelle voorinstellingen</string>
-    <string name="theme_advanced_rgb">Geavanceerde RGB-bediening</string>
     <!-- Services -->
     <string name="external_services">Externe diensten</string>
     <string name="api_services">Geïntegreerde API\'s</string>
@@ -846,7 +820,6 @@
     <string name="equalizer">Equalizer</string>
     <string name="frequency_bands">Frequentiebanden</string>
     <string name="audio_effects">Audio-effecten</string>
-    <string name="audio_normalization">Audionormalisatie</string>
     <string name="replay_gain">Herhalingsversterking</string>
     <string name="replay_gain_desc">Gebruik ingebedde herhalingsversterkingstags voor volume</string>
     <string name="bass_boost">Basversterking</string>
@@ -864,7 +837,6 @@
     <string name="sleep_timer_custom">Aangepaste timer</string>
     <string name="sleep_timer_action">Timeractie</string>
     <string name="sleep_timer_action_desc">Wat gebeurt er als de timer afloopt</string>
-    <string name="sleep_timer_select_duration">Selecteer Timerduur</string>
     <!-- Crash Reports -->
     <string name="crash_reports">Crashrapporten</string>
     <!-- Lyrics -->
@@ -883,7 +855,7 @@
     <string name="import_playlist">Afspeellijst importeren</string>
     <string name="select_playlist_file">Selecteer een afspeellijstbestand om te importeren:</string>
     <string name="supported_formats">Ondersteunde formaten:</string>
-    <string name="may_take_moments">Dit kan enkele ogenblikken duren...</string>
+    <string name="may_take_moments">Dit kan enkele ogenblikken duren…</string>
     <!-- Canvas Video Player -->
     
     <!-- Beta Program -->
@@ -954,7 +926,6 @@
     <string name="settings_experimental_features">Experimentele kenmerken</string>
     <string name="settings_experimental_features_desc">Geavanceerde functies</string>
     <string name="settings_select_option">Rhythm Instellingen</string>
-    <string name="settings_select_option_desc">Kies een instelling uit de lijst om te configureren</string>
     <!-- Playlist Actions -->
     <string name="playlist_no_songs_available">Geen nummers beschikbaar</string>
     <string name="playlist_all_in_playlist">Alle nummers staan al in deze afspeellijst.</string>
@@ -968,7 +939,7 @@
     <string name="metadata_genre">Genre</string>
     <string name="metadata_year">Jaar</string>
     <string name="metadata_track">Nummer</string>
-    <string name="metadata_saving">Opslaan...</string>
+    <string name="metadata_saving">Opslaan…</string>
     <!-- Updates Actions -->
     <string name="updates_check_now_action">Controleer nu</string>
     <string name="updates_check_again">Controleer opnieuw</string>
@@ -1055,24 +1026,17 @@
     <string name="lyrics_embed_success">Songteksten zijn succesvol in het bestand ingesloten</string>
     <string name="lyrics_embed_failed">Het insluiten van songteksten in het bestand is mislukt</string>
     <!-- Bottom Sheet: Sleep Timer -->
-    <string name="bottomsheet_timer_remaining">resterend</string>
     <string name="bottomsheet_timer_custom_desc">Stel een specifieke tijdsduur in</string>
     <string name="bottomsheet_timer_custom_title">Aangepaste tijd instellen</string>
     <string name="bottomsheet_timer_set">Timer instellen</string>
     <string name="bottomsheet_timer_edit">Bewerken</string>
-    <string name="bottomsheet_timer_hours_minutes">Stel uren en minuten in voor de slaaptimer</string>
     <!-- Bottom Sheet: Playback -->
     <string name="bottomsheet_playback">Afspelen</string>
     <string name="bottomsheet_no_device">Geen apparaat aangesloten</string>
-    <string name="bottomsheet_max">Max</string>
     <!-- Bottom Sheet: Album -->
-    <string name="bottomsheet_play_all">Alles afspelen</string>
-    <string name="bottomsheet_tracks">Nummers</string>
     <string name="bottomsheet_sort_by">Sorteren op</string>
     <string name="bottomsheet_all_discs">Alle schijven</string>
     <string name="bottomsheet_disc_option">Schijf %1$d</string>
-    <string name="bottomsheet_disc_filter">Filter op schijf</string>
-    <string name="bottomsheet_no_songs_album">Geen nummers op dit album</string>
     <!-- Bottom Sheet: Home Section Order -->
     <string name="bottomsheet_home_section_order">Bevel voor thuissectie</string>
     <string name="bottomsheet_reorder_toggle_visibility">Herschik en schakel de zichtbaarheid in</string>
@@ -1164,7 +1128,10 @@
     <string name="settings_rhythm_guard_mode_auto">Automatisch</string>
     <string name="settings_rhythm_guard_mode_manual">Handleiding</string>
     <string name="settings_rhythm_guard_age_label">Leeftijdsprofiel: %1$d</string>
-    <string name="settings_rhythm_guard_age_desc">Aanbevolen veilig volume tot %1$d%% en ongeveer %2$d minuten per dag.</string>
+    <plurals name="settings_rhythm_guard_age_desc">
+        <item quantity="one">Aanbevolen veilig volume tot %1$d%% en ongeveer %2$d minuten per dag.</item>
+        <item quantity="other">Aanbevolen veilig volume tot %1$d%% en ongeveer %2$d minuten per dag.</item>
+    </plurals>
     <string name="settings_rhythm_guard_auto_policy_table_title">Gids voor veilig luisteren (Leeftijd -&gt; Volume / Dag)</string>
     <string name="settings_rhythm_guard_auto_policy_band">Leeftijd %1$d-%2$d</string>
     <string name="settings_rhythm_guard_auto_policy_value">%1$d%% / %2$d min</string>
@@ -1217,14 +1184,12 @@
     <string name="settings_rhythm_guard_start_countdown_value">Begint over %1$s</string>
     <string name="settings_rhythm_guard_snapshot_widget_above_limit">Boven de aanbevolen limiet</string>
     <string name="settings_rhythm_guard_snapshot_widget_within_limit">Binnen de aanbevolen limiet</string>
-    <string name="settings_rhythm_guard_snapshot_widget_load_label">Indicator huidige belasting</string>
     <string name="settings_rhythm_guard_state_active">Rhythm Bewaking is actief</string>
     <string name="settings_rhythm_guard_state_inactive">Rhythm Bewaking is inactief</string>
     <string name="settings_rhythm_guard_state_timeout_active">Er wordt een time-out voor luisteren uitgevoerd</string>
     <string name="settings_rhythm_guard_state_cooldown_active">Respijtperiode actief</string>
     <string name="settings_rhythm_guard_state_timeout_remaining">Pauze eindigt over %1$s</string>
     <string name="settings_rhythm_guard_state_cooldown_remaining">De respijtperiode eindigt over %1$s</string>
-    <string name="settings_rhythm_guard_state_safety_score">Veiligheidsscore: %1$d%%</string>
     <string name="settings_rhythm_guard_protection_presets_title">Beveiligingsvoorinstellingen</string>
     <string name="settings_rhythm_guard_protection_presets_desc">Breng snel geteste vangrailbundels aan voor uw luisterstijl.</string>
     <string name="settings_rhythm_guard_protection_preset_gentle">Zachtaardig</string>
@@ -1269,9 +1234,6 @@
     <!-- Cache Management Complete -->
     
     <!-- Queue Playback Settings -->
-    <string name="queue_auto_add">Automatisch toevoegen aan wachtrij</string>
-    <string name="queue_clear_on_new">Vervang wachtrij voor nieuw nummer</string>
-    <string name="queue_playback_speed_desc">Pas de afspeelsnelheid aan</string>
     <!-- Gestures Settings -->
     
     <!-- Playlist Settings Toggle -->
@@ -1290,8 +1252,6 @@
     <string name="cd_rhythm_logo">Rhythm-logo</string>
     <string name="cd_telegram_support">Telegram-ondersteuning</string>
     <!-- Queue &amp; Playlist Dialogs -->
-    <string name="queue_action_dialog">Dialoogvenster Wachtrijactie</string>
-    <string name="playlist_action_dialog">Actiedialoogvenster Afspeellijst</string>
     <!-- Artist Settings -->
     <string name="artists_title">Kunstenaars</string>
     <string name="artist_multi_parsing">Parseren door meerdere artiesten</string>
@@ -1299,9 +1259,6 @@
     <string name="artist_enable_separation_desc">Tags voor meerdere artiesten splitsen (bijvoorbeeld \'Artiest1/Artiest2\')</string>
     <string name="artist_configure_delimiters">Scheidingstekens configureren</string>
     <string name="artist_current_delimiters">Huidig: %1$s</string>
-    <string name="artist_library_organization">Bibliotheekorganisatie</string>
-    <string name="artist_group_by_album_artist">Groeperen op albumartiest</string>
-    <string name="artist_group_by_album_artist_desc">Toon samenwerkingsalbums onder de hoofdartiest</string>
     <!-- About Screen -->
     
     <!-- Equalizer -->
@@ -1310,9 +1267,6 @@
     <string name="content_desc_remove">Verwijderen</string>
     <string name="content_desc_refresh_devices">Apparaten vernieuwen</string>
     <string name="content_desc_switch_device">Schakel apparaat</string>
-    <string name="content_desc_volume">Volume</string>
-    <string name="content_desc_decrease_volume">Volume verlagen</string>
-    <string name="content_desc_increase_volume">Verhoog het volume</string>
     <string name="content_desc_shuffle_play">Willekeurig afspelen</string>
     <string name="content_desc_sort_songs">Nummers sorteren</string>
     <string name="content_desc_more_options">Meer opties</string>
@@ -1332,8 +1286,6 @@
     <!-- Context Menu Actions -->
     <string name="action_play_next">Speel hierna</string>
     <string name="action_add_to_queue">Toevoegen aan wachtrij</string>
-    <string name="action_remove_from_favorites">Verwijderen uit favorieten</string>
-    <string name="action_add_to_favorites">Toevoegen aan favorieten</string>
     <string name="action_song_info">Nummerinformatie</string>
     <string name="action_add_to_blacklist">Toevoegen aan zwarte lijst</string>
     <string name="action_play_all">Alles afspelen</string>
@@ -1369,7 +1321,6 @@
     <string name="player_chip_favorite">Favoriet</string>
     <string name="player_chip_speed">Afspeelsnelheid</string>
     <string name="player_chip_equalizer">Equalizer</string>
-    <string name="player_chip_lyrics">Teksten</string>
     <string name="player_chip_album">Album</string>
     <string name="player_chip_artist">Artiest</string>
     <string name="player_chip_one_visible">Er moet minimaal één chip zichtbaar zijn</string>
@@ -1385,7 +1336,6 @@
     <string name="autoeq_eq_settings_label">EQ-instellingen</string>
     <string name="autoeq_failed_read_file">Kan bestand niet lezen</string>
     <!-- Backup/Restore -->
-    <string name="backup_invalid_format">Ongeldig back-upformaat of beschadigde gegevens</string>
     <string name="backup_unable_to_read">Kan het back-upbestand niet lezen</string>
     <!-- Licenses -->
     <string name="license_autoeq_name">Automatische EQ</string>
@@ -1408,7 +1358,6 @@
     <!-- Cache & Storage -->
     
     <!-- Version Info -->
-    <string name="download_progress">%1$d%%</string>
     <!-- GitHub & Links -->
     
     <!-- Contributors -->
@@ -1420,9 +1369,7 @@
     <string name="settings_full_player">Volledige speler</string>
     <string name="settings_header_customization">Koptekstaanpassing</string>
     <string name="settings_header_display">Koptekstweergave</string>
-    <string name="settings_hue">Tint</string>
     <string name="settings_layout_options">Lay-outopties</string>
-    <string name="settings_lightness">Lichtheid</string>
     <string name="settings_miniplayer">Minispeler</string>
     <string name="settings_no_crash_logs">Geen crashlogboeken gevonden. Goed gedaan!</string>
     <string name="settings_player_controls">Spelerbediening</string>
@@ -1431,7 +1378,6 @@
     <string name="settings_progress_display">Voortgangsweergave</string>
     <string name="settings_progress_hidden">Vooruitgang verborgen</string>
     <string name="settings_reorder_toggle_sections">Secties opnieuw ordenen en schakelen</string>
-    <string name="settings_saturation">Verzadiging</string>
     <string name="settings_section_order_visibility">Sectievolgorde en zichtbaarheid</string>
     <string name="settings_start_collapsed">Start alle schermen met samengevouwen header</string>
     <string name="settings_statistics_update">Statistieken bijgewerkt op basis van luistergewoonten</string>
@@ -1497,10 +1443,6 @@
     <string name="settings_queue_action_dialog_desc_ask">Vraag dit voordat u de wachtrij voor het afspelen van één nummer vervangt of verlengt.</string>
     <string name="settings_queue_action_dialog_desc_always">Voeg altijd single-track play toe aan de wachtrij.</string>
     <string name="settings_queue_action_dialog_desc_disabled">Uitgeschakeld terwijl Wachtrij vervangen bij afspelen is ingeschakeld.</string>
-    <string name="settings_playlist_action_dialog">Afspeellijst Track Tikactie</string>
-    <string name="settings_playlist_action_play_all">Laad de volledige afspeellijst in de wachtrij</string>
-    <string name="settings_playlist_action_play_one">Speel alleen het geselecteerde nummer af</string>
-    <string name="settings_playlist_action_ask">Vraag het elke keer</string>
     <string name="settings_list_queue_action_dialog">Actie lijst afspeelwachtrij</string>
     <string name="settings_list_queue_action_replace">Vervang wachtrij en speel af</string>
     <string name="settings_list_queue_action_ask">Vraag het elke keer</string>
@@ -1521,7 +1463,10 @@
     <string name="list_queue_behavior_add_end_title">Voeg toe aan einde</string>
     <string name="list_queue_behavior_add_end_desc">Voeg de lijst toe aan het einde van de wachtrij en begin vanaf het door jou geselecteerde nummer.</string>
     <string name="list_queue_action_dialog_title">Wachtrij al actief</string>
-    <string name="list_queue_action_dialog_body">De huidige wachtrij bevat %1$d nummers. Inkomende lijst bevat %2$d nummers.</string>
+    <plurals name="list_queue_action_dialog_body">
+        <item quantity="one">De huidige wachtrij bevat %1$d nummers. Inkomende lijst bevat %2$d nummers.</item>
+        <item quantity="other">De huidige wachtrij bevat %1$d nummers. Inkomende lijst bevat %2$d nummers.</item>
+    </plurals>
     <string name="list_queue_action_source">Bron: %1$s</string>
     <string name="list_queue_action_replace_title">Wachtrij vervangen</string>
     <string name="list_queue_action_replace_desc">Start deze lijst nu als de actieve wachtrij.</string>
@@ -1530,28 +1475,21 @@
     <string name="list_queue_action_add_end_title">Voeg toe aan einde</string>
     <string name="list_queue_action_add_end_desc">Voeg deze lijst toe aan het einde van de wachtrij en start het afspelen vanaf deze lijst.</string>
     <!-- Audio Routing -->
-    <string name="settings_audio_routing">Audioroutering</string>
-    <string name="settings_dac_usb_audio">DAC/USB-audio</string>
-    <string name="settings_dac_usb_audio_desc">Hoe audio wordt gerouteerd wanneer een DAC is aangesloten. App-modus vraagt ​​om exclusieve USB-bit-perfecte routering op ondersteunde apparaten.</string>
-    <string name="settings_audio_routing_default">Standaard</string>
-    <string name="settings_audio_routing_app">App</string>
-    <string name="settings_audio_routing_system">Systeem</string>
-    <string name="settings_audio_routing_app_desc">Rhythm verwerkt audio rechtstreeks in de hoge-resolutiemodus en vraagt om exclusieve USB-bit-perfecte routering op ondersteunde apparaten. Opnieuw opstarten vereist.</string>
-    <string name="settings_audio_routing_system_desc">Maakt gebruik van Android systeemaudioroutering. Audio kan door de OS-mixer opnieuw worden gesampled naar 48 kHz.</string>
-    <string name="settings_audio_routing_default_desc">Android bepaalt hoe audio wordt gerouteerd. Het opnieuw bemonsteren is afhankelijk van de systeeminstellingen.</string>
     <!-- Library Storage -->
     <string name="settings_cache_backend">Cache-backend</string>
     <string name="settings_storage_rebuild_room">Kamerdatabase opnieuw opbouwen</string>
     <string name="settings_storage_rebuild_room_desc">Synchroniseer de Room-database opnieuw met de huidige bibliotheekgegevens</string>
     <string name="settings_storage_room_stats">Kamerdatabasestatistieken</string>
-    <string name="settings_storage_song_count">%1$d nummers opgeslagen</string>
+    <plurals name="settings_storage_song_count">
+        <item quantity="one">%1$d nummers opgeslagen</item>
+        <item quantity="other">%1$d nummers opgeslagen</item>
+    </plurals>
     <string name="settings_storage_not_available">Niet beschikbaar in de huidige modus</string>
     <string name="settings_storage_rebuild_success">Ruimtedatabase is opnieuw opgebouwd</string>
     <string name="settings_storage_rebuild_failed">Kan de database van de ruimte niet opnieuw opbouwen</string>
     <!-- Cache Management -->
     <string name="settings_cache">Cache</string>
     <string name="settings_cache_settings">Cache-instellingen</string>
-    <string name="settings_cache_clear_on_exit_desc">Cache automatisch wissen bij het afsluiten van de app</string>
     <string name="settings_cache_actions">Cacheacties</string>
     <string name="settings_clear_lyrics_cache">Wis de songtekstcache</string>
     <string name="settings_clear_lyrics_cache_desc">Verwijder alle in de cache opgeslagen songtekstgegevens</string>
@@ -1576,7 +1514,10 @@
     <string name="updates_retry">Opnieuw proberen</string>
     <string name="updates_enable_updates">Updates inschakelen</string>
     <string name="settings_update_notifications">Updatemeldingen</string>
-    <string name="settings_check_interval_value">Elke %1$d uur</string>
+    <plurals name="settings_check_interval_value">
+        <item quantity="one">Elke %1$d uur</item>
+        <item quantity="other">Elke %1$d uur</item>
+    </plurals>
     <string name="settings_interval_every_hour">Elk uur</string>
     <string name="settings_interval_every_6_hours">Elke 6 uur</string>
     <string name="settings_interval_every_12_hours">Elke 12 uur</string>
@@ -1610,7 +1551,6 @@
     <string name="streaming_status_selected_service">Geselecteerd: %1$s</string>
     <string name="streaming_status_connected">Account verbonden</string>
     <string name="streaming_status_not_connected">Authenticatie in behandeling</string>
-    <string name="streaming_status_loading">Streamingfeed vernieuwen...</string>
     <string name="streaming_status_badge_connected">Verbonden</string>
     <string name="streaming_status_badge_pending">In behandeling</string>
     <string name="streaming_status_badge_refreshing">Verfrissend</string>
@@ -1645,7 +1585,10 @@
     <string name="streaming_library_empty">Nog geen bibliotheekinhoud</string>
     <string name="streaming_home_no_content_title">Nog geen homecontent</string>
     <string name="streaming_home_no_content_hint">Probeer te vernieuwen nadat de synchronisatie van uw service is voltooid.</string>
-    <string name="streaming_home_widget_playlist_track_count">%1$d nummers</string>
+    <plurals name="streaming_home_widget_playlist_track_count">
+        <item quantity="one">%1$d nummers</item>
+        <item quantity="other">%1$d nummers</item>
+    </plurals>
     <string name="streaming_home_guard_break_active">Pauze actief: %1$s over</string>
     <string name="streaming_home_guard_exposure">Vandaag: %1$d / %2$d min</string>
     <string name="streaming_not_selected">Niet geselecteerd</string>
@@ -1686,7 +1629,6 @@
     <string name="settings_miniplayer_header">Minispeler</string>
     <string name="settings_show_progress">Toon vooruitgang</string>
     <string name="settings_show_progress_desc">Voortgangsindicator weergeven</string>
-    <string name="settings_progress_mode">Voortgangsmodus</string>
     <string name="settings_show_artwork">Laat kunstwerken zien</string>
     <string name="settings_show_artwork_desc">Albumillustraties weergeven</string>
     <string name="settings_show_time">Tijd tonen</string>
@@ -1702,7 +1644,6 @@
     <string name="settings_song_info_artwork_desc">Toon titel en artiest-overlay op albumhoezen</string>
     <string name="settings_audio_quality_badges">Badges voor audiokwaliteit</string>
     <string name="settings_audio_quality_badges_desc">Codec- en bitrate-informatie weergeven</string>
-    <string name="settings_lyrics_customization">Aanpassing van songteksten</string>
     <string name="settings_show_lyrics_player">Songteksten weergeven</string>
     <string name="settings_show_lyrics_player_desc">Geef gesynchroniseerde songteksten in de speler weer</string>
     <string name="settings_lyrics_transition">Tekstovergang</string>
@@ -1729,8 +1670,6 @@
     <string name="settings_color_schemes">Kleurenschema\'s</string>
     <string name="settings_color_schemes_desc">Blader en selecteer vooraf gedefinieerde kleurenpaletten</string>
     <string name="settings_custom_only">Alleen beschikbaar met aangepaste kleurbron</string>
-    <string name="settings_custom_colors">Aangepaste kleuren</string>
-    <string name="settings_custom_colors_desc">Creëer je eigen unieke kleurenpalet</string>
     <string name="settings_font_customization">Lettertypeaanpassing</string>
     <string name="settings_font_source">Lettertypebron</string>
     <string name="settings_font_source_system">Systeemlettertype - %1$s</string>
@@ -1788,8 +1727,6 @@
     <string name="settings_shapes_desc">Expressieve vormen</string>
     <string name="settings_skip_silence">Stilte overslaan</string>
     <string name="settings_skip_silence_desc">Sla automatisch stille intervallen in nummers over.</string>
-    <string name="settings_song_ratings">Nummerbeoordelingen</string>
-    <string name="settings_song_ratings_desc">Beoordeel nummers met sterren om de statistieken en sortering te verbeteren</string>
     <!-- Gestures Search Strings -->
     <string name="settings_gesture_miniplayer_swipe">MiniPlayer-veegbewegingen</string>
     <string name="settings_gesture_miniplayer_swipe_desc">Openen, sluiten, swipen overslaan</string>
@@ -1819,7 +1756,6 @@
     <string name="settings_queue_hours_format_desc">Uren in tijdformaat</string>
     <string name="settings_queue_persistence">Wachtrij aanhouden</string>
     <string name="settings_queue_persistence_desc">Wachtrij bij starten herstellen</string>
-    <string name="settings_playlist_action_dialog_desc">Gedrag bij het tikken op een nummer in een afspeellijst</string>
     <string name="settings_list_queue_action_dialog_desc">Gedrag voor lijstafspeelacties wanneer wachtrij actief is</string>
     <!-- Experimental Features Search Strings -->
     <string name="settings_exp_festive_theme">Feestelijk thema</string>
@@ -1929,8 +1865,6 @@
     <!-- MiniPlayer Customization Search Strings -->
     <string name="settings_miniplayer_show_progress">Laat vooruitgang zien</string>
     <string name="settings_miniplayer_show_progress_desc">Geef de voortgangsindicator weer in de minispeler</string>
-    <string name="settings_miniplayer_circular_progress">Circulaire vooruitgang</string>
-    <string name="settings_miniplayer_circular_progress_desc">Gebruik cirkelvormige voortgang op de afspeel-/pauzeknop</string>
     <string name="settings_miniplayer_progress_style">Voortgangsstijl</string>
     <string name="settings_miniplayer_progress_style_desc">Kies de voortgangsbalkstijl van de minispeler</string>
     <string name="settings_miniplayer_show_artwork">Laat kunstwerken zien</string>
@@ -1946,7 +1880,7 @@
     <!-- Library Screen scanning overlay -->
     <string name="settings_scanning">Scannen</string>
     <!-- Settings Search -->
-    <string name="search_settings_hint">Zoeken in Rhythm-instellingen...</string>
+    <string name="search_settings_hint">Zoeken in Rhythm-instellingen…</string>
     <string name="clear_search">Zoekopdracht wissen</string>
     <string name="no_results_found">Geen resultaten gevonden</string>
     <string name="try_different_search">Probeer een andere zoekterm</string>
@@ -1967,7 +1901,6 @@
     <string name="settings_backup_created">Back-up succesvol gemaakt</string>
     <string name="settings_backup_settings">Instellingen</string>
     <string name="settings_center_aligned">Gecentreerd uitgelijnd</string>
-    <string name="settings_choose_progress_style">Kies de stijl van de voortgangsindicator</string>
     <string name="settings_create_backup">Maak een back-up naar bestand</string>
     <string name="settings_create_backup_desc">Exporteer de volledige back-up naar een JSON-bestand</string>
     <string name="settings_backup_action_short">Back-up</string>
@@ -1985,13 +1918,11 @@
     <string name="settings_lyrics_source">Teksten</string>
     <string name="settings_theme">Thema</string>
     <string name="theme_auto_detect">Vakanties automatisch detecteren</string>
-    <string name="theme_colors_applied">Aangepaste kleuren toegepast!</string>
     <string name="theme_enable_festive">Feestelijk thema inschakelen</string>
     <string name="theme_festive_settings">Feestelijke thema-instellingen</string>
     <string name="theme_font_import_failed">Kan lettertypebestand niet importeren</string>
     <string name="theme_font_imported">Lettertype succesvol geïmporteerd</string>
     <string name="theme_font_invalid">Ongeldig lettertypebestandsformaat</string>
-    <string name="theme_import_font">Aangepast lettertype importeren</string>
     <string name="ui_apply">Toepassen</string>
     <string name="crashactivity_uh_oh_looks_like">Oeh! Het lijkt erop dat Rhythm een zure noot heeft geraakt!</string>
     <string name="crashactivity_dont_fret_our_app">Maak je geen zorgen! Onze app had net een kleine \'oopsie\'. Deel de details van de crash hieronder. Het is als een geheime boodschap voor onze ontwikkelaars om dingen op te lossen! Laten we dat dan nog eens proberen, oké?</string>
@@ -2018,7 +1949,7 @@
     <string name="batchedittagssheet_tags">Labels</string>
     <string name="batchedittagssheet_batch_artwork_preview">Voorbeeld van batchillustraties</string>
     <string name="deviceconfigurationbottomsheet_supported_formats_fixedbandeq_text">Supported formats: • FixedBandEQ text (AutoEQ) • JSON format • CSV (10 band values)</string>
-    <string name="deviceconfigurationbottomsheet_paste_eq_data_here">Plak hier de EQ-gegevens...</string>
+    <string name="deviceconfigurationbottomsheet_paste_eq_data_here">Plak hier de EQ-gegevens…</string>
     <string name="deviceconfigurationbottomsheet_open_autoeqapp">Open autoeq.app</string>
     <string name="deviceconfigurationbottomsheet_export_eq_profile">EQ-profiel exporteren</string>
     <string name="deviceconfigurationbottomsheet_copied_to_clipboard">Gekopieerd naar klembord</string>
@@ -2028,7 +1959,7 @@
     <string name="deviceconfigurationbottomsheet_brand_optional">Merk (optioneel)</string>
     <string name="deviceconfigurationbottomsheet_eg_sony">bijvoorbeeld Sony</string>
     <string name="deviceconfigurationbottomsheet_select_autoeq_profile">Selecteer AutoEQ-profiel</string>
-    <string name="deviceconfigurationbottomsheet_find_a_profile_for">Zoek een profiel voor dit apparaat...</string>
+    <string name="deviceconfigurationbottomsheet_find_a_profile_for">Zoek een profiel voor dit apparaat…</string>
     <string name="deviceconfigurationbottomsheet_no_matching_profiles_found">Geen overeenkomende profielen gevonden</string>
     <string name="multiselectionbottomsheet_go_to_album">Ga naar album</string>
     <string name="multiselectionbottomsheet_go_to_artist">Ga naar artiest</string>
@@ -2045,7 +1976,7 @@
     <string name="localnavigation_metadata_saved_successfully_to">Metagegevens succesvol opgeslagen in bestand!</string>
     <string name="localnavigation_permission_required_to_modify">Toestemming vereist om bestandsmetagegevens te wijzigen</string>
     <string name="localnavigation_stats">Statistieken</string>
-    <string name="addtoplaylistscreen_pick_a_tune_to">Kies een deuntje om toe te voegen...</string>
+    <string name="addtoplaylistscreen_pick_a_tune_to">Kies een deuntje om toe te voegen…</string>
     <string name="addtoplaylistscreen_tap_songs_to_select">Tik op nummers om er meerdere te selecteren en voeg ze vervolgens allemaal tegelijk toe</string>
     <string name="equalizerscreen_reset_to_flat">Terugzetten naar plat</string>
     <string name="equalizerscreen_autoeq_profiles">AutoEQ-profielen</string>
@@ -2063,7 +1994,6 @@
     <string name="libraryscreen_clear_selection">Duidelijke selectie</string>
     <string name="onboardingscreen_media_scan_mode">Mediascanmodus</string>
     <string name="onboardingscreen_tap_the_remove_action">Tik op de verwijderactie om de maptoegang bij te werken</string>
-    <string name="onboardingscreen_enable_festive_decorations_and">Maak feestelijke decoraties en seizoensthema\'s mogelijk</string>
     <string name="onboardingscreen_interaction">Interactie</string>
     <string name="onboardingscreen_choose_your_playback_mode">Kies uw afspeelmodus</string>
     <string name="onboardingscreen_local_offline_player">Lokale offline speler</string>
@@ -2088,7 +2018,7 @@
     <string name="onboardingscreen_enter_server_username">Voer de servergebruikersnaam in</string>
     <string name="onboardingscreen_enter_server_password">Voer het serverwachtwoord in</string>
     <string name="onboardingscreen_successfully_connected">Succesvol verbonden!</string>
-    <string name="onboardingscreen_connecting">Verbinden...</string>
+    <string name="onboardingscreen_connecting">Verbinden…</string>
     <string name="onboardingscreen_connect_verify">Verbinden en verifiëren</string>
     <string name="splashscreen_go">Go</string>
     <string name="musicviewmodel_failed_to_add_to">Kan niet aan wachtrij worden toegevoegd: speler is niet geïnitialiseerd</string>
@@ -2107,8 +2037,6 @@
     <string name="streamingsettingsscreen_streaming_restricted">Streaming beperkt</string>
     <string name="streamingmusicviewmodel_failed_to_play_next">Kan volgende niet afspelen: kan URL niet omzetten</string>
     <string name="streamingmusicviewmodel_failed_to_add_to">Kan niet toevoegen aan wachtrij: kan URL niet omzetten</string>
-    <string name="legacywidgetpreview_str_12_vertical_widget">1×2 verticale widget</string>
-    <string name="legacywidgetpreview_str_32_medium_widget">3×2 middelgrote widget</string>
     <string name="rhythmmusicwidget_album_art_placeholder">Tijdelijke aanduiding voor albumhoezen</string>
     <string name="rhythmwidgetpreview_rhythm_glance_widget_previews">Rhythm Glance Widgetvoorbeelden</string>
     <string name="rhythmwidgetpreview_str_11_compact_widget">1×1 compacte widget</string>
@@ -2131,15 +2059,14 @@
     <string name="songinfobottomsheet_change_artwork">Wijzig het artwork</string>
     <string name="songinfobottomsheet_remove_artwork">Illustraties verwijderen</string>
     <string name="songinfobottomsheet_artwork_fetched_successfully_click">Kunstwerk succesvol opgehaald! Klik op Opslaan om in te sluiten.</string>
-    <string name="songinfobottomsheet_failed_to_download_artwork">Kan artworkbytes niet downloaden</string>
     <string name="songinfobottomsheet_failed_to_download_artwork_1">Kan illustraties niet downloaden van URL</string>
     <string name="songinfobottomsheet_no_artwork_found_for">Er is geen artwork online gevonden voor dit nummer</string>
     <string name="songinfobottomsheet_online_search_failed">Online zoeken mislukt</string>
     <string name="songinfobottomsheet_online_api_service_unavailable">Online API-service niet beschikbaar</string>
-    <string name="songinfobottomsheet_fetching">Ophalen...</string>
+    <string name="songinfobottomsheet_fetching">Ophalen…</string>
     <string name="songinfobottomsheet_fetch_online_art">Online kunst ophalen</string>
     <string name="songinfobottomsheet_update_artwork_and_tags">Update illustraties en tags</string>
-    <string name="songinfobottomsheet_fetching_artwork">Kunstwerk ophalen...</string>
+    <string name="songinfobottomsheet_fetching_artwork">Kunstwerk ophalen…</string>
     <string name="updatebottomsheet_install">Installeren</string>
     <string name="updatebottomsheet_update">Bijwerken</string>
     <string name="collapsibleheader_app_icon">App-pictogram</string>
@@ -2147,7 +2074,7 @@
     <string name="expressivecomponents_seek_forward">Zoek vooruit</string>
     <string name="expressivescrollbar_scroll_indicator">Scroll-indicator</string>
     <string name="navigationcomponents_scroll_to_top">Scroll naar boven</string>
-    <string name="autoeqprofileselector_find_eq_profiles_or">Vind EQ-profielen of -merken...</string>
+    <string name="autoeqprofileselector_find_eq_profiles_or">Vind EQ-profielen of -merken…</string>
     <string name="autoeqprofileselector_all">Allemaal</string>
     <string name="autoeqsuggestiondialog_audio_device_detected">Audioapparaat gedetecteerd</string>
     <string name="autoeqsuggestiondialog_saved_configuration">Opgeslagen configuratie</string>
@@ -2158,20 +2085,16 @@
     <string name="betaprogrampopup_early_access">Vroege toegang</string>
     <string name="betaprogrampopup_shape_the_future">Vorm de toekomst</string>
     <string name="betaprogrampopup_direct_feedback">Directe feedback</string>
-    <string name="betaprogrampopup_welcome_to_the_beta">Welkom bij de bèta</string>
     <string name="betaprogrampopup_youre_part_of_an">Je maakt deel uit van een exclusieve groep die de toekomst van de Rhythm-muziekspeler helpt vormgeven</string>
     <string name="betaprogrampopup_start_exploring">Begin met verkennen</string>
-    <string name="playbackpitchdialog_adjust_audio_pitch">Pas de audiotoonhoogte aan</string>
     <string name="switchmodedialog_switch_play">Schakelen en spelen</string>
     <string name="fullscreenlyricsview_cover_artwork">Omslagillustratie</string>
-    <string name="fullscreenlyricsview_loading_synced_lyrics">Gesynchroniseerde songteksten laden...</string>
+    <string name="fullscreenlyricsview_loading_synced_lyrics">Gesynchroniseerde songteksten laden…</string>
     <string name="fullscreenlyricsview_lyrics_arent_available_for">Er zijn geen songteksten beschikbaar voor dit nummer</string>
     <string name="fullscreenlyricsview_retry_fetching">Probeer opnieuw op te halen</string>
     <string name="fullscreenlyricsview_romanization">Romanisering</string>
     <string name="fullscreenlyricsview_translation">Vertaling</string>
     <string name="fullscreenlyricsview_realtime_sync_adjustment">Real-time synchronisatie-aanpassing</string>
-    <string name="fullscreenlyricsview_str_05s">-0,5s</string>
-    <string name="fullscreenlyricsview_str_05s_1">+0,5s</string>
     <string name="fullscreenlyricsview_reset_offset">Offset resetten</string>
     <string name="lyricseditorbottomsheet_str_500ms">500 ms</string>
     <string name="lyricseditorbottomsheet_str_100ms">100 ms</string>
@@ -2183,14 +2106,12 @@
     <string name="rhythmstatsscreen_top_songs">Topnummers</string>
     <string name="rhythmstatsscreen_listening_habits">Luistergewoonten</string>
     <string name="rhythmstatsscreen_listening_timeline">Luistertijdlijn</string>
-    <string name="rhythmstatsscreen_favorites">Favorieten</string>
-    <string name="rhythmstatsscreen_loved_4">Geliefd (4+)</string>
     <string name="rhythmstatsscreen_no_stats_available_yet">Nog geen statistieken beschikbaar</string>
     <string name="rhythmstatsscreen_keep_listening_to_build">Blijf luisteren om je muzikale reis op te bouwen!</string>
     <string name="universalsearchscreen_remove_search">Zoekopdracht verwijderen</string>
     <string name="universalsearchscreen_search_across_local_streaming">Zoeken via lokaal en streaming</string>
-    <string name="universalsearchscreen_loading_streaming_results">Streamingresultaten laden...</string>
-    <string name="universalsearchscreen_search_everywhere">Zoek overal...</string>
+    <string name="universalsearchscreen_loading_streaming_results">Streamingresultaten laden…</string>
+    <string name="universalsearchscreen_search_everywhere">Zoek overal…</string>
     <string name="universalsearchscreen_removed_from_streaming_favorites">Verwijderd uit streamingfavorieten</string>
     <string name="universalsearchscreen_added_to_streaming_favorites">Toegevoegd aan streamingfavorieten</string>
     <string name="universalsearchscreen_album_not_found">Album niet gevonden</string>
@@ -2212,12 +2133,6 @@
     <string name="backuprestoresettingsscreen_choose_restore_sections">Kies Secties herstellen</string>
     <string name="backuprestoresettingsscreen_select_which_sections_from">Selecteer welke secties uit de back-up moeten worden hersteld.</string>
     <string name="crashloghistorysettingsscreen_no_crashes">Geen crashes</string>
-    <string name="customcolorsdialog_color_preview">Kleurvoorbeeld</string>
-    <string name="customcolorsdialog_color_picker">Kleurkiezer</string>
-    <string name="customcolorsdialog_color_inspirations">Kleurinspiraties</string>
-    <string name="customcolorsdialog_warm_cozy">Warm en gezellig</string>
-    <string name="customcolorsdialog_cool_fresh">Koel en fris</string>
-    <string name="customcolorsdialog_nature_earth">Natuur en aarde</string>
     <string name="expressiveshapessettingsscreen_randomize_shapes">Vormen willekeurig maken</string>
     <string name="expressiveshapessettingsscreen_randomize_all_shapes">Alle vormen willekeurig maken</string>
     <string name="expressiveshapessettingsscreen_individual_shape_settings">Individuele vorminstellingen</string>
@@ -2228,7 +2143,7 @@
     <string name="expressiveshapessettingsscreen_choose_an_expressive_shape">Kies een expressieve vorm</string>
     <string name="festivesettingsscreen_festive_theme_type">Feestelijk thematype</string>
     <string name="festivesettingsscreen_about_festive_themes">Over feestelijke thema\'s</string>
-    <string name="festivesettingsscreen_festive_decorations_add_a">Feestelijke decoraties voegen een feestelijk tintje toe aan je muziekervaring. Wanneer automatische detectie is ingeschakeld, verschijnen decoraties automatisch tijdens feestdagen zoals Kerstmis (15-31 december).</string>
+    <string name="festivesettingsscreen_festive_decorations_add_a">Feestelijke decoraties voegen een feestelijk tintje toe aan je muziekervaring. Wanneer automatische detectie is ingeschakeld, verschijnen decoraties automatisch tijdens feestdagen zoals Kerstmis (15–31 december).</string>
     <string name="homescreencustomizationsettingsscreen_immersive_mode_is_active">Immersieve modus is actief. Alleen ondersteunde ontdekkingsbesturingselementen worden weergegeven.</string>
     <string name="homescreencustomizationsettingsscreen_album_count">Albumtelling</string>
     <string name="librarysettingsscreen_autofetch_artwork">Kunstwerk automatisch ophalen</string>
@@ -2262,16 +2177,12 @@
     <string name="settingsscreen_audio_equalizer">Audio-equalizer</string>
     <string name="settingsscreen_library_settings">Bibliotheekinstellingen</string>
     <string name="settingssearch_settings_suggestions">Suggesties voor instellingen</string>
-    <string name="themecustomizationsettingsscreen_rgb_values">RGB-waarden</string>
     <string name="updatessettingsscreen_simulating_update_installation_success">Update-installatie simuleren (succes!)</string>
     <string name="updatessettingsscreen_unable_to_open_release">Kan releasepagina niet openen</string>
     <string name="updatessettingsscreen_refer_to_release_notes">Raadpleeg de release-opmerkingen op de releasepagina van GitHub.</string>
     <string name="widgetsettingsscreen_widget_settings">Widgetinstellingen</string>
     <string name="widgetsettingsscreen_show_favorite_button">Knop Favorieten tonen</string>
     <string name="widgetsettingsscreen_widget_theme">Widgetthema</string>
-    <string name="widgetsettingsscreen_rhythm_uses_material_3">Rhythm gebruikt Material 3 Expressief ontwerp met dynamische kleuren</string>
-    <string name="widgetsettingsscreen_widget_adapts_from_1x1">Widget past zich aan van een afspeelknop van 1x1 tot een volledige lay-out van 5x5+</string>
-    <string name="widgetsettingsscreen_longpress_and_resize_for">Houd ingedrukt en wijzig het formaat voor verschillende expressieve lay-outs</string>
     <string name="widgetsettingsscreen_applies_to_glance_widgets">Geldt alleen voor Glance widgets</string>
     <string name="widgetsettingsscreen_personalize_home_screen_widgets">Personaliseer startschermwidgets</string>
     <string name="festivesplashgreeting_merry_christmas">Vrolijk kerstfeest!</string>
@@ -2301,7 +2212,10 @@
     <string name="artist_artwork_description">Artiestenillustraties voor %1$s</string>
     <string name="explorer_item_icon_description">%1$s-pictogram</string>
     <string name="song_added_to_blacklist_format">%1$s toegevoegd aan zwarte lijst</string>
-    <string name="playlist_import_success">%1$d afspeellijsten zijn succesvol geïmporteerd.\n%2$s\n\nStart de app opnieuw om de wijzigingen toe te passen.</string>
+    <plurals name="playlist_import_success">
+        <item quantity="one">%1$d afspeellijsten zijn succesvol geïmporteerd.\n%2$s\n\nStart de app opnieuw om de wijzigingen toe te passen.</item>
+        <item quantity="other">%1$d afspeellijsten zijn succesvol geïmporteerd.\n%2$s\n\nStart de app opnieuw om de wijzigingen toe te passen.</item>
+    </plurals>
     <string name="play_artist">Speel %1$s</string>
     <string name="will_play_next">%1$s wordt hierna afgespeeld</string>
     <string name="added_to_queue">%1$s toegevoegd aan wachtrij</string>
@@ -2309,9 +2223,6 @@
     <string name="playing_next_simple">Volgende afspelen: %1$s</string>
     <string name="failed_to_request_permission">Kan geen toestemming vragen: %1$s</string>
     <string name="unexpected_error">Onverwachte fout: %1$s</string>
-    <string name="rating_stars_desc">%1$s - %2$d sterren</string>
-    <string name="rating_stars_count">%1$d sterren</string>
-    <string name="rating_unknown">Onbekend</string>
     <string name="album_artwork_description">Albumillustraties voor %1$s</string>
     <string name="error_fetching_artwork">Fout bij ophalen van artwork: %1$s</string>
     <string name="edit_lyrics">Tekst bewerken</string>
@@ -2324,22 +2235,10 @@
     <string name="equalizer_open_error">Kon equalizer niet openen: %1$s</string>
     <string name="track_artwork_description">Afbeelding voor nummer %1$s</string>
     <string name="playlist_artwork_description">Afbeelding voor afspeellijst %1$s</string>
-    <string name="play">Afspelen</string>
-    <string name="pause">Pauze</string>
-    <string name="playlist_remove_songs_confirm">Weet je zeker dat je %1$d nummers uit deze afspeellijst wilt verwijderen?</string>
-    <string name="rating_not_rated">Niet beoordeeld</string>
-    <string name="rating_liked">Vond ik leuk</string>
-    <string name="rating_good">Goed</string>
-    <string name="rating_great">Geweldig</string>
-    <string name="rating_loved">Geliefd</string>
-    <string name="rating_absolute_favorite">Absolute favoriet</string>
-    <string name="rating_desc_not_rated">Geen beoordeling</string>
-    <string name="rating_desc_liked">Leuk gevonden - Goed voor af en toe luisteren</string>
-    <string name="rating_desc_good">Goed - Solide nummer</string>
-    <string name="rating_desc_great">Geweldig - Ik geniet hier echt van</string>
-    <string name="rating_desc_loved">Geliefd - Een van mijn favorieten</string>
-    <string name="rating_desc_absolute_favorite">Absolute favoriet - nummer van het hoogste niveau</string>
-    <string name="rating_desc_unknown">Onbekende beoordeling</string>
+    <plurals name="playlist_remove_songs_confirm">
+        <item quantity="one">Weet je zeker dat je %1$d nummers uit deze afspeellijst wilt verwijderen?</item>
+        <item quantity="other">Weet je zeker dat je %1$d nummers uit deze afspeellijst wilt verwijderen?</item>
+    </plurals>
     <!-- Settings Toggles / Options Descriptions -->
     <string name="widget_show_favorite_button_desc">Favoriete schakelaar weergeven op grote widgets</string>
     <string name="settings_clear_all_logs_desc">Verwijder alle opgeslagen crashrapporten</string>
@@ -2396,10 +2295,6 @@
     <string name="settings_tip_miniplayer_active_desc_2">Voortgangsbalk is actief op de minispeler. Probeer vervolgens vorm- en hoekaanpassingen.</string>
     <string name="settings_tip_miniplayer_inactive_desc_1">De voortgang van de minispeler is verborgen. Schakel het in voor snelle bewustwording.</string>
     <string name="settings_tip_miniplayer_inactive_desc_2">De compacte modus is nu minimaal. Schakel voortgang in voor betere overzichten.</string>
-    <string name="settings_tip_library_active_desc_1">Beoordelingen zijn ingeschakeld. Gebruik bibliotheekinstellingen om het ontdekken en sorteren te verbeteren.</string>
-    <string name="settings_tip_library_active_desc_2">Uw bibliotheek ondersteunt beoordelingen. Stem scannen en groeperen af ​​voor schoner browsen.</string>
-    <string name="settings_tip_library_inactive_desc_1">Beoordelingen zijn uitgeschakeld. Bibliotheekinstellingen kunnen nog steeds de structuur en snelheid verbeteren.</string>
-    <string name="settings_tip_library_inactive_desc_2">Vereenvoudigde bibliotheekmodus gedetecteerd. Pas de groepering aan voor snellere navigatie.</string>
     <!-- Lyrics Source Dialog -->
     <string name="lyrics_source_embedded_first">Eerst ingebed</string>
     <string name="lyrics_source_embedded_first_desc">Probeer metadata van audiobestanden → Online API\'s → .lrc-bestanden</string>
@@ -2453,10 +2348,6 @@
     <string name="color_scheme_emerald_desc">Frisse smaragdgroene tinten met natuurlijke bostinten</string>
     <string name="color_scheme_mint_title">Munt</string>
     <string name="color_scheme_mint_desc">Frisse en zuivere cyaan- en mintgroene tinten</string>
-    <!-- Color Preview Chips -->
-    <string name="theme_color_primary">Primair</string>
-    <string name="theme_color_secondary">Secundair</string>
-    <string name="theme_color_tertiary">Tertiair</string>
     <!-- Lyrics Settings Screen -->
     <string name="lyrics_settings_title">Teksten</string>
     <string name="lyrics_settings_general">Algemene instellingen</string>
@@ -2494,12 +2385,14 @@
     <string name="lyrics_settings_word_by_word_translation_desc">Genereer automatisch timing op woordniveau voor regelgesynchroniseerde songteksten door de duur proportioneel te verdelen</string>
     <string name="lyrics_settings_info_bullets">Aanvullende synchronisatiedetails:\n• Online API\'s bieden gesynchroniseerde songteksten van hoge kwaliteit\n• Rhythm biedt woord-voor-woord-synchronisatie\n• LRCLib biedt gratis regel-voor-regel synchronisatie</string>
     <!-- AutoEQ Preset Picker additions -->
-    <string name="autoeqpresetpickerbottomsheet_search_presets">Voorinstellingen zoeken...</string>
+    <string name="autoeqpresetpickerbottomsheet_search_presets">Voorinstellingen zoeken…</string>
     <string name="autoeqpresetpickerbottomsheet_disable">Geen / AutoEQ uitschakelen</string>
     <string name="autoeqpresetpickerbottomsheet_disable_desc">Duidelijk hoofdtelefoonprofiel, gebruik standaard EQ-presets</string>
-    <string name="autoeqpresetpickerbottomsheet_unknown_brand">Onbekend merk</string>
     <!-- Device Configuration additions -->
-    <string name="device_configuration_devices_configured">%1$d apparaten geconfigureerd</string>
+    <plurals name="device_configuration_devices_configured">
+        <item quantity="one">%1$d apparaten geconfigureerd</item>
+        <item quantity="other">%1$d apparaten geconfigureerd</item>
+    </plurals>
     <string name="device_configuration_device_recognized">Apparaat herkend</string>
     <string name="device_configuration_new_device_detected">Nieuw apparaat gedetecteerd</string>
     <string name="device_configuration_configured_with">%1$s is geconfigureerd met %2$s</string>
@@ -2519,7 +2412,10 @@
     <string name="device_configuration_save">Opslaan</string>
     <string name="device_configuration_add">Toevoegen</string>
     <string name="device_configuration_for_device">Voor %1$s</string>
-    <string name="device_configuration_profiles_available">%1$d profielen beschikbaar</string>
+    <plurals name="device_configuration_profiles_available">
+        <item quantity="one">%1$d profielen beschikbaar</item>
+        <item quantity="other">%1$d profielen beschikbaar</item>
+    </plurals>
     <string name="device_configuration_disable_compensation">Koptelefooncompensatie uitschakelen</string>
     <!-- Common UI element strings -->
     <string name="common_none">Geen</string>
@@ -2548,7 +2444,10 @@
     <string name="blacklist_track_label">Spoor %1$d</string>
     <!-- Library & Playlist Dialog additions -->
     <string name="dialog_add_song_to_playlist">Voeg \"%1$s\" toe aan deze afspeellijst</string>
-    <string name="dialog_songs_in_queue">Je hebt %1$d nummers in de huidige wachtrij.</string>
+    <plurals name="dialog_songs_in_queue">
+        <item quantity="one">Je hebt %1$d nummers in de huidige wachtrij.</item>
+        <item quantity="other">Je hebt %1$d nummers in de huidige wachtrij.</item>
+    </plurals>
     <string name="dialog_play_song_how">Hoe zou je \"%1$s\" willen spelen?</string>
     <string name="dialog_clear_and_play">Wissen en afspelen</string>
     <string name="dialog_clear_and_play_desc">Vervang de wachtrij en speel dit nummer af</string>
@@ -2556,7 +2455,10 @@
     <string name="dialog_add_to_queue_desc">Behoud de huidige wachtrij en voeg een nummer toe</string>
     <string name="dialog_restart_warning_message">Om ervoor te zorgen dat alle geïmporteerde afspeellijsten correct werken, raden we aan de app opnieuw te starten. U kunt de app normaal blijven gebruiken, maar sommige functies werken mogelijk niet zoals verwacht totdat u de app opnieuw opstart.</string>
     <string name="dialog_export_playlist_to">Exporteer \"%1$s\" naar:</string>
-    <string name="dialog_export_playlists_to">Exporteer %1$d afspeellijsten naar:</string>
+    <plurals name="dialog_export_playlists_to">
+        <item quantity="one">Exporteer %1$d afspeellijsten naar:</item>
+        <item quantity="other">Exporteer %1$d afspeellijsten naar:</item>
+    </plurals>
     <!-- Mode dialog strings -->
     <string name="dialog_switch_to_go">Switch to Rhythm Go?</string>
     <string name="dialog_switch_to_local">Overschakelen naar lokaal?</string>
@@ -2595,20 +2497,12 @@
     <string name="library_sort_date_modified">Datum gewijzigd</string>
     <string name="library_sort_ascending">Oplopend</string>
     <string name="library_sort_descending">Aflopend</string>
-    <string name="library_scan_songs">Nummers scannen...</string>
-    <string name="library_scan_albums">Albums verwerken...</string>
-    <string name="library_scan_artists">Kunstenaars verwerken...</string>
-    <string name="library_scan_genres">Genres detecteren...</string>
-    <string name="library_scan_media">Media scannen...</string>
+    <string name="library_scan_songs">Nummers scannen…</string>
+    <string name="library_scan_media">Media scannen…</string>
     <string name="library_category_all">Allemaal</string>
     <string name="library_category_favorites">❤️ Favorieten</string>
-    <string name="library_category_absolute_favorites">⭐⭐⭐⭐⭐ Absolute favorieten</string>
-    <string name="library_category_loved">⭐⭐⭐⭐Geliefd</string>
-    <string name="library_category_great">⭐⭐⭐ Geweldig</string>
-    <string name="library_category_good">⭐⭐ Goed</string>
-    <string name="library_category_liked">⭐ Vond ik leuk</string>
     <string name="library_category_short">Kort (&lt; 3 min)</string>
-    <string name="library_category_medium">Gemiddeld (3-5 min.)</string>
+    <string name="library_category_medium">Gemiddeld (3–5 min.)</string>
     <string name="library_category_long">Lang (&gt; 5 min)</string>
     <string name="library_category_mono">Mono</string>
     <string name="library_category_stereo">Stereo</string>
@@ -2616,9 +2510,14 @@
     <string name="library_no_albums_yet">Nog geen albums</string>
     <string name="library_no_artists_yet">Nog geen artiesten</string>
     <string name="library_action_add_to_playlist">Toevoegen aan afspeellijst</string>
-    <string name="library_action_rate_song">Beoordeel het nummer</string>
-    <string name="library_selected_count_format">%1$d Geselecteerd</string>
-    <string name="library_from_tracks_format">van %1$d nummers</string>
+    <plurals name="library_selected_count_format">
+        <item quantity="one">%1$d Geselecteerd</item>
+        <item quantity="other">%1$d Geselecteerd</item>
+    </plurals>
+    <plurals name="library_from_tracks_format">
+        <item quantity="one">van %1$d nummers</item>
+        <item quantity="other">van %1$d nummers</item>
+    </plurals>
     <!-- Onboarding, Backup & Settings additions -->
     
     <string name="backup_restored_success">Back-up succesvol hersteld. Start de app opnieuw om alle wijzigingen toe te passen.</string>
@@ -2651,75 +2550,40 @@
     <string name="shape_preset_custom">Aangepast</string>
     <string name="shape_preset_custom_desc">Uw gepersonaliseerde selectie</string>
     <string name="shape_option_square">Vierkant</string>
-    <string name="shape_option_square_desc">Afgerond vierkant</string>
     <string name="shape_option_oval">Ovaal</string>
-    <string name="shape_option_oval_desc">Langwerpig ovaal</string>
     <string name="shape_option_pill">Pil</string>
-    <string name="shape_option_pill_desc">Capsulevorm</string>
     <string name="shape_option_diamond">Diamant</string>
-    <string name="shape_option_diamond_desc">Ruitvorm</string>
     <string name="shape_option_triangle">Driehoek</string>
-    <string name="shape_option_triangle_desc">Afgeronde driehoek</string>
     <string name="shape_option_pentagon">Vijfhoek</string>
-    <string name="shape_option_pentagon_desc">Vijfhoekige veelhoek</string>
     <string name="shape_option_flower">Bloem</string>
-    <string name="shape_option_flower_desc">Bloem met bloemblaadjes</string>
     <string name="shape_option_heart">Hart</string>
-    <string name="shape_option_heart_desc">Hartvorm</string>
     <string name="shape_option_bun">Bun</string>
-    <string name="shape_option_bun_desc">Broodje/broodvorm</string>
     <string name="shape_option_boom">Boem</string>
-    <string name="shape_option_boom_desc">Explosievorm</string>
     <string name="shape_option_soft_boom">Zachte boem</string>
-    <string name="shape_option_soft_boom_desc">Zachtere explosie</string>
     <string name="shape_option_burst">Barst</string>
-    <string name="shape_option_burst_desc">Starburst-vorm</string>
     <string name="shape_option_soft_burst">Zachte uitbarsting</string>
-    <string name="shape_option_soft_burst_desc">Zachtere vuurwerkuitbarsting</string>
     <string name="shape_option_sunny">Zonnig</string>
-    <string name="shape_option_sunny_desc">Zon met stralen</string>
     <string name="shape_option_very_sunny">Zeer zonnig</string>
-    <string name="shape_option_very_sunny_desc">Zon met meer stralen</string>
     <string name="shape_option_cookie4">Koekje 4</string>
-    <string name="shape_option_cookie4_desc">4-zijdig koekje</string>
     <string name="shape_option_cookie6">Koekje 6</string>
-    <string name="shape_option_cookie6_desc">6-zijdig koekje</string>
     <string name="shape_option_cookie7">Koekje 7</string>
-    <string name="shape_option_cookie7_desc">7-zijdig koekje</string>
     <string name="shape_option_cookie9">Koekje 9</string>
-    <string name="shape_option_cookie9_desc">9-zijdig koekje</string>
     <string name="shape_option_cookie12">Koekje 12</string>
-    <string name="shape_option_cookie12_desc">12-zijdig koekje</string>
     <string name="shape_option_ghostish">Spookachtig</string>
-    <string name="shape_option_ghostish_desc">Spookachtige vorm</string>
     <string name="shape_option_puffy">Gezwollen</string>
-    <string name="shape_option_puffy_desc">Wolkachtige vorm</string>
     <string name="shape_option_puffy_diamond">Gezwollen diamant</string>
-    <string name="shape_option_puffy_diamond_desc">Gezwollen diamant</string>
     <string name="shape_option_fan">Ventilator</string>
-    <string name="shape_option_fan_desc">Waaiervorm</string>
     <string name="shape_option_circle">Cirkel</string>
-    <string name="shape_option_circle_desc">Een perfecte cirkel</string>
     <string name="shape_option_clover_4_leaf">Klavertje 4</string>
-    <string name="shape_option_clover_4_leaf_desc">Klavertje vier</string>
     <string name="shape_option_clover_8_leaf">Klavertje 8</string>
-    <string name="shape_option_clover_8_leaf_desc">Klavertje acht</string>
     <string name="shape_option_arrow">Pijl</string>
-    <string name="shape_option_arrow_desc">Pijlaanwijzer</string>
     <string name="shape_option_arch">Boog</string>
-    <string name="shape_option_arch_desc">Boogvorm</string>
     <string name="shape_option_clam_shell">Tweekleppige schelpdieren</string>
-    <string name="shape_option_clam_shell_desc">Schelpvorm</string>
     <string name="shape_option_gem">Gem</string>
-    <string name="shape_option_gem_desc">Edelsteenvorm</string>
     <string name="shape_option_semi_circle">Halve cirkel</string>
-    <string name="shape_option_semi_circle_desc">Halve cirkel</string>
     <string name="shape_option_slanted">Schuin</string>
-    <string name="shape_option_slanted_desc">Schuin vierkant</string>
     <string name="shape_option_pixel_circle">Pixelcirkel</string>
-    <string name="shape_option_pixel_circle_desc">Pixelvormige cirkel</string>
     <string name="shape_option_pixel_triangle">Pixeldriehoek</string>
-    <string name="shape_option_pixel_triangle_desc">Gepixeleerde driehoek</string>
     <string name="shape_group_basic">Basis</string>
     <string name="shape_group_organic">Biologisch</string>
     <string name="shape_group_playful">Speels</string>
@@ -2731,15 +2595,10 @@
     <string name="option_always">Altijd</string>
     <string name="option_expanded">Uitgebreid</string>
     <string name="option_collapsed">Ingestort</string>
-    <string name="option_linear">Lineair</string>
-    <string name="option_circular">Circulaire</string>
     <string name="option_both">Beide</string>
     <string name="option_icon">Icoon</string>
     <string name="option_name">Naam</string>
     <!-- Theme settings additions -->
-    <string name="theme_color_red">Rood</string>
-    <string name="theme_color_green">Groen</string>
-    <string name="theme_color_blue">Blauw</string>
     <!-- Color Scheme names -->
 
     <!-- Shape Utils category and descriptions -->
@@ -2752,7 +2611,6 @@
     <string name="metadata_album_artist">Albumartiest</string>
     <string name="metadata_play_count">Afspeeltelling</string>
     <string name="metadata_total_played">Totaal gespeeld</string>
-    <string name="metadata_rating">Beoordeling</string>
     <string name="metadata_quality">Kwaliteit</string>
     <string name="metadata_audio_tech">Audiotechnologie</string>
     <string name="metadata_bit_depth">Bitdiepte</string>
@@ -2796,11 +2654,11 @@
     <string name="lyric_widget_description">Widget die de songteksten toont van de momenteel afgespeelde media</string>
     <string name="edit_album_title">Album bewerken</string>
     <string name="edit_album_desc">Bewerk tags en illustraties voor alle nummers in dit album.</string>
-    <string name="edit_album_saving">Albummetagegevens bijwerken...</string>
+    <string name="edit_album_saving">Albummetagegevens bijwerken…</string>
     <string name="streaming_service_setup_auto_detect">Automatische detectie</string>
     <string name="nearby_server_discovery_title">Servers in de buurt</string>
     <string name="nearby_server_discovery_desc">Selecteer een server die op uw lokale netwerk is gevonden</string>
-    <string name="nearby_server_discovery_scanning">Scannen naar servers in de buurt...</string>
+    <string name="nearby_server_discovery_scanning">Scannen naar servers in de buurt…</string>
     <string name="nearby_server_discovery_empty">Geen servers in de buurt gevonden. Zorg ervoor dat uw server actief is en verbonden is met hetzelfde Wi-Fi-netwerk.</string>
     <string name="nearby_server_discovery_rescan">Opnieuw scannen</string>
     <string name="settings_metadata_editing">Metagegevens bewerken</string>
@@ -2810,8 +2668,6 @@
     <string name="fdroid_update_warning_title">Beveiligingswaarschuwing</string>
     <string name="fdroid_update_warning_message">Als je in-app-updates inschakelt voor een F-Droid-build, worden de veiligheidscontroles van F-Droid omzeild. Updates worden rechtstreeks van de uitgever gedownload. Wilt u doorgaan?</string>
     <!-- Replay Gain Settings Screen -->
-    <string name="replay_gain_status_active">Actief</string>
-    <string name="replay_gain_status_disabled">Uitgeschakeld</string>
     <string name="replay_gain_mode_title">ReplayGain-modus</string>
     <string name="replay_gain_mode_desc">Pas volumeniveaus aan op basis van trackmetadata of albummetadata.</string>
     <string name="replay_gain_mode_track">Nummer</string>
@@ -2834,7 +2690,10 @@
     <string name="backup_restore_section_insight_desc">Aantal keren gespeeld, dagelijkse statistieken, genres en Rhythm Guard-configuratie.</string>
     <string name="backup_restore_status_included">Inbegrepen</string>
     <string name="backup_restore_status_excluded">Uitgesloten</string>
-    <string name="backup_restore_sections_enabled">%1$d van %2$d ingeschakeld</string>
+    <plurals name="backup_restore_sections_enabled">
+        <item quantity="one">%1$d van %2$d ingeschakeld</item>
+        <item quantity="other">%1$d van %2$d ingeschakeld</item>
+    </plurals>
     <!-- Settings status cards -->
     <string name="status_active">Actief</string>
     <!-- Sort menu options -->
@@ -2850,12 +2709,6 @@
     <string name="library_bottom_bar_more_actions">Meer acties</string>
     <string name="library_play_selected">Afspelen (%1$d)</string>
     <!-- Rhythm Guard Comic Status Subtitles -->
-    <string name="rhythm_guard_health_desc_good">Je oren geven een perfect volumefeest. Blijf verantwoord vibreren! 🎉</string>
-    <string name="rhythm_guard_health_desc_fair">Het wordt een beetje pittig daarbinnen. Misschien een tandje lager zetten voordat de bewaker ingrijpt? 🌶️</string>
-    <string name="rhythm_guard_health_desc_risk">Whoa rockstar, je bevindt je in de gevarenzone van het trommelvlies! Bel het terug voordat de sloten worden geactiveerd! 🎸🔥</string>
-    <string name="rhythm_guard_health_desc_cooldown">Veilige zone actief! Rhythm De bewaker heeft geen dienst tijdens de koffiepauze, dus jam vrijelijk zonder time-outs! 🎫☕</string>
-    <string name="rhythm_guard_health_desc_timeout">Akoestische time-out actief. Er wordt een verplicht oordutje uitgevoerd om uw gehoor te beschermen! 😴🛑</string>
-    <string name="rhythm_guard_health_desc_off">Rhythm Bewaker heeft geen dienst. Je vliegt volledig solo op volumeveiligheid. Godspeed! 🏍️💨</string>
     <!-- Player, Bottomsheet, and Popup translations -->
     <string name="unknown_track">Onbekend nummer</string>
     <string name="unknown_song">Onbekend nummer</string>
@@ -2868,11 +2721,16 @@
     <string name="artist_options">Artiestopties</string>
     <string name="edit_album_title_label">Albumtitel</string>
     <string name="edit_album_artist_label">Albumartiest</string>
-    <string name="autoeq_profiles_available">%1$d profielen beschikbaar</string>
+    <plurals name="autoeq_profiles_available">
+        <item quantity="one">%1$d profielen beschikbaar</item>
+        <item quantity="other">%1$d profielen beschikbaar</item>
+    </plurals>
     <string name="autoeq_no_brand">Geen merk</string>
     <string name="autoeq_change_profile">Profiel wijzigen</string>
     <string name="autoeq_configure_device">Apparaat configureren</string>
-    <string name="playlist_count_format">%1$d afspeellijsten</string>
-    <string name="ui_song_count">1 nummer</string>
+    <plurals name="playlist_count_format">
+        <item quantity="one">%1$d afspeellijsten</item>
+        <item quantity="other">%1$d afspeellijsten</item>
+    </plurals>
     <string name="duration_minutes_format">%1$dm</string>
 </resources>

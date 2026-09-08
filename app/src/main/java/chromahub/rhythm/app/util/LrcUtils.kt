@@ -1,22 +1,14 @@
 /*
- *     Copyright (C) 2025 nift4
+ * Copyright (C) 2025 nift4 (Gramophone)
+ * Modified for Rhythm by Anjishnu Nandi (cromaguy)
  *
- *     Gramophone is free software: you can redistribute it and/or modify
- *     it under the terms of the GNU General Public License as published by
- *     the Free Software Foundation, either version 3 of the License, or
- *     (at your option) any later version.
- *
- *     Gramophone is distributed in the hope that it will be useful,
- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *     GNU General Public License for more details.
- *
- *     You should have received a copy of the GNU General Public License
- *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * SPDX-FileCopyrightText: 2025 nift4 <https://github.com/FoedusProgramme/Gramophone>
+ * SPDX-FileCopyrightText: 2025-2026 Anjishnu Nandi <https://github.com/cromaguy>
+ * SPDX-License-Identifier: GPL-3.0-or-later
  */
+
 package chromahub.rhythm.app.util
 
-import androidx.annotation.VisibleForTesting
 import androidx.media3.common.Metadata
 import androidx.media3.common.util.Log
 import androidx.media3.common.util.ParsableByteArray
@@ -45,7 +37,6 @@ object LrcUtils {
         val autoWordSync: Boolean = false
     )
 
-    @VisibleForTesting
     fun parseLyrics(
         lyrics: String,
         audioMimeType: String?,
@@ -154,6 +145,10 @@ object LrcUtils {
             parserOptions.errorText
         )?.let { parseLyrics(it, audioMimeType, parserOptions, LyricFormat.TTML) }
             ?: loadTextFile(
+                musicFile?.let { File(it.parentFile, it.nameWithoutExtension + ".elrc") },
+                parserOptions.errorText
+            )?.let { parseLyrics(it, audioMimeType, parserOptions, LyricFormat.LRC) }
+            ?: loadTextFile(
                 musicFile?.let { File(it.parentFile, it.nameWithoutExtension + ".srt") },
                 parserOptions.errorText
             )?.let { parseLyrics(it, audioMimeType, parserOptions, LyricFormat.SRT) }
@@ -189,10 +184,13 @@ object LrcUtils {
     }
 
     fun convertSemanticLyricsToWordByWord(syncedLyrics: SyncedLyrics): String? {
-        val rhythmWordLines = syncedLyrics.text.mapNotNull { line ->
-            // Skip translated/romanization lines — only process primary lines
-            if (line.isTranslated) return@mapNotNull null
+        val hasRealWordTiming = syncedLyrics.text.any { line ->
+            val words = line.words
+            words != null && words.isNotEmpty() && (words.size > 1 || words.any { it.begin != line.start || (it.endInclusive != null && it.endInclusive != line.end) })
+        }
+        if (!hasRealWordTiming) return null
 
+        val rhythmWordLines = syncedLyrics.text.mapNotNull { line ->
             // Skip instrumental / gap lines — leave them as timing gaps
             if (isInstrumentalLine(line.text)) return@mapNotNull null
 
@@ -212,8 +210,6 @@ object LrcUtils {
                     )
                 }
             } else {
-                // auto-sync skipped this line (e.g. single-word line or no duration).
-                // Synthesise a single word entry spanning the whole line so it still renders.
                 val trimmed = line.text.trim()
                 if (trimmed.isBlank()) return@mapNotNull null
                 listOf(
@@ -229,15 +225,16 @@ object LrcUtils {
 
             if (wordMaps.isEmpty()) return@mapNotNull null
 
-            // Use the actual last word's endtime as line endtime so WordByWordLyricsView's
-            // gap detection measures singing-end → next-line-start, not implicit-next-start.
             val lineEndtime = wordMaps.maxOfOrNull {
                 (it["endtime"] as? Long) ?: 0L
             } ?: line.end.toLong()
 
-            mutableMapOf<String, Any>(
+            val bgList = if (line.isTranslated) listOf("(${line.text.trim()})") else null
+
+            mutableMapOf<String, Any?>(
                 "text" to wordMaps,
                 "background" to false,
+                "backgroundText" to bgList,
                 "timestamp" to line.start.toLong(),
                 "endtime" to lineEndtime,
                 "endIsImplicit" to line.endIsImplicit
