@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -226,6 +226,21 @@ jobs:
             app/build/outputs/apk/github/release/Rhythm-*-githubRelease*.apk
             app/build/outputs/apk/fdroid/release/Rhythm-*-fdroidRelease*.apk
           retention-days: 30
+
+      - name: Publish Nightly GitHub Release
+        if: success() && steps.check_version.outputs.should_run == 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: nightly-${{ steps.version_info.outputs.name }}
+          name: nightly-${{ steps.version_info.outputs.name }} - Rhythm Bluetooth Lyrics
+          prerelease: true
+          generate_release_notes: false
+          body: |
+            Automated nightly build from `${{ steps.version_info.outputs.short_sha }}`.
+            Download the APK directly below. This build is for testing.
+          files: |
+            app/build/outputs/apk/github/release/Rhythm-*-githubRelease*.apk
+            app/build/outputs/apk/fdroid/release/Rhythm-*-fdroidRelease*.apk
 
       # ── Notifications ────────────────────────────────────────────────────────
 
