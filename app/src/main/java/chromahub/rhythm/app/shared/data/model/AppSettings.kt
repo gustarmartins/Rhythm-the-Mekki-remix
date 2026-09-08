@@ -326,6 +326,8 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_BLUETOOTH_LYRICS_MAX_CHUNK_CHARS = "bluetooth_lyrics_max_chunk_chars"
         private const val KEY_BLUETOOTH_LYRICS_SCROLL_CHARS_PER_SECOND = "bluetooth_lyrics_scroll_chars_per_second"
         private const val KEY_BLUETOOTH_LYRICS_MIN_CHUNK_HOLD_MS = "bluetooth_lyrics_min_chunk_hold_ms"
+        private const val KEY_BLUETOOTH_LYRICS_METADATA_UPDATE_INTERVAL_MS =
+            "bluetooth_lyrics_metadata_update_interval_ms"
         const val BLUETOOTH_LYRICS_OFFSET_MIN_MS = -5000
         const val BLUETOOTH_LYRICS_OFFSET_MAX_MS = 5000
         const val BLUETOOTH_LYRICS_OFFSET_STEP_MS = 100
@@ -1596,6 +1598,17 @@ class AppSettings private constructor(context: Context) {
         )
     )
     val bluetoothLyricsMinChunkHoldMs: StateFlow<Int> = _bluetoothLyricsMinChunkHoldMs.asStateFlow()
+
+    private val _bluetoothLyricsMetadataUpdateIntervalMs = MutableStateFlow(
+        BluetoothLyricsFormatter.coerceMetadataUpdateIntervalMs(
+            prefs.getInt(
+                KEY_BLUETOOTH_LYRICS_METADATA_UPDATE_INTERVAL_MS,
+                BluetoothLyricsFormatter.DEFAULT_METADATA_UPDATE_INTERVAL_MS
+            )
+        )
+    )
+    val bluetoothLyricsMetadataUpdateIntervalMs: StateFlow<Int> =
+        _bluetoothLyricsMetadataUpdateIntervalMs.asStateFlow()
 
     // Enhanced User Preferences
     private val _favoriteGenres = MutableStateFlow<Map<String, Int>>(
@@ -3459,6 +3472,14 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         val safeValue = BluetoothLyricsFormatter.coerceMinChunkHoldMs(minChunkHoldMs)
         prefs.edit().putInt(KEY_BLUETOOTH_LYRICS_MIN_CHUNK_HOLD_MS, safeValue).apply()
         _bluetoothLyricsMinChunkHoldMs.value = safeValue
+    }
+
+    fun setBluetoothLyricsMetadataUpdateIntervalMs(intervalMs: Int) {
+        val safeValue = BluetoothLyricsFormatter.coerceMetadataUpdateIntervalMs(intervalMs)
+        prefs.edit()
+            .putInt(KEY_BLUETOOTH_LYRICS_METADATA_UPDATE_INTERVAL_MS, safeValue)
+            .apply()
+        _bluetoothLyricsMetadataUpdateIntervalMs.value = safeValue
     }
 
     // Enhanced User Preferences Methods
@@ -5352,6 +5373,13 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
                 BluetoothLyricsFormatter.DEFAULT_MIN_CHUNK_HOLD_MS
             )
         )
+        _bluetoothLyricsMetadataUpdateIntervalMs.value =
+            BluetoothLyricsFormatter.coerceMetadataUpdateIntervalMs(
+                prefs.getInt(
+                    KEY_BLUETOOTH_LYRICS_METADATA_UPDATE_INTERVAL_MS,
+                    BluetoothLyricsFormatter.DEFAULT_METADATA_UPDATE_INTERVAL_MS
+                )
+            )
 
         // App Updates
         _autoCheckForUpdates.value = prefs.getBoolean(KEY_AUTO_CHECK_FOR_UPDATES, BuildConfig.FLAVOR != "fdroid")

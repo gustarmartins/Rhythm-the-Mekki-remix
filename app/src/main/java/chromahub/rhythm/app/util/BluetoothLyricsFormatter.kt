@@ -13,11 +13,18 @@ object BluetoothLyricsFormatter {
     const val MAX_SCROLL_CHARS_PER_SECOND = 12
 
     const val DEFAULT_MIN_CHUNK_HOLD_MS = 900
-    const val MIN_MIN_CHUNK_HOLD_MS = 600
+    const val MIN_MIN_CHUNK_HOLD_MS = 250
     const val MAX_MIN_CHUNK_HOLD_MS = 2000
 
+    /**
+     * Conservative by default because Android 16 exposes each metadata replacement as an
+     * AVRCP track update on some car units. The fast-singing preset lowers this separately.
+     */
+    const val DEFAULT_METADATA_UPDATE_INTERVAL_MS = 1500
+    const val MIN_METADATA_UPDATE_INTERVAL_MS = 250
+    const val MAX_METADATA_UPDATE_INTERVAL_MS = 2000
+
     private const val DEFAULT_LAST_LINE_MS = 3000L
-    private const val HARD_MAX_CHUNKS = 6
     private const val HARD_MAX_CHARS = 96
     private const val MIN_CHUNK_CHARS = 12
 
@@ -48,6 +55,9 @@ object BluetoothLyricsFormatter {
 
     fun coerceMinChunkHoldMs(value: Int): Int =
         value.coerceIn(MIN_MIN_CHUNK_HOLD_MS, MAX_MIN_CHUNK_HOLD_MS)
+
+    fun coerceMetadataUpdateIntervalMs(value: Int): Int =
+        value.coerceIn(MIN_METADATA_UPDATE_INTERVAL_MS, MAX_METADATA_UPDATE_INTERVAL_MS)
 
     fun selectTexts(
         mode: BluetoothLyricsTextMode,
@@ -117,27 +127,17 @@ object BluetoothLyricsFormatter {
             .coerceAtMost(HARD_MAX_CHARS)
         if (cleanText.length <= readableBudget) return listOf(cleanText)
 
-        val maxChunksByTime = (duration / safeTuning.minChunkHoldMs)
-            .toInt()
-            .coerceIn(1, HARD_MAX_CHUNKS)
-        if (maxChunksByTime == 1) return listOf(cleanText)
-
         val neededChunks = ceil(cleanText.length.toDouble() / readableBudget.toDouble())
             .toInt()
-            .coerceIn(2, maxChunksByTime)
+            .coerceAtLeast(2)
         val targetChars = maxOf(
             safeTuning.maxChunkChars,
             ceil(cleanText.length.toDouble() / neededChunks.toDouble()).toInt()
-        ).coerceIn(MIN_CHUNK_CHARS, HARD_MAX_CHARS)
+        ).coerceIn(MIN_CHUNK_CHARS, safeTuning.maxChunkChars)
 
-        var chunks = splitByWords(cleanText, targetChars)
-        if (chunks.size > maxChunksByTime) {
-            val rebalancedTarget = ceil(cleanText.length.toDouble() / maxChunksByTime.toDouble())
-                .toInt()
-                .coerceIn(MIN_CHUNK_CHARS, HARD_MAX_CHARS)
-            chunks = splitByWords(cleanText, rebalancedTarget)
-        }
-        return chunks
+        // The configured display width is a hard limit. Timing is only a preference: merging
+        // chunks to fit a short timestamp window makes fast lyrics get truncated by the car.
+        return splitByWords(cleanText, targetChars)
     }
 
     private fun findLineIndex(positionMs: Long, timestamps: LongArray): Int {

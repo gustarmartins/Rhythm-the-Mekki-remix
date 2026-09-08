@@ -1,7 +1,6 @@
 package chromahub.rhythm.app.shared.presentation.components
 
 import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -217,15 +216,10 @@ fun PermissionHandler(
             } else {
                 currentOnboardingStep = OnboardingStep.COMPLETE
                 onSetIsInitializingApp(true) // Start app initialization
-                try {
-                    val intent = Intent(context, chromahub.rhythm.app.infrastructure.service.MediaPlaybackService::class.java)
-                    intent.action = chromahub.rhythm.app.infrastructure.service.MediaPlaybackService.ACTION_INIT_SERVICE
-                    // Must use startForegroundService to avoid BackgroundServiceStartNotAllowedException on Android 12+
-                    ContextCompat.startForegroundService(context, intent)
-                    delay(1000) // Give service time to initialize
-                } catch (_: Exception) {
-                    // Fallback: service will be started when the activity is fully foregrounded
-                }
+                // MusicViewModel owns service startup and serializes controller connection
+                // attempts. Starting another foreground-service intent here raced its init path
+                // and made every ordinary launch apply service settings twice.
+                musicViewModel.connectToMediaService()
                 onSetIsInitializingApp(false) // End app initialization
             }
             onSetIsLoading(false) // Always set loading to false after evaluation

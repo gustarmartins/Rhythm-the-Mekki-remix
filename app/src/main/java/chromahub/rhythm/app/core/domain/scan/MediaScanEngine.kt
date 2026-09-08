@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.yield
 import kotlinx.coroutines.withContext
-import java.io.File
 
 /**
  * Centralized, High-Performance Media Scanning Engine for Rhythm.
@@ -66,6 +65,7 @@ class MediaScanEngine(
         val whitelistedFolders = appSettings.whitelistedFolders.value
         val blacklistedFolders = appSettings.blacklistedFolders.value
         val blacklistedSongs = appSettings.blacklistedSongs.value
+        val preferSongArtwork = appSettings.preferSongArtwork.value
 
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
@@ -160,42 +160,14 @@ class MediaScanEngine(
 
                     val dateModified = cursor.getLong(colDateModified)
 
-                    // Differential check: reuse existing DB record if unmodified
+                    // Differential check: reuse existing DB record if unmodified.
+                    // Keep scanning metadata-only: opening audio files here used to make a
+                    // large library scan compete with MediaProvider/FUSE for dozens of files.
+                    // Embedded artwork is handled by the bounded deferred worker instead.
                     val existing = existingDbSongs[id]
-                    val preferSongArtwork = appSettings.preferSongArtwork.value
-                    val losslessArtwork = appSettings.isLosslessArtworkActive.value
 
                     if (existing != null && existing.dateModified == dateModified) {
-                        val existingArt = existing.artworkUri ?: ""
-                        val isLosslessArt = existingArt.contains("embedded_art_lossless_")
-                        val isFileExist = if (existingArt.startsWith("file:") || existingArt.startsWith("/")) {
-                            try {
-                                val artPath = if (existingArt.startsWith("file:")) Uri.parse(existingArt).path else existingArt
-                                artPath?.let { File(it).exists() && File(it).length() > 0L } == true
-                            } catch (e: Exception) {
-                                false
-                            }
-                        } else true
-
-                        val needsArtUpgrade = preferSongArtwork && (existingArt.isEmpty() || !isFileExist || (losslessArtwork && !isLosslessArt))
-
-                        if (needsArtUpgrade) {
-                            val parsedUri = Uri.parse(existing.uri)
-                            val embeddedUri = try {
-                                chromahub.rhythm.app.util.MediaUtils.extractEmbeddedAlbumArt(
-                                    context, parsedUri, context.filesDir, losslessArtwork
-                                )?.toString()
-                            } catch (e: Exception) {
-                                null
-                            }
-                            if (embeddedUri != null && embeddedUri != existing.artworkUri) {
-                                scannedSongs.add(existing.copy(artworkUri = embeddedUri))
-                            } else {
-                                scannedSongs.add(existing)
-                            }
-                        } else {
-                            scannedSongs.add(existing)
-                        }
+                        scannedSongs.add(existing)
                         seenIds.add(id)
                     } else {
                         val title = cursor.getString(colTitle) ?: "Unknown Title"
@@ -214,20 +186,6 @@ class MediaScanEngine(
                             albumId
                         ).toString()
 
-                        val finalArtworkUri = if (preferSongArtwork) {
-                            try {
-                                val parsedUri = Uri.parse(contentUri)
-                                val embeddedUri = chromahub.rhythm.app.util.MediaUtils.extractEmbeddedAlbumArt(
-                                    context, parsedUri, context.filesDir, losslessArtwork
-                                )
-                                embeddedUri?.toString() ?: defaultArtworkUri
-                            } catch (e: Exception) {
-                                defaultArtworkUri
-                            }
-                        } else {
-                            defaultArtworkUri
-                        }
-
                         val entity = SongEntity(
                             id = id,
                             title = title,
@@ -236,7 +194,7 @@ class MediaScanEngine(
                             albumId = albumId,
                             duration = duration,
                             uri = contentUri,
-                            artworkUri = finalArtworkUri,
+                            artworkUri = defaultArtworkUri,
                             trackNumber = trackNumber,
                             year = year,
                             genre = genre,
@@ -278,8 +236,15 @@ class MediaScanEngine(
             }
 
             appSettings.setLastScanTimestamp(System.currentTimeMillis())
-            appSettings.setEmbeddedArtworkExtractionCompleted(true)
-            appSettings.setEmbeddedArtworkExtractionLosslessStatus(appSettings.isLosslessArtworkActive.value)
+            // A scan no longer decodes embedded artwork. Mark the deferred pass pending only
+            // when the user requested per-song artwork; that worker persists progress in small
+            // batches and marks completion after it finishes.
+            appSettings.setEmbeddedArtworkExtractionCompleted(!preferSongArtwork)
+            if (!preferSongArtwork) {
+                appSettings.setEmbeddedArtworkExtractionLosslessStatus(
+                    appSettings.isLosslessArtworkActive.value
+                )
+            }
             try {
                 context.getSharedPreferences("library_scan_metadata", Context.MODE_PRIVATE)
                     .edit()

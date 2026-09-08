@@ -186,6 +186,8 @@ fun ExperimentalFeaturesScreen(
     val bluetoothLyricsMaxChunkChars by appSettings.bluetoothLyricsMaxChunkChars.collectAsState()
     val bluetoothLyricsScrollCharsPerSecond by appSettings.bluetoothLyricsScrollCharsPerSecond.collectAsState()
     val bluetoothLyricsMinChunkHoldMs by appSettings.bluetoothLyricsMinChunkHoldMs.collectAsState()
+    val bluetoothLyricsMetadataUpdateIntervalMs by
+        appSettings.bluetoothLyricsMetadataUpdateIntervalMs.collectAsState()
     
     val forcePlayerCompactMode by appSettings.forcePlayerCompactMode.collectAsState()
     val useExperimentalPlayerUi by appSettings.useExperimentalPlayerUi.collectAsState()
@@ -340,7 +342,8 @@ fun ExperimentalFeaturesScreen(
                                 R.string.bluetooth_lyrics_tuning_summary,
                                 formatBluetoothLyricsOffsetValue(bluetoothLyricsOffsetMs),
                                 bluetoothLyricsMaxChunkChars,
-                                bluetoothLyricsScrollCharsPerSecond
+                                bluetoothLyricsScrollCharsPerSecond,
+                                bluetoothLyricsMetadataUpdateIntervalMs
                             ),
                             enabled = bluetoothLyricsEnabled,
                             onClick = { showBluetoothLyricsTuningDialog = true }
@@ -433,11 +436,14 @@ fun ExperimentalFeaturesScreen(
             currentMaxChunkChars = bluetoothLyricsMaxChunkChars,
             currentScrollCharsPerSecond = bluetoothLyricsScrollCharsPerSecond,
             currentMinChunkHoldMs = bluetoothLyricsMinChunkHoldMs,
-            onApply = { offsetMs, maxChunkChars, scrollCharsPerSecond, minChunkHoldMs ->
+            currentMetadataUpdateIntervalMs = bluetoothLyricsMetadataUpdateIntervalMs,
+            onApply = { offsetMs, maxChunkChars, scrollCharsPerSecond, minChunkHoldMs,
+                metadataUpdateIntervalMs ->
                 appSettings.setBluetoothLyricsOffsetForDevice(currentBtDeviceName, offsetMs)
                 appSettings.setBluetoothLyricsMaxChunkChars(maxChunkChars)
                 appSettings.setBluetoothLyricsScrollCharsPerSecond(scrollCharsPerSecond)
                 appSettings.setBluetoothLyricsMinChunkHoldMs(minChunkHoldMs)
+                appSettings.setBluetoothLyricsMetadataUpdateIntervalMs(metadataUpdateIntervalMs)
             },
             onDismiss = { showBluetoothLyricsTuningDialog = false }
         )
@@ -560,34 +566,41 @@ private fun BluetoothLyricsTuningDialog(
     currentMaxChunkChars: Int,
     currentScrollCharsPerSecond: Int,
     currentMinChunkHoldMs: Int,
-    onApply: (Int, Int, Int, Int) -> Unit,
+    currentMetadataUpdateIntervalMs: Int,
+    onApply: (Int, Int, Int, Int, Int) -> Unit,
     onDismiss: () -> Unit
 ) {
     var draftOffsetMs by remember(currentOffsetMs) { mutableIntStateOf(currentOffsetMs) }
     var draftMaxChunkChars by remember(currentMaxChunkChars) { mutableIntStateOf(currentMaxChunkChars) }
     var draftScrollCharsPerSecond by remember(currentScrollCharsPerSecond) { mutableIntStateOf(currentScrollCharsPerSecond) }
     var draftMinChunkHoldMs by remember(currentMinChunkHoldMs) { mutableIntStateOf(currentMinChunkHoldMs) }
+    var draftMetadataUpdateIntervalMs by remember(currentMetadataUpdateIntervalMs) {
+        mutableIntStateOf(currentMetadataUpdateIntervalMs)
+    }
     val minOffset = AppSettings.BLUETOOTH_LYRICS_OFFSET_MIN_MS
     val maxOffset = AppSettings.BLUETOOTH_LYRICS_OFFSET_MAX_MS
     val presets = listOf(-1000, -500, -200, 0, 200, 500, 1000)
     val tuningPresets = listOf(
         BluetoothLyricsTuningPreset(
-            label = stringResource(R.string.bluetooth_lyrics_preset_fast),
-            maxChunkChars = 22,
+            label = stringResource(R.string.bluetooth_lyrics_preset_fast_singing),
+            maxChunkChars = 19,
             scrollCharsPerSecond = 0,
-            minChunkHoldMs = 700
+            minChunkHoldMs = 350,
+            metadataUpdateIntervalMs = 350
         ),
         BluetoothLyricsTuningPreset(
             label = stringResource(R.string.bluetooth_lyrics_preset_short),
             maxChunkChars = 26,
             scrollCharsPerSecond = 1,
-            minChunkHoldMs = 900
+            minChunkHoldMs = 900,
+            metadataUpdateIntervalMs = BluetoothLyricsFormatter.DEFAULT_METADATA_UPDATE_INTERVAL_MS
         ),
         BluetoothLyricsTuningPreset(
             label = stringResource(R.string.bluetooth_lyrics_preset_scroll),
             maxChunkChars = 38,
             scrollCharsPerSecond = 6,
-            minChunkHoldMs = 1200
+            minChunkHoldMs = 1200,
+            metadataUpdateIntervalMs = BluetoothLyricsFormatter.DEFAULT_METADATA_UPDATE_INTERVAL_MS
         )
     )
 
@@ -596,6 +609,7 @@ private fun BluetoothLyricsTuningDialog(
         draftMaxChunkChars = BluetoothLyricsFormatter.DEFAULT_MAX_CHUNK_CHARS
         draftScrollCharsPerSecond = BluetoothLyricsFormatter.DEFAULT_SCROLL_CHARS_PER_SECOND
         draftMinChunkHoldMs = BluetoothLyricsFormatter.DEFAULT_MIN_CHUNK_HOLD_MS
+        draftMetadataUpdateIntervalMs = BluetoothLyricsFormatter.DEFAULT_METADATA_UPDATE_INTERVAL_MS
     }
 
     AlertDialog(
@@ -651,11 +665,13 @@ private fun BluetoothLyricsTuningDialog(
                             FilterChip(
                                 selected = draftMaxChunkChars == preset.maxChunkChars &&
                                     draftScrollCharsPerSecond == preset.scrollCharsPerSecond &&
-                                    draftMinChunkHoldMs == preset.minChunkHoldMs,
+                                    draftMinChunkHoldMs == preset.minChunkHoldMs &&
+                                    draftMetadataUpdateIntervalMs == preset.metadataUpdateIntervalMs,
                                 onClick = {
                                     draftMaxChunkChars = preset.maxChunkChars
                                     draftScrollCharsPerSecond = preset.scrollCharsPerSecond
                                     draftMinChunkHoldMs = preset.minChunkHoldMs
+                                    draftMetadataUpdateIntervalMs = preset.metadataUpdateIntervalMs
                                 },
                                 label = { Text(preset.label) }
                             )
@@ -671,6 +687,23 @@ private fun BluetoothLyricsTuningDialog(
                     valueRange = minOffset..maxOffset,
                     step = AppSettings.BLUETOOTH_LYRICS_OFFSET_STEP_MS,
                     onValueChange = { draftOffsetMs = it }
+                )
+
+                BluetoothLyricsTuningSlider(
+                    title = stringResource(R.string.bluetooth_lyrics_metadata_interval_title),
+                    description = stringResource(R.string.bluetooth_lyrics_metadata_interval_help),
+                    valueLabel = stringResource(
+                        R.string.bluetooth_lyrics_metadata_interval_value,
+                        draftMetadataUpdateIntervalMs
+                    ),
+                    value = draftMetadataUpdateIntervalMs,
+                    valueRange = BluetoothLyricsFormatter.MIN_METADATA_UPDATE_INTERVAL_MS..
+                        BluetoothLyricsFormatter.MAX_METADATA_UPDATE_INTERVAL_MS,
+                    step = 50,
+                    onValueChange = {
+                        draftMetadataUpdateIntervalMs =
+                            BluetoothLyricsFormatter.coerceMetadataUpdateIntervalMs(it)
+                    }
                 )
 
                 BluetoothLyricsTuningSlider(
@@ -741,7 +774,8 @@ private fun BluetoothLyricsTuningDialog(
                         draftOffsetMs,
                         draftMaxChunkChars,
                         draftScrollCharsPerSecond,
-                        draftMinChunkHoldMs
+                        draftMinChunkHoldMs,
+                        draftMetadataUpdateIntervalMs
                     )
                     onDismiss()
                 }
@@ -761,7 +795,8 @@ private data class BluetoothLyricsTuningPreset(
     val label: String,
     val maxChunkChars: Int,
     val scrollCharsPerSecond: Int,
-    val minChunkHoldMs: Int
+    val minChunkHoldMs: Int,
+    val metadataUpdateIntervalMs: Int
 )
 
 @Composable

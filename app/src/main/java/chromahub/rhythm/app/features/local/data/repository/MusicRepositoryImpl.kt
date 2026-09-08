@@ -6167,13 +6167,18 @@ class MusicRepository(context: Context) {
 
         if (songsToProcess.isEmpty()) return@withContext songs
 
-        val batchSize = 25
-        songsToProcess.chunked(batchSize).forEach { batch ->
+        // MediaMetadataRetriever/ContentResolver calls hold MediaProvider references and may
+        // traverse Android's FUSE layer. A 25-way fan-out caused provider storms on large
+        // libraries, especially while the device was already reclaiming memory. Keep a tiny,
+        // explicit concurrency budget and persist each batch so an interrupted pass resumes
+        // from the remaining songs rather than starting over.
+        val batchSize = 2
+        songsToProcess.chunked(batchSize).forEachIndexed { batchIndex, batch ->
             val changedEntities = mutableListOf<SongEntity>()
             val batchChangedSongs = mutableListOf<Song>()
 
             val results = batch.map { (index, song) ->
-                async(Dispatchers.IO) {
+                async {
                     try {
                         val embeddedUri = chromahub.rhythm.app.util.MediaUtils.extractEmbeddedAlbumArt(
                             context, song.uri, context.filesDir, lossless
@@ -6182,7 +6187,10 @@ class MusicRepository(context: Context) {
                             val updatedSong = song.copy(artworkUri = embeddedUri)
                             index to updatedSong
                         } else null
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
                     } catch (e: Exception) {
+                        Log.w(TAG, "Embedded artwork extraction failed for ${song.title}", e)
                         null
                     }
                 }
@@ -6199,6 +6207,9 @@ class MusicRepository(context: Context) {
                 onBatchUpdated?.invoke(batchChangedSongs)
             }
             yield()
+            if (batchIndex < (songsToProcess.size - 1) / batchSize) {
+                delay(40L)
+            }
         }
 
         cachedSongs = updatedSongs

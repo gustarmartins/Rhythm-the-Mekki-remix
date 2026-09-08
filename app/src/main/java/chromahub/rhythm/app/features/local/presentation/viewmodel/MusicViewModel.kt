@@ -2424,6 +2424,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                                 repository.updateAndPersistSongs(updatedSongs)
                                 Log.d(TAG, "Re-extracted embedded art for ${currentSongs.size} songs after library refresh")
                             }
+                            // MediaScanEngine leaves this pending because scanning is metadata-only.
+                            // Commit completion only after the bounded extraction pass succeeds so
+                            // an interrupted refresh resumes on the next launch.
+                            appSettings.setEmbeddedArtworkExtractionLosslessStatus(losslessArtwork)
+                            appSettings.setEmbeddedArtworkExtractionCompleted(true)
                         }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error re-extracting embedded artwork after refresh", e)
@@ -7660,45 +7665,41 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     (requireRomanization && lyricsData?.hasUsableTimedRomanization() != true) ||
                         (requireTranslation && lyricsData?.hasUsableTimedTranslation() != true)
                 if (needsEnrichment) {
-                    val retryDelaysMs = longArrayOf(0L, 3_000L, 10_000L)
-                    for ((attemptIndex, retryDelayMs) in retryDelaysMs.withIndex()) {
-                        if (retryDelayMs > 0L) delay(retryDelayMs)
-                        if (currentSong.value?.id != fetchingSongId || !isActive) return@launch
-
-                        Log.d(
-                            TAG,
-                            "Phone lyric enrichment attempt ${attemptIndex + 1} for: ${song.artist} - ${song.title}"
-                        )
-                        val enrichedLyrics = repository.fetchLyrics(
-                            artist = song.artist,
-                            title = song.title,
-                            songId = song.id,
-                            songUri = song.uri,
-                            sourcePreference = lyricsPreference,
-                            requireRomanization = requireRomanization,
-                            requireTranslation = requireTranslation
-                        )
-                        val requirementsMet =
-                            (!requireRomanization ||
-                                enrichedLyrics?.hasUsableTimedRomanization() == true) &&
-                                (!requireTranslation ||
+                    // One completed provider pass is authoritative for this request. Retrying the
+                    // exact local file and every online source after 3s and 10s cannot improve a
+                    // deterministic "no supplemental track" result, but it repeatedly traverses
+                    // MediaProvider/FUSE. Explicit user retry and a later song change still issue
+                    // a fresh request; exceptions retain the bounded retry path below.
+                    Log.d(
+                        TAG,
+                        "Phone lyric enrichment pass for: ${song.artist} - ${song.title}"
+                    )
+                    val enrichedLyrics = repository.fetchLyrics(
+                        artist = song.artist,
+                        title = song.title,
+                        songId = song.id,
+                        songUri = song.uri,
+                        sourcePreference = lyricsPreference,
+                        requireRomanization = requireRomanization,
+                        requireTranslation = requireTranslation
+                    )
+                    if (currentSong.value?.id == fetchingSongId && isActive) {
+                        val addsRequestedTrack =
+                            (requireRomanization &&
+                                enrichedLyrics?.hasUsableTimedRomanization() == true) ||
+                                (requireTranslation &&
                                     enrichedLyrics?.hasUsableTimedTranslation() == true)
-                        if (currentSong.value?.id == fetchingSongId && isActive) {
-                            val addsRequestedTrack =
-                                (requireRomanization &&
-                                    enrichedLyrics?.hasUsableTimedRomanization() == true) ||
-                                    (requireTranslation &&
-                                        enrichedLyrics?.hasUsableTimedTranslation() == true)
-                            if (addsRequestedTrack) {
-                                _currentLyrics.value = enrichedLyrics
-                                Log.d(
-                                    TAG,
-                                    "Applied timed lyric enrichment from ${enrichedLyrics.source} for: ${song.artist} - ${song.title}"
-                                )
-                            }
-                        }
-                        if (requirementsMet) {
-                            break
+                        if (addsRequestedTrack) {
+                            _currentLyrics.value = enrichedLyrics
+                            Log.d(
+                                TAG,
+                                "Applied timed lyric enrichment from ${enrichedLyrics.source} for: ${song.artist} - ${song.title}"
+                            )
+                        } else {
+                            Log.d(
+                                TAG,
+                                "No requested lyric enrichment available for: ${song.artist} - ${song.title}"
+                            )
                         }
                     }
                 }

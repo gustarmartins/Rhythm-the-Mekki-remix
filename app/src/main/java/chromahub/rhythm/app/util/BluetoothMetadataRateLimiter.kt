@@ -8,21 +8,27 @@ package chromahub.rhythm.app.util
  * creates a backlog or gets lost.
  */
 internal class BluetoothMetadataRateLimiter(
-    private val minimumIntervalMs: Long
+    private val defaultMinimumIntervalMs: Long
 ) {
     private var lastPublishedSongId: String? = null
     private var lastPublishedLine: String? = null
     private var lastPublishedAtMs = 0L
 
     init {
-        require(minimumIntervalMs >= 0L)
+        require(defaultMinimumIntervalMs >= 0L)
     }
 
-    fun shouldPublish(songId: String, line: String?, nowMs: Long): Boolean {
+    fun shouldPublish(
+        songId: String,
+        line: String?,
+        nowMs: Long,
+        minimumIntervalMs: Long = defaultMinimumIntervalMs
+    ): Boolean {
+        val safeMinimumIntervalMs = minimumIntervalMs.coerceAtLeast(0L)
         if (songId == lastPublishedSongId && line == lastPublishedLine) return false
         if (
             songId == lastPublishedSongId &&
-                nowMs - lastPublishedAtMs < minimumIntervalMs
+                nowMs - lastPublishedAtMs < safeMinimumIntervalMs
         ) {
             return false
         }

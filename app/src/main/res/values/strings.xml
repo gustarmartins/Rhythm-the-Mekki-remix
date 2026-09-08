@@ -794,7 +794,7 @@
     </plurals>
     <string name="bluetooth_lyrics_tuning_title">Bluetooth Lyrics Tuning</string>
     <string name="bluetooth_lyrics_tuning_desc">These sliders only change the lyrics shown on your car or Bluetooth screen. Your phone\'s synced lyrics stay exactly the same.</string>
-    <string name="bluetooth_lyrics_tuning_summary">Timing %1$s · %2$d chars · +%3$d/s scroll</string>
+    <string name="bluetooth_lyrics_tuning_summary">Timing %1$s · %2$d chars · +%3$d/s scroll · every %4$d ms</string>
     <string name="bluetooth_lyrics_offset_device">Timing offset saved for: %1$s</string>
     <string name="bluetooth_lyrics_offset_device_none">No Bluetooth device connected — editing the default timing offset</string>
 
@@ -803,11 +803,16 @@
 
     <string name="bluetooth_lyrics_presets_title">Quick presets</string>
     <string name="bluetooth_lyrics_preset_fast">Fast lyrics</string>
+    <string name="bluetooth_lyrics_preset_fast_singing">Fast singing</string>
     <string name="bluetooth_lyrics_preset_short">Short lines</string>
     <string name="bluetooth_lyrics_preset_scroll">Let it scroll</string>
 
     <string name="bluetooth_lyrics_offset_title">Line timing</string>
     <string name="bluetooth_lyrics_offset_help">Fixes lyrics that reach the car too early or too late. Slide right if lines show up behind the music, so each one is sent a little earlier. Slide left if they jump ahead of the song. Your phone lyrics are not touched.</string>
+
+    <string name="bluetooth_lyrics_metadata_interval_title">Metadata update interval</string>
+    <string name="bluetooth_lyrics_metadata_interval_value">Every %1$d ms</string>
+    <string name="bluetooth_lyrics_metadata_interval_help">How often Rhythm may replace the Bluetooth title. Use a shorter interval for fast singing so chunks are not skipped; raise it if an older car freezes or drops updates.</string>
 
     <string name="bluetooth_lyrics_max_chunk_title">Text per piece</string>
     <string name="bluetooth_lyrics_max_chunk_value">%1$d chars</string>

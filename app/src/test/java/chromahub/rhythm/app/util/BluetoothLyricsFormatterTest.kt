@@ -136,4 +136,60 @@ class BluetoothLyricsFormatterTest {
         assertTrue(chunks.size > 1)
         assertEquals(text, chunks.joinToString(" "))
     }
+
+    @Test
+    fun fastSingingPreset_splitsMrQStyleLineIntoCarSizedChunks() {
+        val fastSinging = BluetoothLyricsFormatter.Tuning(
+            maxChunkChars = 19,
+            scrollCharsPerSecond = 0,
+            minChunkHoldMs = 350
+        )
+
+        val chunks = BluetoothLyricsFormatter.chunksForLine(
+            text = "Make your dreams come true",
+            durationMs = 1600L,
+            tuning = fastSinging
+        )
+
+        assertEquals(listOf("Make your dreams", "come true"), chunks)
+        assertTrue(chunks.all { it.length <= 19 })
+    }
+
+    @Test
+    fun fastSingingPreset_resolvesBothChunksBeforeNextLine() {
+        val fastSinging = BluetoothLyricsFormatter.Tuning(
+            maxChunkChars = 19,
+            scrollCharsPerSecond = 0,
+            minChunkHoldMs = 350
+        )
+        val timestamps = longArrayOf(10_000L, 11_600L)
+        val texts = listOf("Make your dreams come true", "next line")
+
+        assertEquals(
+            "Make your dreams",
+            BluetoothLyricsFormatter.resolveLine(10_100L, timestamps, texts, fastSinging)?.text
+        )
+        assertEquals(
+            "come true",
+            BluetoothLyricsFormatter.resolveLine(10_900L, timestamps, texts, fastSinging)?.text
+        )
+    }
+
+    @Test
+    fun fastSingingPreset_neverMergesPastCarWidthWhenWindowIsShort() {
+        val fastSinging = BluetoothLyricsFormatter.Tuning(
+            maxChunkChars = 19,
+            scrollCharsPerSecond = 0,
+            minChunkHoldMs = 350
+        )
+
+        val chunks = BluetoothLyricsFormatter.chunksForLine(
+            text = "Make your dreams come true",
+            durationMs = 600L,
+            tuning = fastSinging
+        )
+
+        assertEquals(listOf("Make your dreams", "come true"), chunks)
+        assertTrue(chunks.all { it.length <= 19 })
+    }
 }

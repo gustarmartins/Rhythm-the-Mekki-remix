@@ -3205,7 +3205,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private var lastServiceBtAppliedSongId: String? = null
     private var serviceBtCanonicalSong: Song? = null
     private val bluetoothMetadataRateLimiter =
-        BluetoothMetadataRateLimiter(minimumIntervalMs = 1_500L)
+        BluetoothMetadataRateLimiter(defaultMinimumIntervalMs = 1_500L)
 
     /**
      * Replacing only the current item's metadata is reported by ExoPlayer as a SEEK transition
@@ -3276,7 +3276,15 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
                 } catch (e: Exception) {
                     Log.w(TAG, "Bluetooth lyrics tick failed", e)
                 }
-                delay(350)
+                val configuredIntervalMs = appSettings.bluetoothLyricsMetadataUpdateIntervalMs.value
+                delay(
+                    configuredIntervalMs
+                        .coerceIn(
+                            BluetoothLyricsFormatter.MIN_METADATA_UPDATE_INTERVAL_MS,
+                            350
+                        )
+                        .toLong()
+                )
             }
         }
     }
@@ -3526,16 +3534,19 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         if (!bluetoothMetadataRateLimiter.shouldPublish(
                 songId = song.id,
                 line = line,
-                nowMs = SystemClock.elapsedRealtime()
+                nowMs = SystemClock.elapsedRealtime(),
+                minimumIntervalMs = appSettings.bluetoothLyricsMetadataUpdateIntervalMs.value.toLong()
             )
         ) {
             return
         }
         Log.i(
             TAG,
-            "Bluetooth lyric publish: mediaId=${song.id}, positionMs=$playbackPositionMs, " +
+                "Bluetooth lyric publish: mediaId=${song.id}, positionMs=$playbackPositionMs, " +
                 "offsetMs=$offsetMs, source=$currentLyricsSource, " +
-                "mode=${appSettings.bluetoothLyricsTextMode.value}, line=${line.orEmpty()}"
+                "mode=${appSettings.bluetoothLyricsTextMode.value}, " +
+                "intervalMs=${appSettings.bluetoothLyricsMetadataUpdateIntervalMs.value}, " +
+                "line=${line.orEmpty()}"
         )
         if (appSettings.broadcastStatusEnabled.value) {
             statusBroadcaster.broadcastMetadataChanged(
