@@ -2449,7 +2449,7 @@ fun SingleCardSongsContent(
     val selectedSongs = multiSelectionState?.selectedSongs?.collectAsState()?.value ?: emptyList()
     
     val isLoading = false
-    val preparedSongs = remember(songs) {
+    val preparedSongs by rememberOffMain(emptyList<Song>(), songs) {
         songs.distinctBy { "${it.id}_${it.uri}" }
     }
     
