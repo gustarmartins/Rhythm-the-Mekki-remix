@@ -9,6 +9,11 @@ on:
         description: 'Stable or prerelease tag to publish (for example v5.4.443.1174-bluetooth-lyrics-stable)'
         required: true
         type: string
+      build_only:
+        description: 'Build signed artifacts only; skip publication and channel notifications'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -34,6 +39,8 @@ jobs:
 
       - name: Setup Android-SDK
         uses: android-actions/setup-android@v4
+        with:
+          packages: ''
 
       - name: Create files for signing
         env:
@@ -55,24 +62,35 @@ jobs:
           APPLE_MUSIC_FALLBACK_TOKEN: ${{ secrets.APPLE_MUSIC_FALLBACK_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
-        run: ./gradlew assembleGithubRelease assembleFdroidRelease --stacktrace
+        run: |
+          if [ "${{ inputs.build_only }}" = "true" ]; then
+            ./gradlew :app:assembleGithubRelease --no-daemon --no-parallel --max-workers=1 \
+              -Pkotlin.compiler.execution.strategy=in-process \
+              '-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8' --console=plain
+          else
+            ./gradlew assembleGithubRelease assembleFdroidRelease --stacktrace
+          fi
 
       - name: Generate checksums
         run: |
-          cd app/build/outputs/apk/github/release
-          for file in Rhythm-*-githubRelease*.apk; do
-            if [ -f "$file" ]; then
-              sha256sum "$file" > "$file.sha256"
-              md5sum "$file" > "$file.md5"
-            fi
-          done
-          cd $GITHUB_WORKSPACE/app/build/outputs/apk/fdroid/release
-          for file in Rhythm-*-fdroidRelease*.apk; do
-            if [ -f "$file" ]; then
-              sha256sum "$file" > "$file.sha256"
-              md5sum "$file" > "$file.md5"
-            fi
-          done
+          python - <<'PYCODE'
+          from pathlib import Path
+          import hashlib
+          for apk in Path('app/build/outputs/apk').rglob('*Release*.apk'):
+              data = apk.read_bytes()
+              for algorithm in ('sha256', 'md5'):
+                  digest = hashlib.new(algorithm, data).hexdigest()
+                  apk.with_name(apk.name + '.' + algorithm).write_text(f'{digest}  {apk.name}\n')
+          PYCODE
+
+      - name: Upload signed GitHub artifacts
+        if: inputs.build_only
+        uses: actions/upload-artifact@v7
+        with:
+          name: rhythm-github-release
+          path: app/build/outputs/apk/github/release/Rhythm-*
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Set prerelease flag
         id: prerelease
@@ -85,9 +103,11 @@ jobs:
           fi
 
       - name: Generate Release Notes
+        if: ${{ !inputs.build_only }}
         run: python scripts/generate_release_notes.py "$RELEASE_TAG" "${{ github.sha }}"
 
       - name: Github Release
+        if: ${{ !inputs.build_only }}
         id: gh_release
         uses: softprops/action-gh-release@v3
         with:
@@ -108,7 +128,7 @@ jobs:
       # ── Notifications ────────────────────────────────────────────────────────
 
       - name: Locate universal Release APK
-        if: success()
+        if: success() && !inputs.build_only
         id: find_apk
         run: |
           APK_PATH=$(find app/build/outputs/apk/github/release -name "Rhythm-*-githubRelease.apk" ! -name "*-arm64-v8a.apk" ! -name "*-armeabi-v7a.apk" ! -name "*-x86_64.apk" ! -name "*-x86.apk" | head -n 1)
@@ -124,6 +144,7 @@ jobs:
       - name: Send Release APK to Telegram
         if: >
           success() &&
+          !inputs.build_only &&
           steps.find_apk.outputs.path != ''
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -168,7 +189,7 @@ jobs:
           fi
 
       - name: Send Release notification to Discord
-        if: success()
+        if: success() && !inputs.build_only
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
