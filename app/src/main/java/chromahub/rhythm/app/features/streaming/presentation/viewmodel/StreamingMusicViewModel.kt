@@ -66,7 +66,9 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     val repository = StreamingMusicModule.provideStreamingMusicRepository(application)
     private val providerRepository = repository as? StreamingMusicRepositoryImpl
     private val notificationManager = StreamingNotificationManager(application)
-    private var playbackHandler: ((List<StreamingSong>, Int) -> Unit)? = null
+    private var queueSelectionHandler: ((suspend () -> List<StreamingSong>) -> Unit)? = null
+    private var queueSelectionRequested: (() -> Boolean)? = null
+    private var playbackHandler: ((List<StreamingSong>, Int) -> Boolean)? = null
     private var seekProgressHandler: ((Float) -> Unit)? = null
     private var seekPositionHandler: ((Long) -> Unit)? = null
     private var wasOffline: Boolean? = null
@@ -74,6 +76,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     private var networkLostJob: Job? = null
     private var networkAvailableJob: Job? = null
     private val authMutex = Mutex()
+    private val queueSelectionMutex = Mutex()
     private var lastSuccessfulAuthTimestamp = 0L
 
     private fun showStatusToast(resId: Int) {
@@ -538,7 +541,13 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
         return serviceSessionRepository.getSession(serviceId)
     }
 
-    fun setPlaybackHandler(handler: (List<StreamingSong>, Int) -> Unit) {
+    fun setPlaybackHandler(
+        shouldEnqueueSelection: () -> Boolean = { false },
+        onQueueSelection: (suspend () -> List<StreamingSong>) -> Unit = {},
+        handler: (List<StreamingSong>, Int) -> Boolean
+    ) {
+        queueSelectionRequested = shouldEnqueueSelection
+        queueSelectionHandler = onQueueSelection
         playbackHandler = handler
     }
 
@@ -984,28 +993,45 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
      * Play the current recommendation list.
      */
     fun playRecommendations(shuffle: Boolean = false) {
-        playQueue(_recommendations.value, startIndex = 0, shuffle = shuffle)
+        playQueue(_recommendations.value, startIndex = 0, shuffle = shuffle, enqueueWholeList = true)
     }
 
     /**
      * Play a specific queue and start index.
      */
-    fun playQueue(queue: List<StreamingSong>, startIndex: Int = 0, shuffle: Boolean = false, pinStartIndex: Boolean = false) {
+    fun playQueue(queue: List<StreamingSong>, startIndex: Int = 0, shuffle: Boolean = false, pinStartIndex: Boolean = false, enqueueWholeList: Boolean = false) {
         val playableQueue = queue.filter { it.isPlayable }
         if (playableQueue.isEmpty()) {
             _error.value = "No playable tracks available"
             return
         }
 
+        if (queueSelectionRequested?.invoke() == true) {
+            val selected = queue[startIndex.coerceIn(0, queue.lastIndex)]
+            val requested = if (enqueueWholeList) {
+                if (shuffle) playableQueue.shuffled() else playableQueue
+            } else listOf(selected)
+            queueSelectionHandler?.invoke {
+                requested.mapNotNull { resolveSongForEnqueue(it) }
+            }
+            return
+        }
         viewModelScope.launch {
-            val safeStartIndex = startIndex.coerceIn(0, playableQueue.lastIndex)
-            val selectedTargetSong = playableQueue[safeStartIndex]
+            queueSelectionMutex.withLock {
+            val requestedIndex = startIndex.coerceIn(0, queue.lastIndex)
+            val selectedTargetSong = queue[requestedIndex]
+            if (!selectedTargetSong.isPlayable) {
+                _error.value = "Selected track is not playable"
+                return@withLock
+            }
+            val safeStartIndex = queue.take(requestedIndex).count { it.isPlayable }
+            val enqueueOnly = queueSelectionRequested?.invoke() == true
             val isTargetDownloaded = isSongDownloaded(selectedTargetSong.id)
 
             val isOffline = !_isOnline.value || !NetworkUtils.isNetworkAvailable(getApplication()) || appSettings.offlineMode.value
             if (isOffline && !isTargetDownloaded) {
                 _error.value = if (appSettings.offlineMode.value) "Offline mode: Song is not downloaded" else "Device is offline: Song is not downloaded"
-                return@launch
+                return@withLock
             }
 
             val normalizedServiceId = normalizeServiceId(appSettings.streamingService.value)
@@ -1014,10 +1040,12 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
 
             if (!credentialsExist && !isTargetDownloaded && _downloadedSongs.value.isEmpty()) {
                 _error.value = "Connect to a streaming service first"
-                return@launch
+                return@withLock
             }
             val shouldPinStart = pinStartIndex || (shuffle && safeStartIndex > 0)
-            val queueToPlay = if (shuffle && playableQueue.size > 1) {
+            val queueToPlay = if (enqueueOnly) {
+                listOf(selectedTargetSong)
+            } else if (shuffle && playableQueue.size > 1) {
                 if (shouldPinStart) {
                     val startSong = playableQueue[safeStartIndex]
                     val tail = playableQueue.toMutableList().apply {
@@ -1032,7 +1060,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
                 playableQueue
             }
 
-            val selectedIndex = if (shuffle && queueToPlay.size > 1) {
+            val selectedIndex = if (enqueueOnly || (shuffle && queueToPlay.size > 1)) {
                 0
             } else {
                 safeStartIndex
@@ -1063,15 +1091,17 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
                     !NetworkUtils.canStream(getApplication(), appSettings.allowCellularStreaming.value) -> "Streaming not allowed on current network"
                     else -> "Unable to resolve stream URL for this song"
                 }
-                return@launch
+                return@withLock
             }
 
-            _queue.value = queueWithResolvedSongs
-            _currentSong.value = selectedResolvedSong
-            _isPlaying.value = true
-
-            playbackHandler?.invoke(queueWithResolvedSongs, selectedIndex)
+            val queuedWithoutInterrupting = playbackHandler?.invoke(queueWithResolvedSongs, selectedIndex) == true
+            if (!queuedWithoutInterrupting) {
+                _queue.value = queueWithResolvedSongs
+                _currentSong.value = selectedResolvedSong
+                _isPlaying.value = true
             }
+            }
+        }
     }
 
     /**
@@ -1088,7 +1118,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
         viewModelScope.launch {
             val tracks = playlist.getTracks()
             if (tracks.isNotEmpty()) {
-                playQueue(tracks, startIndex = 0, shuffle = false)
+                playQueue(tracks, startIndex = 0, shuffle = false, enqueueWholeList = true)
             }
         }
     }
@@ -2048,49 +2078,32 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
      * Play the streaming song next in the active local playback queue.
      */
     fun playNext(song: StreamingSong, localViewModel: MusicViewModel) {
-        viewModelScope.launch {
-            try {
-                val isDownloadedSong = isSongDownloaded(song.id) || repository.isDownloaded(song.id)
-                if (!isDownloadedSong && !checkAndSyncAuthentication()) {
-                    _error.value = "Connect to a streaming service first"
-                    return@launch
-                }
-                val resolvedUrl = repository.getStreamingUrl(song.id)
-                    ?: song.streamingUrl
-                    ?: song.previewUrl
-
-                val updatedSong = if (resolvedUrl.isNullOrBlank()) {
-                    song
-                } else {
-                    song.copy(streamingUrl = resolvedUrl)
-                }
-
-                if (updatedSong.streamingUrl.isNullOrBlank()) {
-                    _error.value = "Unable to resolve stream URL for this song"
-                    android.widget.Toast.makeText(getApplication(), R.string.streamingmusicviewmodel_failed_to_play_next, android.widget.Toast.LENGTH_SHORT).show()
-                    return@launch
-                }
-
-                // Sync VM queue state flow representation if needed
-                val currentQueue = _queue.value.toMutableList()
-                val currentSongId = _currentSong.value?.id
-                val currentIndex = currentQueue.indexOfFirst { it.id == currentSongId }
-                val insertIndex = if (currentIndex >= 0) currentIndex + 1 else 0
-                if (insertIndex in 0..currentQueue.size) {
-                    currentQueue.add(insertIndex, updatedSong)
-                } else {
-                    currentQueue.add(updatedSong)
-                }
-                _queue.value = currentQueue
-
-                // Delegate to localViewModel
-                val localSong = updatedSong.toLocalSong()
-                localViewModel.playNext(localSong)
-            } catch (e: Exception) {
-                android.util.Log.e("StreamingMusicViewModel", "Error in playNext for streaming song", e)
-                _error.value = "Failed to play next: ${e.message}"
-            }
+        localViewModel.playNextResolving {
+            listOfNotNull(resolveSongForEnqueue(song)?.toLocalSong())
         }
+    }
+
+    private suspend fun resolveSongForEnqueue(song: StreamingSong): StreamingSong? {
+        if (!song.isPlayable) {
+            _error.value = "Selected track is not playable"
+            return null
+        }
+        val downloaded = isSongDownloaded(song.id) || repository.isDownloaded(song.id)
+        val offline = !_isOnline.value || !NetworkUtils.isNetworkAvailable(getApplication()) || appSettings.offlineMode.value
+        if (offline && !downloaded) {
+            _error.value = "Offline mode: Song is not downloaded"
+            return null
+        }
+        if (!downloaded && !checkAndSyncAuthentication()) {
+            _error.value = "Connect to a streaming service first"
+            return null
+        }
+        val url = repository.getStreamingUrl(song.id) ?: song.streamingUrl ?: song.previewUrl
+        if (url.isNullOrBlank()) {
+            _error.value = "Unable to resolve stream URL for this song"
+            return null
+        }
+        return song.copy(streamingUrl = url)
     }
 
     /**

@@ -1425,7 +1425,7 @@
     <string name="settings_queue_action_dialog_desc_ask">Ask first</string>
     <string name="settings_queue_action_dialog_desc_always">Play next</string>
     <string name="settings_queue_action_dialog_desc_disabled">Off while clearing the queue is on</string>
-    <string name="settings_list_queue_action_dialog">Playing from a list</string>
+    <string name="settings_list_queue_action_dialog">Playing a new song or list</string>
     <string name="settings_list_queue_action_replace">Replace the queue</string>
     <string name="settings_list_queue_action_ask">Ask first</string>
     <string name="settings_list_queue_action_play_next">Play next</string>
@@ -1442,7 +1442,7 @@
     <string name="list_queue_behavior_ask_title">Ask first</string>
     <string name="list_queue_behavior_ask_desc">Choose what to do each time.</string>
     <string name="list_queue_behavior_play_next_title">Play next</string>
-    <string name="list_queue_behavior_play_next_desc">Insert the list after the current song.</string>
+    <string name="list_queue_behavior_play_next_desc">Keep the current song playing. Queue selections in the order you add them, before the remaining album or playlist.</string>
     <string name="list_queue_behavior_add_end_title">Add to the end</string>
     <string name="list_queue_behavior_add_end_desc">Put the list after the current queue.</string>
     <string name="settings_playlist_action_dialog">Playlist Track Tap Action</string>
@@ -1459,7 +1459,7 @@
     <string name="list_queue_action_replace_title">Replace queue</string>
     <string name="list_queue_action_replace_desc">Start this list as the active queue now.</string>
     <string name="list_queue_action_play_next_title">Insert next</string>
-    <string name="list_queue_action_play_next_desc">Place this list after current song and begin playback from it.</string>
+    <string name="list_queue_action_play_next_desc">Keep listening and add this list after songs you already queued.</string>
     <string name="list_queue_action_add_end_title">Add to end</string>
     <string name="list_queue_action_add_end_desc">Append this list to queue end and start playback from it.</string>
 <string name="settings_cache_backend">Cache Backend</string>
@@ -1747,7 +1747,7 @@
     <string name="settings_queue_hours_format_desc">Hours in time format</string>
     <string name="settings_queue_persistence">Persist Queue</string>
     <string name="settings_queue_persistence_desc">Restore queue on start</string>
-    <string name="settings_list_queue_action_dialog_desc">What happens to the queue when you play a song from a list.</string>
+    <string name="settings_list_queue_action_dialog_desc">Choose whether a new song or list replaces playback or joins the queue.</string>
 <string name="settings_exp_festive_theme">Festive Theme</string>
     <string name="settings_exp_festive_theme_desc">Festive decorations</string>
     <string name="settings_exp_auto_detect_holidays">Auto-Detect Holidays</string>
@@ -2234,7 +2234,7 @@
     <string name="will_play_next">%1$s will play next</string>
     <string name="added_to_queue">%1$s added to queue</string>
     <string name="added_to_queue_simple">Added to queue: %1$s</string>
-    <string name="playing_next_simple">Playing next: %1$s</string>
+    <string name="playing_next_simple">Queued next: %1$s</string>
     <string name="failed_to_request_permission">Failed to request permission: %1$s</string>
     <string name="unexpected_error">Unexpected error: %1$s</string>
     <string name="album_artwork_description">Album artwork for %1$s</string>
@@ -3102,4 +3102,9 @@
     <string name="rhythm_go_online_toast">Rhythm Go is back online</string>
     <string name="streaming_downloaded_albums">Downloaded Albums</string>
     <string name="streaming_syncing_downloads_subtitle">Available while syncing</string>
+    <string name="settings_media_management_access">Automatic artwork embedding</string>
+    <string name="settings_media_management_access_desc">Allow Rhythm to edit audio metadata without asking for every file</string>
+    <string name="settings_media_management_access_granted">Allowed — fetched artwork can be embedded automatically</string>
+    <string name="media_management_access_not_granted">Media management access was not enabled</string>
+    <string name="media_management_allow_and_embed">Allow and embed automatically</string>
 </resources>

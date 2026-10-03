@@ -28,6 +28,7 @@ import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.ExtendedSongInfo
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.security.MessageDigest
 import com.kyant.taglib.Picture
 import com.kyant.taglib.TagLib
@@ -1427,9 +1428,16 @@ object MediaUtils {
 
                         tempFile = adjustTempFileExtension(tempFile)
 
-                        // Step 2: Modify metadata in temp file
+                        // Step 2: Modify metadata in temp file. For FLAC, capture the
+                        // encoded stream identity before touching any metadata blocks.
                         Log.d(TAG, "Step 2: Modifying metadata in temp file...")
                         val container = detectContainerFormat(tempFile.absolutePath)
+                        val originalFlacIdentity = if (container == DetectedContainer.FLAC) {
+                            FlacIntegrityVerifier.readAudioIdentity(tempFile)
+                                ?: throw IOException("FLAC integrity check failed before metadata edit")
+                        } else {
+                            null
+                        }
                         val useTagLib = container != DetectedContainer.UNKNOWN
                         
                         if (useTagLib) {
@@ -1488,14 +1496,20 @@ object MediaUtils {
                             audioFileObj.tag = tag
                             AudioFileIO.write(audioFileObj)
                         }
+                        if (container == DetectedContainer.FLAC &&
+                            !FlacIntegrityVerifier.preservesAudio(originalFlacIdentity, tempFile)
+                        ) {
+                            throw IOException("FLAC audio stream changed during metadata edit")
+                        }
                         Log.d(TAG, "Metadata written to temp file successfully")
 
                         // Step 3: Copy modified temp file back to original location
                         Log.d(TAG, "Step 3: Copying modified file back to original location...")
 
-                        // Try to open output stream - this is where it might fail on Android 10+
-                        val outputStream = try {
-                            contentResolver.openOutputStream(song.uri, "w")
+                        // The verified writer opens the destination, copies the complete file,
+                        // then reads it back before this edit is reported as successful.
+                        val writeBackSucceeded = try {
+                            replaceMediaUriWithVerifiedFile(contentResolver, song.uri, tempFile)
                         } catch (e: android.app.RecoverableSecurityException) {
                             // Android 11+ requires user permission via createWriteRequest
                             Log.e(
@@ -1525,17 +1539,17 @@ object MediaUtils {
                                 "SecurityException opening output stream - app may not have write permission for this file",
                                 e
                             )
-                            null
+                            false
                         } catch (e: Exception) {
                             Log.e(
                                 TAG,
                                 "Exception opening output stream: ${e.javaClass.simpleName} - ${e.message}",
                                 e
                             )
-                            null
+                            false
                         }
 
-                        if (outputStream == null) {
+                        if (!writeBackSucceeded) {
                             Log.e(
                                 TAG,
                                 "Failed to open output stream for writing. This typically means:"
@@ -1550,13 +1564,6 @@ object MediaUtils {
                                 "3. App doesn't own this file (Android 11+ scoped storage restriction)"
                             )
                             throw Exception("Cannot open output stream for URI: ${song.uri}")
-                        }
-
-                        outputStream.use { outStream ->
-                            tempFile.inputStream().use { inputStream ->
-                                val bytesCopied = inputStream.copyTo(outStream)
-                                Log.d(TAG, "Copied $bytesCopied bytes back to original location")
-                            }
                         }
 
                         fileWriteSucceeded = true
@@ -1883,8 +1890,14 @@ object MediaUtils {
 
             tempFile = adjustTempFileExtension(tempFile)
 
-            // Modify metadata in temp file
+            // Modify metadata in temp file and prove that FLAC audio frames remain exact.
             val container = detectContainerFormat(tempFile.absolutePath)
+            val originalFlacIdentity = if (container == DetectedContainer.FLAC) {
+                FlacIntegrityVerifier.readAudioIdentity(tempFile)
+                    ?: throw IOException("FLAC integrity check failed before metadata edit")
+            } else {
+                null
+            }
             val useTagLib = container != DetectedContainer.UNKNOWN
             
             if (useTagLib) {
@@ -1944,6 +1957,12 @@ object MediaUtils {
                 AudioFileIO.write(audioFileObj)
             }
 
+            if (container == DetectedContainer.FLAC &&
+                !FlacIntegrityVerifier.preservesAudio(originalFlacIdentity, tempFile)
+            ) {
+                throw IOException("FLAC audio stream changed during metadata edit")
+            }
+
             Log.d(TAG, "Temp file with modified metadata created: ${tempFile.absolutePath}")
             tempFile.absolutePath
 
@@ -1998,18 +2017,21 @@ object MediaUtils {
 
             Log.d(TAG, "Completing write operation after permission granted for: ${pendingRequest.song.title}")
 
-            // Now we have permission, copy the temp file back to original location
-            val outputStream = contentResolver.openOutputStream(pendingRequest.song.uri, "w")
-            if (outputStream == null) {
-                Log.e(TAG, "Failed to open output stream even after permission granted")
-                return false
+            // Re-check against the still-intact source just before replacement. This also
+            // protects pending edits that survived a process/activity round trip.
+            if (detectContainerFormat(tempFile.absolutePath) == DetectedContainer.FLAC) {
+                val sourceIdentity = contentResolver.openInputStream(pendingRequest.song.uri)?.use {
+                    runCatching { FlacIntegrityVerifier.readAudioIdentity(it) }.getOrNull()
+                }
+                if (!FlacIntegrityVerifier.preservesAudio(sourceIdentity, tempFile)) {
+                    Log.e(TAG, "Refusing to replace FLAC because its encoded audio identity changed")
+                    return false
+                }
             }
 
-            outputStream.use { outStream ->
-                tempFile.inputStream().use { inputStream ->
-                    val bytesCopied = inputStream.copyTo(outStream)
-                    Log.d(TAG, "Copied $bytesCopied bytes back to original location")
-                }
+            if (!replaceMediaUriWithVerifiedFile(contentResolver, pendingRequest.song.uri, tempFile)) {
+                Log.e(TAG, "Failed to verify copied file even after permission was granted")
+                return false
             }
 
             // Update MediaStore as well
@@ -2956,6 +2978,61 @@ object MediaUtils {
         }
     }
 
+    /**
+     * Replaces a MediaStore item and proves the provider contains the exact prepared bytes.
+     * A second pass repairs a short/partial first write before the valid temp file is released.
+     */
+    private fun replaceMediaUriWithVerifiedFile(
+        contentResolver: ContentResolver,
+        destination: Uri,
+        preparedFile: File
+    ): Boolean {
+        if (!preparedFile.isFile || preparedFile.length() <= 0L) return false
+        val expectedSize = preparedFile.length()
+        val expectedHash = preparedFile.inputStream().buffered().use(::sha256)
+
+        repeat(2) { attempt ->
+            try {
+                val output = contentResolver.openOutputStream(destination, "w")
+                    ?: throw IOException("MediaStore returned no output stream")
+                val bytesCopied = output.use { out ->
+                    preparedFile.inputStream().buffered().use { input ->
+                        input.copyTo(out).also { out.flush() }
+                    }
+                }
+
+                val destinationHash = contentResolver.openInputStream(destination)
+                    ?.buffered()
+                    ?.use(::sha256)
+                if (bytesCopied == expectedSize && destinationHash?.contentEquals(expectedHash) == true) {
+                    Log.d(TAG, "Verified $bytesCopied bytes after MediaStore replacement")
+                    return true
+                }
+                Log.e(
+                    TAG,
+                    "MediaStore replacement verification failed on attempt ${attempt + 1}: " +
+                        "copied=$bytesCopied expected=$expectedSize"
+                )
+            } catch (e: SecurityException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "MediaStore replacement failed on attempt ${attempt + 1}", e)
+            }
+        }
+        return false
+    }
+
+    private fun sha256(input: java.io.InputStream): ByteArray {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) break
+            if (read > 0) digest.update(buffer, 0, read)
+        }
+        return digest.digest()
+    }
+
     fun findBestCover(songFolder: File): File? {
         val allowedExt = listOf("jpg", "png", "jpeg", "bmp", "tiff", "tif", "webp")
         var bestScore = 0
@@ -3300,4 +3377,3 @@ object MediaUtils {
         }
     }
 }
-

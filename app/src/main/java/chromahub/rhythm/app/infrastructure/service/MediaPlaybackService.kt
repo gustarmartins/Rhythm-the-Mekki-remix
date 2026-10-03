@@ -14,6 +14,7 @@ import android.widget.Toast
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.AudioMixerAttributes
+import android.media.audiofx.AudioEffect
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
@@ -136,6 +137,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private var pendingAudioEffectsSessionId: Int = 0
     @Volatile
     private var currentAudioEffectsSessionId: Int = 0
+    private var externalAudioEffectSessionId: Int = 0
     
     // Player listener reference for proper cleanup
     private var playerListener: Player.Listener? = null
@@ -1551,6 +1553,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                         for (commandButton in customCommands) {
                             commandButton.sessionCommand?.let { builder.add(it) }
                         }
+                        builder.add(SessionCommand(PlayNextCommand.ACTION, Bundle.EMPTY))
                         builder.add(SessionCommand("UPDATE_ACTIVE_LYRIC", Bundle.EMPTY))
                         builder.add(SessionCommand("UPDATE_LYRICS_DATA", Bundle.EMPTY))
                         builder.add(SessionCommand(SESSION_COMMAND_BT_VIRTUAL_SKIP_NEXT, Bundle.EMPTY))
@@ -2128,6 +2131,76 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         return super.onStartCommand(intent, flags, startId)
     }
     
+    private val pendingPlayNextTokens = mutableListOf<String>()
+
+    private fun enqueuePlayNext(items: List<MediaItem>): Bundle {
+        require(items.isNotEmpty())
+        val virtual = btVirtualOriginalQueue?.takeIf { btVirtualQueueActive() }
+        val original = virtual ?: List(player.mediaItemCount) { player.getMediaItemAt(it) }
+        val current = if (virtual != null) btVirtualCurrentOriginalIndex else player.currentMediaItemIndex
+        val currentIndex = current.takeIf { it in original.indices } ?: -1
+        val order = if (virtual != null) {
+            btVirtualHistory.map { it.originalIndex } + listOf(currentIndex) +
+                btVirtualUpcoming.map { it.originalIndex }
+        } else {
+            val timeline = player.currentTimeline
+            val result = mutableListOf<Int>()
+            val visited = hashSetOf<Int>()
+            var cursor = timeline.getFirstWindowIndex(player.shuffleModeEnabled)
+            while (cursor != C.INDEX_UNSET && visited.add(cursor)) {
+                result.add(cursor)
+                cursor = timeline.getNextWindowIndex(cursor, Player.REPEAT_MODE_OFF, player.shuffleModeEnabled)
+            }
+            result
+        }
+        val plan = planPlayNextInsertion(
+            original.map { it.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN) },
+            currentIndex, order, pendingPlayNextTokens, items.size
+        )
+        val additions = items.map { item ->
+            val extras = Bundle(item.mediaMetadata.extras ?: Bundle.EMPTY).apply {
+                putString(PlayNextCommand.ENTRY_TOKEN, java.util.UUID.randomUUID().toString())
+            }
+            item.buildUpon().setMediaMetadata(item.mediaMetadata.buildUpon().setExtras(extras).build()).build()
+        }
+        if (virtual != null) {
+            val edited = original.toMutableList().apply { addAll(plan.insertionIndex, additions) }
+            btVirtualOriginalQueue = edited
+            fun remap(index: Int) = if (index >= plan.insertionIndex) index + additions.size else index
+            btVirtualCurrentOriginalIndex = remap(currentIndex)
+            btVirtualHistory.clear()
+            btVirtualHistory.addAll(plan.playbackOrder.take(plan.displayCurrentIndex).map { BtVirtualQueueItem(edited[it], it) })
+            btVirtualUpcoming.clear()
+            btVirtualUpcoming.addAll(plan.playbackOrder.drop(plan.displayCurrentIndex + 1).map { BtVirtualQueueItem(edited[it], it) })
+            notifyBtVirtualCommands()
+        } else {
+            player.addMediaItems(plan.insertionIndex, additions)
+            if (player.shuffleModeEnabled) {
+                (rhythmPlayerEngine.masterPlayer as? ExoPlayer)?.setShuffleOrder(
+                    chromahub.rhythm.app.infrastructure.service.player.RhythmShuffleOrder(plan.playbackOrder.toIntArray())
+                )
+            }
+        }
+        pendingPlayNextTokens.clear()
+        pendingPlayNextTokens.addAll(plan.remainingPending)
+        pendingPlayNextTokens.addAll(additions.mapNotNull { it.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN) })
+        // Adding to a paused/active queue does not resume it or seek away from its current song.
+        if (currentIndex == -1 || player.playbackState == Player.STATE_ENDED || player.playbackState == Player.STATE_IDLE) {
+            if (virtual != null) {
+                btVirtualAdvance()
+            } else {
+                player.seekToDefaultPosition(plan.insertionIndex)
+                player.prepare()
+            }
+            player.play()
+        }
+        return Bundle().apply {
+            putBoolean(PlayNextCommand.VIRTUAL_QUEUE, virtual != null)
+            putInt(PlayNextCommand.INSERTION_INDEX, plan.displayInsertionIndex)
+            putInt(PlayNextCommand.CURRENT_INDEX, plan.displayCurrentIndex.coerceAtLeast(0))
+        }
+    }
+
     private fun wrapPlayer(rawPlayer: Player): Player = RhythmForwardingPlayer(rawPlayer)
 
     private inner class RhythmForwardingPlayer(rawPlayer: Player) : ForwardingPlayer(rawPlayer) {
@@ -2218,31 +2291,37 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
 
         override fun setMediaItems(mediaItems: List<MediaItem>) {
+            if (!isMutatingBtVirtualQueue) pendingPlayNextTokens.clear()
             restoreBeforeExternalQueueMutation()
             super.setMediaItems(mediaItems)
         }
 
         override fun setMediaItems(mediaItems: List<MediaItem>, resetPosition: Boolean) {
+            if (!isMutatingBtVirtualQueue) pendingPlayNextTokens.clear()
             restoreBeforeExternalQueueMutation()
             super.setMediaItems(mediaItems, resetPosition)
         }
 
         override fun setMediaItems(mediaItems: List<MediaItem>, startIndex: Int, startPositionMs: Long) {
+            if (!isMutatingBtVirtualQueue) pendingPlayNextTokens.clear()
             restoreBeforeExternalQueueMutation()
             super.setMediaItems(mediaItems, startIndex, startPositionMs)
         }
 
         override fun setMediaItem(mediaItem: MediaItem) {
+            if (!isMutatingBtVirtualQueue) pendingPlayNextTokens.clear()
             restoreBeforeExternalQueueMutation()
             super.setMediaItem(mediaItem)
         }
 
         override fun setMediaItem(mediaItem: MediaItem, startPositionMs: Long) {
+            if (!isMutatingBtVirtualQueue) pendingPlayNextTokens.clear()
             restoreBeforeExternalQueueMutation()
             super.setMediaItem(mediaItem, startPositionMs)
         }
 
         override fun setMediaItem(mediaItem: MediaItem, resetPosition: Boolean) {
+            if (!isMutatingBtVirtualQueue) pendingPlayNextTokens.clear()
             restoreBeforeExternalQueueMutation()
             super.setMediaItem(mediaItem, resetPosition)
         }
@@ -2253,6 +2332,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
 
         override fun addMediaItem(index: Int, mediaItem: MediaItem) {
+            if (insertIntoBtVirtualQueue(index, listOf(mediaItem))) return
             val resolvedIndex = resolveLegacyQueueInsertionIndex(
                 requestedIndex = index,
                 legacyQueueCollapsed = btVirtualQueueActive() &&
@@ -2271,6 +2351,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
 
         override fun addMediaItems(index: Int, mediaItems: List<MediaItem>) {
+            if (insertIntoBtVirtualQueue(index, mediaItems)) return
             val resolvedIndex = resolveLegacyQueueInsertionIndex(
                 requestedIndex = index,
                 legacyQueueCollapsed = btVirtualQueueActive() &&
@@ -2314,6 +2395,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
 
         override fun clearMediaItems() {
+            if (!isMutatingBtVirtualQueue) pendingPlayNextTokens.clear()
             restoreBeforeExternalQueueMutation()
             super.clearMediaItems()
         }
@@ -2624,6 +2706,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
 
         // Disconnect session-bound effects before releasing their players. Reversing this
         // order can leave an orphan AudioFlinger chain and block a later createEffect call.
+        updateExternalAudioEffectSession(0)
         releaseAudioEffects()
 
         // Release crossfade engine and transition controller
@@ -2666,6 +2749,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                     commandButton.sessionCommand?.let { availableCommands.add(it) }
                 }
             }
+            if (controller.packageName == packageName) {
+                availableCommands.add(SessionCommand(PlayNextCommand.ACTION, Bundle.EMPTY))
+            }
             availableCommands.add(SessionCommand("UPDATE_ACTIVE_LYRIC", Bundle.EMPTY))
             availableCommands.add(SessionCommand("UPDATE_LYRICS_DATA", Bundle.EMPTY))
             availableCommands.add(SessionCommand(SESSION_COMMAND_BT_VIRTUAL_SKIP_NEXT, Bundle.EMPTY))
@@ -2685,6 +2771,24 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             customCommand: SessionCommand,
             args: Bundle
         ): ListenableFuture<SessionResult> {
+            if (customCommand.customAction == PlayNextCommand.ACTION) {
+                if (controller.packageName != packageName || !::player.isInitialized) {
+                    return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
+                }
+                return try {
+                    @Suppress("DEPRECATION")
+                    val bundles = args.getParcelableArrayList<Bundle>(PlayNextCommand.ITEMS).orEmpty()
+                    val items = bundles.map { MediaItem.fromBundle(it) }
+                    if (items.isEmpty() || items.any { it.localConfiguration?.uri == null }) {
+                        Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
+                    } else {
+                        Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS, enqueuePlayNext(items)))
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Unable to enqueue Play Next request", e)
+                    Futures.immediateFuture(SessionResult(SessionError.ERROR_UNKNOWN))
+                }
+            }
             val serviceController = this@MediaPlaybackService.controller
             if (serviceController == null) {
                 Log.w(TAG, "Controller not ready for custom command: ${customCommand.customAction}")
@@ -3040,6 +3144,27 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         (player as? RhythmForwardingPlayer)?.notifyBtCommandsChanged()
     }
 
+    private fun insertIntoBtVirtualQueue(index: Int, mediaItems: List<MediaItem>): Boolean {
+        if (index != 1 || !btVirtualQueueActive() || isMutatingBtVirtualQueue) return false
+        val original = btVirtualOriginalQueue ?: return false
+        // Play Next comes from index 0 of the compatibility view. Restoring the real
+        // playlist here both reshuffles it and invalidates later controller indexes.
+        // Edit the preserved queue instead; the playing item and position stay intact.
+        val edited = insertLegacyPlayNext(
+            original, btVirtualCurrentOriginalIndex,
+            btVirtualHistory.map { it.originalIndex },
+            btVirtualUpcoming.map { it.originalIndex }, mediaItems
+        )
+        btVirtualOriginalQueue = edited.items
+        btVirtualHistory.clear()
+        btVirtualHistory.addAll(edited.history.map { BtVirtualQueueItem(edited.items[it], it) })
+        btVirtualUpcoming.clear()
+        btVirtualUpcoming.addAll(edited.upcoming.map { BtVirtualQueueItem(edited.items[it], it) })
+        notifyBtVirtualCommands()
+        Log.d(TAG, "Legacy car mode: inserted ${mediaItems.size} Play Next items; ${btVirtualUpcoming.size} upcoming")
+        return true
+    }
+
     private fun scheduleCollapseForBtLyrics() {
         if (!btVirtualQueueActive()) return
         btCollapseJob?.cancel()
@@ -3087,6 +3212,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
 
             if (idx + 1 < count) player.removeMediaItems(idx + 1, count)
             if (idx > 0) player.removeMediaItems(0, idx)
+            player.currentMediaItem?.let { currentItem ->
+                player.replaceMediaItem(0, withVirtualQueuePosition(currentItem, btVirtualHistory.size))
+            }
             // A one-item player must not repeat by itself; the service emulates the
             // saved repeat mode below and restores it verbatim when legacy mode ends.
             player.repeatMode = Player.REPEAT_MODE_OFF
@@ -3097,6 +3225,13 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             isMutatingBtVirtualQueue = false
         }
         notifyBtVirtualCommands()
+    }
+
+    private fun withVirtualQueuePosition(item: MediaItem, position: Int): MediaItem {
+        val extras = Bundle(item.mediaMetadata.extras ?: Bundle.EMPTY).apply {
+            putInt(PlayNextCommand.CURRENT_INDEX, position)
+        }
+        return item.buildUpon().setMediaMetadata(item.mediaMetadata.buildUpon().setExtras(extras).build()).build()
     }
 
     private fun btVirtualAdvance(): Boolean {
@@ -3119,7 +3254,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         isMutatingBtVirtualQueue = true
         try {
             val playWhenReady = player.playWhenReady
-            player.setMediaItem(next.mediaItem)
+            player.setMediaItem(withVirtualQueuePosition(next.mediaItem, btVirtualHistory.size))
             btVirtualCurrentOriginalIndex = next.originalIndex
             player.repeatMode = Player.REPEAT_MODE_OFF
             player.prepare()
@@ -3170,7 +3305,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         isMutatingBtVirtualQueue = true
         try {
             val playWhenReady = player.playWhenReady
-            player.setMediaItem(prev.mediaItem)
+            player.setMediaItem(withVirtualQueuePosition(prev.mediaItem, btVirtualHistory.size))
             btVirtualCurrentOriginalIndex = prev.originalIndex
             player.repeatMode = Player.REPEAT_MODE_OFF
             player.prepare()
@@ -3216,6 +3351,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
+        val pendingIndex = pendingPlayNextTokens.indexOf(mediaItem?.mediaMetadata?.extras?.getString(PlayNextCommand.ENTRY_TOKEN))
+        if (pendingIndex >= 0) repeat(pendingIndex + 1) { pendingPlayNextTokens.removeAt(0) }
         val transitionMediaId = mediaItem?.mediaId
         if (isBluetoothMetadataTransition(
                 mediaItem = mediaItem,
@@ -4082,6 +4219,48 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         return if (::rhythmPlayerEngine.isInitialized) rhythmPlayerEngine.getAudioSessionId() else 0
     }
 
+    /**
+     * Announces the active player session to system and third-party audio effects.
+     *
+     * ExoPlayer exposes an audio session ID but does not announce that session on every
+     * device. Conventional-mode effects such as JamesDSP rely on these broadcasts to
+     * attach their engine to the app's session. Keep the OPEN/CLOSE pair balanced when
+     * the dual-player engine swaps sessions or the service shuts down.
+     */
+    @Synchronized
+    private fun updateExternalAudioEffectSession(audioSessionId: Int) {
+        if (externalAudioEffectSessionId == audioSessionId) return
+
+        if (externalAudioEffectSessionId != 0) {
+            sendAudioEffectSessionBroadcast(
+                AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION,
+                externalAudioEffectSessionId
+            )
+            externalAudioEffectSessionId = 0
+        }
+
+        if (audioSessionId != 0) {
+            sendAudioEffectSessionBroadcast(
+                AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION,
+                audioSessionId
+            )
+            externalAudioEffectSessionId = audioSessionId
+        }
+    }
+
+    private fun sendAudioEffectSessionBroadcast(action: String, audioSessionId: Int) {
+        try {
+            sendBroadcast(Intent(action).apply {
+                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, audioSessionId)
+                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
+                putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
+            })
+            Log.d(TAG, "Audio effect session broadcast: action=$action, session=$audioSessionId")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to broadcast audio effect session $audioSessionId", e)
+        }
+    }
+
     // Audio Effects (Equalizer) functionality
     fun getAudioSessionId(): Int {
         return try {
@@ -4135,6 +4314,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             Log.e(TAG, "Error reading audio session ID", e)
             0
         }
+
+        updateExternalAudioEffectSession(requestedSessionId)
 
         if (requestedSessionId == 0) {
             Log.w(TAG, "Invalid audio session ID (0), skipping effects initialization")

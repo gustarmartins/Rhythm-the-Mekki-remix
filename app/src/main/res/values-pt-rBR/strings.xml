@@ -1457,7 +1457,7 @@
     <string name="settings_queue_action_dialog_desc_ask">Pergunte antes de substituir ou estender a fila para reprodução de faixa única.</string>
     <string name="settings_queue_action_dialog_desc_always">Sempre adicione reprodução de faixa única à fila.</string>
     <string name="settings_queue_action_dialog_desc_disabled">Desativado enquanto Substituir fila ao reproduzir estiver ativado.</string>
-    <string name="settings_list_queue_action_dialog">Listar ação da fila de reprodução</string>
+    <string name="settings_list_queue_action_dialog">Ao selecionar uma música ou lista</string>
     <string name="settings_list_queue_action_replace">Substitua a fila e jogue</string>
     <string name="settings_list_queue_action_ask">Pergunte sempre</string>
     <string name="settings_list_queue_action_play_next">Insira o próximo e reproduza</string>
@@ -1473,7 +1473,7 @@
     <string name="list_queue_behavior_ask_title">Pergunte sempre</string>
     <string name="list_queue_behavior_ask_desc">Mostra um pop-up sempre que uma ação de lista entra em conflito com a fila atual.</string>
     <string name="list_queue_behavior_play_next_title">Inserir próximo</string>
-    <string name="list_queue_behavior_play_next_desc">Insira a lista após a música atual e comece a partir da faixa selecionada.</string>
+    <string name="list_queue_behavior_play_next_desc">Continue ouvindo a música atual. As seleções tocam na ordem em que você as adiciona, antes do restante do álbum ou playlist.</string>
     <string name="list_queue_behavior_add_end_title">Adicionar ao final</string>
     <string name="list_queue_behavior_add_end_desc">Anexe a lista ao final da fila e comece na faixa selecionada.</string>
     <string name="list_queue_action_dialog_title">Fila já ativa</string>
@@ -1486,7 +1486,7 @@
     <string name="list_queue_action_replace_title">Substituir fila</string>
     <string name="list_queue_action_replace_desc">Inicie esta lista como fila ativa agora.</string>
     <string name="list_queue_action_play_next_title">Inserir próximo</string>
-    <string name="list_queue_action_play_next_desc">Coloque esta lista após a música atual e comece a reprodução a partir dela.</string>
+    <string name="list_queue_action_play_next_desc">Continue ouvindo e adicione esta lista após as músicas que você já colocou na fila.</string>
     <string name="list_queue_action_add_end_title">Adicionar ao final</string>
     <string name="list_queue_action_add_end_desc">Anexe esta lista ao final da fila e inicie a reprodução a partir dela.</string>
     <!-- Audio Routing -->
@@ -1774,7 +1774,7 @@
     <string name="settings_queue_hours_format_desc">Horas em formato de hora</string>
     <string name="settings_queue_persistence">Persistir na fila</string>
     <string name="settings_queue_persistence_desc">Restaurar fila no início</string>
-    <string name="settings_list_queue_action_dialog_desc">Comportamento para ações de reprodução de lista quando a fila está ativa</string>
+    <string name="settings_list_queue_action_dialog_desc">Escolha se uma nova música ou lista substitui a reprodução ou entra na fila.</string>
     <!-- Experimental Features Search Strings -->
     <string name="settings_exp_festive_theme">Tema festivo</string>
     <string name="settings_exp_festive_theme_desc">Decorações festivas</string>
@@ -2239,7 +2239,7 @@
     <string name="will_play_next">%1$s será o próximo a jogar</string>
     <string name="added_to_queue">%1$s adicionado à fila</string>
     <string name="added_to_queue_simple">Adicionado à fila: %1$s</string>
-    <string name="playing_next_simple">Jogando a seguir: %1$s</string>
+    <string name="playing_next_simple">Adicionada para tocar a seguir: %1$s</string>
     <string name="failed_to_request_permission">Falha ao solicitar permissão: %1$s</string>
     <string name="unexpected_error">Erro inesperado: %1$s</string>
     <string name="album_artwork_description">Capa do álbum de %1$s</string>
@@ -2770,4 +2770,9 @@
     <string name="settings_album_hide_about">Ocultar seção \'Sobre Álbum\'</string>
     <string name="settings_album_hide_about_desc">Ocultar seção descrição/sobre na tela de detalhes do álbum</string>
     <string name="settings_rhythm_guard_first_break_dialog_title">Sobre a pausa para ouvir</string>
+    <string name="settings_media_management_access">Incorporação automática de capas</string>
+    <string name="settings_media_management_access_desc">Permita que o Rhythm edite metadados de áudio sem pedir autorização para cada arquivo</string>
+    <string name="settings_media_management_access_granted">Permitido — as capas encontradas podem ser incorporadas automaticamente</string>
+    <string name="media_management_access_not_granted">O acesso para gerenciar mídia não foi ativado</string>
+    <string name="media_management_allow_and_embed">Permitir e incorporar automaticamente</string>
 </resources>

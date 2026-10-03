@@ -1241,7 +1241,7 @@ class AppSettings private constructor(context: Context) {
     val showQueueDialog: StateFlow<Boolean> = _showQueueDialog.asStateFlow()
 
     private val _listQueueActionBehavior = MutableStateFlow(
-        prefs.getString(KEY_LIST_QUEUE_ACTION_BEHAVIOR, "replace") ?: "replace"
+        prefs.getString(KEY_LIST_QUEUE_ACTION_BEHAVIOR, "play_next") ?: "play_next"
     )
     val listQueueActionBehavior: StateFlow<String> = _listQueueActionBehavior.asStateFlow()
 

@@ -16,6 +16,7 @@ import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolI
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
 
 import android.app.Activity
+import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -101,6 +102,7 @@ import chromahub.rhythm.app.shared.data.repository.PlaybackStatsRepository
 import chromahub.rhythm.app.shared.data.repository.StatsTimeRange
 import chromahub.rhythm.app.util.GsonUtils
 import chromahub.rhythm.app.util.HapticUtils
+import chromahub.rhythm.app.util.MediaManagementAccess
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -179,6 +181,25 @@ fun LibrarySettingsScreen(onBackClick: () -> Unit) {
     val lyricallyApiEnabled by appSettings.lyricallyApiEnabled.collectAsState()
     val autoFetchArtwork by appSettings.autoFetchArtwork.collectAsState()
     val artistArtworkSource by appSettings.artistArtworkSource.collectAsState()
+    var mediaManagementReady by remember {
+        mutableStateOf(MediaManagementAccess.canWriteWithoutConfirmation(context))
+    }
+    val mediaLocationLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) {
+        mediaManagementReady = MediaManagementAccess.canWriteWithoutConfirmation(context)
+    }
+    val mediaManagementLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (MediaManagementAccess.isGranted(context) &&
+            !MediaManagementAccess.hasMediaLocationAccess(context)
+        ) {
+            mediaLocationLauncher.launch(Manifest.permission.ACCESS_MEDIA_LOCATION)
+        } else {
+            mediaManagementReady = MediaManagementAccess.canWriteWithoutConfirmation(context)
+        }
+    }
 
     var showLibraryTabOrderBottomSheet by remember { mutableStateOf(false) }
     var showArtistArtworkSourceBottomSheet by remember { mutableStateOf(false) }
@@ -228,7 +249,25 @@ fun LibrarySettingsScreen(onBackClick: () -> Unit) {
             ),
             SettingGroup(
                 title = context.getString(R.string.settings_library_group_artwork),
-                items = listOf(
+                items = listOfNotNull(
+                    if (MediaManagementAccess.isAvailable()) {
+                        SettingItem(
+                            icon = MaterialSymbolIcon("edit_document"),
+                            title = stringResource(R.string.settings_media_management_access),
+                            description = stringResource(
+                                if (mediaManagementReady) {
+                                    R.string.settings_media_management_access_granted
+                                } else {
+                                    R.string.settings_media_management_access_desc
+                                }
+                            ),
+                            onClick = {
+                                MediaManagementAccess.createRequestIntent(context)?.let(mediaManagementLauncher::launch)
+                            }
+                        )
+                    } else {
+                        null
+                    },
                     SettingItem(
                         RhythmIcons.Album,
                         context.getString(R.string.settings_ignore_mediastore_covers),

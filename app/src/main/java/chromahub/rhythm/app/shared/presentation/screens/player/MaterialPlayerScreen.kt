@@ -5,6 +5,7 @@
 
 package chromahub.rhythm.app.shared.presentation.screens.player
 
+import android.Manifest
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
@@ -164,6 +165,7 @@ import chromahub.rhythm.app.shared.presentation.components.common.M3CircularLoad
 import chromahub.rhythm.app.shared.presentation.components.common.M3LinearLoader
 import chromahub.rhythm.app.shared.presentation.components.common.FixedHeaderScreen
 import chromahub.rhythm.app.shared.presentation.components.common.AutoScrollingTextOnDemand
+import chromahub.rhythm.app.util.MediaManagementAccess
 import chromahub.rhythm.app.shared.presentation.components.player.PlayingEqIcon
 import chromahub.rhythm.app.shared.presentation.components.common.ShimmerBox
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveButtonGroup
@@ -632,6 +634,77 @@ fun MaterialPlayerScreen(
     val autoFetchPromptedSongIds = remember { mutableStateOf<Set<String>>(emptySet()) }
     var lastNoArtworkToastTime by remember { mutableLongStateOf(0L) }
 
+    val embedFetchedArtwork: (Song, String) -> Unit = { targetSong, artworkUriString ->
+        musicViewModel.saveMetadataChanges(
+            song = targetSong,
+            title = targetSong.title,
+            artist = targetSong.artist,
+            album = targetSong.album,
+            genre = targetSong.genre ?: "",
+            year = targetSong.year,
+            trackNumber = targetSong.trackNumber,
+            artworkUri = artworkUriString.toUri(),
+            onSuccess = { fileWritten ->
+                Toast.makeText(
+                    context,
+                    if (fileWritten) {
+                        R.string.expressiveplayerscreen_artwork_embedded_toast
+                    } else {
+                        R.string.expressiveplayerscreen_artwork_applied_toast
+                    },
+                    Toast.LENGTH_SHORT
+                ).show()
+            },
+            onError = { error -> Toast.makeText(context, error, Toast.LENGTH_SHORT).show() },
+            onPermissionRequired = { pendingRequest ->
+                try {
+                    writePermissionLauncher.launch(
+                        IntentSenderRequest.Builder(pendingRequest.intentSender).build()
+                    )
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.failed_to_request_permission, e.message ?: ""),
+                        Toast.LENGTH_LONG
+                    ).show()
+                    musicViewModel.cancelPendingMetadataWrite()
+                }
+            }
+        )
+    }
+    val mediaLocationLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val targetSong = pendingAutoFetchSong
+        val artworkUriString = fetchedAutoArtworkUriStr
+        if (granted && MediaManagementAccess.canWriteWithoutConfirmation(context) &&
+            targetSong != null && artworkUriString != null
+        ) {
+            embedFetchedArtwork(targetSong, artworkUriString)
+            pendingAutoFetchSong = null
+        } else {
+            Toast.makeText(context, R.string.media_management_access_not_granted, Toast.LENGTH_SHORT).show()
+        }
+    }
+    val manageMediaLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        val targetSong = pendingAutoFetchSong
+        val artworkUriString = fetchedAutoArtworkUriStr
+        if (MediaManagementAccess.isGranted(context) &&
+            !MediaManagementAccess.hasMediaLocationAccess(context)
+        ) {
+            mediaLocationLauncher.launch(Manifest.permission.ACCESS_MEDIA_LOCATION)
+        } else if (MediaManagementAccess.canWriteWithoutConfirmation(context) &&
+            targetSong != null && artworkUriString != null
+        ) {
+            embedFetchedArtwork(targetSong, artworkUriString)
+            pendingAutoFetchSong = null
+        } else {
+            Toast.makeText(context, R.string.media_management_access_not_granted, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     // Auto-fetch in both modes, but only after validation confirms the song has no
     // artwork (null = still checking). Each song is prompted at most once per session.
     LaunchedEffect(song?.id, autoFetchArtwork, artworkValidation) {
@@ -655,9 +728,13 @@ fun MaterialPlayerScreen(
                             ).show()
                         }
                     } else {
-                        pendingAutoFetchSong = currentSong
-                        fetchedAutoArtworkUriStr = uriStr
-                        showAutoFetchEmbedDialog = true
+                        if (MediaManagementAccess.canWriteWithoutConfirmation(context)) {
+                            embedFetchedArtwork(currentSong, uriStr)
+                        } else {
+                            pendingAutoFetchSong = currentSong
+                            fetchedAutoArtworkUriStr = uriStr
+                            showAutoFetchEmbedDialog = true
+                        }
                     }
                 } else {
                     val now = android.os.SystemClock.elapsedRealtime()
@@ -4267,44 +4344,20 @@ fun MaterialPlayerScreen(
                     Button(
                         onClick = {
                             showAutoFetchEmbedDialog = false
-                            pendingAutoFetchSong = null
-                            dialogSong?.let { currentSong ->
-                                val artUri = fetchedAutoArtworkUriStr?.let { it.toUri() }
-                                musicViewModel.saveMetadataChanges(
-                                    song = currentSong,
-                                    title = currentSong.title,
-                                    artist = currentSong.artist,
-                                    album = currentSong.album,
-                                    genre = currentSong.genre ?: "",
-                                    year = currentSong.year,
-                                    trackNumber = currentSong.trackNumber,
-                                    artworkUri = artUri,
-                                    onSuccess = { fileWritten ->
-                                        if (fileWritten) {
-                                            Toast.makeText(context, context.getString(R.string.expressiveplayerscreen_artwork_embedded_toast), Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            Toast.makeText(context, context.getString(R.string.expressiveplayerscreen_artwork_applied_toast), Toast.LENGTH_SHORT).show()
-                                        }
-                                    },
-                                    onError = { err ->
-                                        Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
-                                    },
-                                    onPermissionRequired = { pendingRequest ->
-                                        try {
-                                            val intentSenderRequest = IntentSenderRequest.Builder(
-                                                pendingRequest.intentSender
-                                            ).build()
-                                            writePermissionLauncher.launch(intentSenderRequest)
-                                        } catch (e: Exception) {
-                                            Toast.makeText(
-                                                context,
-                                                context.getString(R.string.failed_to_request_permission, e.message ?: ""),
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                            musicViewModel.cancelPendingMetadataWrite()
-                                        }
-                                    }
-                                )
+                            if (MediaManagementAccess.isAvailable() &&
+                                !MediaManagementAccess.canWriteWithoutConfirmation(context)
+                            ) {
+                                if (MediaManagementAccess.isGranted(context)) {
+                                    mediaLocationLauncher.launch(Manifest.permission.ACCESS_MEDIA_LOCATION)
+                                } else {
+                                    MediaManagementAccess.createRequestIntent(context)?.let(manageMediaLauncher::launch)
+                                }
+                            } else {
+                                val artworkUriString = fetchedAutoArtworkUriStr
+                                if (dialogSong != null && artworkUriString != null) {
+                                    embedFetchedArtwork(dialogSong, artworkUriString)
+                                }
+                                pendingAutoFetchSong = null
                             }
                         },
                         modifier = Modifier
@@ -4317,7 +4370,17 @@ fun MaterialPlayerScreen(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.expressiveplayerscreen_embed_in_file))
+                        Text(
+                            stringResource(
+                                if (MediaManagementAccess.isAvailable() &&
+                                    !MediaManagementAccess.canWriteWithoutConfirmation(context)
+                                ) {
+                                    R.string.media_management_allow_and_embed
+                                } else {
+                                    R.string.expressiveplayerscreen_embed_in_file
+                                }
+                            )
+                        )
                     }
 
                     OutlinedButton(

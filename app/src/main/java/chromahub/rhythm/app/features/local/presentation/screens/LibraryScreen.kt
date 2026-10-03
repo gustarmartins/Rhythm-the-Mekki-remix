@@ -898,7 +898,11 @@ fun LibraryScreen(
             },
             onPlayNext = if (isStreamingMode) null else {
                 {
-                    selectedSongs.reversed().forEach { song -> musicViewModel.playNext(song) }
+                    if (isStreamingMode && onStreamingPlayNext != null) {
+                        selectedSongs.forEach { onStreamingPlayNext.invoke(it) }
+                    } else {
+                        musicViewModel.playNext(selectedSongs)
+                    }
                     multiSelectionState.clearSelection()
                 }
             },

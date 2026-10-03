@@ -215,12 +215,17 @@ fun UniversalSearchScreen(
     val matchedLocalSongs = remember(query, localSongs, filterSongs) {
         if (!filterSongs || query.isBlank()) emptyList()
         else {
-            val lowerQuery = query.lowercase()
+            // Let separate words match different metadata fields (for example,
+            // "Twice Brave" can match artist="Twice" and title="Brave").
+            val queryTerms = query.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
             localSongs.filter {
-                it.title.lowercase().contains(lowerQuery) ||
-                        it.artist.lowercase().contains(lowerQuery) ||
-                        it.album.lowercase().contains(lowerQuery) ||
-                        GenreUtils.matchesGenreQuery(it.genre, lowerQuery)
+                queryTerms.all { term ->
+                    it.title.contains(term, ignoreCase = true) ||
+                            it.artist.contains(term, ignoreCase = true) ||
+                            it.album.contains(term, ignoreCase = true) ||
+                            it.albumArtist?.contains(term, ignoreCase = true) == true ||
+                            GenreUtils.matchesGenreQuery(it.genre, term)
+                }
             }
         }
     }

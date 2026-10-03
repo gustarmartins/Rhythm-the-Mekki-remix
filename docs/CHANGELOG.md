@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.5.480.1263 — FIFO queue (2026-10-03)
+
+- Play Next now keeps songs in the order they were added, ahead of the remaining album or playlist.
+- With Play Next selected as the default, choosing a song from the library, Home, albums, playlists or search keeps the current song playing and queues the selected track.
+- Local and streaming requests keep their order even when a stream URL takes longer to resolve.
+- Album/list actions queue ordered batches; queue tracking preserves duplicate-song occurrences and the legacy Bluetooth car queue.
+- Includes selected upstream improvements for song-details responsiveness, background library/Home calculations and edge-to-edge handling.
+- Retains the fork's Bluetooth lyric controls, JamesDSP integration, verified artwork/FLAC edits and multi-field local search.
+
+
 All notable changes to Rhythm will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

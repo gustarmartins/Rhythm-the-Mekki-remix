@@ -43,6 +43,20 @@ You can grant access to only selected photos/media instead of full library acces
 
 ## 🔔 Optional Permissions
 
+### ✏️ Media Management
+
+**Permissions (Android 12+):**
+- `MANAGE_MEDIA`
+- `ACCESS_MEDIA_LOCATION`
+
+**Why Needed:**
+- Embed fetched artwork and other tag edits without a confirmation dialog for every audio file
+- Let trusted users grant Rhythm one-time Media management special access
+
+Android requires `ACCESS_MEDIA_LOCATION` alongside `MANAGE_MEDIA` to suppress the per-file `MediaStore.createWriteRequest()` confirmation. Rhythm does not use this permission to read photo GPS metadata.
+
+**Can be disabled:** Yes. Metadata editing still works, but Android asks you to approve each file or batch.
+
 ### 📢 Notifications
 
 **Permission:** `POST_NOTIFICATIONS` (Android 13+)
@@ -190,7 +204,6 @@ You can grant access to only selected photos/media instead of full library acces
 Rhythm **does NOT** request these permissions (removed for privacy):
 
 ❌ `MANAGE_EXTERNAL_STORAGE` - Broad file access (not needed for music)
-❌ `ACCESS_MEDIA_LOCATION` - GPS coordinates in photos (not needed)
 ❌ `RECORD_AUDIO` - Microphone access (never needed)
 ❌ `CAMERA` - Camera access (never needed)
 ❌ `LOCATION` - GPS/location (never needed)
@@ -300,7 +313,7 @@ For optional online features: lyrics (LRCLib), artwork (Deezer), and updates (Gi
 Yes, but you won't see playback controls in the notification shade. Player screen still works normally.
 
 ### Does Rhythm access my photos?
-No. Even though `READ_MEDIA_IMAGES` is requested (for album art embedded in music files), Rhythm only accesses images associated with audio files, not your photo gallery.
+Rhythm only uses images selected as artwork or associated with audio files. `ACCESS_MEDIA_LOCATION` is declared because Android requires it for confirmation-free media management; Rhythm does not read photo GPS metadata.
 
 ### Why Bluetooth permissions?
 To detect when you connect Bluetooth headphones/speakers and auto-resume playback. Optional feature.

@@ -1046,25 +1046,39 @@ private fun LocalNavigationContent(
 
     // Route streaming playback through the shared local player (streaming songs map to local songs).
     LaunchedEffect(streamingMusicViewModel, viewModel, navController) {
-        streamingMusicViewModel.setPlaybackHandler { streamingQueue, startIndex ->
+        streamingMusicViewModel.setPlaybackHandler(
+            shouldEnqueueSelection = { viewModel.queuesNewSelections() },
+            onQueueSelection = { resolveSongs ->
+                viewModel.playNextResolving { resolveSongs().mapNotNull { it.toLocalSong() } }
+            }
+        ) { streamingQueue, startIndex ->
             val mappedQueue = streamingQueue.mapNotNull { it.toLocalSong() }
             if (mappedQueue.isEmpty()) {
                 streamingMusicViewModel.reportError(
                     "Playback failed: Unable to convert streaming songs for playback. " +
                         "Try reconnecting to your service."
                 )
-                return@setPlaybackHandler
+                return@setPlaybackHandler false
             }
             if (streamingQueue.size != mappedQueue.size) {
                 streamingMusicViewModel.reportWarning(
                     "Some songs in queue couldn't be loaded for playback."
                 )
             }
-            val safeIndex = startIndex.coerceIn(0, mappedQueue.lastIndex)
+            val requestedIndex = startIndex.coerceIn(0, streamingQueue.lastIndex)
+            if (streamingQueue[requestedIndex].toLocalSong() == null) {
+                streamingMusicViewModel.reportError("Selected track could not be loaded for playback.")
+                return@setPlaybackHandler false
+            }
+            val safeIndex = streamingQueue.take(requestedIndex).count { it.toLocalSong() != null }
+            if (viewModel.enqueueSelectionIfRequested(listOf(mappedQueue[safeIndex]))) {
+                return@setPlaybackHandler true
+            }
             viewModel.playSongFromSearch(mappedQueue[safeIndex], mappedQueue)
             navController.navigate(Screen.Player.route) {
                 launchSingleTop = true
             }
+            false
         }
         streamingMusicViewModel.setSeekHandlers(
             progressHandler = { progress -> viewModel.seekTo(progress) },
@@ -2543,7 +2557,8 @@ private fun LocalNavigationContent(
                                 streamingMusicViewModel.playQueue(
                                     queue = albumSongs,
                                     startIndex = 0,
-                                    shuffle = false
+                                    shuffle = false,
+                                    enqueueWholeList = true
                                 )
                             }
                         },
@@ -2552,7 +2567,8 @@ private fun LocalNavigationContent(
                                 streamingMusicViewModel.playQueue(
                                     queue = albumSongs,
                                     startIndex = 0,
-                                    shuffle = true
+                                    shuffle = true,
+                                    enqueueWholeList = true
                                 )
                             }
                         },
@@ -2838,7 +2854,8 @@ private fun LocalNavigationContent(
                                 streamingMusicViewModel.playQueue(
                                     queue = artistSongs,
                                     startIndex = 0,
-                                    shuffle = false
+                                    shuffle = false,
+                                    enqueueWholeList = true
                                 )
                             } else {
                                 val fallbackQueue = songs.mapNotNull { artistSongsById[it.id] }
@@ -2856,7 +2873,8 @@ private fun LocalNavigationContent(
                                 streamingMusicViewModel.playQueue(
                                     queue = artistSongs,
                                     startIndex = 0,
-                                    shuffle = true
+                                    shuffle = true,
+                                    enqueueWholeList = true
                                 )
                             }
                         },
@@ -3012,7 +3030,8 @@ private fun LocalNavigationContent(
                                 streamingMusicViewModel.playQueue(
                                     queue = playlistTracks,
                                     startIndex = 0,
-                                    shuffle = false
+                                    shuffle = false,
+                                    enqueueWholeList = true
                                 )
                             }
                         },
@@ -3021,7 +3040,8 @@ private fun LocalNavigationContent(
                                 streamingMusicViewModel.playQueue(
                                     queue = playlistTracks,
                                     startIndex = 0,
-                                    shuffle = true
+                                    shuffle = true,
+                                    enqueueWholeList = true
                                 )
                             }
                         },
@@ -3390,12 +3410,9 @@ private fun LocalNavigationContent(
                             if (isStreamingMode) {
                                 playStreamingMappedQueue(queue, startIndex, keepShuffle)
                             } else {
-                                viewModel.playQueue(
-                                    songs = queue,
-                                    enableShuffle = keepShuffle,
-                                    startIndex = startIndex,
-                                    pinStartIndex = keepShuffle
-                                )
+                                queue.getOrNull(startIndex)?.let { song ->
+                                    viewModel.playSongFromContext(song, queue)
+                                }
                             }
                         },
                         onShuffleQueue = { queue ->
