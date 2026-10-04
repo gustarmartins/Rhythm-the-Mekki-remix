@@ -29,6 +29,7 @@ import chromahub.rhythm.app.features.streaming.domain.model.StreamingServiceId
 import chromahub.rhythm.app.features.streaming.domain.model.StreamingSong
 import chromahub.rhythm.app.features.streaming.domain.repository.StreamingMusicRepository
 import chromahub.rhythm.app.shared.data.model.AppSettings
+import chromahub.rhythm.app.shared.data.model.LyricsData
 import chromahub.rhythm.app.network.NetworkClient
 import chromahub.rhythm.app.network.DeezerApiService
 import android.net.Uri
@@ -40,11 +41,31 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.drop
+
+/**
+ * Data model for persisting the streaming catalog to disk.
+ */
+data class StreamingCatalogCache(
+    val serviceId: String,
+    val songs: List<StreamingSong> = emptyList(),
+    val albums: List<StreamingAlbum> = emptyList(),
+    val artists: List<StreamingArtist> = emptyList(),
+    val playlists: List<StreamingPlaylist> = emptyList(),
+    val likedSongIds: List<String> = emptyList(),
+    val lastSyncTimestamp: Long = 0L,
+    /** Server library marker the songs were fetched under, or null if not known to be current. */
+    val libraryMarker: String? = null
+)
 
 /**
  * Provider-backed implementation used by Rhythm GO mode.
@@ -80,7 +101,12 @@ class StreamingMusicRepositoryImpl(
     private val followedPlaylistIds = linkedSetOf<String>()
 
     private val songCache = LinkedHashMap<String, StreamingSong>()
-    private val artistArtworkCache = LinkedHashMap<String, String>()
+    // Starred songs from the provider (Subsonic getStarred2), so liked songs outside the synced
+    // catalog still show and play.
+    private val starredSongCache = LinkedHashMap<String, StreamingSong>()
+    // Read from Default/IO dispatchers (catalog grouping, Deezer enrichment) and written from
+    // several coroutines, so it must be thread-safe.
+    private val artistArtworkCache = java.util.concurrent.ConcurrentHashMap<String, String>()
     private val providerAlbumCache = LinkedHashMap<String, StreamingAlbum>()
 
     private val downloadDirectory by lazy {
@@ -91,13 +117,62 @@ class StreamingMusicRepositoryImpl(
         }
     }
 
+    // Deezer artist-image lookups: cached (memory + disk, with TTL) so each artist is looked up
+    // once rather than on every catalog replace/merge; one enrichment pass runs at a time.
+    private val deezerArtistImageCache by lazy {
+        DeezerArtistImageCache(java.io.File(context.cacheDir, "deezer_artist_images.json"))
+    }
+    private val deezerEnrichmentMutex = Mutex()
+    @Volatile
+    private var artistEnrichmentJob: Job? = null
+
     private val downloadedSongsMap = LinkedHashMap<String, StreamingSong>()
     private val gson = com.google.gson.Gson()
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val catalogCacheWriter = CatalogCacheWriter()
+
+    /**
+     * A sync or start-up requests several saves within seconds (catalog, liked songs, playlists,
+     * artist images); each rewrites the whole cache, tens of MB for a large library. Merge them.
+     */
+    private val catalogSaveCoalescer = SaveCoalescer(repositoryScope, delayMs = 3_000L)
+
+    /** The catalog cache is loaded on IO, never where the repository is created (main thread). */
+    private val initialCatalogLoad: BackgroundLoad
+
+    /**
+     * One catalog sync at a time: several triggers (start-up, network changes, screens) can
+     * request one together, and a request that arrives during a sync joins it.
+     */
+    private val catalogSync = SingleFlight<List<StreamingSong>>()
+
+    /** The cold-start library change check ([isCatalogOutdated]) runs once per process. */
+    private val coldStartCatalogCheck = OnceGate()
+
+    /** Skips rewriting the catalog cache when its content did not change. */
+    private val catalogSaveFilter = CatalogSaveFilter()
+
+    /**
+     * Server library marker ([SubsonicApiClient.getLibraryMarker]) of the catalog in memory, or
+     * null if that catalog is not known to match the server (partial fetch, scan running, etc.).
+     */
+    @Volatile
+    private var catalogLibraryMarker: String? = null
 
     init {
         loadDownloadedSongsIndex()
+        // Started here, once the fields the load uses are initialized.
+        initialCatalogLoad = BackgroundLoad(repositoryScope) { loadCatalogCacheForActiveService() }
+        repositoryScope.launch {
+            initialCatalogLoad.await()
+            // The current service was just loaded; reload only when it changes.
+            appSettings.streamingService.drop(1).collect { serviceId ->
+                loadCatalogCacheForActiveService(normalizeServiceId(serviceId))
+            }
+        }
     }
+
+    override suspend fun awaitCatalogCacheLoaded() = initialCatalogLoad.await()
 
     private fun loadDownloadedSongsIndex() {
         try {
@@ -157,9 +232,177 @@ class StreamingMusicRepositoryImpl(
         }
     }
 
-    private fun getDownloadFile(songId: String): java.io.File {
+    private val audioExtensions = listOf(".mp3", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wav", ".wma", ".webm")
+
+    fun getDownloadFile(songId: String, extension: String = ".mp3"): java.io.File {
         val safeName = songId.replace(":", "_").replace("/", "_").replace("\\", "_")
-        return java.io.File(downloadDirectory, "$safeName.mp3")
+        val ext = if (extension.startsWith(".")) extension else ".$extension"
+        val exactFile = java.io.File(downloadDirectory, "$safeName$ext")
+        if (exactFile.exists() && exactFile.length() > 0) return exactFile
+
+        for (candidateExt in audioExtensions) {
+            val candidate = java.io.File(downloadDirectory, "$safeName$candidateExt")
+            if (candidate.exists() && candidate.length() > 0) {
+                return candidate
+            }
+        }
+        return exactFile
+    }
+
+    private fun extractExtension(contentDisposition: String?, contentType: String?): String {
+        if (!contentDisposition.isNullOrBlank()) {
+            val filenameMatch = Regex("""filename\*?=['"]?(?:UTF-\d['"]*)?([^'";\n]+)['"]?""", RegexOption.IGNORE_CASE)
+                .find(contentDisposition)
+            val filename = filenameMatch?.groupValues?.get(1)?.trim()
+            if (!filename.isNullOrBlank() && filename.contains(".")) {
+                val ext = "." + filename.substringAfterLast(".").lowercase()
+                if (ext in audioExtensions) return ext
+            }
+        }
+        if (!contentType.isNullOrBlank()) {
+            val mime = contentType.substringBefore(";").trim().lowercase()
+            return when (mime) {
+                "audio/flac", "audio/x-flac" -> ".flac"
+                "audio/mp4", "audio/x-m4a", "audio/m4a", "audio/aac", "audio/x-aac" -> ".m4a"
+                "audio/ogg", "audio/vorbis", "application/ogg" -> ".ogg"
+                "audio/opus" -> ".opus"
+                "audio/wav", "audio/x-wav", "audio/wave" -> ".wav"
+                "audio/webm" -> ".webm"
+                "audio/mpeg", "audio/mp3" -> ".mp3"
+                else -> ".mp3"
+            }
+        }
+        return ".mp3"
+    }
+
+    /**
+     * The catalog cache stores Subsonic stream and cover URLs as unsigned references and signs
+     * them again with the current credentials when loading (see [CatalogCacheCodec]).
+     */
+    private fun catalogCacheCodec(serviceId: String): CatalogCacheCodec {
+        if (serviceId != StreamingServiceId.SUBSONIC) return CatalogCacheCodec()
+        return CatalogCacheCodec(object : CatalogUrlRefs {
+            override fun toRef(url: String): String? = subsonicClient.toUrlRef(url)
+            override fun resolver(): (String) -> String? = subsonicClient.urlRefResolver()
+        })
+    }
+
+    fun getCatalogCacheFile(serviceId: String): java.io.File {
+        return java.io.File(context.filesDir, "streaming_catalog_${serviceId}.json")
+    }
+
+    /** Progress of an interrupted full library fetch (see [ResumableLibraryFetch]). */
+    private fun getLibraryFetchCheckpointDir(serviceId: String): java.io.File {
+        return java.io.File(context.filesDir, "streaming_catalog_${serviceId}.partial")
+    }
+
+    private fun loadCatalogCacheForActiveService(targetServiceId: String? = null) {
+        try {
+            val serviceId = targetServiceId ?: activeServiceId()
+            catalogLibraryMarker = null
+            val cacheFile = getCatalogCacheFile(serviceId)
+            if (!cacheFile.exists()) return
+
+            val cache = catalogCacheCodec(serviceId).readFile(cacheFile) ?: return
+            if (cache.serviceId != serviceId) return
+
+            if (cache.songs.isNotEmpty()) {
+                songCache.clear()
+                cache.songs.forEach { song ->
+                    songCache[song.id] = song
+                }
+                songsFlow.value = cache.songs
+                catalogLibraryMarker = cache.libraryMarker
+                catalogSaveFilter.remember(cache)
+
+                if (cache.albums.isNotEmpty()) {
+                    providerAlbumCache.clear()
+                    cache.albums.forEach { album ->
+                        providerAlbumCache[album.id] = album
+                    }
+                    providerAlbumsFlow.value = cache.albums
+                    albumsFlow.value = cache.albums
+                } else {
+                    albumsFlow.value = buildAlbumItems(serviceId, cache.songs)
+                }
+
+                if (cache.artists.isNotEmpty()) {
+                    artistsFlow.value = cache.artists
+                } else {
+                    artistsFlow.value = buildArtistItems(serviceId, cache.songs)
+                }
+
+                if (cache.playlists.isNotEmpty()) {
+                    playlistsFlow.value = cache.playlists
+                }
+
+                if (cache.likedSongIds.isNotEmpty()) {
+                    likedSongIds.clear()
+                    likedSongIds.addAll(cache.likedSongIds)
+                }
+
+                updateLikedSongsFlow()
+                updateSavedAlbumsFlow()
+                updateFollowedArtistsFlow()
+                Log.d("StreamingMusicRepo", "Loaded cached catalog for $serviceId with ${cache.songs.size} songs")
+            }
+        } catch (e: Exception) {
+            Log.e("StreamingMusicRepo", "Error loading streaming catalog cache", e)
+        }
+    }
+
+    private fun saveCatalogCache(serviceId: String = activeServiceId()) {
+        if (appSettings.offlineMode.value) return
+        catalogSaveCoalescer.request(serviceId) {
+            try {
+                var songCount = 0
+                // Saves run one at a time and snapshot the catalog inside the writer's lock,
+                // so overlapping saves cannot corrupt the file and the last one wins.
+                val saved = catalogCacheWriter.write(getCatalogCacheFile(serviceId), snapshot = {
+                    val currentSongs = songsFlow.value.filterIsInstance<StreamingSong>()
+                    if (currentSongs.isEmpty()) return@write null
+
+                    val currentAlbums = (providerAlbumsFlow.value.ifEmpty { albumsFlow.value })
+                        .filterIsInstance<StreamingAlbum>()
+                    val currentArtists = artistsFlow.value.filterIsInstance<StreamingArtist>()
+                    val currentPlaylists = playlistsFlow.value.filterIsInstance<StreamingPlaylist>()
+                    val currentLikedIds = likedSongIds.toList()
+
+                    val cache = StreamingCatalogCache(
+                        serviceId = serviceId,
+                        songs = currentSongs,
+                        albums = currentAlbums,
+                        artists = currentArtists,
+                        playlists = currentPlaylists,
+                        likedSongIds = currentLikedIds,
+                        lastSyncTimestamp = System.currentTimeMillis(),
+                        libraryMarker = catalogLibraryMarker
+                    )
+                    // Syncs that change nothing (library unchanged, same playlists and artists)
+                    // would otherwise rewrite the whole multi-megabyte cache several times each.
+                    if (!catalogSaveFilter.hasChanged(cache)) return@write null
+                    songCount = currentSongs.size
+                    cache
+                }) { cache, out ->
+                    catalogCacheCodec(serviceId).write(out, cache)
+                    catalogSaveFilter.remember(cache)
+                }
+                if (saved) {
+                    Log.d("StreamingMusicRepo", "Saved streaming catalog cache for $serviceId ($songCount songs)")
+                }
+            } catch (e: Exception) {
+                Log.e("StreamingMusicRepo", "Error saving streaming catalog cache for $serviceId", e)
+            }
+        }
+    }
+
+    override fun hasCachedCatalog(serviceId: String?): Boolean {
+        val targetService = serviceId ?: activeServiceId()
+        if (songsFlow.value.isNotEmpty() && activeServiceId() == targetService) {
+            return true
+        }
+        val cacheFile = getCatalogCacheFile(targetService)
+        return cacheFile.exists() && cacheFile.length() > 0
     }
 
     override val currentService: SourceType
@@ -181,6 +424,8 @@ class StreamingMusicRepositoryImpl(
         }
 
         val connection = result.getOrElse { throw it }
+        // A new login may be another account or server: never resume its predecessor's fetch.
+        ResumableLibraryFetch.discard(getLibraryFetchCheckpointDir(normalizedService))
         return ServiceConnectionInfo(
             displayName = connection.displayName,
             serverUrl = connection.serverUrl
@@ -188,12 +433,21 @@ class StreamingMusicRepositoryImpl(
     }
 
     suspend fun disconnect(serviceId: String) {
-        when (normalizeServiceId(serviceId)) {
+        val normalized = normalizeServiceId(serviceId)
+        when (normalized) {
             StreamingServiceId.SUBSONIC -> subsonicClient.logout()
             StreamingServiceId.JELLYFIN -> jellyfinClient.logout()
         }
 
-        if (activeServiceId() == normalizeServiceId(serviceId)) {
+        try {
+            catalogCacheWriter.delete(getCatalogCacheFile(normalized))
+            catalogSaveFilter.remember(null)
+            ResumableLibraryFetch.discard(getLibraryFetchCheckpointDir(normalized))
+        } catch (e: Exception) {
+            Log.e("StreamingMusicRepo", "Error deleting catalog cache on disconnect", e)
+        }
+
+        if (activeServiceId() == normalized) {
             clearInMemoryCatalog()
         }
     }
@@ -621,6 +875,18 @@ class StreamingMusicRepositoryImpl(
         }
     }
 
+    override suspend fun reportPlaybackProgress(songId: String, positionMs: Long, isPaused: Boolean): Boolean {
+        val decoded = decodeSongId(songId) ?: return false
+        val (serviceId, providerId) = decoded
+        if (!isServiceConnected(serviceId)) return false
+
+        return when (serviceId) {
+            StreamingServiceId.JELLYFIN -> jellyfinClient.reportPlaybackProgress(providerId, positionMs * 10_000L, isPaused).isSuccess
+            StreamingServiceId.SUBSONIC -> subsonicClient.reportPlaybackProgress(providerId, positionMs, isPaused).isSuccess
+            else -> false
+        }
+    }
+
     /**
      * Invalidate cached streaming URL for a specific song.
      */
@@ -851,7 +1117,7 @@ class StreamingMusicRepositoryImpl(
             else -> Result.success(emptyList())
         }.getOrElse { emptyList() }
 
-                return providerArtists.map { mapProviderArtist(serviceId, it) }
+                return mapProviderArtists(serviceId, providerArtists)
     }
 
     override suspend fun downloadSong(song: StreamingSong): Boolean {
@@ -864,34 +1130,66 @@ class StreamingMusicRepositoryImpl(
         
         val (serviceId, providerId) = decodeSongId(songId) ?: return@withContext false
         
-        // 1. Resolve stream URL directly bypassing any temporary offline modes or network checks specifically for the download.
         val bitrate = desiredBitrateKbps()
-        val streamUrl = when (serviceId) {
+        val primaryDownloadUrl = when (serviceId) {
+            StreamingServiceId.SUBSONIC -> subsonicClient.buildDownloadUrl(providerId, format = "raw")
+            StreamingServiceId.JELLYFIN -> jellyfinClient.buildDownloadUrl(providerId)
+            else -> null
+        }
+        val fallbackStreamUrl = when (serviceId) {
             StreamingServiceId.SUBSONIC -> subsonicClient.buildStreamUrl(providerId, bitrate)
             StreamingServiceId.JELLYFIN -> jellyfinClient.buildStreamUrl(providerId, bitrate)
             else -> null
-        } ?: return@withContext false
+        }
+        val targetUrl = primaryDownloadUrl ?: fallbackStreamUrl ?: return@withContext false
 
-        // 2. Fetch the song object to save its metadata
-        val song = songCache[songId]
+        var song = songCache[songId]
             ?: songsFlow.value.filterIsInstance<StreamingSong>().firstOrNull { it.id == songId }
             ?: likedSongsFlow.value.firstOrNull { it.id == songId }
             ?: downloadedSongsMap[songId]
-            ?: return@withContext false
 
-        // 3. Download the file using OkHttpClient with support for user-trusted and self-signed CAs
+        if (song == null) {
+            song = (getSongById(songId) as? StreamingSong)
+        }
+        val finalSong = song ?: return@withContext false
+
         val client = UserTrustManager.buildUserTrustingHttpClientBuilder()
             .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
             .build()
-        val request = okhttp3.Request.Builder().url(streamUrl).build()
-        
-        val file = getDownloadFile(songId)
+
+        fun buildRequest(url: String): okhttp3.Request {
+            val reqBuilder = okhttp3.Request.Builder()
+                .url(url)
+                .header("User-Agent", "Rhythm/${chromahub.rhythm.app.BuildConfig.VERSION_NAME} (Android)")
+            if (serviceId == StreamingServiceId.JELLYFIN) {
+                jellyfinClient.getAccessToken()?.let { token ->
+                    reqBuilder.header("Authorization", "MediaBrowser Client=\"Rhythm\", Device=\"Rhythm Android\", DeviceId=\"rhythm-android-client\", Version=\"${chromahub.rhythm.app.BuildConfig.VERSION_NAME}\", Token=\"$token\"")
+                    reqBuilder.header("X-Emby-Token", token)
+                }
+            }
+            return reqBuilder.build()
+        }
+
+        var downloadedFile: java.io.File? = null
         try {
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@withContext false
-                val body = response.body
-                
+            var response = client.newCall(buildRequest(targetUrl)).execute()
+            if (!response.isSuccessful && primaryDownloadUrl != null && fallbackStreamUrl != null && targetUrl != fallbackStreamUrl) {
+                response.close()
+                response = client.newCall(buildRequest(fallbackStreamUrl)).execute()
+            }
+
+            if (!response.isSuccessful) {
+                response.close()
+                return@withContext false
+            }
+
+            val ext = extractExtension(response.header("Content-Disposition"), response.header("Content-Type"))
+            val file = getDownloadFile(songId, ext)
+            downloadedFile = file
+
+            response.use { resp ->
+                val body = resp.body
                 body.byteStream().use { inputStream ->
                     file.outputStream().use { outputStream ->
                         inputStream.copyTo(outputStream)
@@ -901,9 +1199,9 @@ class StreamingMusicRepositoryImpl(
             
             // 4. Download and cache the artwork if present and not a local file
             var localArtworkPath: String? = null
-            var artworkUri = song.artworkUri
+            var artworkUri = finalSong.artworkUri
             if (artworkUri.isNullOrBlank()) {
-                val albumProviderId = song.albumId?.let { decodeSongId(it)?.second }
+                val albumProviderId = finalSong.albumId?.let { decodeSongId(it)?.second }
                 artworkUri = when (serviceId) {
                     StreamingServiceId.SUBSONIC -> subsonicClient.buildCoverArtUrl(albumProviderId ?: providerId)
                     StreamingServiceId.JELLYFIN -> jellyfinClient.buildImageUrl(albumProviderId ?: providerId)
@@ -912,7 +1210,7 @@ class StreamingMusicRepositoryImpl(
             }
 
             val safeSongId = songId.replace(":", "_").replace("/", "_").replace("\\", "_")
-            val safeAlbumKey = (song.albumId ?: "${song.artist}_${song.album}")
+            val safeAlbumKey = (finalSong.albumId ?: "${finalSong.artist}_${finalSong.album}")
                 .replace(":", "_").replace("/", "_").replace("\\", "_").replace(" ", "_").lowercase()
             val albumArtFile = java.io.File(downloadDirectory, "${safeAlbumKey}_album_art.jpg")
             val songArtFile = java.io.File(downloadDirectory, "${safeSongId}_art.jpg")
@@ -922,11 +1220,14 @@ class StreamingMusicRepositoryImpl(
             } else if (songArtFile.exists() && songArtFile.length() > 0) {
                 localArtworkPath = Uri.fromFile(songArtFile).toString()
             } else if (!artworkUri.isNullOrBlank() && (artworkUri.startsWith("http://") || artworkUri.startsWith("https://"))) {
-                val artRequest = okhttp3.Request.Builder().url(artworkUri).build()
+                val artRequest = okhttp3.Request.Builder()
+                    .url(artworkUri)
+                    .header("User-Agent", "Rhythm/${chromahub.rhythm.app.BuildConfig.VERSION_NAME} (Android)")
+                    .build()
                 try {
-                    client.newCall(artRequest).execute().use { response ->
-                        if (response.isSuccessful) {
-                            response.body.byteStream().use { artInput ->
+                    client.newCall(artRequest).execute().use { responseArt ->
+                        if (responseArt.isSuccessful) {
+                            responseArt.body.byteStream().use { artInput ->
                                 albumArtFile.outputStream().use { artOutput ->
                                     artInput.copyTo(artOutput)
                                 }
@@ -943,7 +1244,7 @@ class StreamingMusicRepositoryImpl(
 
             if (localArtworkPath == null) {
                 val existingLocalArt = downloadedSongsMap.values.firstOrNull {
-                    (it.albumId == song.albumId || it.album.equals(song.album, ignoreCase = true)) &&
+                    (it.albumId == finalSong.albumId || it.album.equals(finalSong.album, ignoreCase = true)) &&
                     it.artworkUri?.startsWith("file:") == true
                 }?.artworkUri
                 if (existingLocalArt != null) {
@@ -953,9 +1254,9 @@ class StreamingMusicRepositoryImpl(
 
             // 5. Update metadata index
             val localSongUrl = Uri.fromFile(file).toString()
-            val downloadedSong = song.copy(
+            val downloadedSong = finalSong.copy(
                 streamingUrl = localSongUrl,
-                artworkUri = localArtworkPath ?: song.artworkUri
+                artworkUri = localArtworkPath ?: finalSong.artworkUri
             )
             
             downloadedSongsMap[songId] = downloadedSong
@@ -963,9 +1264,7 @@ class StreamingMusicRepositoryImpl(
             true
         } catch (e: Exception) {
             Log.e("StreamingMusicRepo", "Error downloading song $songId", e)
-            if (file.exists()) {
-                file.delete()
-            }
+            downloadedFile?.let { if (it.exists()) it.delete() }
             false
         }
     }
@@ -973,9 +1272,16 @@ class StreamingMusicRepositoryImpl(
     override suspend fun removeDownload(songId: String): Boolean = withContext(Dispatchers.IO) {
         val file = getDownloadFile(songId)
         val deletedFile = if (file.exists()) file.delete() else true
+
+        val safeSongId = songId.replace(":", "_").replace("/", "_").replace("\\", "_")
+        for (candidateExt in audioExtensions) {
+            val candidate = java.io.File(downloadDirectory, "$safeSongId$candidateExt")
+            if (candidate.exists()) {
+                candidate.delete()
+            }
+        }
         
         // Delete song specific artwork if exists
-        val safeSongId = songId.replace(":", "_").replace("/", "_").replace("\\", "_")
         val songArtFile = java.io.File(downloadDirectory, "${safeSongId}_art.jpg")
         if (songArtFile.exists()) {
             songArtFile.delete()
@@ -1153,7 +1459,7 @@ class StreamingMusicRepositoryImpl(
         }.getOrElse { emptyList() }
 
         if (providerArtists.isNotEmpty()) {
-            return providerArtists.map { mapProviderArtist(serviceId, it) }
+            return mapProviderArtists(serviceId, providerArtists)
         }
 
         val songs = searchSongs(query).filterIsInstance<StreamingSong>()
@@ -1190,9 +1496,32 @@ class StreamingMusicRepositoryImpl(
 
     override fun getPlaylists(): Flow<List<PlaylistItem>> = playlistsFlow.asStateFlow()
 
-    override suspend fun getSongById(id: String): PlayableItem? = songCache[id]
+    override suspend fun getSongById(id: String): PlayableItem? = songCache[id] ?: starredSongCache[id]
 
     override suspend fun syncCatalog(
+        limit: Int,
+        onProgress: ((current: Int, total: Int, songsCount: Int) -> Unit)?
+    ): List<StreamingSong> {
+        // Never let the cache load finish after (and overwrite) a newly synced catalog.
+        initialCatalogLoad.await()
+        // Never queue a second sync behind a running one: join it and share its result.
+        return catalogSync.run { syncCatalogLocked(limit, onProgress) }
+    }
+
+    override suspend fun isCatalogOutdated(): Boolean {
+        if (appSettings.offlineMode.value) return false
+        // Only Subsonic reports library changes; other services keep using the cache until a
+        // manual refresh. A server that cannot vouch for its library (no lastModified, scan
+        // running) is treated the same way rather than triggering a full fetch on every start.
+        if (activeServiceId() != StreamingServiceId.SUBSONIC || !subsonicClient.isConnected()) return false
+        // Once per process: the cached-start path runs on every library screen load, and a
+        // sync it starts must not trigger further checks while the marker is still stale.
+        if (!coldStartCatalogCheck.tryEnter()) return false
+        val serverMarker = subsonicClient.getLibraryMarker() ?: return false
+        return serverMarker != catalogLibraryMarker
+    }
+
+    private suspend fun syncCatalogLocked(
         limit: Int,
         onProgress: ((current: Int, total: Int, songsCount: Int) -> Unit)?
     ): List<StreamingSong> {
@@ -1210,20 +1539,71 @@ class StreamingMusicRepositoryImpl(
         // Sync artists directly from provider first so all artists appear immediately
         syncArtists()
 
+        // Subsonic: skip the full album-by-album fetch while the server library is unchanged
+        // since the catalog in memory (from the previous sync or the disk cache) was fetched.
+        val libraryMarker = if (serviceId == StreamingServiceId.SUBSONIC) subsonicClient.getLibraryMarker() else null
+        if (libraryMarker != null && libraryMarker == catalogLibraryMarker && songsFlow.value.isNotEmpty()) {
+            Log.d("StreamingMusicRepo", "Server library unchanged; reusing catalog of ${songsFlow.value.size} songs")
+            refreshSubsonicStarredSongs()
+            syncPlaylists()
+            return songsFlow.value.filterIsInstance<StreamingSong>()
+        }
+
+        val fetchComplete = java.util.concurrent.atomic.AtomicBoolean(true)
         val providerSongs = when (serviceId) {
-            StreamingServiceId.SUBSONIC -> subsonicClient.fetchLibrarySongs(limit, onProgress)
+            StreamingServiceId.SUBSONIC -> fetchSubsonicLibraryResumable(limit, onProgress) { fetchComplete.set(false) }
             StreamingServiceId.JELLYFIN -> jellyfinClient.fetchLibrarySongs(limit, onProgress)
             else -> Result.success(emptyList())
         }.getOrElse { emptyList() }
 
-        val mappedSongs = providerSongs.map { mapProviderSong(serviceId, it) }
-        syncLikedSongIdsFromProviderSongs(serviceId, providerSongs)
-        replaceCatalog(mappedSongs)
+        val mappedSongs = mapProviderSongs(serviceId, providerSongs)
+        // A partial fetch (skipped albums) is not marked, so the next sync fetches again.
+        replaceCatalog(mappedSongs, libraryMarker?.takeIf { fetchComplete.get() && providerSongs.isNotEmpty() })
+        if (serviceId == StreamingServiceId.SUBSONIC) {
+            refreshSubsonicStarredSongs()
+        }
         
         // Also sync playlists
         syncPlaylists()
         
+        saveCatalogCache(serviceId)
         return mappedSongs
+    }
+
+    /**
+     * Liked songs from one getStarred2 request, complete even when the library sync is partial.
+     * On failure the liked ids derived from the synced songs are kept.
+     */
+    private suspend fun refreshSubsonicStarredSongs() {
+        val serviceId = StreamingServiceId.SUBSONIC
+        val starred = subsonicClient.getStarredSongs().getOrElse { e ->
+            Log.w("StreamingMusicRepo", "getStarred2 failed; liked songs limited to the synced catalog", e)
+            return
+        }.map { mapProviderSong(serviceId, it) }
+
+        val merged = StarredSongs.mergeLikedIds(likedSongIds, "$serviceId::", starred)
+        likedSongIds.clear()
+        likedSongIds.addAll(merged)
+        starredSongCache.clear()
+        starred.forEach { starredSongCache[it.id] = it }
+        updateLikedSongsFlow()
+        Log.d("StreamingMusicRepo", "Liked songs: ${starred.size} starred, ${starred.count { songCache.containsKey(it.id) }} in the synced catalog")
+    }
+
+    /**
+     * Full Subsonic fetch that checkpoints its progress after every album page, so a sync cut
+     * short (app killed, screen left) continues where it stopped on the next sync instead of
+     * starting over, as long as the server library is unchanged.
+     */
+    private suspend fun fetchSubsonicLibraryResumable(
+        limit: Int,
+        onProgress: ((current: Int, total: Int, songsCount: Int) -> Unit)?,
+        onIncomplete: (() -> Unit)? = null
+    ): Result<List<ProviderSong>> {
+        val fetch = ResumableLibraryFetch(getLibraryFetchCheckpointDir(StreamingServiceId.SUBSONIC), catalogCacheWriter, gson)
+        return fetch.fetch(subsonicClient.getLibraryLastModified(), limit, onProgress) { startAlbumOffset, pageLimit, progress, onPage ->
+            subsonicClient.fetchLibrarySongs(pageLimit, progress, onIncomplete, startAlbumOffset, onPage)
+        }
     }
 
     private fun syncLikedSongIdsFromProviderSongs(serviceId: String, providerSongs: List<ProviderSong>) {
@@ -1266,6 +1646,7 @@ class StreamingMusicRepositoryImpl(
         }
 
         playlistsFlow.value = playlists
+        saveCatalogCache(serviceId)
         return playlists
     }
 
@@ -1366,8 +1747,36 @@ class StreamingMusicRepositoryImpl(
         return getAlbumSongs(albumId)
     }
 
-    private suspend fun replaceCatalog(songs: List<StreamingSong>) {
+    override suspend fun getLyrics(songId: String, artist: String?, title: String?): LyricsData? {
+        if (appSettings.offlineMode.value) return null
+        val decoded = decodeSongId(songId)
+        val serviceId = decoded?.first ?: activeServiceId()
+        val providerSongId = decoded?.second ?: songId
+
+        if (!isServiceConnected(serviceId)) return null
+
+        return when (serviceId) {
+            StreamingServiceId.SUBSONIC -> subsonicClient.getLyrics(providerSongId, artist, title).getOrNull()
+            StreamingServiceId.JELLYFIN -> jellyfinClient.getLyrics(providerSongId, artist, title).getOrNull()
+            else -> null
+        }
+    }
+
+    /**
+     * @param libraryMarker server library marker [songs] were fetched under, if known to be the
+     *        complete, current library (see [SubsonicApiClient.getLibraryMarker]).
+     */
+    private suspend fun replaceCatalog(songs: List<StreamingSong>, libraryMarker: String? = null) {
         val serviceId = activeServiceId()
+        catalogLibraryMarker = libraryMarker
+        // Only populate albumsFlow with derived albums if no provider albums are cached
+        val deriveAlbums = providerAlbumCache.isEmpty()
+        // Grouping thousands of songs into albums/artists is CPU work; keep it off the caller's
+        // (main) dispatcher. Shared caches are still mutated on the caller's thread below.
+        val (derivedAlbums, rawArtists) = withContext(Dispatchers.Default) {
+            (if (deriveAlbums) buildAlbumItems(serviceId, songs) else null) to
+                buildArtistItems(serviceId, songs)
+        }
 
         songCache.clear()
         songs.forEach { song ->
@@ -1375,11 +1784,11 @@ class StreamingMusicRepositoryImpl(
         }
 
         songsFlow.value = songs
-        // Only populate albumsFlow with derived albums if no provider albums are cached
-        if (providerAlbumCache.isEmpty()) {
-            albumsFlow.value = buildAlbumItems(serviceId, songs)
+        // Re-check after the suspension: provider albums may have been cached meanwhile, and
+        // derived albums must not overwrite them.
+        if (derivedAlbums != null && providerAlbumCache.isEmpty()) {
+            albumsFlow.value = derivedAlbums
         }
-        val rawArtists = buildArtistItems(serviceId, songs)
         if (artistsFlow.value.isEmpty() || rawArtists.size >= artistsFlow.value.size) {
             artistsFlow.value = rawArtists
         }
@@ -1388,12 +1797,21 @@ class StreamingMusicRepositoryImpl(
         updateSavedAlbumsFlow()
         updateFollowedArtistsFlow()
 
-        // Asynchronously enrich with Deezer images in background to avoid blocking
-        repositoryScope.launch {
+        saveCatalogCache(serviceId)
+
+        // Asynchronously enrich with Deezer images in background to avoid blocking.
+        // A newer catalog change supersedes a running pass (finished lookups stay cached).
+        artistEnrichmentJob?.cancel()
+        artistEnrichmentJob = repositoryScope.launch {
             try {
                 val enriched = enrichArtistsWithDeezerImages(rawArtists)
-                artistsFlow.value = enriched
-                updateFollowedArtistsFlow()
+                if (artistsFlow.value != enriched) {
+                    artistsFlow.value = enriched
+                    updateFollowedArtistsFlow()
+                    saveCatalogCache(serviceId)
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("StreamingMusicRepo", "Background Deezer artist enrichment failed", e)
             }
@@ -1411,15 +1829,24 @@ class StreamingMusicRepositoryImpl(
         }
         trimSongCache()
 
-        val mergedSongs = (songsFlow.value.filterIsInstance<StreamingSong>() + songs)
-            .distinctBy { it.id }
+        val currentSongs = songsFlow.value
+        // Merging a search result into a catalog of thousands of songs re-groups every album and
+        // artist; do that off the caller's (main) dispatcher, as replaceCatalog() does.
+        val deriveAlbums = providerAlbumCache.isEmpty()
+        val (mergedSongs, derivedAlbums, rawArtists) = withContext(Dispatchers.Default) {
+            val merged = (currentSongs.filterIsInstance<StreamingSong>() + songs).distinctBy { it.id }
+            Triple(
+                merged,
+                if (deriveAlbums) buildAlbumItems(serviceId, merged) else null,
+                buildArtistItems(serviceId, merged)
+            )
+        }
 
         songsFlow.value = mergedSongs
         // Only populate albumsFlow with derived albums if no provider albums are cached
-        if (providerAlbumCache.isEmpty()) {
-            albumsFlow.value = buildAlbumItems(serviceId, mergedSongs)
+        if (derivedAlbums != null && providerAlbumCache.isEmpty()) {
+            albumsFlow.value = derivedAlbums
         }
-        val rawArtists = buildArtistItems(serviceId, mergedSongs)
         artistsFlow.value = rawArtists
         playlistsFlow.value = emptyList()
 
@@ -1427,12 +1854,18 @@ class StreamingMusicRepositoryImpl(
         updateSavedAlbumsFlow()
         updateFollowedArtistsFlow()
 
-        // Asynchronously enrich with Deezer images in background to avoid blocking
-        repositoryScope.launch {
+        // Asynchronously enrich with Deezer images in background to avoid blocking.
+        // A newer catalog change supersedes a running pass (finished lookups stay cached).
+        artistEnrichmentJob?.cancel()
+        artistEnrichmentJob = repositoryScope.launch {
             try {
                 val enriched = enrichArtistsWithDeezerImages(rawArtists)
-                artistsFlow.value = enriched
-                updateFollowedArtistsFlow()
+                if (artistsFlow.value != enriched) {
+                    artistsFlow.value = enriched
+                    updateFollowedArtistsFlow()
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("StreamingMusicRepo", "Background Deezer artist enrichment failed", e)
             }
@@ -1440,6 +1873,7 @@ class StreamingMusicRepositoryImpl(
     }
 
     private fun clearInMemoryCatalog() {
+        catalogLibraryMarker = null
         songCache.clear()
         followedPlaylistIds.clear()
         songsFlow.value = emptyList()
@@ -1449,7 +1883,7 @@ class StreamingMusicRepositoryImpl(
     }
 
     private fun updateLikedSongsFlow() {
-        likedSongsFlow.value = likedSongIds.mapNotNull { id -> songCache[id] }
+        likedSongsFlow.value = StarredSongs.likedSongs(likedSongIds, songCache, starredSongCache)
     }
 
     private fun updateSavedAlbumsFlow() {
@@ -1461,6 +1895,22 @@ class StreamingMusicRepositoryImpl(
     private fun updateFollowedArtistsFlow() {
         followedArtistsFlow.value = followedArtistIds.mapNotNull { id ->
             artistsFlow.value.firstOrNull { it.id == id } as? StreamingArtist
+        }
+    }
+
+    /**
+     * Maps a batch of provider songs on [Dispatchers.Default]. Each song builds a signed stream
+     * URL (salt + MD5 + URL parse), so a full catalog sync of thousands of songs must not run on
+     * the caller's dispatcher: callers are ViewModel coroutines on the main thread, and doing it
+     * there blocked input for 20+ seconds ("Input dispatching timed out" ANR).
+     */
+    private suspend fun mapProviderSongs(
+        serviceId: String,
+        providerSongs: List<ProviderSong>
+    ): List<StreamingSong> {
+        if (providerSongs.isEmpty()) return emptyList()
+        return withContext(Dispatchers.Default) {
+            providerSongs.map { mapProviderSong(serviceId, it) }
         }
     }
 
@@ -1508,8 +1958,7 @@ class StreamingMusicRepositoryImpl(
             else -> Result.success(emptyList())
         }
 
-        return result.getOrElse { emptyList() }
-            .map { mapProviderSong(serviceId, it) }
+        return mapProviderSongs(serviceId, result.getOrElse { emptyList() })
     }
 
     private fun mapProviderPlaylist(
@@ -1647,10 +2096,44 @@ class StreamingMusicRepositoryImpl(
         return enrichArtistsWithDeezerImages(buildArtistItems(serviceId, songs))
     }
 
-    private fun mapProviderArtist(serviceId: String, providerArtist: ProviderArtist): StreamingArtist {
-        val cachedArtistSongs = cachedSongsForArtist(providerArtist.name)
-        val cachedArtist = buildArtistItems(serviceId, cachedArtistSongs)
-            .firstOrNull { it.name.equals(providerArtist.name, ignoreCase = true) }
+    /**
+     * Maps a provider artist list on [Dispatchers.Default], resolving cached songs through an
+     * [ArtistSongIndex] built once for the batch. Scanning the song cache per artist on the
+     * caller's (main) dispatcher cost ~2 s per sync and caused "Input dispatching timed out" ANRs
+     * from syncArtists()/searchArtists() on large libraries.
+     */
+    private suspend fun mapProviderArtists(
+        serviceId: String,
+        providerArtists: List<ProviderArtist>
+    ): List<StreamingArtist> {
+        if (providerArtists.isEmpty()) return emptyList()
+        // Snapshot the shared caches on the caller's thread; they are not thread-safe.
+        val candidateSongs = songsFlow.value.filterIsInstance<StreamingSong>() +
+            songCache.values.toList() + downloadedSongsMap.values.toList()
+        val separatorEnabled = appSettings.artistSeparatorEnabled.value
+        val separatorDelimiters = appSettings.artistSeparatorDelimiters.value
+            .ifBlank { AppSettings.DEFAULT_ARTIST_SEPARATOR_DELIMITERS }
+        return withContext(Dispatchers.Default) {
+            val index = ArtistSongIndex(candidateSongs) { artist ->
+                ArtistSeparator.splitArtistNames(artist, delimiters = separatorDelimiters, enabled = separatorEnabled)
+            }
+            providerArtists.map { mapProviderArtist(serviceId, it, index) }
+        }
+    }
+
+    private fun mapProviderArtist(
+        serviceId: String,
+        providerArtist: ProviderArtist,
+        artistSongIndex: ArtistSongIndex? = null
+    ): StreamingArtist {
+        // Only needed when the provider omitted artwork or counts.
+        val cachedArtistSongs by lazy {
+            artistSongIndex?.songsFor(providerArtist.name) ?: cachedSongsForArtist(providerArtist.name)
+        }
+        val cachedArtist by lazy {
+            buildArtistItems(serviceId, cachedArtistSongs)
+                .firstOrNull { it.name.equals(providerArtist.name, ignoreCase = true) }
+        }
 
         return StreamingArtist(
             id = buildArtistId(serviceId, providerArtist.name),
@@ -1832,7 +2315,7 @@ class StreamingMusicRepositoryImpl(
     }
 
     private fun normalizeKey(value: String): String {
-        return value.trim().lowercase().replace("\\s+".toRegex(), "_")
+        return value.trim().lowercase().replace(WHITESPACE_REGEX, "_")
     }
 
     private fun trimSongCache() {
@@ -1956,66 +2439,79 @@ class StreamingMusicRepositoryImpl(
                 }
 
                 val enriched = mutableListOf<StreamingArtist>()
+                var lookups = 0
 
-                for (artist in artists) {
+                deezerEnrichmentMutex.withLock {
                     try {
-                        // Skip unknown/blank artists
-                        if (artist.name.isBlank() || artist.name.equals("Unknown", ignoreCase = true)) {
-                            enriched.add(artist)
-                            continue
-                        }
-
-                        // Always try Deezer enrichment, even if artist has existing artwork
-                        // This ensures we prefer actual artist images over album art
-                        var enrichedArtist = artist
-                        try {
-                            // Search for artist on Deezer
-                            val searchResponse = deezerService.searchArtists(artist.name, limit = 5)
-                            val deezerArtist = searchResponse.data.firstOrNull { 
-                                it.name.equals(artist.name, ignoreCase = true)
-                            } ?: searchResponse.data.firstOrNull() // Fallback to best match
-
-                            if (deezerArtist != null) {
-                                // Choose best quality image available
-                                val imageUrl = when {
-                                    !deezerArtist.pictureXl.isNullOrEmpty() -> deezerArtist.pictureXl
-                                    !deezerArtist.pictureBig.isNullOrEmpty() -> deezerArtist.pictureBig
-                                    !deezerArtist.pictureMedium.isNullOrEmpty() -> deezerArtist.pictureMedium
-                                    !deezerArtist.picture.isNullOrEmpty() -> deezerArtist.picture
-                                    else -> null
-                                }
-
-                                if (!imageUrl.isNullOrEmpty()) {
-                                    Log.d("StreamingMusicRepo", "Found Deezer image for ${artist.name}")
-                                    artistArtworkCache[normalizeKey(artist.name)] = imageUrl
-                                    enrichedArtist = artist.copy(artworkUri = imageUrl)
-                                } else {
-                                    Log.d("StreamingMusicRepo", "Deezer artist found but no image: ${deezerArtist.name}")
-                                }
-                            } else {
-                                Log.d("StreamingMusicRepo", "No Deezer artist found for: ${artist.name}")
+                        for (artist in artists) {
+                            // Skip unknown/blank artists
+                            if (artist.name.isBlank() || artist.name.equals("Unknown", ignoreCase = true)) {
+                                enriched.add(artist)
+                                continue
                             }
-                        } catch (e: Exception) {
-                            Log.w("StreamingMusicRepo", "Failed to fetch Deezer image for ${artist.name}: ${e.message}", e)
-                        }
 
-                        // Cache the final artwork (Deezer or original)
-                        enrichedArtist.artworkUri?.takeIf { it.isNotBlank() }?.let { cachedUri ->
-                            artistArtworkCache[normalizeKey(artist.name)] = cachedUri
+                            // Prefer the Deezer artist image over album art; look each artist up
+                            // at most once per cache TTL.
+                            val key = normalizeKey(artist.name)
+                            val cached = deezerArtistImageCache.get(key)
+                            val imageUrl = if (cached != null) {
+                                cached.imageUrl
+                            } else {
+                                lookups++
+                                lookUpDeezerArtistImage(deezerService, artist.name, key)
+                            }
+                            val enrichedArtist = if (imageUrl != null) artist.copy(artworkUri = imageUrl) else artist
+
+                            // Cache the final artwork (Deezer or original)
+                            enrichedArtist.artworkUri?.takeIf { it.isNotBlank() }?.let { cachedUri ->
+                                artistArtworkCache[key] = cachedUri
+                            }
+                            enriched.add(enrichedArtist)
                         }
-                        enriched.add(enrichedArtist)
-                    } catch (e: Exception) {
-                        Log.w("StreamingMusicRepo", "Failed to process artist ${artist.name}: ${e.message}", e)
-                        enriched.add(artist)
+                    } finally {
+                        // Persist finished lookups even if a newer catalog change cancelled this pass.
+                        deezerArtistImageCache.flush()
                     }
                 }
 
-                Log.d("StreamingMusicRepo", "Enriched ${enriched.count { it.artworkUri != null }} of ${artists.size} artists with Deezer images")
+                if (lookups > 0) {
+                    Log.d("StreamingMusicRepo", "Deezer artist enrichment: $lookups lookups for ${artists.size} artists")
+                }
                 enriched
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("StreamingMusicRepo", "Error enriching artists with Deezer images", e)
                 artists // Return unchanged on error
             }
+        }
+    }
+
+    /** Searches Deezer for [artistName]; caches the image URL (or its absence) under [key]. */
+    private suspend fun lookUpDeezerArtistImage(
+        deezerService: DeezerApiService,
+        artistName: String,
+        key: String
+    ): String? {
+        return try {
+            val searchResponse = deezerService.searchArtists(artistName, limit = 5)
+            val deezerArtist = searchResponse.data.firstOrNull {
+                it.name.equals(artistName, ignoreCase = true)
+            } ?: searchResponse.data.firstOrNull() // Fallback to best match
+
+            val imageUrl = deezerArtist?.let {
+                // Choose best quality image available
+                listOf(it.pictureXl, it.pictureBig, it.pictureMedium, it.picture)
+                    .firstOrNull { url -> !url.isNullOrEmpty() }
+            }
+            deezerArtistImageCache.put(key, imageUrl)
+            imageUrl
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w("StreamingMusicRepo", "Failed to fetch Deezer image for $artistName: ${e.message}")
+            deezerArtistImageCache.markFailed(key)
+            null
         }
     }
 
@@ -2032,10 +2528,14 @@ class StreamingMusicRepositoryImpl(
         if (!isServiceConnected(serviceId)) return emptyList()
 
         return try {
-            val providerArtists = when (serviceId) {
-                StreamingServiceId.SUBSONIC -> subsonicClient.getArtists().getOrNull()
-                StreamingServiceId.JELLYFIN -> jellyfinClient.getArtists().getOrNull()
-                else -> null
+            // The provider clients parse the response (and sign a cover-art URL per artist) in
+            // the calling coroutine, so fetch on IO rather than the caller's main dispatcher.
+            val providerArtists = withContext(Dispatchers.IO) {
+                when (serviceId) {
+                    StreamingServiceId.SUBSONIC -> subsonicClient.getArtists().getOrNull()
+                    StreamingServiceId.JELLYFIN -> jellyfinClient.getArtists().getOrNull()
+                    else -> null
+                }
             }
             providerArtists?.forEach { artist ->
                 if (!artist.artworkUrl.isNullOrBlank()) {
@@ -2043,7 +2543,7 @@ class StreamingMusicRepositoryImpl(
                 }
             }
             if (!providerArtists.isNullOrEmpty()) {
-                val directArtists = providerArtists.map { mapProviderArtist(serviceId, it) }
+                val directArtists = mapProviderArtists(serviceId, providerArtists)
                 artistsFlow.value = directArtists
                 updateFollowedArtistsFlow()
                 Log.d("StreamingMusicRepo", "Synced ${directArtists.size} artists directly from provider")
@@ -2064,5 +2564,8 @@ class StreamingMusicRepositoryImpl(
     private companion object {
         private const val SEARCH_LIMIT = 100
         private const val MAX_CACHE_SIZE = 4000
+
+        /** Compiled once; normalizeKey() runs per artist during catalog mapping. */
+        private val WHITESPACE_REGEX = "\\s+".toRegex()
     }
 }

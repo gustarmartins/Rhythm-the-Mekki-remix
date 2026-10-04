@@ -5,37 +5,16 @@
 
 package chromahub.rhythm.app.shared.presentation.components.common
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.R
-import chromahub.rhythm.app.util.HapticType
-import chromahub.rhythm.app.util.HapticUtils
 
 private data class SongMenuItem(
     val title: String,
@@ -68,7 +47,6 @@ fun RhythmSongMenuContent(
     onToggleDownload: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
     val finalOnShare = onShare ?: song?.let { s ->
         {
             try {
@@ -122,10 +100,9 @@ fun RhythmSongMenuContent(
             add(
                 SongMenuItem(
                     title = if (fav) context.getString(R.string.action_dislike) else context.getString(R.string.action_like),
-                    icon = if (fav) MaterialSymbolIcon("thumb_down", filled = true) else MaterialSymbolIcon("thumb_up", filled = true),
-                    iconBgColor = if (fav) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
-                        else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
-                    iconTint = if (fav) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer,
+                    icon = if (fav) MaterialSymbolIcon("thumb_up", filled = true) else MaterialSymbolIcon("thumb_up", filled = false),
+                    iconBgColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
+                    iconTint = MaterialTheme.colorScheme.onTertiaryContainer,
                     onClick = action
                 )
             )
@@ -135,10 +112,9 @@ fun RhythmSongMenuContent(
             add(
                 SongMenuItem(
                     title = if (liked) "Unlike" else "Like",
-                    icon = if (liked) MaterialSymbolIcon("thumb_down", filled = true) else MaterialSymbolIcon("thumb_up", filled = true),
-                    iconBgColor = if (liked) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
-                        else MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
-                    iconTint = if (liked) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onTertiaryContainer,
+                    icon = if (liked) MaterialSymbolIcon("thumb_up", filled = true) else MaterialSymbolIcon("thumb_up", filled = false),
+                    iconBgColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f),
+                    iconTint = MaterialTheme.colorScheme.onTertiaryContainer,
                     onClick = action
                 )
             )
@@ -244,89 +220,17 @@ fun RhythmSongMenuContent(
         }
     }
 
-    if (menuItems.isNotEmpty()) {
-        val outerRadius = 16.dp
-        val innerRadius = 4.dp
-        val itemSpacing = 3.dp
-
-        Column(
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalArrangement = Arrangement.spacedBy(itemSpacing)
-        ) {
-            menuItems.forEachIndexed { index, item ->
-                val itemShape = when {
-                    menuItems.size == 1 -> RoundedCornerShape(outerRadius)
-                    index == 0 -> RoundedCornerShape(
-                        topStart = outerRadius, topEnd = outerRadius,
-                        bottomStart = innerRadius, bottomEnd = innerRadius
-                    )
-                    index == menuItems.size - 1 -> RoundedCornerShape(
-                        topStart = innerRadius, topEnd = innerRadius,
-                        bottomStart = outerRadius, bottomEnd = outerRadius
-                    )
-                    else -> RoundedCornerShape(innerRadius)
-                }
-
-                Surface(
-                    onClick = {
-                        HapticUtils.performHapticFeedback(context, haptic, HapticType.MEDIUM)
-                        item.onClick()
-                    },
-                    shape = itemShape,
-                    color = MaterialTheme.colorScheme.surfaceContainer,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            modifier = Modifier.size(28.dp),
-                            shape = CircleShape,
-                            color = item.iconBgColor
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                val icon = item.icon
-                                val iconSize = 16.dp
-                                when (icon) {
-                                    is MaterialSymbolIcon -> {
-                                        chromahub.rhythm.app.shared.presentation.components.icons.Icon(
-                                            imageVector = icon,
-                                            contentDescription = null,
-                                            tint = item.iconTint,
-                                            modifier = Modifier.size(iconSize)
-                                        )
-                                    }
-                                    is ImageVector -> {
-                                        chromahub.rhythm.app.shared.presentation.components.icons.Icon(
-                                            imageVector = icon,
-                                            contentDescription = null,
-                                            tint = item.iconTint,
-                                            modifier = Modifier.size(iconSize)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.width(10.dp))
-
-                        Text(
-                            text = item.title,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = if (item.icon == RhythmIcons.Block || item.icon == RhythmIcons.Delete) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
+    RhythmGroupedMenuContent(
+        modifier = modifier,
+        items = menuItems.map { item ->
+            RhythmMenuItem(
+                title = item.title,
+                icon = item.icon,
+                iconContainerColor = item.iconBgColor,
+                iconTint = item.iconTint,
+                isDestructive = item.icon == RhythmIcons.Block || item.icon == RhythmIcons.Delete,
+                onClick = item.onClick
+            )
         }
-    }
+    )
 }

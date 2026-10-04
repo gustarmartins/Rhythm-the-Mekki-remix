@@ -3,11 +3,6 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-// Experimental API opt-ins required for:
-// - Material3 Carousel APIs (HorizontalCenteredHeroCarousel, HorizontalUncontainedCarousel)
-// - ModalBottomSheet, rememberModalBottomSheetState
-// - Window Size Class APIs
-// These will become stable in future Material3 releases
 @file:OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3WindowSizeClassApi::class)
 
 package chromahub.rhythm.app.features.local.presentation.screens
@@ -152,6 +147,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import chromahub.rhythm.app.shared.presentation.components.common.CollapsibleHeaderScreen
+import chromahub.rhythm.app.shared.presentation.components.common.HeaderAction
 import chromahub.rhythm.app.ui.theme.festive.FestiveConfig
 import chromahub.rhythm.app.ui.theme.festive.FestiveThemeEngine
 import chromahub.rhythm.app.shared.data.model.AppSettings
@@ -220,6 +216,7 @@ import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonSi
 import chromahub.rhythm.app.shared.presentation.components.common.ActionProgressLoader
 import chromahub.rhythm.app.shared.presentation.components.common.NetworkOperationLoader
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveAnimatedCounter
+import chromahub.rhythm.app.shared.presentation.components.common.horizontalEdgeBlend
 
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SongInfoBottomSheet
@@ -567,49 +564,35 @@ fun HomeScreen(
         alwaysCollapsed = false,
         showAppIcon = showAppIcon,
         iconVisibilityMode = iconVisibilityMode,
-        actions = {
+        headerActions = buildList {
             val showReorder = !isLandscapeTablet
             val showSettings = !isTablet && floatingNavigationBar
 
             if (showReorder) {
-                ExpressiveFilledTonalIconButton(
-                    onClick = {
-                        HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                        showHomeSectionOrderSheet = true
-                    },
-                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    ),
-                    modifier = Modifier.padding(end = if (showSettings) 8.dp else 16.dp)
-                ) {
-                    Icon(
-                        imageVector = MaterialSymbolIcon("reorder", filled = true),
+                add(
+                    HeaderAction(
+                        icon = RhythmIcons.Edit,
                         contentDescription = context.getString(R.string.cd_reorder_home_sections),
-                        modifier = Modifier.size(25.dp)
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                            showHomeSectionOrderSheet = true
+                        }
                     )
-                }
+                )
             }
             if (showSettings) {
-                ExpressiveFilledIconButton(
-                    onClick = {
-                        HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                        onSettingsClick()
-                    },
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    ),
-                    modifier = Modifier.padding(end = 16.dp)
-                ) {
-                    Icon(
-                        imageVector = RhythmIcons.Settings,
+                add(
+                    HeaderAction(
+                        icon = RhythmIcons.Settings,
                         contentDescription = context.getString(R.string.home_settings_cd),
-                        modifier = Modifier.size(25.dp)
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                            onSettingsClick()
+                        }
                     )
-                }
+                )
             }
-        }
+        },
     ) { modifier ->
         if (isStreamingMode) {
             StreamingHomeBody(
@@ -993,7 +976,10 @@ private fun StreamingHomeBody(
                 title = errorMessage,
                 subtitle = context.getString(R.string.streaming_home_widget_empty_hint),
                 actionText = context.getString(R.string.streaming_service_setup_reconnect),
-                onAction = { onConfigureService(serviceName) }
+                onAction = {
+                    vm?.clearError()
+                    onConfigureService(serviceName)
+                }
             )
         }
 
@@ -1041,7 +1027,13 @@ private fun StreamingHomeBody(
                                 }
                             )
                             Spacer(modifier = Modifier.height(20.dp))
+                            val streamingAlbumsListState = rememberLazyListState()
                             LazyRow(
+                                state = streamingAlbumsListState,
+                                modifier = Modifier.horizontalEdgeBlend(
+                                    lazyListState = streamingAlbumsListState,
+                                    fadeWidth = 16.dp
+                                ),
                                 contentPadding = PaddingValues(horizontal = 4.dp),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
@@ -1076,7 +1068,13 @@ private fun StreamingHomeBody(
                                 viewAllAction = onViewAllArtists
                             )
                             Spacer(modifier = Modifier.height(16.dp))
+                            val streamingArtistsListState = rememberLazyListState()
                             LazyRow(
+                                state = streamingArtistsListState,
+                                modifier = Modifier.horizontalEdgeBlend(
+                                    lazyListState = streamingArtistsListState,
+                                    fadeWidth = 16.dp
+                                ),
                                 contentPadding = PaddingValues(horizontal = 4.dp),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
@@ -1649,6 +1647,10 @@ private fun ModernScrollableContent(
                                 val newReleasesListState = rememberLazyListState()
                                 LazyRow(
                                     state = newReleasesListState,
+                                    modifier = Modifier.horizontalEdgeBlend(
+                                        lazyListState = newReleasesListState,
+                                        fadeWidth = 16.dp
+                                    ),
                                     contentPadding = PaddingValues(horizontal = 4.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
@@ -1698,6 +1700,10 @@ private fun ModernScrollableContent(
                                 val recentlyAddedListState = rememberLazyListState()
                                 LazyRow(
                                     state = recentlyAddedListState,
+                                    modifier = Modifier.horizontalEdgeBlend(
+                                        lazyListState = recentlyAddedListState,
+                                        fadeWidth = 16.dp
+                                    ),
                                     contentPadding = PaddingValues(horizontal = 4.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
@@ -1994,6 +2000,10 @@ private fun ModernRecentlyPlayedSection(
                 val recentlyPlayedListState = rememberLazyListState()
                 LazyRow(
                     state = recentlyPlayedListState,
+                    modifier = Modifier.horizontalEdgeBlend(
+                        lazyListState = recentlyPlayedListState,
+                        fadeWidth = 16.dp
+                    ),
                     contentPadding = PaddingValues(horizontal = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
@@ -2629,6 +2639,10 @@ private fun ModernArtistsSection(
         val artistsListState = rememberLazyListState()
         LazyRow(
             state = artistsListState,
+            modifier = Modifier.horizontalEdgeBlend(
+                lazyListState = artistsListState,
+                fadeWidth = 16.dp
+            ),
             contentPadding = PaddingValues(horizontal = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -3348,7 +3362,7 @@ private fun ModernEmptyState(
             .fillMaxWidth()
             .padding(horizontal = 8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
         shape = ExpressiveShapes.SquircleLarge
     ) {

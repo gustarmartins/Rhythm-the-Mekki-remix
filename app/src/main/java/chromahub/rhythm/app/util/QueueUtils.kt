@@ -113,4 +113,31 @@ object QueueUtils {
 
         return buildAnchoredShuffleQueue(originalQueue, currentIndex)
     }
+
+    /**
+     * Restores the upcoming portion of a shuffled queue to the relative order specified by
+     * [originalOrder], while keeping all already played songs (indices before [currentIndex])
+     * and the currently playing song in their exact positions.
+     *
+     * Any songs added to [currentSongs] that were not present in [originalOrder] are preserved
+     * at the end of the upcoming segment.
+     */
+    fun <T> restoreQueueOrderOnShuffleDisable(
+        currentSongs: List<T>,
+        currentIndex: Int,
+        originalOrder: List<T>,
+        idSelector: (T) -> String
+    ): List<T> {
+        return restoreQueueOccurrences(currentSongs, currentIndex, originalOrder, idSelector)
+    }
+
+    /**
+     * Overload for [Song] queues.
+     */
+    fun restoreQueueOrderOnShuffleDisable(
+        currentSongs: List<Song>,
+        currentIndex: Int,
+        originalOrder: List<Song>
+    ): List<Song> = restoreQueueOrderOnShuffleDisable(currentSongs, currentIndex, originalOrder) { it.id }
 }
+

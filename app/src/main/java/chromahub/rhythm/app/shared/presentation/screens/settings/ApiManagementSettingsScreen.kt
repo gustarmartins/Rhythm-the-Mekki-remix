@@ -116,7 +116,6 @@ import chromahub.rhythm.app.shared.presentation.components.common.ProgressStyle
 import chromahub.rhythm.app.shared.presentation.components.common.ThumbStyle
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.LicensesBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.UpdateBottomSheet
-import chromahub.rhythm.app.shared.presentation.components.bottomsheets.LyricallySourcesBottomSheet
 import chromahub.rhythm.app.ui.utils.LazyListStateSaver
 import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeProvider
@@ -172,13 +171,13 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
     val appSettings = AppSettings.getInstance(context)
 
     // API states
+    val integrationsEnabled by appSettings.integrationsEnabled.collectAsState()
     val deezerApiEnabled by appSettings.deezerApiEnabled.collectAsState()
     val lrclibApiEnabled by appSettings.lrclibApiEnabled.collectAsState()
     val betterLyricsApiEnabled by appSettings.betterLyricsApiEnabled.collectAsState()
     val ytMusicApiEnabled by appSettings.ytMusicApiEnabled.collectAsState()
     val lyricallyApiEnabled by appSettings.lyricallyApiEnabled.collectAsState()
     val wikipediaApiEnabled by appSettings.wikipediaApiEnabled.collectAsState()
-    var showLyricallySourcesBottomSheet by remember { mutableStateOf(false) }
     val appleCanvasEnabled by appSettings.appleCanvasEnabled.collectAsState()
     val appleCanvasNetworkMode by appSettings.appleCanvasNetworkMode.collectAsState()
     var showCanvasNetworkModeDialog by remember { mutableStateOf(false) }
@@ -189,6 +188,53 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
         onBackClick = {
             HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.HEAVY)
             onBackClick()
+        },
+        headerContent = {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = if (integrationsEnabled)
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    else
+                        MaterialTheme.colorScheme.surfaceContainer
+                ),
+                shape = RoundedCornerShape(28.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = MaterialSymbolIcon("hub"),
+                        contentDescription = null,
+                        tint = if (integrationsEnabled) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(35.dp)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(if (integrationsEnabled) R.string.status_active else R.string.status_disabled),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    TunerAnimatedSwitch(
+                        checked = integrationsEnabled,
+                        onCheckedChange = { enabled ->
+                            HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.HEAVY)
+                            appSettings.setIntegrationsEnabled(enabled)
+                        }
+                    )
+                }
+            }
         }
     ) { modifier ->
         LazyColumn(
@@ -219,9 +265,10 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                                 context = context,
                                 hapticFeedback = hapticFeedback,
                                 item = SettingItem(
-                                    icon = RhythmIcons.Public,
+                                    icon = null,
                                     title = stringResource(R.string.onboarding_integration_deezer),
                                     description = context.getString(R.string.api_deezer_desc),
+                                    enabled = integrationsEnabled,
                                     toggleState = deezerApiEnabled,
                                     onToggleChange = { enabled -> appSettings.setDeezerApiEnabled(enabled) }
                                 )
@@ -235,9 +282,10 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                                 context = context,
                                 hapticFeedback = hapticFeedback,
                                 item = SettingItem(
-                                    icon = RhythmIcons.Queue,
+                                    icon = null,
                                     title = stringResource(R.string.onboarding_integration_lrclib),
                                     description = context.getString(R.string.api_lrclib_desc),
+                                    enabled = integrationsEnabled,
                                     toggleState = lrclibApiEnabled,
                                     onToggleChange = { enabled -> appSettings.setLrcLibApiEnabled(enabled) }
                                 )
@@ -251,9 +299,10 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                                 context = context,
                                 hapticFeedback = hapticFeedback,
                                 item = SettingItem(
-                                    icon = RhythmIcons.Queue,
+                                    icon = null,
                                     title = stringResource(R.string.onboarding_integration_betterlyrics),
                                     description = context.getString(R.string.api_betterlyrics_desc),
+                                    enabled = integrationsEnabled,
                                     toggleState = betterLyricsApiEnabled,
                                     onToggleChange = { enabled -> appSettings.setBetterLyricsApiEnabled(enabled) }
                                 )
@@ -267,17 +316,12 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                                 context = context,
                                 hapticFeedback = hapticFeedback,
                                 item = SettingItem(
-                                    icon = MaterialSymbolIcon("music_note"),
+                                    icon = null,
                                     title = stringResource(R.string.apimanagementsettingsscreen_lyrically),
                                     description = context.getString(R.string.api_lyrically_desc),
+                                    enabled = integrationsEnabled,
                                     toggleState = lyricallyApiEnabled,
-                                    onToggleChange = { enabled -> appSettings.setLyricallyApiEnabled(enabled) },
-                                    onClick = {
-                                        if (lyricallyApiEnabled) {
-                                            HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
-                                            showLyricallySourcesBottomSheet = true
-                                        }
-                                    }
+                                    onToggleChange = { enabled -> appSettings.setLyricallyApiEnabled(enabled) }
                                 )
                             )
                         )
@@ -288,7 +332,7 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                             context = context,
                             hapticFeedback = hapticFeedback,
                             item = SettingItem(
-                                icon = MaterialSymbolIcon("movie"),
+                                icon = null,
                                 title = context.getString(R.string.api_apple_motion_canvas),
                                 description = context.getString(
                                     R.string.api_apple_motion_canvas_desc,
@@ -297,6 +341,7 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                                         chromahub.rhythm.app.shared.data.model.CanvasNetworkMode.BOTH -> context.getString(R.string.api_apple_canvas_both)
                                     }
                                 ),
+                                enabled = integrationsEnabled,
                                 toggleState = appleCanvasEnabled,
                                 onToggleChange = { enabled -> appSettings.setAppleCanvasEnabled(enabled) },
                                 onClick = {
@@ -315,9 +360,10 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                                 context = context,
                                 hapticFeedback = hapticFeedback,
                                 item = SettingItem(
-                                    icon = RhythmIcons.Album,
+                                    icon = null,
                                     title = stringResource(R.string.onboarding_integration_ytmusic),
                                     description = context.getString(R.string.api_ytmusic_desc),
+                                    enabled = integrationsEnabled,
                                     toggleState = ytMusicApiEnabled,
                                     onToggleChange = { enabled -> appSettings.setYTMusicApiEnabled(enabled) }
                                 )
@@ -331,9 +377,10 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                                 context = context,
                                 hapticFeedback = hapticFeedback,
                                 item = SettingItem(
-                                    icon = RhythmIcons.Info,
+                                    icon = null,
                                     title = stringResource(R.string.onboarding_integration_wikipedia),
                                     description = stringResource(R.string.onboarding_integration_wikipedia_desc),
+                                    enabled = integrationsEnabled,
                                     toggleState = wikipediaApiEnabled,
                                     onToggleChange = { enabled -> appSettings.setWikipediaApiEnabled(enabled) }
                                 )
@@ -344,7 +391,7 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
 
                     add(
                         Material3SettingsItem(
-                            icon = RhythmIcons.Download,
+                            icon = null,
                             title = { Text(stringResource(R.string.apimanagementsettingsscreen_github)) },
                             description = { Text(stringResource(R.string.apimanagementsettingsscreen_app_updates_and_release)) }
                         )
@@ -396,14 +443,6 @@ fun ApiManagementSettingsScreen(onBackClick: () -> Unit) {
                     }
                 }
             }
-        }
-
-        if (showLyricallySourcesBottomSheet) {
-            LyricallySourcesBottomSheet(
-                onDismiss = { showLyricallySourcesBottomSheet = false },
-                appSettings = appSettings,
-                haptics = hapticFeedback
-            )
         }
 
         if (showCanvasNetworkModeDialog) {

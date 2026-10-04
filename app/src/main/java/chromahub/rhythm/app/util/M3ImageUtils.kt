@@ -61,8 +61,6 @@ object M3ImageUtils {
             ImageRequest.Builder(context)
                 .data(data)
                 .crossfade(150)
-                .memoryCacheKey(data?.toString())
-                .diskCacheKey(data?.toString())
                 .memoryCachePolicy(CachePolicy.ENABLED)
                 .diskCachePolicy(CachePolicy.ENABLED)
                 .build()

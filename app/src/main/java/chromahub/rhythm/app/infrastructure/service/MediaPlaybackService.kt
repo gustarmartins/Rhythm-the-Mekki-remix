@@ -25,6 +25,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.Timeline
 import androidx.media3.common.Player
 import androidx.media3.common.ForwardingPlayer
 import chromahub.rhythm.app.shared.data.model.TransitionSettings
@@ -33,6 +34,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.ExoPlaybackException
 import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaController
 import androidx.media3.session.MediaLibraryService
@@ -47,6 +49,9 @@ import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.infrastructure.service.player.RhythmPlayerEngine
 import chromahub.rhythm.app.infrastructure.service.player.TransitionController
 import chromahub.rhythm.app.infrastructure.service.player.PreloadController
+import chromahub.rhythm.app.infrastructure.service.player.replaygain.ReplayGainCache
+import chromahub.rhythm.app.infrastructure.service.player.MissingLocalMediaClassifier
+import chromahub.rhythm.app.infrastructure.service.util.RhythmBitmapLoader
 import chromahub.rhythm.app.infrastructure.widget.WidgetUpdater
 import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
@@ -96,7 +101,9 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private var lastFavoriteState: Boolean? = null
     private var lastWidgetSnapshotKey: String? = null
     private var lastHandledPlayerTransitionMediaId: String? = null
+    private var lastHandledPlayerEntryToken: String? = null
     private var lastHandledControllerTransitionMediaId: String? = null
+    private var lastHandledControllerEntryToken: String? = null
     
     // Debounce custom layout updates to prevent flickering
     private var updateLayoutJob: Job? = null
@@ -138,6 +145,8 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     @Volatile
     private var currentAudioEffectsSessionId: Int = 0
     private var externalAudioEffectSessionId: Int = 0
+    @Volatile
+    private var pendingEqualizerLevels: FloatArray? = null
     
     // Player listener reference for proper cleanup
     private var playerListener: Player.Listener? = null
@@ -331,13 +340,15 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private fun isSpeakerOutputActive(audioManager: AudioManager): Boolean {
             val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
         return devices.any { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER } &&
-                    !devices.any {
-                        (it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
-                         it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
-                         it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
-                         it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES) &&
-                        it.isSink
-                    }
+                !devices.any {
+                    (it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                     it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                     it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
+                     it.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
+                     it.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
+                     it.type == AudioDeviceInfo.TYPE_USB_HEADSET) &&
+                    it.isSink
+                }
     }
 
     private fun showRhythmGuardAlertNotification(title: String, text: String, riskLevel: String) {
@@ -594,18 +605,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         // Create notification channel first (required for Android 8.0+)
         createNotificationChannel()
 
-        // Try foreground promotion early; on newer Android versions this can be blocked
-        // when the service is started from background contexts.
-        startForegroundWithNotification(
-            getString(chromahub.rhythm.app.R.string.service_rhythm_music),
-            getString(chromahub.rhythm.app.R.string.service_starting)
-        )
-
         // Initialize settings manager (fast operation)
-        updateForegroundNotification(
-            getString(chromahub.rhythm.app.R.string.service_rhythm_music),
-            getString(chromahub.rhythm.app.R.string.service_loading_settings)
-        )
         appSettings = AppSettings.getInstance(applicationContext)
         
         // Initialize preloader
@@ -640,10 +640,6 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         statusBroadcaster = chromahub.rhythm.app.utils.StatusBroadcaster(applicationContext)
 
         // Register BroadcastReceiver for favorite changes
-        updateForegroundNotification(
-            getString(chromahub.rhythm.app.R.string.service_rhythm_music),
-            getString(chromahub.rhythm.app.R.string.service_setup_components)
-        )
         androidx.core.content.ContextCompat.registerReceiver(
             this,
             favoriteChangeReceiver,
@@ -680,30 +676,13 @@ btProxy = chromahub.rhythm.app.util.BtCodecInfo.getCodec(this) { info ->
 
         try {
             // Initialize core components on main thread (required for media service)
-            updateForegroundNotification(
-                getString(chromahub.rhythm.app.R.string.service_rhythm_music),
-                getString(chromahub.rhythm.app.R.string.service_initializing_player)
-            )
             initializePlayer()
-
-            updateForegroundNotification(
-                getString(chromahub.rhythm.app.R.string.service_rhythm_music),
-                getString(chromahub.rhythm.app.R.string.service_creating_controls)
-            )
             createCustomCommands()
 
             // Create the media session (required synchronously)
-            updateForegroundNotification(
-                getString(chromahub.rhythm.app.R.string.service_rhythm_music),
-                getString(chromahub.rhythm.app.R.string.service_setup_media_session)
-            )
             mediaSession = createMediaSession()
 
             // Initialize controller asynchronously to avoid blocking
-            updateForegroundNotification(
-                getString(chromahub.rhythm.app.R.string.service_rhythm_music),
-                getString(chromahub.rhythm.app.R.string.service_initializing_controller)
-            )
             createController()
 
             // Rhythm Guard background check loop (every 10 seconds)
@@ -962,7 +941,6 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     private fun initializePlayer() {
         // Initialize RhythmPlayerEngine for crossfade support
         val audioRoutingMode = appSettings.audioRoutingMode.value
-        applyUsbExclusiveRoutingPreference()
         Log.d(TAG, "Initializing player (routing: $audioRoutingMode)")
         rhythmPlayerEngine = RhythmPlayerEngine(
             this, 
@@ -971,6 +949,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             monoProcessor = rhythmMonoAudioProcessor
         )
         rhythmPlayerEngine.initialize()
+        applyUsbExclusiveRoutingPreference()
         
         // The master player is exposed to MediaSession and used everywhere
         player = wrapPlayer(rhythmPlayerEngine.masterPlayer)
@@ -1034,7 +1013,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 // Collapsed legacy queues need service-owned advancement.
                 if (playbackState == Player.STATE_ENDED) {
                     handleBtVirtualPlaybackEnded()
+                    maybeContinueWithDeviceLibrary()
                 }
+                if (playbackState == Player.STATE_READY) maybeContinueWithDeviceLibrary()
                 if (playbackState == Player.STATE_READY && getPlayerAudioSessionId() != 0) {
                     val currentSessionId = getPlayerAudioSessionId()
                     val needsInit = !audioEffectsInitialized || currentAudioEffectsSessionId != currentSessionId
@@ -1126,7 +1107,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 if (!isPlaying && appSettings.queuePersistenceEnabled.value) {
                     val currentIndex = player.currentMediaItemIndex
                     if (currentIndex != androidx.media3.common.C.INDEX_UNSET) {
-                        appSettings.setSavedQueueIndex(currentIndex)
+                        persistServiceQueue()
+                        // The service owns the complete persisted queue and occurrence index.
                         appSettings.setSavedPlaybackPosition(player.currentPosition)
                         Log.d(TAG, "Persisted queue index $currentIndex and position ${player.currentPosition} on pause")
                     }
@@ -1141,24 +1123,37 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                     }
                 }
 
-                if (appSettings.queuePersistenceEnabled.value) {
-                    val currentIndex = player.currentMediaItemIndex
-                    if (currentIndex != androidx.media3.common.C.INDEX_UNSET) {
-                        appSettings.setSavedQueueIndex(currentIndex)
-                        appSettings.setSavedPlaybackPosition(0L) // Reset position for new track
-                        Log.d(TAG, "Persisted queue index $currentIndex on track transition")
-                    }
-                }
-                
                 val transitionMediaId = mediaItem?.mediaId
                 if (isBluetoothMetadataTransition(
                         mediaItem = mediaItem,
                         reason = reason,
-                        lastHandledMediaId = lastHandledPlayerTransitionMediaId
+                        lastHandledMediaId = lastHandledPlayerTransitionMediaId,
+                        lastHandledToken = lastHandledPlayerEntryToken
                     )
                 ) {
                     Log.d(TAG, "Ignoring metadata-only player transition for mediaId=$transitionMediaId")
                     return
+                }
+
+                if (appSettings.queuePersistenceEnabled.value) {
+                    val currentIndex = player.currentMediaItemIndex
+                    if (currentIndex != androidx.media3.common.C.INDEX_UNSET) {
+                        persistServiceQueue()
+                        // The service owns the complete persisted queue and occurrence index.
+                        // Reset position to 0L only when transitioning automatically to the next track.
+                        // Do NOT wipe saved position on playlist change or seek (e.g. queue restoration).
+                        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                            appSettings.setSavedPlaybackPosition(0L)
+                        }
+                        Log.d(TAG, "Persisted queue index $currentIndex on track transition (reason=$reason)")
+                    }
+                }
+                
+                if (transitionMediaId != null && ::rhythmPlayerEngine.isInitialized) {
+                    val cachedTags = ReplayGainCache.get(transitionMediaId)
+                    if (cachedTags != null) {
+                        rhythmPlayerEngine.getActiveReplayGainProcessor()?.setTags(cachedTags)
+                    }
                 }
 
 
@@ -1187,7 +1182,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                     updateWidgetFromMediaItem(mediaItem)
                 }
 
+                maybeContinueWithDeviceLibrary()
                 lastHandledPlayerTransitionMediaId = transitionMediaId
+                lastHandledPlayerEntryToken = mediaItem?.mediaMetadata?.extras?.getString(PlayNextCommand.ENTRY_TOKEN)
             }
             
             // NEW in Media3 1.9.0: Monitor audio capabilities changes
@@ -1197,6 +1194,10 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 if (audioSessionId != 0) {
                     initializeAudioEffects()
                 }
+            }
+
+            override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
+                applyUsbExclusiveRoutingPreference()
             }
         }
         playerListener?.let { player.addListener(it) }
@@ -1210,6 +1211,35 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         
         // Try to initialize audio effects (might fail if session ID not ready)
         initializeAudioEffects()
+        serviceScope.launch {
+            kotlinx.coroutines.flow.combine(appSettings.audioRoutingMode, appSettings.connectedUsbAudioOutput) { routingMode, _ -> routingMode }.collect { routingMode ->
+                applyUsbExclusiveRoutingPreference()
+                if (isUsbDspBypassActive()) {
+                    Log.i(TAG, "Bit-Perfect audio routing activated: disabling audio DSP effects")
+                    withEqualizerSafe("bit-perfect flat EQ", Unit) { eq ->
+                        val numberOfBands = eq.numberOfBands.toInt()
+                        for (i in 0 until numberOfBands) {
+                            eq.setBandLevel(i.toShort(), 0)
+                        }
+                    }
+                    setEqualizerEnabledSafe(false)
+                    rhythmBassBoostProcessor?.setEnabled(false)
+                    rhythmSpatializationProcessor?.setEnabled(false)
+                    rhythmMonoAudioProcessor?.setEnabled(false)
+                    if (::rhythmPlayerEngine.isInitialized) {
+                        rhythmPlayerEngine.applyReplayGainSettings(false)
+                        rhythmPlayerEngine.setSkipSilenceEnabled(false)
+                    }
+                } else {
+                    Log.i(TAG, "Standard audio routing restored: re-applying user audio effects")
+                    loadSavedAudioEffects()
+                    if (::rhythmPlayerEngine.isInitialized) {
+                        rhythmPlayerEngine.applyReplayGainSettings(appSettings.replayGain.value)
+                        rhythmPlayerEngine.setSkipSilenceEnabled(appSettings.skipSilenceEnabled.value)
+                    }
+                }
+            }
+        }
 
         // Collect replayGain setting reactively
         serviceScope.launch {
@@ -1222,7 +1252,18 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             ) { enabled, _, _, _, _ ->
                 enabled
             }.collect { enabled ->
-                rhythmPlayerEngine.applyReplayGainSettings(enabled)
+                if (!isUsbDspBypassActive()) {
+                    rhythmPlayerEngine.applyReplayGainSettings(enabled)
+                }
+            }
+        }
+
+        serviceScope.launch {
+            appSettings.skipSilenceEnabled.collect { enabled ->
+                val isBitPerfect = isUsbDspBypassActive()
+                if (::rhythmPlayerEngine.isInitialized) {
+                    rhythmPlayerEngine.setSkipSilenceEnabled(if (isBitPerfect) false else enabled)
+                }
             }
         }
 
@@ -1245,9 +1286,11 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         serviceScope.launch {
             kotlinx.coroutines.flow.combine(
                 appSettings.bluetoothLyricsEnabled,
-                appSettings.bluetoothLyricsLegacyCarModeEnabled
-            ) { bluetoothLyricsEnabled, legacyCarModeEnabled ->
-                bluetoothLyricsEnabled && legacyCarModeEnabled
+                appSettings.bluetoothLyricsLegacyCarModeEnabled,
+                appSettings.bluetoothDisplayCompatibilityProfiles,
+                appSettings.currentBluetoothDisplayDevice
+            ) { bluetoothLyricsEnabled, _, _, device ->
+                bluetoothLyricsEnabled && appSettings.effectiveBluetoothDisplayCompatibility(device)
             }.collect { legacyQueueEnabled ->
                 if (::player.isInitialized) {
                     if (legacyQueueEnabled) collapseQueueForBtLyrics() else restoreQueueFromBtVirtual()
@@ -1416,6 +1459,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     }
     
     private fun handlePlaybackError(error: PlaybackException) {
+        if (skipMissingLocalItem(error)) return
+
         val message = when (error.errorCode) {
             PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ->
                 "Audio codec not supported on this device"
@@ -1439,6 +1484,51 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 Log.e(TAG, "Failed to pause player on error", e)
             }
         }
+    }
+
+    /**
+     * A local item whose file/MediaStore entry no longer exists (deleted or re-scanned
+     * under a new id) can never play. Remove it from the queue and continue with the
+     * next item instead of leaving the player stopped in the error state.
+     *
+     * @return true if the error was handled by skipping the item.
+     */
+    private fun skipMissingLocalItem(error: PlaybackException): Boolean {
+        val currentPlayer = player
+        val index = resolveErrorItemIndex(currentPlayer, error)
+        if (index == C.INDEX_UNSET || index !in 0 until currentPlayer.mediaItemCount) return false
+
+        val item = currentPlayer.getMediaItemAt(index)
+        val uri = item.localConfiguration?.uri ?: return false
+        if (!MissingLocalMediaClassifier.isMissingLocalItem(error.errorCode, error.cause, uri.scheme)) {
+            return false
+        }
+
+        Log.w(TAG, "Skipping missing local item ${item.mediaId} ($uri) and removing it from the queue: ${error.errorCodeName}")
+        return try {
+            currentPlayer.removeMediaItem(index)
+            if (currentPlayer.mediaItemCount > 0) {
+                // Clears the error state; playWhenReady is preserved, so playback continues.
+                currentPlayer.prepare()
+            }
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to skip missing local item ${item.mediaId}", e)
+            false
+        }
+    }
+
+    /** Index of the item that caused [error]: its media period if known, else the current item. */
+    private fun resolveErrorItemIndex(currentPlayer: Player, error: PlaybackException): Int {
+        val periodUid = (error as? ExoPlaybackException)?.mediaPeriodId?.periodUid
+        if (periodUid != null) {
+            val timeline = currentPlayer.currentTimeline
+            val periodIndex = timeline.getIndexOfPeriod(periodUid)
+            if (periodIndex != C.INDEX_UNSET) {
+                return timeline.getPeriod(periodIndex, Timeline.Period()).windowIndex
+            }
+        }
+        return currentPlayer.currentMediaItemIndex
     }
 
     private fun createController() {
@@ -1530,11 +1620,14 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val rhythmBitmapLoader = RhythmBitmapLoader(this)
+
         return MediaLibrarySession.Builder(
             this,
             player,
             MediaSessionCallback()
         ).setSessionActivity(pendingIntent)
+            .setBitmapLoader(rhythmBitmapLoader)
             .build()
     }
 
@@ -1773,46 +1866,78 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
      * Requests Android 14+ preferred mixer attributes for USB output when app routing is selected.
      * This is the platform-side requirement for exclusive/bit-perfect mixer behavior when available.
      */
+    private fun isUsbDspBypassActive(): Boolean =
+        appSettings.audioRoutingMode.value == "app" && appSettings.connectedUsbAudioOutput.value
+
     private fun applyUsbExclusiveRoutingPreference() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        if (!::rhythmPlayerEngine.isInitialized) {
             return
         }
-
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val mediaAttributes = android.media.AudioAttributes.Builder()
-            .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
-            .build()
-
-        if (appSettings.audioRoutingMode.value != "app") {
-            clearUsbPreferredMixerAttributes(audioManager, mediaAttributes)
-            return
-        }
-
         val usbOutput = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             .firstOrNull {
                 it.type == AudioDeviceInfo.TYPE_USB_DEVICE ||
                     it.type == AudioDeviceInfo.TYPE_USB_HEADSET
             }
 
-        if (usbOutput == null) {
-            Log.i(TAG, "App routing enabled but no USB output device is connected")
+        if (appSettings.audioRoutingMode.value != "app") {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                val mediaAttributes = android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+                clearUsbPreferredMixerAttributes(audioManager, mediaAttributes)
+            }
+            if (::rhythmPlayerEngine.isInitialized) {
+                rhythmPlayerEngine.setPreferredAudioDevice(null)
+            }
             return
         }
 
+        if (usbOutput == null) {
+            Log.i(TAG, "App routing enabled but no USB output device is connected")
+            if (::rhythmPlayerEngine.isInitialized) {
+                rhythmPlayerEngine.setPreferredAudioDevice(null)
+            }
+            return
+        }
+
+        rhythmPlayerEngine.setPreferredAudioDevice(usbOutput)
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            return
+        }
+
+        val mediaAttributes = android.media.AudioAttributes.Builder()
+            .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+            .build()
+
         try {
             val supportedMixerAttributes = audioManager.getSupportedMixerAttributes(usbOutput)
-            val bitPerfectMixer = supportedMixerAttributes.firstOrNull {
+            val bitPerfectMixers = supportedMixerAttributes.filter {
                 it.mixerBehavior == AudioMixerAttributes.MIXER_BEHAVIOR_BIT_PERFECT
             }
 
-            if (bitPerfectMixer == null) {
+            if (bitPerfectMixers.isEmpty()) {
                 Log.w(TAG, "USB device does not expose a bit-perfect mixer profile")
                 return
             }
 
-            audioManager.setPreferredMixerAttributes(mediaAttributes, usbOutput, bitPerfectMixer)
-            Log.i(TAG, "Requested bit-perfect USB mixer attributes for app routing mode")
+            val currentFormat = (rhythmPlayerEngine.masterPlayer as? ExoPlayer)?.audioFormat
+            val bitPerfectMixer = if (currentFormat != null && currentFormat.sampleRate > 0) {
+                bitPerfectMixers.firstOrNull { mixer ->
+                    mixer.format.sampleRate == currentFormat.sampleRate &&
+                        (currentFormat.channelCount <= 2 || mixer.format.channelCount == currentFormat.channelCount)
+                } ?: bitPerfectMixers.firstOrNull()
+            } else {
+                bitPerfectMixers.firstOrNull()
+            }
+
+            if (bitPerfectMixer != null) {
+                audioManager.setPreferredMixerAttributes(mediaAttributes, usbOutput, bitPerfectMixer)
+                Log.i(TAG, "Requested bit-perfect USB mixer attributes for app routing mode: ${bitPerfectMixer.format}")
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to request USB preferred mixer attributes", e)
         }
@@ -1822,6 +1947,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         audioManager: AudioManager,
         mediaAttributes: android.media.AudioAttributes
     ) {
+        if (::rhythmPlayerEngine.isInitialized) {
+            rhythmPlayerEngine.setPreferredAudioDevice(null)
+        }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             return
         }
@@ -1841,7 +1969,11 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     }
     
     private fun applyPlayerSettings() {
+        if (!::rhythmPlayerEngine.isInitialized || !::player.isInitialized) {
+            return
+        }
         applyUsbExclusiveRoutingPreference()
+        val isBitPerfect = isUsbDspBypassActive()
         player.apply {
             // Audio normalization - NOT IMPLEMENTED
             // if (appSettings.audioNormalization.value) {
@@ -1850,13 +1982,13 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
 
         // Apply Replay Gain settings
-        rhythmPlayerEngine.applyReplayGainSettings(appSettings.replayGain.value)
+        rhythmPlayerEngine.applyReplayGainSettings(if (isBitPerfect) false else appSettings.replayGain.value)
 
         // Apply gapless playback setting
         rhythmPlayerEngine.setGaplessPlayback(appSettings.gaplessPlayback.value)
 
         // Apply skip silence setting
-        rhythmPlayerEngine.setSkipSilenceEnabled(appSettings.skipSilenceEnabled.value)
+        rhythmPlayerEngine.setSkipSilenceEnabled(if (isBitPerfect) false else appSettings.skipSilenceEnabled.value)
 
         // Crossfade is now managed by TransitionController + RhythmPlayerEngine
         // Settings are read reactively from AppSettings by the controller
@@ -1937,10 +2069,6 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             ACTION_SET_EQUALIZER_BAND -> {
                 val band = intent.getShortExtra("band", 0)
                 val level = intent.getShortExtra("level", 0)
-                if (equalizer == null) {
-                    Log.e(TAG, "Cannot set band level: equalizer is null")
-                    return START_NOT_STICKY
-                }
                 setEqualizerBandLevel(band, level)
             }
             ACTION_SET_BASS_BOOST -> {
@@ -1954,7 +2082,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 }
                 
                 setBassBoostEnabled(enabled)
-                if (enabled) setBassBoostStrength(strength)
+                if (enabled && strength > 0) {
+                    setBassBoostStrength(strength)
+                }
             }
             ACTION_SET_VIRTUALIZER -> {
                 val enabled = intent.getBooleanExtra("enabled", false)
@@ -1967,7 +2097,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 }
                 
                 setVirtualizerEnabled(enabled)
-                if (enabled) setVirtualizerStrength(strength)
+                if (enabled && strength > 0) {
+                    setVirtualizerStrength(strength)
+                }
             }
             ACTION_SET_MONO_AUDIO -> {
                 val enabled = intent.getBooleanExtra("enabled", false)
@@ -1984,24 +2116,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 val preset = intent.getStringExtra("preset") ?: ""
                 val levels = intent.getFloatArrayExtra("levels")
                 if (levels != null) {
-                    if (equalizer == null) {
-                        Log.e(TAG, "Cannot apply preset: equalizer is null")
-                        // Try to initialize if session ID is available
-                        if (getPlayerAudioSessionId() != 0) {
-                            Log.d(TAG, "Attempting to initialize equalizer before applying preset")
-                            initializeAudioEffects()
-                            // Try applying again after initialization
-                            if (equalizer != null) {
-                                applyEqualizerPreset(levels)
-                                Log.d(TAG, "Applied equalizer preset after initialization: $preset with ${levels.size} bands")
-                            } else {
-                                Log.e(TAG, "Failed to initialize equalizer, cannot apply preset")
-                            }
-                        }
-                    } else {
-                        applyEqualizerPreset(levels)
-                        Log.d(TAG, "Applied equalizer preset: $preset with ${levels.size} bands")
-                    }
+                    applyEqualizerPreset(levels)
+                    Log.d(TAG, "Applied equalizer preset intent: $preset with ${levels.size} bands")
                 }
             }
             ACTION_GET_EQUALIZER_DIAGNOSTICS -> {
@@ -2127,10 +2243,207 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             }
         }
         
+        // If an external trigger (such as widget or tile) started this service via startForegroundService
+        // while playback is paused or stopped, satisfy the Android OS contract to avoid ForegroundServiceDidNotStartInTimeException.
+        if (::player.isInitialized && !player.isPlaying) {
+            when (intent?.action) {
+                ACTION_PLAY_PAUSE, ACTION_SKIP_NEXT, ACTION_SKIP_PREVIOUS,
+                ACTION_TOGGLE_FAVORITE, ACTION_TOGGLE_SHUFFLE, ACTION_TOGGLE_REPEAT -> {
+                    try {
+                        startForegroundWithNotification(
+                            getString(chromahub.rhythm.app.R.string.service_rhythm_music),
+                            getString(chromahub.rhythm.app.R.string.service_ready)
+                        )
+                        androidx.core.app.ServiceCompat.stopForeground(this, androidx.core.app.ServiceCompat.STOP_FOREGROUND_REMOVE)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Could not satisfy foreground contract for action: ${intent.action}", e)
+                    }
+                }
+            }
+        }
+
         // We make sure to call the super implementation
         return super.onStartCommand(intent, flags, startId)
     }
     
+    private var libraryContinuationJob: kotlinx.coroutines.Job? = null
+    private var libraryContinuationActive = false
+    private var queueSnapshotRevision = 0L
+    private var queueSnapshotSignature: List<String> = emptyList()
+    private data class PlaybackQueueSnapshot(val items: List<MediaItem>, val currentIndex: Int, val revision: Long)
+
+    private fun tokenizedQueueItem(item: MediaItem): MediaItem {
+        if (!item.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN).isNullOrBlank()) return item
+        val extras = Bundle(item.mediaMetadata.extras ?: Bundle.EMPTY).apply {
+            putString(PlayNextCommand.ENTRY_TOKEN, java.util.UUID.randomUUID().toString())
+        }
+        return item.buildUpon().setMediaMetadata(item.mediaMetadata.buildUpon().setExtras(extras).build()).build()
+    }
+
+    private fun playbackQueueSnapshot(): PlaybackQueueSnapshot {
+        val original = btVirtualOriginalQueue
+        val items: List<MediaItem>
+        val current: Int
+        if (original != null) {
+            items = btVirtualHistory.map { it.mediaItem } +
+                listOfNotNull(original.getOrNull(btVirtualCurrentOriginalIndex)) +
+                btVirtualUpcoming.map { it.mediaItem }
+            current = btVirtualHistory.size.coerceAtMost(items.lastIndex)
+        } else {
+            val order = mutableListOf<Int>()
+            val visited = hashSetOf<Int>()
+            val timeline = player.currentTimeline
+            var index = timeline.getFirstWindowIndex(player.shuffleModeEnabled)
+            while (index != C.INDEX_UNSET && visited.add(index)) {
+                order.add(index)
+                index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, player.shuffleModeEnabled)
+            }
+            items = order.map { player.getMediaItemAt(it) }
+            current = order.indexOf(player.currentMediaItemIndex)
+        }
+        val signature = items.map { it.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN) ?: it.mediaId } + current.toString()
+        if (signature != queueSnapshotSignature) {
+            queueSnapshotSignature = signature
+            queueSnapshotRevision++
+        }
+        return PlaybackQueueSnapshot(items, current, queueSnapshotRevision)
+    }
+
+    private fun persistServiceQueue() {
+        if (!::player.isInitialized || !appSettings.queuePersistenceEnabled.value || isMutatingBtVirtualQueue) return
+        val items = btVirtualOriginalQueue ?: List(player.mediaItemCount) { player.getMediaItemAt(it) }
+        val index = if (btVirtualOriginalQueue != null) btVirtualCurrentOriginalIndex else player.currentMediaItemIndex
+        if (items.isEmpty() || index !in items.indices) return
+        appSettings.setSavedQueue(items.map { it.mediaId })
+        appSettings.setSavedQueueIndex(index)
+        appSettings.setSavedPlaybackPosition(player.currentPosition)
+    }
+
+    private fun publishVirtualQueueState() {
+        if (btVirtualOriginalQueue == null || player.mediaItemCount != 1) return
+        player.currentMediaItem?.let { item ->
+            (player as? RhythmForwardingPlayer)?.replaceLyricMetadata(0,
+                withVirtualQueuePosition(item, btVirtualHistory.size))
+        }
+        notifyBtVirtualCommands()
+        persistServiceQueue()
+    }
+
+    private fun maybeContinueWithDeviceLibrary() {
+        if (!::player.isInitialized || !appSettings.continueWithDeviceLibrary.value ||
+            libraryContinuationJob?.isActive == true || isMutatingBtVirtualQueue) return
+        val currentItem = player.currentMediaItem ?: return
+        val virtual = btVirtualOriginalQueue != null
+        val effectiveRepeat = if (virtual) btVirtualOriginalRepeatMode else player.repeatMode
+        if (effectiveRepeat != Player.REPEAT_MODE_OFF) return
+        if (if (virtual) btVirtualUpcoming.isNotEmpty() else player.hasNextMediaItem()) return
+        if (player.playbackState == Player.STATE_IDLE && !player.playWhenReady) return
+        val currentToken = currentItem.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN)
+        libraryContinuationJob = serviceScope.launch {
+            try {
+                val rows = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                    val scope = chromahub.rhythm.app.core.domain.scan.MediaScanScope(
+                        appSettings.mediaScanMode.value.name, appSettings.allowedFormats.value,
+                        appSettings.minimumDuration.value, appSettings.whitelistedFolders.value.toSet(),
+                        appSettings.whitelistedSongs.value.toSet(), appSettings.blacklistedFolders.value.toSet(),
+                        appSettings.blacklistedSongs.value.toSet(), android.os.Environment.getExternalStorageDirectory().absolutePath)
+                    chromahub.rhythm.app.features.local.data.database.RhythmDatabase.getInstance(applicationContext)
+                        .songDao().getAllSongs().filter { row ->
+                            scope.includes(row.id, row.path, row.duration) &&
+                                (row.path == null || java.io.File(row.path).isFile) &&
+                                android.net.Uri.parse(row.uri).scheme in listOf("content", "file")
+                        }.sortedBy { it.title.lowercase(java.util.Locale.ROOT) }
+                }
+                if (!appSettings.continueWithDeviceLibrary.value || player.currentMediaItem
+                        ?.mediaMetadata?.extras?.getString(PlayNextCommand.ENTRY_TOKEN) != currentToken) return@launch
+                val source = btVirtualOriginalQueue ?: List(player.mediaItemCount) { player.getMediaItemAt(it) }
+                val plan = planLibraryContinuation(rows.map { it.id }, source.map { it.mediaId }, player.currentMediaItem?.mediaId)
+                if (plan.songIds.isEmpty()) return@launch
+                val rowsById = rows.associateBy { it.id }
+                val ids = if (appSettings.savedShuffleState.value || player.shuffleModeEnabled || btVirtualOriginalShuffleMode)
+                    plan.songIds.shuffled() else plan.songIds
+                val additions = ids.mapNotNull { id -> rowsById[id]?.let { row ->
+                    val mime = when (row.path?.substringAfterLast('.')?.lowercase()) {
+                        "opus", "opa", "ogg", "oga" -> "audio/ogg"
+                        "mka", "mkv" -> "audio/x-matroska"
+                        "flac" -> "audio/flac"
+                        "mp3" -> "audio/mpeg"
+                        "m4a", "m4b", "mp4" -> "audio/mp4"
+                        else -> null
+                    }
+                    tokenizedQueueItem(MediaItem.Builder().setMediaId(id).setUri(row.uri).setMimeType(mime)
+                        .setMediaMetadata(MediaMetadata.Builder().setTitle(row.title).setArtist(row.artist)
+                            .setAlbumTitle(row.album).setDurationMs(row.duration)
+                            .setExtras(Bundle().apply { putBoolean("library_continuation", true) })
+                            .setArtworkUri(row.artworkUri?.let(android.net.Uri::parse)?.takeIf { uri ->
+                                uri.scheme != "file" || uri.path?.let { java.io.File(it).isFile } == true
+                            } ?: chromahub.rhythm.app.infrastructure.provider.RhythmAlbumArtProvider.buildSongUri(
+                                row.id, row.path, row.albumId, appSettings.isLosslessArtworkActive.value))
+                            .build()).build())
+                } }
+                if (additions.isEmpty()) return@launch
+                val resumeAtEnd = player.playbackState == Player.STATE_ENDED && player.playWhenReady
+                if (btVirtualOriginalQueue != null) {
+                    if (plan.startsNewCycle && btVirtualHistory.size > 50) {
+                        val compact = btVirtualHistory.takeLast(50).map { it.mediaItem } +
+                            listOfNotNull(btVirtualOriginalQueue?.getOrNull(btVirtualCurrentOriginalIndex)) +
+                            btVirtualUpcoming.map { it.mediaItem }
+                        btVirtualOriginalQueue = compact
+                        btVirtualCurrentOriginalIndex = 50
+                        btVirtualHistory.clear()
+                        btVirtualHistory.addAll(compact.take(50).mapIndexed { i, item -> BtVirtualQueueItem(item, i) })
+                        btVirtualUpcoming.clear()
+                        btVirtualUpcoming.addAll(compact.drop(51).mapIndexed { i, item -> BtVirtualQueueItem(item, i + 51) })
+                    }
+                    val existing = btVirtualOriginalQueue.orEmpty()
+                    btVirtualOriginalQueue = existing + additions
+                    btVirtualUpcoming.addAll(additions.mapIndexed { i, item -> BtVirtualQueueItem(item, existing.size + i) })
+                    publishVirtualQueueState()
+                    if (resumeAtEnd) btVirtualAdvance()
+                } else {
+                    if (plan.startsNewCycle) {
+                        val snapshot = playbackQueueSnapshot()
+                        val removableTokens = snapshot.items.take((snapshot.currentIndex - 50).coerceAtLeast(0))
+                            .mapNotNull { it.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN) }.toSet()
+                        val removable = (0 until player.mediaItemCount).filter { i ->
+                            player.getMediaItemAt(i).mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN) in removableTokens
+                        }
+                        val ranges = mutableListOf<IntRange>()
+                        for (i in removable) {
+                            val last = ranges.lastOrNull()
+                            if (last != null && i == last.last + 1) ranges[ranges.lastIndex] = last.first..i
+                            else ranges.add(i..i)
+                        }
+                        for (range in ranges.asReversed()) player.removeMediaItems(range.first, range.last + 1)
+                    }
+                    val oldOrder = mutableListOf<Int>()
+                    val timeline = player.currentTimeline
+                    var index = timeline.getFirstWindowIndex(player.shuffleModeEnabled)
+                    val visited = hashSetOf<Int>()
+                    while (index != C.INDEX_UNSET && visited.add(index)) {
+                        oldOrder.add(index)
+                        index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, player.shuffleModeEnabled)
+                    }
+                    val insertion = player.mediaItemCount
+                    player.addMediaItems(additions)
+                    if (player.shuffleModeEnabled) {
+                        (rhythmPlayerEngine.masterPlayer as? ExoPlayer)?.setShuffleOrder(
+                            chromahub.rhythm.app.infrastructure.service.player.RhythmShuffleOrder(
+                                (oldOrder + (insertion until insertion + additions.size)).toIntArray()))
+                    }
+                    if (resumeAtEnd) {
+                        player.seekToNextMediaItem()
+                        player.prepare()
+                    }
+                    persistServiceQueue()
+                }
+                libraryContinuationActive = true
+                Log.i(TAG, "Library continuation appended ${additions.size} tracks (newCycle=${plan.startsNewCycle})")
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (e: Exception) { Log.e(TAG, "Unable to continue from device library; preserving queue", e) }
+        }
+    }
+
     private val pendingPlayNextTokens = mutableListOf<String>()
 
     private fun enqueuePlayNext(items: List<MediaItem>): Bundle {
@@ -2172,7 +2485,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             btVirtualHistory.addAll(plan.playbackOrder.take(plan.displayCurrentIndex).map { BtVirtualQueueItem(edited[it], it) })
             btVirtualUpcoming.clear()
             btVirtualUpcoming.addAll(plan.playbackOrder.drop(plan.displayCurrentIndex + 1).map { BtVirtualQueueItem(edited[it], it) })
-            notifyBtVirtualCommands()
+            publishVirtualQueueState()
         } else {
             player.addMediaItems(plan.insertionIndex, additions)
             if (player.shuffleModeEnabled) {
@@ -2276,7 +2589,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
          * edits while legacy car mode exposes its temporary single-item queue.
          */
         fun replaceLyricMetadata(index: Int, mediaItem: MediaItem) {
-            super.replaceMediaItem(index, mediaItem)
+            super.replaceMediaItem(index, tokenizedQueueItem(mediaItem))
         }
 
         /**
@@ -2291,48 +2604,72 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
 
         override fun setMediaItems(mediaItems: List<MediaItem>) {
-            if (!isMutatingBtVirtualQueue) pendingPlayNextTokens.clear()
+            if (!isMutatingBtVirtualQueue) {
+                pendingPlayNextTokens.clear()
+                libraryContinuationActive = false
+                libraryContinuationJob?.cancel()
+            }
             restoreBeforeExternalQueueMutation()
-            super.setMediaItems(mediaItems)
+            super.setMediaItems(mediaItems.map(::tokenizedQueueItem))
         }
 
         override fun setMediaItems(mediaItems: List<MediaItem>, resetPosition: Boolean) {
-            if (!isMutatingBtVirtualQueue) pendingPlayNextTokens.clear()
+            if (!isMutatingBtVirtualQueue) {
+                pendingPlayNextTokens.clear()
+                libraryContinuationActive = false
+                libraryContinuationJob?.cancel()
+            }
             restoreBeforeExternalQueueMutation()
-            super.setMediaItems(mediaItems, resetPosition)
+            super.setMediaItems(mediaItems.map(::tokenizedQueueItem), resetPosition)
         }
 
         override fun setMediaItems(mediaItems: List<MediaItem>, startIndex: Int, startPositionMs: Long) {
-            if (!isMutatingBtVirtualQueue) pendingPlayNextTokens.clear()
+            if (!isMutatingBtVirtualQueue) {
+                pendingPlayNextTokens.clear()
+                libraryContinuationActive = false
+                libraryContinuationJob?.cancel()
+            }
             restoreBeforeExternalQueueMutation()
-            super.setMediaItems(mediaItems, startIndex, startPositionMs)
+            super.setMediaItems(mediaItems.map(::tokenizedQueueItem), startIndex, startPositionMs)
         }
 
         override fun setMediaItem(mediaItem: MediaItem) {
-            if (!isMutatingBtVirtualQueue) pendingPlayNextTokens.clear()
+            if (!isMutatingBtVirtualQueue) {
+                pendingPlayNextTokens.clear()
+                libraryContinuationActive = false
+                libraryContinuationJob?.cancel()
+            }
             restoreBeforeExternalQueueMutation()
-            super.setMediaItem(mediaItem)
+            super.setMediaItem(tokenizedQueueItem(mediaItem))
         }
 
         override fun setMediaItem(mediaItem: MediaItem, startPositionMs: Long) {
-            if (!isMutatingBtVirtualQueue) pendingPlayNextTokens.clear()
+            if (!isMutatingBtVirtualQueue) {
+                pendingPlayNextTokens.clear()
+                libraryContinuationActive = false
+                libraryContinuationJob?.cancel()
+            }
             restoreBeforeExternalQueueMutation()
-            super.setMediaItem(mediaItem, startPositionMs)
+            super.setMediaItem(tokenizedQueueItem(mediaItem), startPositionMs)
         }
 
         override fun setMediaItem(mediaItem: MediaItem, resetPosition: Boolean) {
-            if (!isMutatingBtVirtualQueue) pendingPlayNextTokens.clear()
+            if (!isMutatingBtVirtualQueue) {
+                pendingPlayNextTokens.clear()
+                libraryContinuationActive = false
+                libraryContinuationJob?.cancel()
+            }
             restoreBeforeExternalQueueMutation()
-            super.setMediaItem(mediaItem, resetPosition)
+            super.setMediaItem(tokenizedQueueItem(mediaItem), resetPosition)
         }
 
         override fun addMediaItem(mediaItem: MediaItem) {
             restoreBeforeExternalQueueMutation()
-            super.addMediaItem(mediaItem)
+            super.addMediaItem(tokenizedQueueItem(mediaItem))
         }
 
         override fun addMediaItem(index: Int, mediaItem: MediaItem) {
-            if (insertIntoBtVirtualQueue(index, listOf(mediaItem))) return
+            if (insertIntoBtVirtualQueue(index, listOf(tokenizedQueueItem(mediaItem)))) return
             val resolvedIndex = resolveLegacyQueueInsertionIndex(
                 requestedIndex = index,
                 legacyQueueCollapsed = btVirtualQueueActive() &&
@@ -2342,16 +2679,16 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 originalQueueSize = btVirtualOriginalQueue?.size ?: 0
             )
             restoreBeforeExternalQueueMutation()
-            super.addMediaItem(resolvedIndex, mediaItem)
+            super.addMediaItem(resolvedIndex, tokenizedQueueItem(mediaItem))
         }
 
         override fun addMediaItems(mediaItems: List<MediaItem>) {
             restoreBeforeExternalQueueMutation()
-            super.addMediaItems(mediaItems)
+            super.addMediaItems(mediaItems.map(::tokenizedQueueItem))
         }
 
         override fun addMediaItems(index: Int, mediaItems: List<MediaItem>) {
-            if (insertIntoBtVirtualQueue(index, mediaItems)) return
+            if (insertIntoBtVirtualQueue(index, mediaItems.map(::tokenizedQueueItem))) return
             val resolvedIndex = resolveLegacyQueueInsertionIndex(
                 requestedIndex = index,
                 legacyQueueCollapsed = btVirtualQueueActive() &&
@@ -2361,7 +2698,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 originalQueueSize = btVirtualOriginalQueue?.size ?: 0
             )
             restoreBeforeExternalQueueMutation()
-            super.addMediaItems(resolvedIndex, mediaItems)
+            super.addMediaItems(resolvedIndex, mediaItems.map(::tokenizedQueueItem))
         }
 
         override fun moveMediaItem(currentIndex: Int, newIndex: Int) {
@@ -2376,12 +2713,12 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
 
         override fun replaceMediaItem(index: Int, mediaItem: MediaItem) {
             restoreBeforeExternalQueueMutation()
-            super.replaceMediaItem(index, mediaItem)
+            super.replaceMediaItem(index, tokenizedQueueItem(mediaItem))
         }
 
         override fun replaceMediaItems(fromIndex: Int, toIndex: Int, mediaItems: List<MediaItem>) {
             restoreBeforeExternalQueueMutation()
-            super.replaceMediaItems(fromIndex, toIndex, mediaItems)
+            super.replaceMediaItems(fromIndex, toIndex, mediaItems.map(::tokenizedQueueItem))
         }
 
         override fun removeMediaItem(index: Int) {
@@ -2395,7 +2732,11 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
 
         override fun clearMediaItems() {
-            if (!isMutatingBtVirtualQueue) pendingPlayNextTokens.clear()
+            if (!isMutatingBtVirtualQueue) {
+                pendingPlayNextTokens.clear()
+                libraryContinuationActive = false
+                libraryContinuationJob?.cancel()
+            }
             restoreBeforeExternalQueueMutation()
             super.clearMediaItems()
         }
@@ -2442,12 +2783,35 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             if (btVirtualQueueActive() && btVirtualPrevious()) return
             if (!skipWithCrossfade(toNext = false)) super.seekToPreviousMediaItem()
         }
+
+
+            override fun seekToDefaultPosition(mediaItemIndex: Int) {
+                if (!btVirtualQueueActive() && !isMutatingBtVirtualQueue && mediaItemIndex != currentMediaItemIndex && mediaItemIndex in 0 until mediaItemCount) {
+                    if (skipWithCrossfadeToIndex(mediaItemIndex)) {
+                        return
+                    }
+                }
+                super.seekToDefaultPosition(mediaItemIndex)
+            }
+
+            override fun seekTo(mediaItemIndex: Int, positionMs: Long) {
+                if (!btVirtualQueueActive() && !isMutatingBtVirtualQueue && mediaItemIndex != currentMediaItemIndex && mediaItemIndex in 0 until mediaItemCount) {
+                    if (skipWithCrossfadeToIndex(mediaItemIndex, positionMs)) {
+                        return
+                    }
+                }
+                super.seekTo(mediaItemIndex, positionMs)
+            }
     }
 
     private var lastGlobalSkipTime = 0L
     private val GLOBAL_SKIP_DEBOUNCE_MS = 600L
 
-    private fun skipWithCrossfade(toNext: Boolean): Boolean {
+    private fun skipWithCrossfadeToIndex(
+        targetIndex: Int,
+        positionMs: Long = C.TIME_UNSET,
+        isSkipPrevious: Boolean = false
+    ): Boolean {
         try {
             if (!appSettings.crossfade.value || !appSettings.crossfadeOnSkip.value) {
                 return false
@@ -2463,10 +2827,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
 
             if (rhythmPlayerEngine.isTransitionRunning()) {
                 Log.d(TAG, "Transition is running during skip request. Force completing it first and falling back to standard skip.")
+                rhythmPlayerEngine.snapCompleteTransition()
                 if (::transitionController.isInitialized) {
                     transitionController.cancelPendingTransition()
-                } else {
-                    rhythmPlayerEngine.cancelNext()
                 }
                 return false
             }
@@ -2477,55 +2840,43 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 return false
             }
 
-            val repeatMode = playerToUse.repeatMode
             val currentWindowIndex = playerToUse.currentMediaItemIndex
             val timeline = playerToUse.currentTimeline
 
-            if (timeline.isEmpty || currentWindowIndex == C.INDEX_UNSET) {
+            if (timeline.isEmpty || targetIndex < 0 || targetIndex >= playerToUse.mediaItemCount || targetIndex == currentWindowIndex) {
                 return false
             }
 
-            // Handled case: previous skip when track has played for over 5s (restarts track)
-            if (!toNext && playerToUse.currentPosition > 5000) {
-                Log.d(TAG, "Previous skip past 5s, restarting track")
-                return false
-            }
-
-            val nextIndex = if (toNext) {
-                timeline.getNextWindowIndex(
-                    currentWindowIndex,
-                    repeatMode,
-                    playerToUse.shuffleModeEnabled
-                )
-            } else {
-                timeline.getPreviousWindowIndex(
-                    currentWindowIndex,
-                    repeatMode,
-                    playerToUse.shuffleModeEnabled
-                )
-            }
-
-            if (nextIndex == C.INDEX_UNSET) {
-                return false
-            }
-
-            val nextMediaItem = playerToUse.getMediaItemAt(nextIndex)
-
-            Log.d(TAG, "Skipping with crossfade. Target track: ${nextMediaItem.mediaId}")
+            val nextMediaItem = playerToUse.getMediaItemAt(targetIndex)
+            Log.d(TAG, "Skipping with crossfade to index $targetIndex: ${nextMediaItem.mediaId}")
 
             // Cancel any pending transitions
             if (::transitionController.isInitialized) {
                 transitionController.cancelPendingTransition()
             }
 
-            // Prepare the next song
-            rhythmPlayerEngine.prepareNext(nextMediaItem)
+            val startPos = if (positionMs != C.TIME_UNSET && positionMs > 0L) positionMs else 0L
+            val fullQueue = (0 until playerToUse.mediaItemCount).map { playerToUse.getMediaItemAt(it) }
+            val shuffleIndices = if (playerToUse.shuffleModeEnabled) {
+                rhythmPlayerEngine.extractShuffleIndices(playerToUse)
+            } else {
+                null
+            }
+            rhythmPlayerEngine.prepareNext(
+                mediaItem = nextMediaItem,
+                targetIndex = targetIndex,
+                fullQueue = fullQueue,
+                shuffleIndices = shuffleIndices,
+                startPositionMs = startPos
+            )
 
+            val computedSkipPrevious = if (isSkipPrevious) true else targetIndex < currentWindowIndex
+            val skipDuration = (appSettings.crossfadeDuration.value * 1000).toInt().coerceIn(500, 2000)
             val settings = TransitionSettings(
                 mode = TransitionMode.OVERLAP,
-                durationMs = 1000,
+                durationMs = skipDuration,
                 isManualSkip = true,
-                isSkipPrevious = !toNext
+                isSkipPrevious = computedSkipPrevious
             )
 
             if (::transitionController.isInitialized) {
@@ -2533,12 +2884,50 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             }
 
             rhythmPlayerEngine.performTransition(settings)
-
             return true
         } catch (e: Exception) {
             Log.e(TAG, "Error performing skip with crossfade, falling back to standard skip", e)
             return false
         }
+    }
+
+    private fun skipWithCrossfade(toNext: Boolean): Boolean {
+        val playerToUse = rhythmPlayerEngine.masterPlayer
+        if (!playerToUse.isPlaying) {
+            return false
+        }
+
+        if (!toNext && playerToUse.currentPosition > 5000) {
+            Log.d(TAG, "Previous skip past 5s, restarting track")
+            return false
+        }
+
+        val repeatMode = playerToUse.repeatMode
+        val currentWindowIndex = playerToUse.currentMediaItemIndex
+        val timeline = playerToUse.currentTimeline
+        if (timeline.isEmpty || currentWindowIndex == C.INDEX_UNSET) {
+            return false
+        }
+
+        val nextIndex = if (toNext) {
+            timeline.getNextWindowIndex(
+                currentWindowIndex,
+                repeatMode,
+                playerToUse.shuffleModeEnabled
+            )
+        } else {
+            timeline.getPreviousWindowIndex(
+                currentWindowIndex,
+                repeatMode,
+                playerToUse.shuffleModeEnabled
+            )
+        }
+
+        if (nextIndex == C.INDEX_UNSET) {
+            return false
+        }
+
+        return skipWithCrossfadeToIndex(nextIndex, isSkipPrevious = !toNext)
     }
 
     /**
@@ -2657,7 +3046,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         if (::player.isInitialized && appSettings.queuePersistenceEnabled.value) {
             val currentIndex = player.currentMediaItemIndex
             if (currentIndex != androidx.media3.common.C.INDEX_UNSET) {
-                appSettings.setSavedQueueIndex(currentIndex)
+                persistServiceQueue()
+                        // The service owns the complete persisted queue and occurrence index.
                 appSettings.setSavedPlaybackPosition(player.currentPosition)
                 Log.d(TAG, "Persisted queue index $currentIndex and position ${player.currentPosition} on service destroy")
             }
@@ -2701,7 +3091,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
         
         // Remove player listener before releasing player
-        playerListener?.let { player.removeListener(it) }
+        if (::player.isInitialized) {
+            playerListener?.let { player.removeListener(it) }
+        }
         playerListener = null
 
         // Disconnect session-bound effects before releasing their players. Reversing this
@@ -2710,8 +3102,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         releaseAudioEffects()
 
         // Release crossfade engine and transition controller
-        transitionController.release()
-        rhythmPlayerEngine.release()
+        if (::transitionController.isInitialized) transitionController.release()
+        if (::rhythmPlayerEngine.isInitialized) rhythmPlayerEngine.release()
         
         // Remove service as listener from controller
         controller?.removeListener(this)
@@ -2751,6 +3143,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             }
             if (controller.packageName == packageName) {
                 availableCommands.add(SessionCommand(PlayNextCommand.ACTION, Bundle.EMPTY))
+                availableCommands.add(SessionCommand(PlayNextCommand.GET_QUEUE, Bundle.EMPTY))
             }
             availableCommands.add(SessionCommand("UPDATE_ACTIVE_LYRIC", Bundle.EMPTY))
             availableCommands.add(SessionCommand("UPDATE_LYRICS_DATA", Bundle.EMPTY))
@@ -2771,6 +3164,38 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             customCommand: SessionCommand,
             args: Bundle
         ): ListenableFuture<SessionResult> {
+            if (customCommand.customAction == PlayNextCommand.GET_QUEUE) {
+                if (controller.packageName != packageName || !::player.isInitialized) {
+                    return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
+                }
+                val snapshot = playbackQueueSnapshot()
+                val offset = args.getInt(PlayNextCommand.OFFSET).coerceIn(0, snapshot.items.size)
+                val limit = args.getInt(PlayNextCommand.LIMIT, 200).coerceIn(1, 200)
+                val result = Bundle().apply {
+                    putStringArrayList(PlayNextCommand.IDS, ArrayList(snapshot.items.drop(offset).take(limit).map { it.mediaId }))
+                    putInt(PlayNextCommand.TOTAL, snapshot.items.size)
+                    putInt(PlayNextCommand.CURRENT_INDEX, snapshot.currentIndex)
+                    putLong(PlayNextCommand.REVISION, snapshot.revision)
+                    putBoolean(PlayNextCommand.VIRTUAL_QUEUE, btVirtualOriginalQueue != null)
+                    if (args.getBoolean("include_metadata")) {
+                        val metadata = snapshot.items.drop(offset).take(limit.coerceAtMost(24)).map { item ->
+                            val canonical = serviceBtCanonicalSong?.takeIf { it.id == item.mediaId }
+                            Bundle().apply {
+                                putString("id", item.mediaId)
+                                putString("title", canonical?.title ?: item.mediaMetadata.title?.toString())
+                                putString("artist", canonical?.artist ?: item.mediaMetadata.artist?.toString())
+                                putString("album", canonical?.album ?: item.mediaMetadata.albumTitle?.toString())
+                                putLong("duration", canonical?.duration ?: item.mediaMetadata.durationMs ?: 0L)
+                                putString("uri", item.localConfiguration?.uri?.toString())
+                                putString("artwork", canonical?.artworkUri?.toString() ?: item.mediaMetadata.artworkUri?.toString())
+                            }
+                        }
+                        putParcelableArrayList(PlayNextCommand.ITEMS, ArrayList(metadata))
+                    }
+                    if (libraryContinuationActive) putString(PlayNextCommand.SOURCE, getString(chromahub.rhythm.app.R.string.queue_library_continuation))
+                }
+                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS, result))
+            }
             if (customCommand.customAction == PlayNextCommand.ACTION) {
                 if (controller.packageName != packageName || !::player.isInitialized) {
                     return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
@@ -3138,7 +3563,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     private fun btVirtualQueueActive(): Boolean =
         ::appSettings.isInitialized &&
             appSettings.bluetoothLyricsEnabled.value &&
-            appSettings.bluetoothLyricsLegacyCarModeEnabled.value
+            appSettings.effectiveBluetoothDisplayCompatibility(appSettings.currentBluetoothDisplayDevice.value)
 
     private fun notifyBtVirtualCommands() {
         (player as? RhythmForwardingPlayer)?.notifyBtCommandsChanged()
@@ -3263,12 +3688,14 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         } finally {
             isMutatingBtVirtualQueue = false
         }
-        notifyBtVirtualCommands()
+        publishVirtualQueueState()
+        maybeContinueWithDeviceLibrary()
         return true
     }
 
     private fun handleBtVirtualPlaybackEnded() {
         if (!btVirtualQueueActive()) return
+        if (!player.playWhenReady) return
         if (btVirtualOriginalRepeatMode == Player.REPEAT_MODE_ONE) {
             isMutatingBtVirtualQueue = true
             try {
@@ -3314,7 +3741,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         } finally {
             isMutatingBtVirtualQueue = false
         }
-        notifyBtVirtualCommands()
+        publishVirtualQueueState()
+        maybeContinueWithDeviceLibrary()
         return true
     }
 
@@ -3324,6 +3752,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         isMutatingBtVirtualQueue = true
         try {
             val pos = player.currentPosition
+            val savedPlayWhenReady = player.playWhenReady
+            val order = btVirtualHistory.map { it.originalIndex } +
+                listOf(btVirtualCurrentOriginalIndex) + btVirtualUpcoming.map { it.originalIndex }
             val originalCurrentIndex = btVirtualCurrentOriginalIndex
             btVirtualHistory.clear()
             btVirtualUpcoming.clear()
@@ -3337,8 +3768,13 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                     ?: 0
                 player.setMediaItems(originalQueue, currentIdx, pos)
                 player.shuffleModeEnabled = btVirtualOriginalShuffleMode
+                if (btVirtualOriginalShuffleMode && order.sorted() == originalQueue.indices.toList()) {
+                    (rhythmPlayerEngine.masterPlayer as? ExoPlayer)?.setShuffleOrder(
+                        chromahub.rhythm.app.infrastructure.service.player.RhythmShuffleOrder(order.toIntArray()))
+                }
                 player.repeatMode = btVirtualOriginalRepeatMode
                 player.prepare()
+                player.playWhenReady = savedPlayWhenReady
             }
             Log.d(TAG, "Legacy car mode: restored original ${originalQueue.size}-item queue on mode off")
         } catch (e: Exception) {
@@ -3357,7 +3793,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         if (isBluetoothMetadataTransition(
                 mediaItem = mediaItem,
                 reason = reason,
-                lastHandledMediaId = lastHandledControllerTransitionMediaId
+                lastHandledMediaId = lastHandledControllerTransitionMediaId,
+                lastHandledToken = lastHandledControllerEntryToken
             )
         ) {
             Log.d(TAG, "Ignoring metadata-only controller transition for mediaId=$transitionMediaId")
@@ -3379,6 +3816,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         updateWidgetFromMediaItem(mediaItem)
 
         lastHandledControllerTransitionMediaId = transitionMediaId
+        lastHandledControllerEntryToken = mediaItem?.mediaMetadata?.extras?.getString(PlayNextCommand.ENTRY_TOKEN)
     }
     
     override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -3412,9 +3850,12 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     private fun isBluetoothMetadataTransition(
         mediaItem: MediaItem?,
         reason: Int,
-        lastHandledMediaId: String?
+        lastHandledMediaId: String?,
+        lastHandledToken: String?
     ): Boolean {
         val mediaId = mediaItem?.mediaId ?: return false
+        val token = mediaItem.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN)
+        if (token != lastHandledToken) return false
         val isMetadataReason =
             reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK ||
                 reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED
@@ -3700,10 +4141,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
 
     /** Returns the active Bluetooth device's offset, or zero for non-Bluetooth output. */
     private fun resolvedBluetoothLyricsOffsetMs(): Long {
-        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return 0L
-        val deviceName = chromahub.rhythm.app.util.AudioCapabilitiesMonitor
-            .activeBluetoothOutputName(audioManager) ?: return 0L
-        return appSettings.effectiveBluetoothLyricsOffsetMs(deviceName).toLong()
+        return appSettings.effectiveBluetoothDisplayOffsetMs(
+            appSettings.currentBluetoothDisplayDevice.value
+        ).toLong()
     }
 
     private fun tickBluetoothLyrics() {
@@ -4428,22 +4868,41 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     
     private fun loadSavedAudioEffects() {
         try {
+            if (isUsbDspBypassActive()) {
+                Log.i(TAG, "USB app routing active, setting flat EQ and bypassing DSP audio effects")
+                withEqualizerSafe("bit-perfect flat EQ", Unit) { eq ->
+                    val numberOfBands = eq.numberOfBands.toInt()
+                    for (i in 0 until numberOfBands) {
+                        eq.setBandLevel(i.toShort(), 0)
+                    }
+                }
+                setEqualizerEnabledSafe(false)
+                rhythmBassBoostProcessor?.setEnabled(false)
+                rhythmSpatializationProcessor?.setEnabled(false)
+                rhythmMonoAudioProcessor?.setEnabled(false)
+                return
+            }
+
             if (equalizer != null) {
                 val shouldBeEnabled = appSettings.equalizerEnabled.value
                 Log.d(TAG, "Loading saved effects - EQ should be enabled: $shouldBeEnabled")
                 
                 if (shouldBeEnabled) {
-                    // Load band levels (supports both 5-band legacy and 10-band)
-                    val bandLevelsString = appSettings.equalizerBandLevels.value
-                    val bandLevels = bandLevelsString.split(",").mapNotNull { it.toFloatOrNull() }
-                    if (bandLevels.isNotEmpty()) {
-                        // Apply band levels first, then enable
-                        // Use the same interpolation logic as applyEqualizerPreset
-                        applyEqualizerPreset(bandLevels.toFloatArray())
+                    val pending = pendingEqualizerLevels
+                    if (pending != null) {
+                        pendingEqualizerLevels = null
+                        applyEqualizerPreset(pending)
+                    } else {
+                        val bandLevelsString = appSettings.equalizerBandLevels.value
+                        val bandLevels = bandLevelsString.split(",").mapNotNull { it.toFloatOrNull() }
+                        if (bandLevels.isNotEmpty()) {
+                            applyEqualizerPreset(bandLevels.toFloatArray())
+                        }
                     }
                     // Enable equalizer AFTER applying levels to avoid audio glitches
                     setEqualizerEnabledSafe(true)
                 } else {
+                    pendingEqualizerLevels = null
                     // EQ-off means no platform effect. If an older service instance left
                     // one attached, release it so JamesDSP can own the route cleanly.
                     equalizer?.release()
@@ -4501,6 +4960,11 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     }
     
     fun setEqualizerEnabled(enabled: Boolean) {
+        if (enabled && isUsbDspBypassActive()) {
+            Log.i(TAG, "Cannot enable equalizer: Bit-Perfect mode is active")
+            return
+        }
+
         if (enabled && equalizer == null) {
             Log.w(TAG, "Attempting to enable equalizer but equalizer is null. Will reinitialize.")
             // Try to initialize if we have a valid session ID
@@ -4542,19 +5006,21 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     
     fun setEqualizerBandLevel(band: Short, level: Short) {
         try {
-            // When a single band is changed in a 10-band UI but we only have 5 hardware bands,
-            // we need to reload and re-interpolate all bands from saved settings
             val bandLevelsString = appSettings.equalizerBandLevels.value
             val bandLevels = bandLevelsString.split(",").mapNotNull { it.toFloatOrNull() }
             
-            if (bandLevels.size == 10 && (equalizer?.numberOfBands?.toInt() ?: 0) < 10) {
-                // Re-apply all bands with interpolation
+            if (bandLevels.isNotEmpty()) {
                 applyEqualizerPreset(bandLevels.toFloatArray())
-                Log.d(TAG, "Re-applied 10-band EQ with interpolation after band $band change")
+                Log.d(TAG, "Re-applied equalizer preset with headroom after band $band change")
             } else {
-                // Direct band setting when counts match
-                equalizer?.setBandLevel(band, level)
-                Log.d(TAG, "Set equalizer band $band to level $level")
+                equalizer?.let { eq ->
+                    val range = eq.bandLevelRange
+                    val clamped = level.coerceIn(range[0], range[1])
+                    withEqualizerSafe("setBandLevel", Unit) {
+                        it.setBandLevel(band, clamped)
+                    }
+                    Log.d(TAG, "Set equalizer band $band to level $clamped")
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error setting equalizer band level", e)
@@ -4629,42 +5095,35 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     fun applyEqualizerPreset(levels: FloatArray) {
         try {
             if (equalizer == null) {
-                Log.w(TAG, "Cannot apply preset: equalizer is null")
+                Log.w(TAG, "Equalizer is null when applying preset, queuing pending levels and ensuring init")
+                pendingEqualizerLevels = levels.copyOf()
+                if (getPlayerAudioSessionId() != 0) {
+                    initializeAudioEffects()
+                }
                 return
             }
             
             equalizer?.let { eq ->
                 val numberOfBands = eq.numberOfBands.toInt()
                 val inputBands = levels.size
+                val bandRange = eq.bandLevelRange
                 
-                if (inputBands == numberOfBands) {
-                    val bandRange = eq.bandLevelRange
-                    // Direct mapping if bands match
-                    for (i in 0 until numberOfBands) {
-                        val rawLevel = (levels[i] * 100).toInt().toShort()
-                        val level = rawLevel.coerceIn(bandRange[0], bandRange[1])
-                        eq.setBandLevel(i.toShort(), level)
-                    }
-                } else if (inputBands > numberOfBands) {
-                    val bandRange = eq.bandLevelRange
-                    // Map 10 UI bands to available hardware bands using interpolation
-                    // This handles the case where UI has 10 bands but hardware has 5
-                    val mappedLevels = interpolateBands(levels, numberOfBands)
-                    for (i in 0 until numberOfBands) {
-                        val rawLevel = (mappedLevels[i] * 100).toInt().toShort()
-                        val level = rawLevel.coerceIn(bandRange[0], bandRange[1])
-                        eq.setBandLevel(i.toShort(), level)
-                    }
+                val interpolatedLevels = if (inputBands == numberOfBands) {
+                    levels.copyOf()
                 } else {
-                    val bandRange = eq.bandLevelRange
-                    // If hardware has more bands than UI, apply what we have
-                    for (i in 0 until inputBands) {
-                        val rawLevel = (levels[i] * 100).toInt().toShort()
-                        val level = rawLevel.coerceIn(bandRange[0], bandRange[1])
-                        eq.setBandLevel(i.toShort(), level)
-                    }
+                    interpolateBands(levels, numberOfBands, eq)
                 }
-                Log.d(TAG, "Applied equalizer preset: ${levels.size} UI bands -> $numberOfBands hardware bands")
+
+                val maxGain = interpolatedLevels.maxOrNull() ?: 0f
+                val headroom = if (maxGain > 0f) maxGain else 0f
+
+                for (i in 0 until numberOfBands) {
+                    val effectiveLevelDb = interpolatedLevels[i] - headroom
+                    val rawLevel = (effectiveLevelDb * 100).toInt().toShort()
+                    val level = rawLevel.coerceIn(bandRange[0], bandRange[1])
+                    eq.setBandLevel(i.toShort(), level)
+                }
+                Log.d(TAG, "Applied equalizer preset: ${levels.size} UI bands -> $numberOfBands hardware bands (headroom: -${headroom}dB)")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error applying equalizer preset", e)
@@ -4673,31 +5132,55 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     
     /**
      * Interpolates 10-band EQ settings to the available hardware bands.
-     * Uses weighted averaging based on frequency proximity.
+     * Uses logarithmic frequency mapping based on actual hardware center frequencies when available.
      * 
      * Standard 10-band frequencies: 31Hz, 62Hz, 125Hz, 250Hz, 500Hz, 1kHz, 2kHz, 4kHz, 8kHz, 16kHz
-     * Standard 5-band frequencies: ~60Hz, 230Hz, 910Hz, 3.6kHz, 14kHz (varies by device)
      */
-    private fun interpolateBands(inputLevels: FloatArray, outputBands: Int): FloatArray {
-        if (outputBands <= 0 || inputLevels.isEmpty()) return FloatArray(outputBands)
+    private fun interpolateBands(inputLevels: FloatArray, outputBands: Int, eq: android.media.audiofx.Equalizer? = null): FloatArray {
+        if (outputBands <= 0 || inputLevels.isEmpty()) return FloatArray(outputBands.coerceAtLeast(0))
+        if (outputBands == 1) {
+            return FloatArray(1) { inputLevels.average().toFloat() }
+        }
         
         val result = FloatArray(outputBands)
         val inputBands = inputLevels.size
-        
-        // Define the mapping of 10-band to 5-band (approximate frequency groupings)
-        // Band 0 (60Hz): avg of 31Hz, 62Hz, 125Hz
-        // Band 1 (230Hz): avg of 250Hz, 500Hz
-        // Band 2 (910Hz): avg of 1kHz, 2kHz
-        // Band 3 (3.6kHz): avg of 4kHz, 8kHz
-        // Band 4 (14kHz): 16kHz
+        val standard10Freqs = floatArrayOf(31f, 62f, 125f, 250f, 500f, 1000f, 2000f, 4000f, 8000f, 16000f)
+
+        if (inputBands == 10 && eq != null) {
+            try {
+                val hwFreqs = FloatArray(outputBands) { b ->
+                    (eq.getCenterFreq(b.toShort()) / 1000f).coerceAtLeast(20f)
+                }
+                for (i in 0 until outputBands) {
+                    val targetFreq = hwFreqs[i]
+                    val logTarget = kotlin.math.ln(targetFreq.toDouble())
+                    if (targetFreq <= standard10Freqs.first()) {
+                        result[i] = inputLevels.first()
+                    } else if (targetFreq >= standard10Freqs.last()) {
+                        result[i] = inputLevels.last()
+                    } else {
+                        var idx = 0
+                        while (idx < standard10Freqs.size - 1 && standard10Freqs[idx + 1] < targetFreq) {
+                            idx++
+                        }
+                        val logLow = kotlin.math.ln(standard10Freqs[idx].toDouble())
+                        val logHigh = kotlin.math.ln(standard10Freqs[idx + 1].toDouble())
+                        val fraction = ((logTarget - logLow) / (logHigh - logLow)).toFloat().coerceIn(0f, 1f)
+                        result[i] = inputLevels[idx] * (1f - fraction) + inputLevels[idx + 1] * fraction
+                    }
+                }
+                return result
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to query hardware center frequencies, falling back to heuristic interpolation", e)
+            }
+        }
         
         if (outputBands == 5 && inputBands == 10) {
-            // Optimized mapping for the common 10->5 case
-            result[0] = (inputLevels[0] * 0.3f + inputLevels[1] * 0.4f + inputLevels[2] * 0.3f)
+            result[0] = (inputLevels[0] * 0.25f + inputLevels[1] * 0.5f + inputLevels[2] * 0.25f)
             result[1] = (inputLevels[3] * 0.5f + inputLevels[4] * 0.5f)
             result[2] = (inputLevels[5] * 0.5f + inputLevels[6] * 0.5f)
             result[3] = (inputLevels[7] * 0.5f + inputLevels[8] * 0.5f)
-            result[4] = inputLevels[9]
+            result[4] = (inputLevels[8] * 0.25f + inputLevels[9] * 0.75f)
         } else {
             // General linear interpolation for other cases
             val ratio = (inputBands - 1).toFloat() / (outputBands - 1).toFloat()
@@ -4719,8 +5202,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             initializeRhythmProcessors()
         }
         
-        rhythmBassBoostProcessor?.setEnabled(enabled)
-        Log.d(TAG, "Rhythm bass boost enabled: $enabled (applies to next audio buffer)")
+        val actualEnabled = if (isUsbDspBypassActive()) false else enabled
+        rhythmBassBoostProcessor?.setEnabled(actualEnabled)
+        Log.d(TAG, "Rhythm bass boost enabled: $actualEnabled (applies to next audio buffer)")
         if (::rhythmPlayerEngine.isInitialized) {
             rhythmPlayerEngine.updateTrackSelectionParameters()
         }
@@ -4749,9 +5233,10 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             initializeRhythmProcessors()
         }
         
-        rhythmSpatializationProcessor?.setEnabled(enabled)
-        virtualizerStrength = if (enabled) virtualizerStrength else 0
-        Log.d(TAG, "Rhythm spatialization enabled: $enabled (applies to next audio buffer)")
+        val actualEnabled = if (isUsbDspBypassActive()) false else enabled
+        rhythmSpatializationProcessor?.setEnabled(actualEnabled)
+        virtualizerStrength = if (actualEnabled) virtualizerStrength else 0
+        Log.d(TAG, "Rhythm spatialization enabled: $actualEnabled (applies to next audio buffer)")
         if (::rhythmPlayerEngine.isInitialized) {
             rhythmPlayerEngine.updateTrackSelectionParameters()
         }
@@ -4790,8 +5275,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             initializeRhythmProcessors()
         }
         
-        rhythmMonoAudioProcessor?.setEnabled(enabled)
-        Log.d(TAG, "Rhythm mono audio enabled: $enabled (applies to next audio buffer)")
+        val actualEnabled = if (isUsbDspBypassActive()) false else enabled
+        rhythmMonoAudioProcessor?.setEnabled(actualEnabled)
+        Log.d(TAG, "Rhythm mono audio enabled: $actualEnabled (applies to next audio buffer)")
         if (::rhythmPlayerEngine.isInitialized) {
             rhythmPlayerEngine.updateTrackSelectionParameters()
         }

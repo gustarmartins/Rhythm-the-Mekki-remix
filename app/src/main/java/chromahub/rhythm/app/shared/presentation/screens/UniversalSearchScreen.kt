@@ -13,7 +13,12 @@ import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveCookieEmptyState
+import chromahub.rhythm.app.shared.presentation.components.common.MarqueeText
+import chromahub.rhythm.app.shared.presentation.components.common.horizontalEdgeBlend
 import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShape
+import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShapeFor
+import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeTarget
+import chromahub.rhythm.app.shared.presentation.components.common.M3CircularLoader
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -31,6 +36,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -67,6 +73,7 @@ import android.net.Uri
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AddToPlaylistBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SongInfoBottomSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SongOverflowBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.dialogs.CreatePlaylistDialog
 import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel
 import chromahub.rhythm.app.shared.data.model.findAlbumForSong
@@ -159,6 +166,7 @@ fun UniversalSearchScreen(
     var showAddToPlaylistSheet by remember { mutableStateOf(false) }
     var selectedSongForPlaylist by remember { mutableStateOf<Song?>(null) }
     var showSongInfoSheet by remember { mutableStateOf(false) }
+    var showSongInfoInEditMode by remember { mutableStateOf(false) }
     var selectedSongForInfo by remember { mutableStateOf<Song?>(null) }
     var isSongInfoStreaming by remember { mutableStateOf(false) }
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
@@ -659,7 +667,7 @@ fun UniversalSearchScreen(
                             if (isStreamingLoading && !hasResults) {
                                 item(key = "loading_left") {
                                     Box(modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
-                                        WavyLoader()
+                                        M3CircularLoader(modifier = Modifier.size(48.dp), strokeWidth = 4f)
                                     }
                                 }
                             } else {
@@ -832,7 +840,14 @@ fun UniversalSearchScreen(
                                     Text(stringResource(R.string.settings_tab_albums), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp).animateItem())
                                 }
                                 item(key = "albums_grid") {
-                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.animateItem()) {
+                                    val searchAlbumsRowState = rememberLazyListState()
+                                    LazyRow(
+                                        state = searchAlbumsRowState,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        modifier = Modifier
+                                            .animateItem()
+                                            .horizontalEdgeBlend(lazyListState = searchAlbumsRowState, fadeWidth = 12.dp)
+                                    ) {
                                         items(allAlbums.size, key = { i -> "album_${allAlbums[i].title}_$i" }) { i ->
                                             SearchGridCard(item = allAlbums[i], haptics = haptics, context = context, isAlbum = true)
                                         }
@@ -859,7 +874,14 @@ fun UniversalSearchScreen(
                                     Text(stringResource(R.string.settings_tab_artists), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp).animateItem())
                                 }
                                 item(key = "artists_grid") {
-                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.animateItem()) {
+                                    val searchArtistsRowState = rememberLazyListState()
+                                    LazyRow(
+                                        state = searchArtistsRowState,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        modifier = Modifier
+                                            .animateItem()
+                                            .horizontalEdgeBlend(lazyListState = searchArtistsRowState, fadeWidth = 12.dp)
+                                    ) {
                                         items(allArtists.size, key = { i -> "artist_${allArtists[i].title}_$i" }) { i ->
                                             SearchGridCard(item = allArtists[i], haptics = haptics, context = context, isAlbum = false)
                                         }
@@ -871,7 +893,7 @@ fun UniversalSearchScreen(
                                 item(key = "streaming_loading_right") {
                                     Box(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp).animateItem(), contentAlignment = Alignment.Center) {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                            WavyLoader()
+                                            M3CircularLoader(modifier = Modifier.size(20.dp), strokeWidth = 2.5f)
                                             Text(stringResource(R.string.universalsearchscreen_loading_streaming_results), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
@@ -893,7 +915,7 @@ fun UniversalSearchScreen(
                         if (isStreamingLoading && !hasResults) {
                             item(key = "loading") {
                                 Box(modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp).animateItem(), contentAlignment = Alignment.Center) {
-                                    WavyLoader()
+                                    M3CircularLoader(modifier = Modifier.size(48.dp), strokeWidth = 4f)
                                 }
                             }
                         } else {
@@ -1017,7 +1039,14 @@ fun UniversalSearchScreen(
                                     Text(stringResource(R.string.settings_tab_albums), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp).animateItem())
                                 }
                                 item(key = "albums_grid") {
-                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.animateItem()) {
+                                    val searchAlbumsRowState = rememberLazyListState()
+                                    LazyRow(
+                                        state = searchAlbumsRowState,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        modifier = Modifier
+                                            .animateItem()
+                                            .horizontalEdgeBlend(lazyListState = searchAlbumsRowState, fadeWidth = 12.dp)
+                                    ) {
                                         items(allAlbums.size, key = { i -> "album_${allAlbums[i].title}_$i" }) { i ->
                                             SearchGridCard(item = allAlbums[i], haptics = haptics, context = context, isAlbum = true)
                                         }
@@ -1044,7 +1073,14 @@ fun UniversalSearchScreen(
                                     Text(stringResource(R.string.settings_tab_artists), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp).animateItem())
                                 }
                                 item(key = "artists_grid") {
-                                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.animateItem()) {
+                                    val searchArtistsRowState = rememberLazyListState()
+                                    LazyRow(
+                                        state = searchArtistsRowState,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        modifier = Modifier
+                                            .animateItem()
+                                            .horizontalEdgeBlend(lazyListState = searchArtistsRowState, fadeWidth = 12.dp)
+                                    ) {
                                         items(allArtists.size, key = { i -> "artist_${allArtists[i].title}_$i" }) { i ->
                                             SearchGridCard(item = allArtists[i], haptics = haptics, context = context, isAlbum = false)
                                         }
@@ -1092,7 +1128,7 @@ fun UniversalSearchScreen(
                                 item(key = "streaming_loading") {
                                     Box(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp).animateItem(), contentAlignment = Alignment.Center) {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                            WavyLoader()
+                                            M3CircularLoader(modifier = Modifier.size(20.dp), strokeWidth = 2.5f)
                                             Text(stringResource(R.string.universalsearchscreen_loading_streaming_results), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         }
                                     }
@@ -1215,8 +1251,13 @@ fun UniversalSearchScreen(
                 enter = expandVertically() + fadeIn(),
                 exit = shrinkVertically() + fadeOut()
             ) {
+                val filterChipsScrollState = rememberScrollState()
                 Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(filterChipsScrollState)
+                        .padding(top = 12.dp)
+                        .horizontalEdgeBlend(scrollState = filterChipsScrollState, fadeWidth = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val songsCornerRadius by animateDpAsState(
@@ -1350,7 +1391,7 @@ fun UniversalSearchScreen(
                 }
             }
         }
-        } // end Box (gradient wrapper)
+    }
 
         AnimatedVisibility(
             visible = showAllSongsPage,
@@ -1385,50 +1426,60 @@ fun UniversalSearchScreen(
 
         if (showSongOptionsSheet && selectedSongForOptions != null) {
             val songObj = selectedSongForOptions!!
-            val isLocal = songObj is Song
-            val isFavorite = if (isLocal) {
-                favoriteSongs.contains(songObj.id)
+            val localSong = songObj as? Song
+            val streamingSong = songObj as? StreamingSong
+            val isLocal = localSong != null
+            val targetSong = remember(songObj) {
+                localSong ?: streamingSong!!.toLocalSong()
+            }
+            val isFavorite = if (localSong != null) {
+                favoriteSongs.contains(localSong.id)
             } else {
-                streamingLikedSongs.any { it.id == (songObj as StreamingSong).id }
+                streamingLikedSongs.any { it.id == streamingSong?.id }
             }
 
-            UniversalSongOptionsBottomSheet(
-                songObj = songObj,
+            SongOverflowBottomSheet(
+                song = targetSong,
                 onDismiss = { showSongOptionsSheet = false },
+                onPlay = {
+                    handleAction(if (isLocal) "LOCAL" else "STREAMING") {
+                        if (localSong != null) {
+                            onLocalSongClick(localSong)
+                        } else if (streamingSong != null) {
+                            onStreamingSongClick(streamingSong)
+                        }
+                    }
+                    showSongOptionsSheet = false
+                },
                 onPlayNext = {
                     handleAction(if (isLocal) "LOCAL" else "STREAMING") {
-                        if (isLocal) {
-                            localViewModel.playNext(songObj)
-                        } else {
-                            streamingViewModel.playNext(songObj as StreamingSong, localViewModel)
+                        if (localSong != null) {
+                            localViewModel.playNext(localSong)
+                        } else if (streamingSong != null) {
+                            streamingViewModel.playNext(streamingSong, localViewModel)
                         }
                     }
                     showSongOptionsSheet = false
                 },
                 onAddToQueue = {
                     handleAction(if (isLocal) "LOCAL" else "STREAMING") {
-                        if (isLocal) {
-                            localViewModel.addSongToQueue(songObj)
-                        } else {
-                            streamingViewModel.addSongToQueue(songObj as StreamingSong, localViewModel)
+                        if (localSong != null) {
+                            localViewModel.addSongToQueue(localSong)
+                        } else if (streamingSong != null) {
+                            streamingViewModel.addSongToQueue(streamingSong, localViewModel)
                         }
                     }
                     showSongOptionsSheet = false
                 },
                 onAddToPlaylist = {
-                    if (isLocal) {
-                        selectedSongForPlaylist = songObj
-                    } else {
-                        selectedSongForPlaylist = (songObj as StreamingSong).toLocalSong()
-                    }
+                    selectedSongForPlaylist = localSong ?: streamingSong?.toLocalSong()
                     showAddToPlaylistSheet = true
                     showSongOptionsSheet = false
                 },
                 onToggleFavorite = {
-                    if (isLocal) {
-                        localViewModel.toggleFavorite(songObj)
-                    } else {
-                        val streamingSong = songObj as StreamingSong
+                    if (localSong != null) {
+                        localViewModel.toggleFavorite(localSong)
+                    } else if (streamingSong != null) {
                         val isCurrentlyLiked = streamingLikedSongs.any { it.id == streamingSong.id }
                         if (isCurrentlyLiked) {
                             streamingViewModel.unlikeSong(streamingSong)
@@ -1442,34 +1493,38 @@ fun UniversalSearchScreen(
                 },
                 isFavorite = isFavorite,
                 onShowSongInfo = {
-                    if (isLocal) {
-                        selectedSongForInfo = songObj
-                        isSongInfoStreaming = false
-                    } else {
-                        selectedSongForInfo = (songObj as StreamingSong).toLocalSong()
-                        isSongInfoStreaming = true
-                    }
+                    selectedSongForInfo = targetSong
+                    isSongInfoStreaming = !isLocal
+                    showSongInfoInEditMode = false
                     showSongInfoSheet = true
                     showSongOptionsSheet = false
                 },
+                onEditSong = if (localSong != null) {
+                    {
+                        selectedSongForInfo = targetSong
+                        isSongInfoStreaming = false
+                        showSongInfoInEditMode = true
+                        showSongInfoSheet = true
+                        showSongOptionsSheet = false
+                    }
+                } else null,
                 onGoToAlbum = {
                     showSongOptionsSheet = false
-                    if (isLocal) {
+                    if (localSong != null) {
                         val allLocalAlbums = localViewModel.albums.value.ifEmpty { localViewModel.filteredAlbums.value }
-                        val album = allLocalAlbums.findAlbumForSong(songObj)
-                            ?: songObj.album.trim().takeIf { it.isNotBlank() }?.let { albumTitle ->
+                        val album = allLocalAlbums.findAlbumForSong(localSong)
+                            ?: localSong.album.trim().takeIf { it.isNotBlank() }?.let { albumTitle ->
                                 Album(
-                                    id = songObj.albumId.ifBlank { "unknown_$albumTitle" },
+                                    id = localSong.albumId.ifBlank { "unknown_$albumTitle" },
                                     title = albumTitle,
-                                    artist = songObj.albumArtist?.takeIf { it.isNotBlank() } ?: songObj.artist,
-                                    artworkUri = songObj.artworkUri
+                                    artist = localSong.albumArtist?.takeIf { it.isNotBlank() } ?: localSong.artist,
+                                    artworkUri = localSong.artworkUri
                                 )
                             }
                         if (album != null) {
                             handleAction("LOCAL") { onLocalAlbumClick(album) }
                         } else Toast.makeText(context, R.string.universalsearchscreen_album_not_found, Toast.LENGTH_SHORT).show()
-                    } else {
-                        val streamingSong = songObj as StreamingSong
+                    } else if (streamingSong != null) {
                         if (streamingSong.albumId != null) {
                             val streamingAlbum = StreamingAlbum(
                                 id = streamingSong.albumId,
@@ -1488,11 +1543,11 @@ fun UniversalSearchScreen(
                 },
                 onGoToArtist = {
                     showSongOptionsSheet = false
-                    if (isLocal) {
+                    if (localSong != null) {
                         val separatorEnabled = appSettings.artistSeparatorEnabled.value
                         val delimiters = appSettings.artistSeparatorDelimiters.value.ifBlank { AppSettings.DEFAULT_ARTIST_SEPARATOR_DELIMITERS }
                         val songArtistNames = chromahub.rhythm.app.util.ArtistSeparator.splitArtistNames(
-                            artistName = songObj.artist,
+                            artistName = localSong.artist,
                             delimiters = delimiters,
                             enabled = separatorEnabled
                         )
@@ -1500,14 +1555,13 @@ fun UniversalSearchScreen(
                             localArtists.find { it.name.equals(name, ignoreCase = true) }
                         } ?: songArtistNames.firstOrNull()?.trim()?.takeIf { it.isNotBlank() }?.let { name ->
                             Artist(id = name, name = name)
-                        } ?: songObj.artist.trim().takeIf { it.isNotBlank() }?.let { name ->
+                        } ?: localSong.artist.trim().takeIf { it.isNotBlank() }?.let { name ->
                             Artist(id = name, name = name)
                         }
                         if (artist != null) {
                             handleAction("LOCAL") { onLocalArtistClick(artist) }
                         } else Toast.makeText(context, R.string.universalsearchscreen_artist_not_found, Toast.LENGTH_SHORT).show()
-                    } else {
-                        val streamingSong = songObj as StreamingSong
+                    } else if (streamingSong != null) {
                         val streamingArtist = StreamingArtist(
                             id = streamingSong.albumArtist ?: streamingSong.artist,
                             name = streamingSong.artist,
@@ -1519,24 +1573,24 @@ fun UniversalSearchScreen(
                         handleAction("STREAMING") { onStreamingArtistClick(streamingArtist) }
                     }
                 },
-                onAddToBlacklist = {
-                    handleAction("LOCAL") {
-                        if (isLocal) {
-                            appSettings.addToBlacklist(songObj.id)
-                            Toast.makeText(context, context.getString(R.string.song_added_to_blacklist_format, songObj.title), Toast.LENGTH_SHORT).show()
+                onAddToBlacklist = if (localSong != null) {
+                    {
+                        handleAction("LOCAL") {
+                            appSettings.addToBlacklist(localSong.id)
+                            Toast.makeText(context, context.getString(R.string.song_added_to_blacklist_format, localSong.title), Toast.LENGTH_SHORT).show()
                         }
+                        showSongOptionsSheet = false
                     }
-                    showSongOptionsSheet = false
-                },
-                onDeleteSong = {
-                    handleAction("LOCAL") {
-                        if (isLocal) {
-                            localViewModel.deleteSong(songObj)
+                } else null,
+                onDeleteSong = if (localSong != null) {
+                    {
+                        handleAction("LOCAL") {
+                            localViewModel.deleteSong(localSong)
                         }
+                        showSongOptionsSheet = false
                     }
-                    showSongOptionsSheet = false
-                },
-                haptics = haptics
+                } else null,
+                isStreaming = !isLocal
             )
         }
 
@@ -1561,7 +1615,11 @@ fun UniversalSearchScreen(
         if (showSongInfoSheet && selectedSongForInfo != null) {
             SongInfoBottomSheet(
                 song = selectedSongForInfo,
-                onDismiss = { showSongInfoSheet = false },
+                onDismiss = {
+                    showSongInfoSheet = false
+                    showSongInfoInEditMode = false
+                },
+                startInEditMode = showSongInfoInEditMode,
                 appSettings = appSettings,
                 isStreamingMode = isSongInfoStreaming,
                 onEditSong = { title, artist, album, genre, year, trackNumber, artworkUri, removeArtwork, albumArtist, composer, discNumber, onComplete ->
@@ -1795,16 +1853,19 @@ fun UniversalSearchSongItem(
                     HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                     onMoreClick()
                 },
-                modifier = Modifier.size(36.dp),
+                modifier = Modifier
+                    .width(32.dp)
+                    .height(44.dp),
+                shape = RoundedCornerShape(50),
                 colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             ) {
                 Icon(
                     imageVector = RhythmIcons.More,
                     contentDescription = stringResource(R.string.content_desc_more_options),
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
@@ -1850,7 +1911,7 @@ private fun SearchGridCard(
             },
         shape = expressiveShape,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
         ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 0.dp,
@@ -1941,37 +2002,6 @@ private fun SearchGridCard(
     }
 }
 
-@Composable
-fun WavyLoader(
-    modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.primary
-) {
-    val infiniteTransition = rememberInfiniteTransition(label = "WavyLoader")
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        for (i in 0 until 4) {
-            val scale by infiniteTransition.animateFloat(
-                initialValue = 0.4f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 300, delayMillis = i * 100, easing = LinearOutSlowInEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "bar_$i"
-            )
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .height(20.dp)
-                    .graphicsLayer { scaleY = scale }
-                    .background(color, CircleShape)
-            )
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -2045,462 +2075,10 @@ fun UniversalAllSongsPage(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UniversalSongOptionsBottomSheet(
-    songObj: Any,
-    onDismiss: () -> Unit,
-    onPlayNext: () -> Unit,
-    onAddToQueue: () -> Unit,
-    onAddToPlaylist: () -> Unit,
-    onToggleFavorite: () -> Unit,
-    isFavorite: Boolean,
-    onShowSongInfo: () -> Unit,
-    onGoToAlbum: () -> Unit,
-    onGoToArtist: () -> Unit,
-    onAddToBlacklist: () -> Unit,
-    onDeleteSong: () -> Unit,
-    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
-) {
-    val context = LocalContext.current
-    var showContent by remember { mutableStateOf(true) }
-    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
-
-    RhythmAdaptiveModalSheet(
-        adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
-        modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        dragHandle = {
-            BottomSheetDefaults.DragHandle(
-                color = MaterialTheme.colorScheme.primary
-            )
-        },
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        contentColor = MaterialTheme.colorScheme.onBackground,
-        tonalElevation = 0.dp
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            AnimatedVisibility(
-                visible = showContent,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it }
-            ) {
-                UniversalSongOptionsHeader(songObj = songObj)
-            }
-
-            val scrollState = rememberScrollState()
-
-            AnimatedVisibility(
-                visible = showContent,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it }
-            ) {
-                AdaptiveSheetScrollContainer(
-                    scrollState = scrollState,
-                    modifier = Modifier.fillMaxWidth()
-                ) { endPadding ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                            .verticalScroll(scrollState)
-                            .padding(start = 16.dp, end = 16.dp + endPadding, top = 8.dp, bottom = 32.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val resolvedSong = remember(songObj) {
-                        if (songObj is Song) songObj else (songObj as StreamingSong).toLocalSong()
-                    }
-                    val onShare = {
-                        try {
-                            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                type = "audio/*"
-                                putExtra(android.content.Intent.EXTRA_STREAM, resolvedSong.uri)
-                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(android.content.Intent.createChooser(shareIntent, "Share ${resolvedSong.title}"))
-                        } catch (e: Exception) {
-                            android.widget.Toast.makeText(context, R.string.materialplayerscreen_unable_to_share_file, android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    }
-
-                    val isLocal = songObj is Song
-                    val primaryContainer = MaterialTheme.colorScheme.primaryContainer
-                    val onPrimaryContainer = MaterialTheme.colorScheme.onPrimaryContainer
-                    val secondaryContainer = MaterialTheme.colorScheme.secondaryContainer
-                    val onSecondaryContainer = MaterialTheme.colorScheme.onSecondaryContainer
-                    val tertiaryContainer = MaterialTheme.colorScheme.tertiaryContainer
-                    val onTertiaryContainer = MaterialTheme.colorScheme.onTertiaryContainer
-                    val errorContainer = MaterialTheme.colorScheme.errorContainer
-                    val errorColor = MaterialTheme.colorScheme.error
-
-                    val gridItems = remember(isLocal, isFavorite) {
-                        buildList {
-                            add(
-                                UniversalOptionItem(
-                                    icon = RhythmIcons.SkipNext,
-                                    text = context.getString(R.string.action_play_next),
-                                    containerColor = primaryContainer,
-                                    iconColor = onPrimaryContainer,
-                                    onClick = onPlayNext
-                                )
-                            )
-                            add(
-                                UniversalOptionItem(
-                                    icon = RhythmIcons.Queue,
-                                    text = context.getString(R.string.action_add_to_queue),
-                                    containerColor = primaryContainer,
-                                    iconColor = onPrimaryContainer,
-                                    onClick = onAddToQueue
-                                )
-                            )
-                            add(
-                                UniversalOptionItem(
-                                    icon = RhythmIcons.AddToPlaylist,
-                                    text = context.getString(R.string.content_desc_add_to_playlist),
-                                    containerColor = primaryContainer,
-                                    iconColor = onPrimaryContainer,
-                                    onClick = onAddToPlaylist
-                                )
-                            )
-                            add(
-                                UniversalOptionItem(
-                                        icon = if (isFavorite) MaterialSymbolIcon("thumb_down", filled = true) else MaterialSymbolIcon("thumb_up", filled = true),
-                                        text = if (isFavorite) context.getString(R.string.action_dislike) else context.getString(R.string.action_like),
-                                    containerColor = tertiaryContainer,
-                                    iconColor = onTertiaryContainer,
-                                    onClick = onToggleFavorite
-                                )
-                            )
-                            add(
-                                UniversalOptionItem(
-                                    icon = RhythmIcons.Album,
-                                    text = context.getString(R.string.multiselectionbottomsheet_go_to_album),
-                                    containerColor = secondaryContainer,
-                                    iconColor = onSecondaryContainer,
-                                    onClick = onGoToAlbum
-                                )
-                            )
-                            add(
-                                UniversalOptionItem(
-                                    icon = RhythmIcons.Artist,
-                                    text = context.getString(R.string.multiselectionbottomsheet_go_to_artist),
-                                    containerColor = secondaryContainer,
-                                    iconColor = onSecondaryContainer,
-                                    onClick = onGoToArtist
-                                )
-                            )
-                            add(
-                                UniversalOptionItem(
-                                    icon = RhythmIcons.Info,
-                                    text = context.getString(R.string.action_song_info),
-                                    containerColor = secondaryContainer,
-                                    iconColor = onSecondaryContainer,
-                                    onClick = onShowSongInfo
-                                )
-                            )
-                            if (isLocal) {
-                                add(
-                                    UniversalOptionItem(
-                                        icon = RhythmIcons.Block,
-                                        text = context.getString(R.string.action_add_to_blacklist),
-                                        containerColor = errorContainer,
-                                        iconColor = errorColor,
-                                        onClick = onAddToBlacklist
-                                    )
-                                )
-                                    add(
-                                        UniversalOptionItem(
-                                            icon = RhythmIcons.Delete,
-                                            text = context.getString(R.string.action_delete_song),
-                                            containerColor = errorContainer,
-                                            iconColor = errorColor,
-                                            onClick = onDeleteSong
-                                        )
-                                    )
-                            }
-                            add(
-                                UniversalOptionItem(
-                                    icon = RhythmIcons.Share,
-                                    text = context.getString(R.string.action_share),
-                                    containerColor = secondaryContainer,
-                                    iconColor = onSecondaryContainer,
-                                    onClick = onShare
-                                )
-                            )
-                        }
-                    }
-
-                    val chunks = remember(gridItems) { gridItems.chunked(2) }
-
-                        chunks.forEachIndexed { rowIndex, chunk ->
-                        if (chunk.size == 2) {
-                            Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(IntrinsicSize.Max),
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                    ) {
-                                        val index0 = rowIndex * 2
-                                    UniversalSongOptionGridItem(
-                                        icon = chunk[0].icon,
-                                        text = chunk[0].text,
-                                        containerColor = chunk[0].containerColor,
-                                        iconColor = chunk[0].iconColor,
-                                            shape = getUniversalGridItemShape(index0, gridItems.size),
-                                        onClick = {
-                                            HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                            chunk[0].onClick()
-                                            },
-                                            modifier = Modifier.fillMaxHeight()
-                                    )
-                                }
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
-                                    ) {
-                                        val index1 = rowIndex * 2 + 1
-                                    UniversalSongOptionGridItem(
-                                        icon = chunk[1].icon,
-                                        text = chunk[1].text,
-                                        containerColor = chunk[1].containerColor,
-                                        iconColor = chunk[1].iconColor,
-                                            shape = getUniversalGridItemShape(index1, gridItems.size),
-                                        onClick = {
-                                            HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                            chunk[1].onClick()
-                                            },
-                                            modifier = Modifier.fillMaxHeight()
-                                    )
-                                }
-                            }
-                        } else {
-                                val index0 = rowIndex * 2
-                            UniversalSongOptionGridItem(
-                                icon = chunk[0].icon,
-                                text = chunk[0].text,
-                                containerColor = chunk[0].containerColor,
-                                iconColor = chunk[0].iconColor,
-                                    shape = getUniversalGridItemShape(index0, gridItems.size),
-                                onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                    chunk[0].onClick()
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-                    }
-                }
-            }
-        }
-    }
-}
-
-private data class UniversalOptionItem(
-    val icon: chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon,
-    val text: String,
-    val containerColor: Color,
-    val iconColor: Color,
-    val onClick: () -> Unit
-)
-
-@Composable
-private fun UniversalSongOptionsHeader(
-    songObj: Any,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val isLocal = songObj is Song
-    val title = if (isLocal) songObj.title else (songObj as StreamingSong).title
-    val artist = if (isLocal) songObj.artist else (songObj as StreamingSong).artist
-    val album = if (isLocal) songObj.album else (songObj as StreamingSong).album
-    val artworkUri = if (isLocal) songObj.artworkUri else (songObj as StreamingSong).artworkUri
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.playlistsongoptionsbottomsheet_song_options),
-            style = MaterialTheme.typography.displayMedium,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            ),
-            shape = RoundedCornerShape(20.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    modifier = Modifier.size(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    tonalElevation = 0.dp
-                ) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .apply(ImageUtils.buildImageRequest(
-                                artworkUri,
-                                title,
-                                context.cacheDir,
-                                M3PlaceholderType.TRACK
-                            ))
-                            .build(),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = if (isLocal) "Local Song" else "Streaming Song",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Text(
-                        text = "$artist • $album",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-    }
-}
-
-private fun getUniversalGridItemShape(index: Int, totalItems: Int): RoundedCornerShape {
-    if (totalItems <= 1) return RoundedCornerShape(24.dp)
-    if (totalItems == 2) {
-        return if (index == 0) {
-            RoundedCornerShape(topStart = 24.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 8.dp)
-        } else {
-            RoundedCornerShape(topStart = 8.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 24.dp)
-        }
-    }
-    
-    val totalRows = (totalItems + 1) / 2
-    val r = index / 2
-    val c = index % 2
-    
-    return when {
-        r == 0 -> {
-            if (c == 0) {
-                RoundedCornerShape(topStart = 24.dp, topEnd = 8.dp, bottomStart = 8.dp, bottomEnd = 8.dp)
-            } else {
-                RoundedCornerShape(topStart = 8.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 8.dp)
-            }
-        }
-        r == totalRows - 1 -> {
-            if (index == totalItems - 1 && c == 0) {
-                RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
-            } else if (c == 0) {
-                RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 8.dp)
-            } else {
-                RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 8.dp, bottomEnd = 24.dp)
-            }
-        }
-        else -> RoundedCornerShape(8.dp)
-    }
-}
-
-@Composable
-private fun UniversalSongOptionGridItem(
-    icon: chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon,
-    text: String,
-    containerColor: Color,
-    iconColor: Color,
-    shape: Shape,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        shape = shape,
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Surface(
-                modifier = Modifier.size(36.dp),
-                shape = CircleShape,
-                color = containerColor.copy(alpha = 0.25f),
-                tonalElevation = 0.dp
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = iconColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = text,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-    }
-}
-
-private fun LazyListScope.universalGenreBrowseItems(
-    genreSummaries: List<GenreUtils.Summary>,
-    columnsCount: Int,
+private fun UniversalGenreBrowseSection(
+    genres: List<String>,
+    genreSongCounts: Map<String, Int>,
     isGenreDetectionComplete: Boolean,
     onGenreClick: (String) -> Unit
 ) {
@@ -2538,7 +2116,11 @@ private fun LazyListScope.universalGenreBrowseItems(
                     .padding(vertical = 32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                WavyLoader(color = MaterialTheme.colorScheme.tertiary)
+                M3CircularLoader(
+                    modifier = Modifier.size(36.dp),
+                    color = MaterialTheme.colorScheme.tertiary,
+                    strokeWidth = 3f
+                )
             }
         }
     } else if (genreSummaries.isNotEmpty()) {

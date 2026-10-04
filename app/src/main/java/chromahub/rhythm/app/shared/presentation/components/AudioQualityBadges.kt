@@ -78,7 +78,25 @@ fun AudioQualityIcon(
         withContext(Dispatchers.IO) {
             try {
                 val uri = (playbackUri).toUri()
-                val formatInfo = AudioFormatDetector.detectFormat(context, uri)
+                val tempSong = Song(
+                    id = song.id,
+                    title = song.title,
+                    artist = song.artist,
+                    album = song.album,
+                    albumId = song.albumId.orEmpty(),
+                    duration = song.duration,
+                    uri = uri,
+                    artworkUri = song.artworkUri?.takeIf { it.isNotBlank() }?.let(Uri::parse),
+                    albumArtist = song.albumArtist,
+                    trackNumber = song.trackNumber ?: 0,
+                    year = song.year ?: 0,
+                    genre = song.genre,
+                    bitrate = song.bitrate,
+                    sampleRate = song.sampleRate,
+                    channels = song.channels,
+                    codec = song.codec
+                )
+                val formatInfo = AudioFormatDetector.detectFormat(context, uri, tempSong)
 
                 val bitrateKbps = if (formatInfo.bitrateKbps > 0) formatInfo.bitrateKbps else 0
                 val sampleRateHz = if (formatInfo.sampleRateHz > 0) formatInfo.sampleRateHz else 0

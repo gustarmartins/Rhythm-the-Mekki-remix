@@ -56,12 +56,14 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
+import chromahub.rhythm.app.shared.presentation.components.common.horizontalEdgeBlend
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material3.*
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.unit.dp
@@ -112,6 +114,7 @@ import chromahub.rhythm.app.shared.presentation.components.common.ButtonGroupSty
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveScrollBar
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveButtonGroup
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveGroupButton
+import chromahub.rhythm.app.shared.presentation.components.common.M3CircularLoader
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.StandardBottomSheetHeader
 import chromahub.rhythm.app.shared.presentation.components.common.StyledProgressBar
 import chromahub.rhythm.app.shared.presentation.components.common.ProgressStyle
@@ -499,7 +502,7 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 24.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Row(
@@ -529,14 +532,20 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                                 }
                             }
                             Spacer(modifier = Modifier.height(12.dp))
+                            val auraAgeSliderState = remember(auraAge) {
+                                SliderState(
+                                    value = auraAge.toFloat(),
+                                    steps = 71,
+                                    trackRange = 8f..80f
+                                )
+                            }
+                            auraAgeSliderState.value = auraAge.toFloat()
                             Slider(
-                                value = auraAge.toFloat(),
+                                state = auraAgeSliderState,
                                 onValueChange = {
                                     HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                                     appSettings.setRhythmGuardAge(it.toInt())
-                                },
-                                valueRange = 8f..80f,
-                                steps = 71
+                                }
                             )
                         }
                     }
@@ -572,7 +581,7 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                     Material3SettingsGroup(
                         title = context.getString(R.string.settings_rhythm_guard_device_controls_title),
                         items = materialItems,
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer
                     )
                 }
 
@@ -585,7 +594,7 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(24.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
                         ) {
                             Column(
                                 modifier = Modifier.padding(16.dp),
@@ -613,8 +622,11 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                                         ),
                                         style = MaterialTheme.typography.labelLarge
                                     )
+                                    val alertThresholdScrollState = rememberScrollState()
                                     Row(
-                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                        modifier = Modifier
+                                            .horizontalScroll(alertThresholdScrollState)
+                                            .horizontalEdgeBlend(scrollState = alertThresholdScrollState, fadeWidth = 12.dp),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         listOf(-1, 60, 90, 120).forEach { option ->
@@ -656,16 +668,22 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                                             )
                                         }
                                     }
+                                    val alertThresholdSliderState = remember(alertThresholdMinutes) {
+                                        SliderState(
+                                            value = maxOf(alertThresholdMinutes, 15).toFloat(),
+                                            steps = 344,
+                                            trackRange = 15f..360f
+                                        )
+                                    }
+                                    alertThresholdSliderState.value = maxOf(alertThresholdMinutes, 15).toFloat()
                                     Slider(
-                                        value = maxOf(alertThresholdMinutes, 15).toFloat(),
+                                        state = alertThresholdSliderState,
                                         onValueChange = {
                                             HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                                             appSettings.setRhythmGuardAlertThresholdMinutes(
                                                 it.toInt()
                                             )
-                                        },
-                                        valueRange = 15f..360f,
-                                        steps = 344
+                                        }
                                     )
                                 }
 
@@ -678,8 +696,11 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                                         ),
                                         style = MaterialTheme.typography.labelLarge
                                     )
+                                    val warningTimeoutScrollState = rememberScrollState()
                                     Row(
-                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                        modifier = Modifier
+                                            .horizontalScroll(warningTimeoutScrollState)
+                                            .horizontalEdgeBlend(scrollState = warningTimeoutScrollState, fadeWidth = 12.dp),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         listOf(2, 5, 10, 15).forEach { option ->
@@ -717,16 +738,22 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                                             )
                                         }
                                     }
+                                    val warningTimeoutSliderState = remember(warningTimeoutMinutes) {
+                                        SliderState(
+                                            value = warningTimeoutMinutes.toFloat(),
+                                            steps = 28,
+                                            trackRange = 1f..30f
+                                        )
+                                    }
+                                    warningTimeoutSliderState.value = warningTimeoutMinutes.toFloat()
                                     Slider(
-                                        value = warningTimeoutMinutes.toFloat(),
+                                        state = warningTimeoutSliderState,
                                         onValueChange = {
                                             HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                                             appSettings.setRhythmGuardWarningTimeoutMinutes(
                                                 it.toInt()
                                             )
-                                        },
-                                        valueRange = 1f..30f,
-                                        steps = 28
+                                        }
                                     )
                                 }
 
@@ -739,8 +766,11 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                                         ),
                                         style = MaterialTheme.typography.labelLarge
                                     )
+                                    val postTimeoutScrollState = rememberScrollState()
                                     Row(
-                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                        modifier = Modifier
+                                            .horizontalScroll(postTimeoutScrollState)
+                                            .horizontalEdgeBlend(scrollState = postTimeoutScrollState, fadeWidth = 12.dp),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         listOf(3, 5, 10, 15).forEach { option ->
@@ -778,16 +808,22 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                                             )
                                         }
                                     }
+                                    val postTimeoutCooldownSliderState = remember(postTimeoutCooldownMinutes) {
+                                        SliderState(
+                                            value = postTimeoutCooldownMinutes.toFloat(),
+                                            steps = 28,
+                                            trackRange = 1f..30f
+                                        )
+                                    }
+                                    postTimeoutCooldownSliderState.value = postTimeoutCooldownMinutes.toFloat()
                                     Slider(
-                                        value = postTimeoutCooldownMinutes.toFloat(),
+                                        state = postTimeoutCooldownSliderState,
                                         onValueChange = {
                                             HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                                             appSettings.setRhythmGuardPostTimeoutCooldownMinutes(
                                                 it.toInt()
                                             )
-                                        },
-                                        valueRange = 1f..30f,
-                                        steps = 28
+                                        }
                                     )
                                 }
 
@@ -800,8 +836,11 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                                         ),
                                         style = MaterialTheme.typography.labelLarge
                                     )
+                                    val breakResumeScrollState = rememberScrollState()
                                     Row(
-                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                        modifier = Modifier
+                                            .horizontalScroll(breakResumeScrollState)
+                                            .horizontalEdgeBlend(scrollState = breakResumeScrollState, fadeWidth = 12.dp),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         listOf(10, 15, 30, 60).forEach { option ->
@@ -839,16 +878,22 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                                             )
                                         }
                                     }
+                                    val breakResumeSliderState = remember(breakResumeMinutes) {
+                                        SliderState(
+                                            value = breakResumeMinutes.toFloat(),
+                                            steps = 118,
+                                            trackRange = 1f..120f
+                                        )
+                                    }
+                                    breakResumeSliderState.value = breakResumeMinutes.toFloat()
                                     Slider(
-                                        value = breakResumeMinutes.toFloat(),
+                                        state = breakResumeSliderState,
                                         onValueChange = {
                                             HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                                             appSettings.setRhythmGuardBreakResumeMinutes(
                                                 it.toInt()
                                             )
-                                        },
-                                        valueRange = 1f..120f,
-                                        steps = 118
+                                        }
                                     )
                                 }
 
@@ -863,8 +908,11 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    val protectionPresetScrollState = rememberScrollState()
                                     Row(
-                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                        modifier = Modifier
+                                            .horizontalScroll(protectionPresetScrollState)
+                                            .horizontalEdgeBlend(scrollState = protectionPresetScrollState, fadeWidth = 12.dp),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         listOf(
@@ -981,7 +1029,7 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                         Material3SettingsGroup(
                             title = context.getString(R.string.settings_rhythm_guard_auto_policy_table_title),
                             items = policyItems,
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer
                         )
                     }
                 }
@@ -1017,7 +1065,7 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 8.dp),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
                                     Text(
@@ -1035,14 +1083,20 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Spacer(modifier = Modifier.height(10.dp))
+                                    val manualVolumeThresholdSliderState = remember(manualVolumeThreshold) {
+                                        SliderState(
+                                            value = manualVolumeThreshold,
+                                            trackRange = 0.40f..0.95f
+                                        )
+                                    }
+                                    manualVolumeThresholdSliderState.value = manualVolumeThreshold
                                     Slider(
-                                        value = manualVolumeThreshold,
+                                        state = manualVolumeThresholdSliderState,
                                         onValueChange = {
                                             appSettings.setRhythmGuardManualVolumeThreshold(
                                                 it
                                             )
                                         },
-                                        valueRange = 0.40f..0.95f,
                                         onValueChangeFinished = {
                                             HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                                         }
@@ -1061,7 +1115,7 @@ fun RhythmGuardSettingsScreen(onBackClick: () -> Unit) {
                             Material3SettingsGroup(
                                 title = context.getString(R.string.settings_rhythm_guard_manual_controls_title),
                                 items = materialItems,
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
                                 itemShape = RoundedCornerShape(8.dp),
                                 lastItemShape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
                             )
@@ -1761,9 +1815,9 @@ fun BackupRestoreSectionPickerBottomSheet(
                     isEnd = true
                 ) {
                     if (isProcessing) {
-                        CircularProgressIndicator(
+                        M3CircularLoader(
                             modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
+                            strokeWidth = 2.5f,
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                     } else {
@@ -1805,7 +1859,7 @@ fun RhythmGuardHeroCard(
             containerColor = if (isEnabled)
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
             else
-                MaterialTheme.colorScheme.surfaceContainerLow
+                MaterialTheme.colorScheme.surfaceContainer
         ),
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 8.dp, bottomEnd = 8.dp)
     ) {
@@ -1931,7 +1985,7 @@ private fun RhythmGuardTrendCard(
     Card(
         modifier = modifier,
         shape = shape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(

@@ -44,6 +44,7 @@ internal object UserTrustManager {
      * anything goes wrong so that the app never crashes due to SSL setup.
      */
     fun buildUserTrustingHttpClientBuilder(): OkHttpClient.Builder {
+        val defaultVerifier = javax.net.ssl.HttpsURLConnection.getDefaultHostnameVerifier()
         return try {
             val trustManager = buildUserAwareTrustManager()
             val sslContext = SSLContext.getInstance("TLS").apply {
@@ -51,10 +52,53 @@ internal object UserTrustManager {
             }
             OkHttpClient.Builder()
                 .sslSocketFactory(sslContext.socketFactory, trustManager)
+                .hostnameVerifier { hostname, session ->
+                    isPrivateOrLocalHost(hostname) || defaultVerifier.verify(hostname, session)
+                }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to build user-trusting TrustManager, falling back to default: ${e.message}", e)
             OkHttpClient.Builder()
+                .hostnameVerifier { hostname, session ->
+                    isPrivateOrLocalHost(hostname) || defaultVerifier.verify(hostname, session)
+                }
         }
+    }
+
+    /**
+     * Checks if a hostname corresponds to a local RFC1918 private network, loopback, or LAN domain.
+     */
+    fun isPrivateOrLocalHost(host: String): Boolean {
+        val lower = host.lowercase().trim().trimStart('[').trimEnd(']')
+        if (lower == "localhost" ||
+            lower.endsWith(".local") ||
+            lower.endsWith(".localdomain") ||
+            lower.endsWith(".lan") ||
+            lower.endsWith(".home") ||
+            lower.endsWith(".home.arpa") ||
+            lower.endsWith(".ts.net") ||
+            lower.endsWith(".mesh") ||
+            lower.endsWith(".internal") ||
+            lower.endsWith(".host") ||
+            lower.endsWith(".priv") ||
+            !lower.contains(".")
+        ) {
+            return true
+        }
+
+        if (lower == "::1" || lower.startsWith("fe80:") || lower.startsWith("fd") || lower.startsWith("fc")) {
+            return true
+        }
+
+        val parts = lower.split('.')
+        if (parts.size != 4) return false
+        val octets = parts.map { it.toIntOrNull() ?: return false }
+        val first = octets[0]
+        val second = octets[1]
+        return first == 10 ||
+            (first == 172 && second in 16..31) ||
+            (first == 192 && second == 168) ||
+            (first == 127) ||
+            (first == 100 && second in 64..127)
     }
 
     /**

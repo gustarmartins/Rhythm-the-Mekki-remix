@@ -58,6 +58,12 @@ object AudioFormatDetector {
      * for better bit depth calculation
      */
     fun detectFormat(context: Context, uri: Uri, song: Song?): AudioFormatInfo {
+        val scheme = uri.scheme?.lowercase()
+        val isRemote = scheme == "http" || scheme == "https" || scheme == "streaming"
+        if (isRemote) {
+            return detectRemoteFormat(uri, song)
+        }
+
         var formatInfo = AudioFormatInfo()
 
         try {
@@ -403,6 +409,9 @@ object AudioFormatDetector {
      * Detect ALAC specifically (which often uses .m4a container)
      */
     fun isALAC(context: Context, uri: Uri): Boolean {
+        val scheme = uri.scheme?.lowercase()
+        if (scheme == "http" || scheme == "https" || scheme == "streaming") return false
+
         // Check file extension first
         val path = uri.toString()
         if (path.endsWith(".alac", ignoreCase = true)) return true
@@ -414,6 +423,113 @@ object AudioFormatDetector {
         }
         
         return false
+    }
+
+    /**
+     * Resolve format for remote/network streams (HTTP, HTTPS, streaming://)
+     * using known song metadata and URI heuristics, without opening C++ MediaExtractor/MediaMetadataRetriever
+     * network connections which cause stream contention and socket resets.
+     */
+    fun detectRemoteFormat(uri: Uri, song: Song?): AudioFormatInfo {
+        val rawCodec = when {
+            song?.codec?.isNotBlank() == true && !song.codec.equals("Unknown", ignoreCase = true) -> song.codec
+            else -> inferCodecFromUri(uri)
+        }
+        val codec = normalizeCodec(rawCodec)
+        val sampleRate = song?.sampleRate ?: 0
+        val channelCount = song?.channels ?: 2
+        val bitrate = song?.bitrate ?: 0
+        val bitrateKbps = if (bitrate > 0) bitrate / 1000 else 0
+
+        val isLossless = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD", "TrueHD", "Dolby Atmos", "DTS-HD MA", "DTS:X", "AIFF", "MIDI") ||
+                codec.contains("LOSSLESS", ignoreCase = true)
+
+        val isDolby = codec in listOf("AC-3", "AC-4", "E-AC-3", "TrueHD", "Dolby Atmos") ||
+                codec.contains("ATMOS", ignoreCase = true) ||
+                codec.contains("TRUEHD", ignoreCase = true)
+
+        val isDTS = codec.contains("DTS", ignoreCase = true)
+
+        val isHiRes = sampleRate >= 48000 || (isLossless && bitrateKbps >= 2000) || codec == "DSD"
+
+        val formatName = when {
+            codec == "ALAC" -> "Apple Lossless"
+            codec == "FLAC" -> "FLAC Lossless"
+            codec == "E-AC-3" -> "Dolby Digital Plus"
+            codec == "AC-3" -> "Dolby Digital"
+            codec == "TrueHD" -> "Dolby TrueHD"
+            codec == "Dolby Atmos" -> "Dolby Atmos"
+            codec == "DTS-HD MA" -> "DTS-HD Master Audio"
+            codec == "DTS" -> "DTS Audio"
+            codec == "AAC" && bitrateKbps > 256 -> "AAC High Quality"
+            else -> codec
+        }
+
+        var baseInfo = AudioFormatInfo(
+            codec = codec,
+            isLossless = isLossless,
+            isDolby = isDolby,
+            isDTS = isDTS,
+            isHiRes = isHiRes,
+            bitDepth = 0,
+            sampleRateHz = sampleRate,
+            channelCount = channelCount,
+            bitrateKbps = bitrateKbps,
+            formatName = formatName
+        )
+
+        if (song != null && isLossless) {
+            baseInfo = enhanceBitDepthFromSong(baseInfo, song)
+        } else if (isLossless) {
+            val fallbackDepth = when {
+                sampleRate >= 48000 -> 24
+                sampleRate >= 44100 -> 16
+                else -> 0
+            }
+            if (fallbackDepth > 0) {
+                baseInfo = baseInfo.copy(bitDepth = fallbackDepth)
+            }
+        }
+
+        return baseInfo
+    }
+
+    private fun inferCodecFromUri(uri: Uri): String {
+        val uriStr = uri.toString().lowercase()
+        return when {
+            uriStr.contains(".flac") || uriStr.contains("format=flac") || uriStr.contains("container=flac") -> "FLAC"
+            uriStr.contains(".alac") -> "ALAC"
+            uriStr.contains(".opus") || uriStr.contains("format=opus") || uriStr.contains("container=opus") -> "Opus"
+            uriStr.contains(".ogg") || uriStr.contains(".oga") || uriStr.contains("format=ogg") -> "Vorbis"
+            uriStr.contains(".m4a") || uriStr.contains(".aac") || uriStr.contains("format=aac") || uriStr.contains("format=m4a") -> "AAC"
+            uriStr.contains(".wav") || uriStr.contains("format=wav") -> "WAV"
+            uriStr.contains(".dsf") || uriStr.contains(".dff") -> "DSD"
+            uriStr.contains(".mp3") || uriStr.contains("format=mp3") -> "MP3"
+            else -> "Unknown"
+        }
+    }
+
+    private fun normalizeCodec(raw: String): String {
+        val upper = raw.trim().uppercase()
+        return when {
+            upper.contains("FLAC") -> "FLAC"
+            upper.contains("ALAC") -> "ALAC"
+            upper.contains("OPUS") -> "Opus"
+            upper.contains("VORBIS") || upper == "OGG" -> "Vorbis"
+            upper.contains("AAC") || upper == "MP4A" -> "AAC"
+            upper.contains("MP3") || upper.contains("MPEG") -> "MP3"
+            upper.contains("TRUEHD") || upper.contains("MLP") -> "TrueHD"
+            upper.contains("ATMOS") || upper.contains("EAC3-JOC") -> "Dolby Atmos"
+            upper.contains("EAC3") || upper.contains("EC-3") -> "E-AC-3"
+            upper.contains("AC3") || upper.contains("AC-3") -> "AC-3"
+            upper.contains("DTS-HD") || upper.contains("DTSHD") -> "DTS-HD MA"
+            upper.contains("DTS-X") || upper.contains("DTSX") -> "DTS:X"
+            upper.contains("DTS") -> "DTS"
+            upper.contains("DSD") -> "DSD"
+            upper.contains("WAV") -> "WAV"
+            upper.contains("PCM") || upper.contains("RAW") -> "PCM"
+            else -> raw.trim()
+        }
     }
 
     /**

@@ -76,8 +76,6 @@
     <string name="playbackbottomsheet_str_30x">3.0x</string>
     <string name="songinfobottomsheet_details">Üksikasjad</string>
     <string name="songinfobottomsheet_fetching">Laadin…</string>
-    <string name="updatebottomsheet_install">Paigalda</string>
-    <string name="updatebottomsheet_update">Uuenda</string>
     <string name="autoeqprofileselector_all">Kõik</string>
     <string name="fullscreenlyricsview_translation">Tõlge</string>
     <string name="lyricseditorbottomsheet_str_500ms">500 msek</string>
@@ -87,20 +85,18 @@
     <string name="rhythmnavigation_stream">Voogedastus</string>
     <string name="expressiveplayerscreen_more">Veel</string>
     <string name="expressiveplayerscreen_device">Seade</string>
-    <string name="expressiveplayerscreen_load">Laadi</string>
     <string name="apimanagementsettingsscreen_lyrically">Lyrically</string>
     <string name="apimanagementsettingsscreen_github">GitHub</string>
     <string name="rhythmstatsscreen_top_songs">Populaarsed lood</string>
     <string name="rhythmstatsscreen_listening_habits">Kuulamisharjumused</string>
-    <string name="rhythmstatsscreen_listening_timeline">Kuulamiste ajajoon</string>
     <string name="playerscreen_select_artist">Vali esitaja</string>
     <string name="playerscreen_open_artist">Ava esitaja teave</string>
     <string name="aboutscreen_support_development">Toeta rakenduse arendust</string>
     <string name="aboutscreen_discord_community">Kogukond Discordis</string>
     <string name="settings_notifications">Teavitused</string>
     <string name="settings_notifications_updates_group">Rakenduse uuendused</string>
-    <string name="settings_rhythm_pulse_interval">Soovituste kuvamise välp</string>
-    <string name="settings_rhythm_pulse_interval_dialog_title">Rhythm\'i soovituste kuvamise välp</string>
+    <string name="settings_rhythm_pulse_interval">Soovituste kuvamise sagedus</string>
+    <string name="settings_rhythm_pulse_interval_dialog_title">Vali kuvamise sagedus</string>
     <string name="settings_queue">Esitusjärjekord</string>
     <string name="settings_queue_desc">Esitusjärjekorra reeglid, automaatne segamine ja loomine</string>
     <string name="settings_queue_title">Esitusjärjekorra seadistused</string>
@@ -201,4 +197,12 @@
     <string name="settings_clear_all_folders">Eemalda kõik kaustad</string>
     <string name="settings_clear_all_folders_desc">Eemalda kõik %1$s kausta</string>
     <string name="settings_quick_tips">Kiirsoovitused</string>
+    <string name="widget_description_glance">Vaata, mis on esitamisel ja juhi oma muusikat avalehelt - esita, peata, jäta vahele ja palju muud.</string>
+    <string name="widget_tip_controls">Vidinal klõpsamine avab rakenduse ja nupud juhivad taasesitust</string>
+    <string name="settings_system_notification_channels">Androidi teavituste seadistused</string>
+    <string name="settings_system_notification_channels_desc">Seadista operatsioonisüsteemi teavituskanaleid, heli, värinat ja lukustusvaate toimimist</string>
+    <string name="settings_context_persistence_ephemeral">Loobu</string>
+    <string name="settings_clear_queue_on_new_song">Kustuta esitusjärjekord uute lugude jaoks</string>
+    <string name="settings_clear_queue_on_new_song_desc">Loo esitamine, mis ei leidu esitusjärjekorras, kustutab esmalt ka selle sisu.</string>
+    <string name="settings_audio_effects">Üleminekud ja väljund</string>
 </resources>

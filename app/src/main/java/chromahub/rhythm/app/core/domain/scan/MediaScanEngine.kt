@@ -20,6 +20,10 @@ import chromahub.rhythm.app.shared.data.model.ScanPhase
 import chromahub.rhythm.app.shared.data.model.ScanProgress
 import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.util.AudioFormatDetector
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.CancellationException
+import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +33,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import androidx.core.net.toUri
 import androidx.core.content.edit
+import chromahub.rhythm.app.infrastructure.provider.RhythmAlbumArtProvider
 
 /**
  * Centralized, High-Performance Media Scanning Engine for Rhythm.
@@ -56,6 +61,8 @@ class MediaScanEngine(
         }
     }
 
+    private val scanMutex = Mutex()
+
     private val _scanProgress = MutableStateFlow(ScanProgress(0, 0, ScanPhase.Idle))
     val scanProgress: StateFlow<ScanProgress> = _scanProgress.asStateFlow()
 
@@ -64,12 +71,16 @@ class MediaScanEngine(
      */
     suspend fun performScan(
         forceRefresh: Boolean = false,
-        allowedFormats: Set<String>? = null,
-        minimumDuration: Long = 0L
+        allowedFormats: Set<String>? = appSettings.allowedFormats.value,
+        minimumDuration: Long = appSettings.minimumDuration.value,
+        background: Boolean = false,
+        reason: String = "explicit_scan"
     ): List<Song> = withContext(Dispatchers.IO) {
+        scanMutex.withLock {
+        fun report(progress: ScanProgress) { if (!background) _scanProgress.value = progress }
         val startTime = System.currentTimeMillis()
-        Log.d(TAG, "Starting media scan (forceRefresh=$forceRefresh, minimumDuration=${minimumDuration}ms)")
-        _scanProgress.value = ScanProgress(0, 0, ScanPhase.Songs, 0)
+        Log.i(TAG, "Library scan started: reason=$reason, forceRefresh=$forceRefresh, background=$background, minimumDuration=${minimumDuration}ms")
+        report(ScanProgress(0, 0, ScanPhase.Songs, 0))
 
         // Query existing DB entries into an O(1) Map by ID
         val existingDbSongs = if (!forceRefresh) {
@@ -84,15 +95,23 @@ class MediaScanEngine(
         val blacklistedFolders = appSettings.blacklistedFolders.value
         val blacklistedSongs = appSettings.blacklistedSongs.value
         val preferSongArtwork = appSettings.preferSongArtwork.value
+        val scanScope = MediaScanScope(mediaScanMode.name, allowedFormats, minimumDuration,
+            whitelistedFolders.toSet(), whitelistedSongs.toSet(), blacklistedFolders.toSet(), blacklistedSongs.toSet(),
+            android.os.Environment.getExternalStorageDirectory().absolutePath)
+        val fingerprint = MediaLibraryFingerprint()
 
-        if (mediaScanMode == MediaScanMode.WHITELIST && whitelistedFolders.isEmpty() && whitelistedSongs.isEmpty()) {
+        if (scanScope.emptyWhitelist) {
             Log.d(TAG, "Whitelist mode active with no whitelisted folders or songs; skipping MediaStore scan")
             database.withTransaction {
                 if (forceRefresh) {
                     database.songDao().replaceAll(emptyList())
                 }
             }
-            _scanProgress.value = ScanProgress(0, 0, ScanPhase.Complete, 0)
+            appSettings.setLastScanTimestamp(System.currentTimeMillis())
+            context.getSharedPreferences("library_scan_metadata", Context.MODE_PRIVATE).edit {
+                putString("scoped_fingerprint", fingerprint.value())
+            }
+            report(ScanProgress(0, 0, ScanPhase.Complete, 0))
             return@withContext emptyList()
         }
 
@@ -135,11 +154,12 @@ class MediaScanEngine(
         var rawMediaStoreCount = 0
 
         try {
-            context.contentResolver.query(collection, projection, selection, null, sortOrder)?.use { cursor ->
+            (context.contentResolver.query(collection, projection, selection, null, sortOrder)
+                ?: throw IOException("MediaStore unavailable; retaining existing library")).use { cursor ->
                 val totalCount = cursor.count
                 rawMediaStoreCount = totalCount
                 Log.d(TAG, "MediaStore query found $totalCount candidates")
-                _scanProgress.value = ScanProgress(0, totalCount, ScanPhase.Songs, 0)
+                report(ScanProgress(0, totalCount, ScanPhase.Songs, 0))
 
                 val colId = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
                 val colTitle = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
@@ -163,36 +183,12 @@ class MediaScanEngine(
                 while (cursor.moveToNext()) {
                     processed++
                     val id = cursor.getLong(colId).toString()
-                    if (seenIds.contains(id) || blacklistedSongs.contains(id)) continue
-
                     val path = if (colData >= 0) cursor.getString(colData) else null
-                    if (path != null) {
-                        val normPath = path.lowercase()
-                        if (seenPaths.contains(normPath)) continue
-
-                        if (allowedFormats != null) {
-                            val ext = path.substringAfterLast('.', "").lowercase()
-                            if (ext.isNotEmpty() && !allowedFormats.contains(ext)) continue
-                        }
-
-                        if (mediaScanMode == MediaScanMode.WHITELIST) {
-                            val isFolderWhitelisted = whitelistedFolders.isNotEmpty() &&
-                                whitelistedFolders.any { normPath.startsWith(it.lowercase()) }
-                            val isSongWhitelisted = whitelistedSongs.isNotEmpty() &&
-                                whitelistedSongs.contains(id)
-                            if (!isFolderWhitelisted && !isSongWhitelisted) continue
-                        }
-
-                        if (mediaScanMode == MediaScanMode.BLACKLIST && blacklistedFolders.isNotEmpty()) {
-                            val isBlacklisted = blacklistedFolders.any { normPath.startsWith(it.lowercase()) }
-                            if (isBlacklisted) continue
-                        }
-
-                        seenPaths.add(normPath)
-                    }
-
                     val duration = cursor.getLong(colDuration)
-                    if (minimumDuration > 0 && duration < minimumDuration) continue
+                    if (!scanScope.includes(id, path, duration) || id in seenIds) continue
+                    val normalizedPath = path?.let(scanScope::normalizedPath)
+                    if (normalizedPath != null && !seenPaths.add(normalizedPath)) continue
+                    fingerprint.addMediaStoreRow(cursor, id, path, scanScope)
 
                     val rawDateModified = cursor.getLong(colDateModified)
                     val dateModified = if (rawDateModified in 1..99_999_999_999L) rawDateModified * 1000L else rawDateModified
@@ -204,21 +200,19 @@ class MediaScanEngine(
                     val existing = existingDbSongs[id]
 
                     if (existing != null && existing.dateModified == dateModified && existing.dateAdded >= 100_000_000_000L) {
+                        val defaultArt = Uri.withAppendedPath(
+                            ("content://media/external/audio/albumart").toUri(),
+                            existing.albumId
+                        ).toString()
                         val existingArt = if (preferSongArtwork) {
-                            chromahub.rhythm.app.util.MediaUtils.getCachedEmbeddedAlbumArtUri(
-                                cacheDir = context.filesDir,
-                                songUri = (existing.uri).toUri(),
-                                lossless = losslessArtwork,
-                                exactMatchOnly = false
-                            )?.toString() ?: (existing.artworkUri ?: Uri.withAppendedPath(
-                                ("content://media/external/audio/albumart").toUri(),
-                                existing.albumId
-                            ).toString())
-                        } else {
-                            existing.artworkUri ?: Uri.withAppendedPath(
-                                ("content://media/external/audio/albumart").toUri(),
-                                existing.albumId
+                            RhythmAlbumArtProvider.buildSongUri(
+                                id = id,
+                                path = existing.path,
+                                albumId = existing.albumId,
+                                lossless = losslessArtwork
                             ).toString()
+                        } else {
+                            defaultArt
                         }
                         scannedSongs.add(existing.copy(artworkUri = existingArt))
                         seenIds.add(id)
@@ -332,12 +326,12 @@ class MediaScanEngine(
                         ).toString()
 
                         val initialArtworkUri = if (preferSongArtwork) {
-                            chromahub.rhythm.app.util.MediaUtils.getCachedEmbeddedAlbumArtUri(
-                                cacheDir = context.filesDir,
-                                songUri = (contentUri).toUri(),
-                                lossless = losslessArtwork,
-                                exactMatchOnly = false
-                            )?.toString() ?: defaultArtworkUri
+                            RhythmAlbumArtProvider.buildSongUri(
+                                id = id,
+                                path = path,
+                                albumId = albumId,
+                                lossless = losslessArtwork
+                            ).toString()
                         } else {
                             defaultArtworkUri
                         }
@@ -370,7 +364,7 @@ class MediaScanEngine(
 
                     val nowTime = System.currentTimeMillis()
                     if (nowTime - lastProgressEmitTime >= 150 || processed == totalCount) {
-                        _scanProgress.value = ScanProgress(processed, totalCount, ScanPhase.Songs, 0)
+                        report(ScanProgress(processed, totalCount, ScanPhase.Songs, 0))
                         lastProgressEmitTime = nowTime
                         yield()
                     }
@@ -378,7 +372,7 @@ class MediaScanEngine(
             }
 
             // Sync with Room DB atomically
-            _scanProgress.value = ScanProgress(scannedSongs.size, scannedSongs.size, ScanPhase.SavingDb, 0)
+            report(ScanProgress(scannedSongs.size, scannedSongs.size, ScanPhase.SavingDb, 0))
             database.withTransaction {
                 if (forceRefresh) {
                     database.songDao().replaceAll(scannedSongs)
@@ -403,7 +397,9 @@ class MediaScanEngine(
             // A scan no longer decodes embedded artwork. Mark the deferred pass pending only
             // when the user requested per-song artwork; that worker persists progress in small
             // batches and marks completion after it finishes.
-            appSettings.setEmbeddedArtworkExtractionCompleted(!preferSongArtwork)
+            if (forceRefresh || scannedSongs.any { it.id !in existingDbSongs }) {
+                appSettings.setEmbeddedArtworkExtractionCompleted(!preferSongArtwork)
+            }
             if (!preferSongArtwork) {
                 appSettings.setEmbeddedArtworkExtractionLosslessStatus(
                     appSettings.isLosslessArtworkActive.value
@@ -411,7 +407,10 @@ class MediaScanEngine(
             }
             try {
                 context.getSharedPreferences("library_scan_metadata", Context.MODE_PRIVATE)
-                    .edit { putInt("last_scan_mediastore_count", rawMediaStoreCount) }
+                    .edit {
+                        putInt("last_scan_mediastore_count", rawMediaStoreCount)
+                        putString("scoped_fingerprint", fingerprint.value())
+                    }
                 Log.d(TAG, "Saved MediaStore count ($rawMediaStoreCount) to library_scan_metadata")
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to save MediaStore count", e)
@@ -419,7 +418,7 @@ class MediaScanEngine(
 
             val totalDuration = System.currentTimeMillis() - startTime
             Log.d(TAG, "Scan completed: ${scannedSongs.size} songs processed in ${totalDuration}ms")
-            _scanProgress.value = ScanProgress(scannedSongs.size, scannedSongs.size, ScanPhase.Complete, totalDuration)
+            report(ScanProgress(scannedSongs.size, scannedSongs.size, ScanPhase.Complete, totalDuration))
 
             scannedSongs.map { entity ->
                 Song(
@@ -446,9 +445,11 @@ class MediaScanEngine(
                 )
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error during media scan", e)
-            _scanProgress.value = ScanProgress(0, 0, ScanPhase.Error, 0)
-            emptyList()
+            if (e is CancellationException) throw e
+            Log.e(TAG, "Error during media scan; retaining existing library", e)
+            report(ScanProgress(0, 0, ScanPhase.Error, 0))
+            throw e
+        }
         }
     }
 }

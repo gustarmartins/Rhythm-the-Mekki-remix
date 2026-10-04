@@ -31,6 +31,15 @@ data class RhythmSortOption(
     val icon: MaterialSymbolIcon? = null
 )
 
+val RhythmSortMenuShape = RoundedCornerShape(
+    topStart = 38.dp,
+    topEnd = 38.dp,
+    bottomStart = 32.dp,
+    bottomEnd = 32.dp
+)
+
+val RhythmSortMenuElevation = 6.dp
+
 @Composable
 fun RhythmSortMenuContent(
     selectedKey: String,

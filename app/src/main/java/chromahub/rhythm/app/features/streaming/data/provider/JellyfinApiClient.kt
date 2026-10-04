@@ -20,6 +20,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 import androidx.core.content.edit
+import chromahub.rhythm.app.shared.data.model.LyricsData
 
 /**
  * Jellyfin API client for authentication, search and stream URL generation.
@@ -44,11 +45,64 @@ class JellyfinApiClient(context: Context) {
         .writeTimeout(15, TimeUnit.SECONDS)
         .build()
 
+    private val probeHttpClient = UserTrustManager.buildUserTrustingHttpClientBuilder()
+        .connectTimeout(4, TimeUnit.SECONDS)
+        .readTimeout(4, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .build()
+
     fun isConnected(): Boolean = credentials != null
 
     fun getServerUrl(): String = credentials?.serverUrl.orEmpty()
 
     fun getUsername(): String = credentials?.username.orEmpty()
+    fun getAccessToken(): String? = credentials?.accessToken
+
+    /**
+     * Generates sensible candidate URLs from user input to test for Jellyfin server reachability.
+     * Tries: explicit URL, scheme toggle (http/https), port swap (8096/8920), and subpath (/jellyfin).
+     */
+    fun generateProbeCandidates(inputUrl: String): List<String> = Companion.generateProbeCandidates(inputUrl)
+
+    /**
+     * Probes candidate server URLs against /System/Info/Public to find the active, reachable Jellyfin endpoint.
+     */
+    suspend fun probeServerUrl(candidateUrl: String): Result<String> {
+        return withContext(Dispatchers.IO) {
+            val candidates = generateProbeCandidates(candidateUrl)
+            var lastError: Exception? = null
+
+            for (candidate in candidates) {
+                try {
+                    val probeUrl = "${candidate.trimEnd('/')}/System/Info/Public"
+                    val request = Request.Builder()
+                        .url(probeUrl)
+                        .header("Accept", "application/json")
+                        .header("Authorization", buildAuthorizationHeader(token = null))
+                        .get()
+                        .build()
+
+                    probeHttpClient.newCall(request).execute().use { response ->
+                        if (response.isSuccessful) {
+                            val body = response.body.string()
+                            val json = try { JSONObject(body) } catch (_: Exception) { null }
+                            if (json != null && (json.has("ServerName") || json.has("Version") || json.has("Id"))) {
+                                val finalUrl = response.request.url.toString()
+                                val baseCanonical = finalUrl.substringBefore("/System/Info/Public").trimEnd('/')
+                                Log.i(TAG, "Successfully probed Jellyfin server at: $baseCanonical (from candidate: $candidate)")
+                                return@withContext Result.success(baseCanonical)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.d(TAG, "Probe failed for candidate $candidate: ${e.message}")
+                    lastError = e
+                }
+            }
+
+            Result.failure(lastError ?: Exception("Unable to reach Jellyfin server at $candidateUrl"))
+        }
+    }
 
     suspend fun login(
         serverUrl: String,
@@ -68,13 +122,18 @@ class JellyfinApiClient(context: Context) {
             return Result.failure(IllegalArgumentException("Password is required"))
         }
 
+        val effectiveUrl = probeServerUrl(normalizedUrl).getOrElse {
+            Log.w(TAG, "Probing candidates failed, falling back to normalized URL: $normalizedUrl")
+            normalizedUrl
+        }
+
         return authenticateByName(
-            serverUrl = normalizedUrl,
+            serverUrl = effectiveUrl,
             username = username.trim(),
             password = password
         ).map { (token, userId) ->
             val cred = Credentials(
-                serverUrl = normalizedUrl,
+                serverUrl = effectiveUrl,
                 username = username.trim(),
                 accessToken = token,
                 userId = userId
@@ -82,15 +141,15 @@ class JellyfinApiClient(context: Context) {
             credentials = cred
             if (saveCredentials) {
                 prefs.edit {
-    putString(KEY_SERVER_URL, normalizedUrl)
-    putString(KEY_USERNAME, username.trim())
-    putString(KEY_ACCESS_TOKEN, token)
-    putString(KEY_USER_ID, userId)
-}
+                    putString(KEY_SERVER_URL, effectiveUrl)
+                    putString(KEY_USERNAME, username.trim())
+                    putString(KEY_ACCESS_TOKEN, token)
+                    putString(KEY_USER_ID, userId)
+                }
             } else {
                 prefs.edit { clear() }
             }
-            ProviderConnectionResult(displayName = username.trim(), serverUrl = normalizedUrl)
+            ProviderConnectionResult(displayName = username.trim(), serverUrl = effectiveUrl)
         }
     }
 
@@ -649,13 +708,19 @@ class JellyfinApiClient(context: Context) {
         ).map { true }
     }
 
-    suspend fun reportPlaybackStart(itemId: String): Result<Boolean> {
+    suspend fun reportPlaybackStart(
+        itemId: String,
+        playSessionId: String? = null
+    ): Result<Boolean> {
         credentials ?: return Result.failure(IllegalStateException("Jellyfin service is not connected"))
         if (itemId.isBlank()) return Result.failure(IllegalArgumentException("Item id is required"))
 
         val bodyJson = JSONObject().apply {
             put("ItemId", itemId)
-            put("PlayMethod", "DirectStream") // We use direct stream, not transcoding typically
+            put("PlayMethod", "DirectStream")
+            if (!playSessionId.isNullOrBlank()) {
+                put("PlaySessionId", playSessionId)
+            }
         }
 
         return request(
@@ -665,7 +730,37 @@ class JellyfinApiClient(context: Context) {
         ).map { true }
     }
 
-    suspend fun reportPlaybackStop(itemId: String, positionTicks: Long): Result<Boolean> {
+    suspend fun reportPlaybackProgress(
+        itemId: String,
+        positionTicks: Long,
+        isPaused: Boolean = false,
+        playSessionId: String? = null
+    ): Result<Boolean> {
+        credentials ?: return Result.failure(IllegalStateException("Jellyfin service is not connected"))
+        if (itemId.isBlank()) return Result.failure(IllegalArgumentException("Item id is required"))
+
+        val bodyJson = JSONObject().apply {
+            put("ItemId", itemId)
+            put("PositionTicks", positionTicks)
+            put("IsPaused", isPaused)
+            put("PlayMethod", "DirectStream")
+            if (!playSessionId.isNullOrBlank()) {
+                put("PlaySessionId", playSessionId)
+            }
+        }
+
+        return request(
+            path = "/Sessions/Playing/Progress",
+            method = "POST",
+            body = bodyJson.toString().toRequestBody("application/json".toMediaType())
+        ).map { true }
+    }
+
+    suspend fun reportPlaybackStop(
+        itemId: String,
+        positionTicks: Long,
+        playSessionId: String? = null
+    ): Result<Boolean> {
         credentials ?: return Result.failure(IllegalStateException("Jellyfin service is not connected"))
         if (itemId.isBlank()) return Result.failure(IllegalArgumentException("Item id is required"))
 
@@ -673,6 +768,9 @@ class JellyfinApiClient(context: Context) {
             put("ItemId", itemId)
             put("PositionTicks", positionTicks)
             put("PlayMethod", "DirectStream")
+            if (!playSessionId.isNullOrBlank()) {
+                put("PlaySessionId", playSessionId)
+            }
         }
 
         return request(
@@ -682,28 +780,128 @@ class JellyfinApiClient(context: Context) {
         ).map { true }
     }
 
-    fun buildStreamUrl(itemId: String, maxBitRateKbps: Int = 0): String? {
+    /**
+     * Fetches lyrics for an audio item from Jellyfin 10.9+ /Audio/{itemId}/Lyrics endpoint.
+     * Converts tick-based timestamps (10,000 ticks = 1 ms) into standard LRC format.
+     */
+    suspend fun getLyrics(
+        itemId: String,
+        artist: String? = null,
+        title: String? = null
+    ): Result<LyricsData?> {
+        credentials ?: return Result.failure(IllegalStateException("Jellyfin service is not connected"))
+        if (itemId.isBlank()) return Result.failure(IllegalArgumentException("Item id is required"))
+
+        return withContext(Dispatchers.IO) {
+            val responseResult = request("/Audio/$itemId/Lyrics")
+            val rawJson = responseResult.getOrElse { e ->
+                // HTTP 404 indicates no lyrics are available on Jellyfin for this track
+                val msg = e.message.orEmpty()
+                if (msg.contains("404") || msg.contains("Not Found", ignoreCase = true)) {
+                    return@withContext Result.success(null)
+                }
+                return@withContext Result.failure(e)
+            }
+
+            try {
+                val json = JSONObject(rawJson)
+                val lyricsArray = json.optJSONArray("Lyrics")
+                if (lyricsArray == null || lyricsArray.length() == 0) {
+                    return@withContext Result.success(null)
+                }
+
+                val plainLines = mutableListOf<String>()
+                val syncedLines = mutableListOf<String>()
+                var hasAnyTimestamp = false
+
+                for (i in 0 until lyricsArray.length()) {
+                    val lineObj = lyricsArray.optJSONObject(i) ?: continue
+                    val text = lineObj.optString("Text", "")
+                    plainLines.add(text)
+
+                    val startTicks = lineObj.optLong("Start", -1L)
+                    if (startTicks >= 0L) {
+                        hasAnyTimestamp = true
+                        val startMs = startTicks / 10_000L
+                        syncedLines.add("${formatLrcTimestamp(startMs)}$text")
+                    } else {
+                        syncedLines.add(text)
+                    }
+                }
+
+                val plainLyrics = plainLines.joinToString("\n").takeIf { it.isNotBlank() }
+                val syncedLyrics = if (hasAnyTimestamp) {
+                    syncedLines.joinToString("\n").takeIf { it.isNotBlank() }
+                } else {
+                    null
+                }
+
+                if (plainLyrics == null && syncedLyrics == null) {
+                    Result.success(null)
+                } else {
+                    Result.success(
+                        LyricsData(
+                            plainLyrics = plainLyrics,
+                            syncedLyrics = syncedLyrics,
+                            source = "Jellyfin"
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to parse Jellyfin lyrics for itemId=$itemId", e)
+                Result.failure(e)
+            }
+        }
+    }
+
+    private fun formatLrcTimestamp(ms: Long): String {
+        val totalSeconds = ms / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        val hundredths = (ms % 1000) / 10
+        return String.format(java.util.Locale.US, "[%02d:%02d.%02d]", minutes, seconds, hundredths)
+    }
+
+    fun buildStreamUrl(
+        itemId: String,
+        maxBitRateKbps: Int = 0,
+        playSessionId: String? = null
+    ): String? {
         val cred = credentials ?: return null
         if (itemId.isBlank()) return null
 
         val urlBuilder = "${cred.serverUrl}/Audio/$itemId/universal".toHttpUrl().newBuilder()
             .addQueryParameter("UserId", cred.userId)
             .addQueryParameter("DeviceId", DEVICE_ID)
-            .addQueryParameter("Container", "mp3,flac,m4a,ogg,wav,aac,opus,webm")
-            .addQueryParameter("AudioCodec", "mp3,flac,aac,opus")
+            .addQueryParameter("Container", "mp3,flac,m4a,aac,ogg,oga,wav,wma,opus,webm,alac")
+            .addQueryParameter("TranscodingContainer", "mp3")
+            .addQueryParameter("AudioCodec", "mp3")
+            .addQueryParameter("EnableAutoStreamCopy", "true")
+            .addQueryParameter("AllowAudioStreamCopy", "true")
+            .addQueryParameter("EnableRedirection", "true")
+            .addQueryParameter("ApiKey", cred.accessToken)
             .addQueryParameter("api_key", cred.accessToken)
 
         if (maxBitRateKbps > 0) {
             urlBuilder.addQueryParameter("MaxStreamingBitrate", (maxBitRateKbps * 1000).toString())
         }
+        if (!playSessionId.isNullOrBlank()) {
+            urlBuilder.addQueryParameter("PlaySessionId", playSessionId)
+        }
 
         return urlBuilder.build().toString()
+    }
+
+    fun buildDownloadUrl(itemId: String): String? {
+        val cred = credentials ?: return null
+        if (itemId.isBlank()) return null
+        return "${cred.serverUrl}/Items/$itemId/Download?ApiKey=${cred.accessToken}&api_key=${cred.accessToken}"
     }
 
     fun buildImageUrl(itemId: String, maxWidth: Int = 500): String? {
         val cred = credentials ?: return null
         if (itemId.isBlank()) return null
-        return "${cred.serverUrl}/Items/$itemId/Images/Primary?maxWidth=$maxWidth&quality=90&api_key=${cred.accessToken}"
+        return "${cred.serverUrl}/Items/$itemId/Images/Primary?maxWidth=$maxWidth&quality=90&ApiKey=${cred.accessToken}&api_key=${cred.accessToken}"
     }
 
     private suspend fun authenticateByName(
@@ -721,6 +919,7 @@ class JellyfinApiClient(context: Context) {
                 val request = Request.Builder()
                     .url("${serverUrl.trimEnd('/')}/Users/AuthenticateByName")
                     .header("Authorization", buildAuthorizationHeader(token = null))
+                    .header("User-Agent", "Rhythm/${chromahub.rhythm.app.BuildConfig.VERSION_NAME} (Android)")
                     .header("Content-Type", "application/json")
                     .post(body)
                     .build()
@@ -766,6 +965,8 @@ class JellyfinApiClient(context: Context) {
                 val requestBuilder = Request.Builder()
                     .url(urlBuilder.build())
                     .header("Authorization", buildAuthorizationHeader(token = cred.accessToken))
+                    .header("X-Emby-Token", cred.accessToken)
+                    .header("User-Agent", "Rhythm/${chromahub.rhythm.app.BuildConfig.VERSION_NAME} (Android)")
                     .header("Accept", "application/json")
                 when (method.uppercase()) {
                     "POST" -> requestBuilder.post(body ?: "".toRequestBody("text/plain".toMediaType()))
@@ -1183,7 +1384,7 @@ class JellyfinApiClient(context: Context) {
             (first == 100 && second in 64..127)
     }
 
-    private companion object {
+    companion object {
         private const val TAG = "JellyfinApiClient"
         private const val PREFS_NAME = "streaming_jellyfin_credentials"
         private const val KEY_SERVER_URL = "server_url"
@@ -1195,5 +1396,50 @@ class JellyfinApiClient(context: Context) {
         private const val CLIENT_VERSION = "1.0"
         private const val DEVICE_NAME = "Android"
         private const val DEVICE_ID = "Rhythm-Android"
+
+        /**
+         * Generates sensible candidate URLs from user input to test for Jellyfin server reachability.
+         * Tries: explicit URL, scheme toggle (http/https), port swap (8096/8920), and subpath (/jellyfin).
+         */
+        fun generateProbeCandidates(inputUrl: String): List<String> {
+            val trimmed = inputUrl.trim().trimEnd('/')
+            val normalized = if (trimmed.startsWith("http://", true) || trimmed.startsWith("https://", true)) {
+                trimmed
+            } else {
+                "http://$trimmed"
+            }
+
+            val parsed = normalized.toHttpUrlOrNull() ?: return listOf(normalized)
+            val scheme = parsed.scheme
+            val host = parsed.host
+            val port = parsed.port
+            val path = parsed.encodedPath.trimEnd('/')
+
+            val candidates = mutableListOf<String>()
+
+            // 1. Explicit normalized URL
+            candidates.add(normalized)
+
+            // 2. Opposite scheme with same port
+            val oppositeScheme = if (scheme.equals("http", true)) "https" else "http"
+            val pathSuffix = if (path.isEmpty() || path == "/") "" else path
+            candidates.add("$oppositeScheme://$host:$port$pathSuffix")
+
+            // 3. Port swaps if default Jellyfin ports are involved
+            if (port == 8096) {
+                candidates.add("https://$host:8920$pathSuffix")
+            } else if (port == 8920) {
+                candidates.add("http://$host:8096$pathSuffix")
+            }
+
+            // 4. Subpath /jellyfin if not already ending with /jellyfin
+            if (!path.endsWith("/jellyfin", true)) {
+                val subpath = if (pathSuffix.isEmpty()) "/jellyfin" else "$pathSuffix/jellyfin"
+                candidates.add("$scheme://$host:$port$subpath")
+                candidates.add("$oppositeScheme://$host:$port$subpath")
+            }
+
+            return candidates.distinct()
+        }
     }
 }

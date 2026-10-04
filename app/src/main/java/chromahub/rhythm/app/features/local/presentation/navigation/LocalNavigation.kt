@@ -279,6 +279,8 @@ sealed class Screen(val route: String) {
     object TunerArtistSeparators : Screen("tuner_artist_separators_settings")
     object TunerGoSettings : Screen("tuner_go_settings")
     object TunerReplayGain : Screen("tuner_replay_gain_settings")
+    object TunerCrossfade : Screen("tuner_crossfade_settings")
+    object TunerDefaultPlaylists : Screen("tuner_default_playlists_settings")
     
     // Stats Screen
     object RhythmStats : Screen("rhythm_stats")
@@ -1166,14 +1168,19 @@ private fun LocalNavigationContent(
     }
 
     val navigateBackOrToLanding: () -> Unit = {
-        val popped = navController.popBackStack()
-        if (!popped) {
-            navController.navigate(startDestination) {
-                popUpTo(navController.graph.id) {
-                    inclusive = true
+        val previousRoute = navController.previousBackStackEntry?.destination?.route
+        if (previousRoute == Screen.Player.route) {
+            navController.popBackStack(Screen.Player.route, inclusive = true)
+        } else {
+            val popped = navController.popBackStack()
+            if (!popped) {
+                navController.navigate(startDestination) {
+                    popUpTo(navController.graph.id) {
+                        inclusive = true
+                    }
+                    launchSingleTop = true
+                    restoreState = true
                 }
-                launchSingleTop = true
-                restoreState = true
             }
         }
     }
@@ -1530,7 +1537,15 @@ private fun LocalNavigationContent(
                                                 label = "pillWidth_$title"
                                             )
 
-                                            // Icon color animation
+                                            val itemWeight by animateFloatAsState(
+                                                targetValue = if (isSelected) 1.8f else 1f,
+                                                animationSpec = spring(
+                                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                    stiffness = Spring.StiffnessLow
+                                                ),
+                                                label = "weight_$title"
+                                            )
+
                                             val iconColor by animateColorAsState(
                                                 targetValue = if (isSelected)
                                                     MaterialTheme.colorScheme.onPrimaryContainer
@@ -1544,7 +1559,7 @@ private fun LocalNavigationContent(
 
                                             Box(
                                                 modifier = Modifier
-                                                    .weight(1f)
+                                                    .weight(itemWeight)
                                                     .fillMaxHeight()
                                                     .clickable {
                                                         HapticUtils.performHapticFeedback(
@@ -2197,7 +2212,18 @@ private fun LocalNavigationContent(
                 }
 
                 composable(Screen.TunerPlaylists.route) {
-                    PlaylistsSettingsScreen(onBackClick = navigateBackOrToSettings)
+                    PlaylistsSettingsScreen(
+                        onBackClick = navigateBackOrToSettings,
+                        onNavigateTo = { route ->
+                            if (route == SettingsRoutes.DEFAULT_PLAYLISTS) {
+                                navController.navigate(Screen.TunerDefaultPlaylists.route)
+                            }
+                        }
+                    )
+                }
+
+                composable(Screen.TunerDefaultPlaylists.route) {
+                    DefaultPlaylistsSettingsScreen(onBackClick = navigateBackOrToSettings)
                 }
 
                 composable(Screen.TunerApiManagement.route) {
@@ -2278,8 +2304,9 @@ private fun LocalNavigationContent(
                     PlaybackSettingsScreen(
                         onBackClick = navigateBackOrToSettings,
                         onNavigateTo = { route ->
-                            if (route == SettingsRoutes.REPLAY_GAIN) {
-                                navController.navigate(Screen.TunerReplayGain.route)
+                            when (route) {
+                                SettingsRoutes.REPLAY_GAIN -> navController.navigate(Screen.TunerReplayGain.route)
+                                SettingsRoutes.CROSSFADE -> navController.navigate(Screen.TunerCrossfade.route)
                             }
                         }
                     )
@@ -2287,6 +2314,10 @@ private fun LocalNavigationContent(
 
                 composable(Screen.TunerReplayGain.route) {
                     ReplayGainSettingsScreen(onBackClick = navigateBackOrToSettings)
+                }
+
+                composable(Screen.TunerCrossfade.route) {
+                    CrossfadeSettingsScreen(onBackClick = navigateBackOrToSettings)
                 }
 
                 composable(Screen.TunerHomeScreen.route) {
@@ -3389,6 +3420,8 @@ private fun LocalNavigationContent(
                                 navController.navigate(StreamingRoutes.artist(artist.id, artist.name)) {
                                     launchSingleTop = true
                                 }
+                            } else {
+                                navController.navigate(Screen.ArtistDetail.createRoute(artist.name))
                             }
                         },
                         onAlbumShufflePlay = { album ->

@@ -193,7 +193,12 @@ fun LabsSettingsScreen(
     // Third-party integrations states
     val broadcastStatusEnabled by appSettings.broadcastStatusEnabled.collectAsState()
     val bluetoothLyricsEnabled by appSettings.bluetoothLyricsEnabled.collectAsState()
-    val bluetoothLyricsLegacyCarModeEnabled by appSettings.bluetoothLyricsLegacyCarModeEnabled.collectAsState()
+    val legacyCompatibilityDefault by appSettings.bluetoothLyricsLegacyCarModeEnabled.collectAsState()
+    val compatibilityProfiles by appSettings.bluetoothDisplayCompatibilityProfiles.collectAsState()
+    val currentBtDisplayDevice by appSettings.currentBluetoothDisplayDevice.collectAsState()
+    val offsetProfiles by appSettings.bluetoothLyricsOffsetPresets.collectAsState()
+    val bluetoothLyricsLegacyCarModeEnabled = currentBtDisplayDevice != null &&
+        chromahub.rhythm.app.util.bluetoothDisplayCompatibilityEnabled(currentBtDisplayDevice, compatibilityProfiles, legacyCompatibilityDefault)
     val bluetoothLyricsTextMode by appSettings.bluetoothLyricsTextMode.collectAsState()
     val bluetoothLyricsOffsetMs by appSettings.bluetoothLyricsOffsetMs.collectAsState()
     val bluetoothLyricsMaxChunkChars by appSettings.bluetoothLyricsMaxChunkChars.collectAsState()
@@ -210,6 +215,9 @@ fun LabsSettingsScreen(
     var restartDialogMessage by remember { mutableStateOf("") }
     var showBluetoothLyricsTuningDialog by remember { mutableStateOf(false) }
     var showBluetoothLyricsTextModeDialog by remember { mutableStateOf(false) }
+
+    val audioRoutingMode by appSettings.audioRoutingMode.collectAsState()
+    var showAudioRoutingDialog by remember { mutableStateOf(false) }
 
     CollapsibleHeaderScreen(
         title = context.getString(R.string.settings_labs),
@@ -237,6 +245,16 @@ fun LabsSettingsScreen(
                 SettingGroup(
                     title = context.getString(R.string.exp_developer_debugging),
                     items = listOf(
+                        SettingItem(
+                            icon = RhythmIcons.Devices.Usb,
+                            title = context.getString(R.string.settings_audio_routing_mode),
+                            description = when (audioRoutingMode) {
+                                "app" -> context.getString(R.string.audio_routing_app)
+                                "system" -> context.getString(R.string.audio_routing_system)
+                                else -> context.getString(R.string.audio_routing_default)
+                            },
+                            onClick = { showAudioRoutingDialog = true }
+                        ),
                         SettingItem(
                             MaterialSymbolIcon("running_with_errors"),
                             context.getString(R.string.exp_track_error_checker),
@@ -305,12 +323,13 @@ fun LabsSettingsScreen(
                             onToggleChange = { appSettings.setBluetoothLyricsEnabled(it) }
                         ),
                         SettingItem(
-                            MaterialSymbolIcon("directions_car"),
+                            MaterialSymbolIcon("bluetooth_connected"),
                             context.getString(R.string.bluetooth_lyrics_legacy_car_mode),
-                            context.getString(R.string.bluetooth_lyrics_legacy_car_mode_desc),
-                            enabled = bluetoothLyricsEnabled,
+                            if (currentBtDisplayDevice == null) context.getString(R.string.bluetooth_display_connect_to_configure)
+                            else context.getString(R.string.bluetooth_lyrics_legacy_car_mode_desc),
+                            enabled = bluetoothLyricsEnabled && currentBtDisplayDevice != null,
                             toggleState = bluetoothLyricsLegacyCarModeEnabled,
-                            onToggleChange = { appSettings.setBluetoothLyricsLegacyCarModeEnabled(it) }
+                            onToggleChange = { appSettings.setBluetoothDisplayCompatibility(currentBtDisplayDevice, it) }
                         ),
                         SettingItem(
                             MaterialSymbolIcon("language"),
@@ -414,20 +433,17 @@ fun LabsSettingsScreen(
     }
 
     if (showBluetoothLyricsTuningDialog) {
-        val currentBtDeviceName = remember {
-            (context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager)
-                ?.let { chromahub.rhythm.app.util.AudioCapabilitiesMonitor.activeBluetoothOutputName(it) }
-        }
+        val deviceForThisDialog = remember { currentBtDisplayDevice }
         BluetoothLyricsTuningDialog(
-            currentOffsetMs = appSettings.effectiveBluetoothLyricsOffsetMs(currentBtDeviceName),
-            deviceLabel = currentBtDeviceName,
+            currentOffsetMs = deviceForThisDialog?.let(appSettings::effectiveBluetoothDisplayOffsetMs) ?: bluetoothLyricsOffsetMs,
+            deviceLabel = deviceForThisDialog?.name,
             currentMaxChunkChars = bluetoothLyricsMaxChunkChars,
             currentScrollCharsPerSecond = bluetoothLyricsScrollCharsPerSecond,
             currentMinChunkHoldMs = bluetoothLyricsMinChunkHoldMs,
             currentMetadataUpdateIntervalMs = bluetoothLyricsMetadataUpdateIntervalMs,
             onApply = { offsetMs, maxChunkChars, scrollCharsPerSecond, minChunkHoldMs,
                 metadataUpdateIntervalMs ->
-                appSettings.setBluetoothLyricsOffsetForDevice(currentBtDeviceName, offsetMs)
+                appSettings.setBluetoothDisplayOffset(deviceForThisDialog, offsetMs)
                 appSettings.setBluetoothLyricsMaxChunkChars(maxChunkChars)
                 appSettings.setBluetoothLyricsScrollCharsPerSecond(scrollCharsPerSecond)
                 appSettings.setBluetoothLyricsMinChunkHoldMs(minChunkHoldMs)
@@ -446,6 +462,14 @@ fun LabsSettingsScreen(
     }
 
     // Show update bottomsheet - removed, now handled globally in LocalNavigation
+    if (showAudioRoutingDialog) {
+        AudioRoutingDialog(
+            onDismiss = { showAudioRoutingDialog = false },
+            appSettings = appSettings,
+            context = context,
+            haptic = haptic
+        )
+    }
 }
 
 internal fun bluetoothLyricsTextModeLabel(

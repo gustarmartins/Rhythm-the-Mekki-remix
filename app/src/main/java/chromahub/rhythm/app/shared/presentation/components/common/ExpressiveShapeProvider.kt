@@ -137,7 +137,7 @@ private fun getDefaultShapeForTarget(target: ExpressiveShapeTarget): Shape {
         ExpressiveShapeTarget.SONG_ART -> RoundedCornerShape(16.dp)
         ExpressiveShapeTarget.PLAYLIST_ART -> RoundedCornerShape(20.dp)
         ExpressiveShapeTarget.ARTIST_ART -> CircleShape
-        ExpressiveShapeTarget.PLAYER_CONTROLS -> CircleShape
+        ExpressiveShapeTarget.PLAYER_CONTROLS -> MaterialShapes.Sunny.toComposeShape()
         ExpressiveShapeTarget.MINI_PLAYER -> RoundedCornerShape(16.dp)
     }
 }

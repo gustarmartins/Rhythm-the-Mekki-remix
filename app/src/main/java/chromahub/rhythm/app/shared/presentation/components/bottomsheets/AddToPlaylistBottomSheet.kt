@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -78,7 +79,10 @@ import chromahub.rhythm.app.shared.data.model.Playlist
 import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.shared.presentation.components.common.M3PlaceholderType
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeTarget
-import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShape
+import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveCookieEmptyState
+import chromahub.rhythm.app.shared.presentation.components.common.MarqueeText
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonType
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmDetailActionButtonFullWidth
 import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShapeFor
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.HapticUtils
@@ -112,7 +116,12 @@ fun AddToPlaylistBottomSheet(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
-    
+
+    val isStreamingSong = song.uri.toString().let { uri ->
+        uri.startsWith("http://") || uri.startsWith("https://") || uri.startsWith("streaming://")
+    } || song.id.startsWith("streaming_") || song.id.startsWith("piped_") ||
+        song.id.startsWith("ytm_") || song.id.startsWith("saavn_")
+
     val playlistListState = rememberLazyListState()
 
     RhythmAdaptiveModalSheet(
@@ -139,26 +148,11 @@ fun AddToPlaylistBottomSheet(
             // Header with title and song info
             AddToPlaylistHeader(
                 song = song,
-                totalPlaylists = playlists.size
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Create new playlist button
-            CreateNewPlaylistCard(
-                onClick = {
-                    HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                    scope.launch { sheetState.hide() }.invokeOnCompletion {
-                        if (!sheetState.isVisible) {
-                            onCreateNewPlaylist()
-                        }
-                    }
-                }
+                totalPlaylists = playlists.size,
+                isStreamingSong = isStreamingSong
             )
 
             if (playlists.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                
                 // Playlists section
                 AdaptiveSheetScrollContainer(
                     lazyListState = playlistListState,
@@ -197,11 +191,29 @@ fun AddToPlaylistBottomSheet(
                     }
                 }
             } else {
-                Spacer(modifier = Modifier.height(16.dp))
-                
+                Spacer(modifier = Modifier.height(8.dp))
+
                 // Empty state
                 EmptyPlaylistsState()
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Bottom action: create a new playlist
+            RhythmDetailActionButtonFullWidth(
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                    scope.launch { sheetState.hide() }.invokeOnCompletion {
+                        if (!sheetState.isVisible) {
+                            onCreateNewPlaylist()
+                        }
+                    }
+                },
+                modifier = Modifier.padding(horizontal = 24.dp),
+                type = RhythmButtonType.Filled,
+                icon = RhythmIcons.Add,
+                text = context.getString(R.string.playlist_create_new)
+            )
         }
     }
 }
@@ -210,188 +222,103 @@ fun AddToPlaylistBottomSheet(
 private fun AddToPlaylistHeader(
     song: Song,
     totalPlaylists: Int,
+    isStreamingSong: Boolean,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    
-    Row(
+    val artworkShape = rememberExpressiveShapeFor(
+        ExpressiveShapeTarget.SONG_ART,
+        fallbackShape = RoundedCornerShape(12.dp)
+    )
+
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
-        // Title and count
-        Column {
+        Text(
+            text = context.getString(R.string.add_to_playlists),
+            style = MaterialTheme.typography.displayMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        if (totalPlaylists > 0) {
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = context.getString(R.string.add_to_playlists),
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
+                text = pluralStringResource(R.plurals.playlist_count_format, totalPlaylists, totalPlaylists),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        shape = CircleShape
+                    )
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
             )
-            if (totalPlaylists > 0) {
-                Text(
-                    text = pluralStringResource(R.plurals.playlist_count_format, totalPlaylists, totalPlaylists),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier
-                        .background(
-                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            shape = CircleShape
-                        )
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                )
-            }
-            Spacer(modifier = Modifier.height(18.dp))
-        
-        // Song info card
-        SongHeaderCard(song = song)
         }
-        
 
-    }
-}
+        Spacer(modifier = Modifier.height(16.dp))
 
-@Composable
-private fun SongHeaderCard(
-    song: Song,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        shape = RoundedCornerShape(20.dp)
-    ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Album art
             Surface(
-                modifier = Modifier.size(56.dp),
-                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.size(68.dp),
+                shape = artworkShape,
                 tonalElevation = 0.dp
             ) {
                 AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
+                    model = ImageRequest.Builder(context)
                         .apply(ImageUtils.buildImageRequest(
                             song.artworkUri,
                             song.title,
-                            LocalContext.current.cacheDir,
+                            context.cacheDir,
                             M3PlaceholderType.TRACK
                         ))
                         .build(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxSize()
                 )
             }
-            
+
             Spacer(modifier = Modifier.width(16.dp))
-            
-            // Song info
+
             Column(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = context.getString(R.string.bottomsheet_add_to_playlist),
+                    text = stringResource(
+                        if (isStreamingSong) R.string.playlistsongoptions_streaming_song else R.string.playlistsongoptions_local_song
+                    ),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold
                 )
-                
-                Spacer(modifier = Modifier.height(4.dp))
-                
-                Text(
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                MarqueeText(
                     text = song.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    ),
+                    gradientEdgeColor = MaterialTheme.colorScheme.surfaceContainer,
+                    modifier = Modifier.fillMaxWidth()
                 )
-                
-                Text(
+
+                MarqueeText(
                     text = "${song.artist} • ${song.album}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    gradientEdgeColor = MaterialTheme.colorScheme.surfaceContainer,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun CreateNewPlaylistCard(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val haptics = LocalHapticFeedback.current
-    val arrowContainerShape = rememberExpressiveShape("COOKIE_7", CircleShape)
-
-    Card(
-        onClick = {
-            HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-            onClick()
-        },
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-        ),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp, horizontal = 20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = arrowContainerShape,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(40.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = RhythmIcons.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(22.dp),
-                        tint = MaterialTheme.colorScheme.primaryContainer
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            Text(
-                text = context.getString(R.string.playlist_create_new),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                maxLines = 1
-            )
-            
-            Spacer(modifier = Modifier.weight(1f))
-            
-            Icon(
-                imageVector = RhythmIcons.Forward,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-                tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-            )
         }
     }
 }
@@ -440,32 +367,17 @@ private fun PlaylistCard(
             Surface(
                 modifier = Modifier.size(56.dp),
                 shape = playlistArtShape,
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
-                tonalElevation = 2.dp
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                tonalElevation = 0.dp
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    // Background gradient effect
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                brush = androidx.compose.ui.graphics.Brush.radialGradient(
-                                    colors = listOf(
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
-                                    ),
-                                    radius = 30f
-                                )
-                            )
-                    )
-                    
                     Icon(
                         imageVector = RhythmIcons.PlaylistFilled,
                         contentDescription = null,
-                        
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -524,13 +436,13 @@ private fun PlaylistCard(
                 modifier = Modifier.size(36.dp),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 tonalElevation = 0.dp
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = RhythmIcons.Add,
                         contentDescription = stringResource(R.string.content_desc_add_to_playlist),
-                        
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -544,41 +456,21 @@ private fun EmptyPlaylistsState(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(32.dp),
+            .height(240.dp),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = RhythmIcons.Playlist,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.size(48.dp)
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = context.getString(R.string.bottomsheet_no_playlists),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Text(
-                text = context.getString(R.string.playlist_create_first),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-        }
+        ExpressiveCookieEmptyState(
+            title = context.getString(R.string.bottomsheet_no_playlists),
+            subtitle = context.getString(R.string.playlist_create_first),
+            mainIcon = RhythmIcons.Playlist,
+            accentIcon = RhythmIcons.MusicNote,
+            cornerIcon = RhythmIcons.MusicNote,
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        )
     }
 }

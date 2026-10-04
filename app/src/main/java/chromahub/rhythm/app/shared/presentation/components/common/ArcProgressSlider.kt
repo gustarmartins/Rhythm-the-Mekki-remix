@@ -9,7 +9,9 @@ import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
 
 
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -43,6 +45,7 @@ fun ArcProgressSlider(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
+    onValueChangeFinished: (() -> Unit)? = null,
     activeTrackColor: Color = MaterialTheme.colorScheme.primary,
     inactiveTrackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     thumbColor: Color = MaterialTheme.colorScheme.primary,
@@ -58,6 +61,9 @@ fun ArcProgressSlider(
     val hapticFeedback = LocalHapticFeedback.current
     val view = LocalView.current
 
+    val currentOnValueChange by rememberUpdatedState(onValueChange)
+    val currentOnValueChangeFinished by rememberUpdatedState(onValueChangeFinished)
+
     val trackThicknessPx = with(density) { trackThickness.toPx() }
     val thumbSizePx = with(density) { thumbSize.toPx() }
     val waveAmplitudePx = with(density) { waveAmplitude.toPx() }
@@ -67,18 +73,26 @@ fun ArcProgressSlider(
     // Normalize value
     val normalizedValue = ((value - valueRange.start) / (valueRange.endInclusive - valueRange.start)).coerceIn(0f, 1f)
 
-    // Animation for wave phase - static wave
     val phaseShift = 0f
 
-    // Interaction state for thumb scaling
     var isInteracting by remember { mutableStateOf(false) }
     val thumbScale by animateFloatAsState(
-        targetValue = if (isInteracting) 1.2f else 1f,
+        targetValue = if (isInteracting) 1.25f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
         label = "ThumbScale"
     )
 
     // Store integer value for haptic feedback
     var lastHapticValue by remember { mutableIntStateOf(value.roundToInt()) }
+
+    LaunchedEffect(value, isInteracting) {
+        if (!isInteracting) {
+            lastHapticValue = value.roundToInt()
+        }
+    }
 
     BoxWithConstraints(
         modifier = modifier,
@@ -117,52 +131,61 @@ fun ArcProgressSlider(
                 .pointerInput(enabled, view, valueRange.start, valueRange.endInclusive, startAngle, sweepAngle, arcCenter) {
                     if (!enabled) return@pointerInput
                     awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        view.parent?.requestDisallowInterceptTouchEvent(true)
-                        isInteracting = true
-                        down.consume()
+                        try {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            view.parent?.requestDisallowInterceptTouchEvent(true)
+                            isInteracting = true
+                            down.consume()
 
-                        fun dispatchValue(point: Offset, forceHaptic: Boolean = false) {
-                            val newValue = mapTouchToValue(point)
-                            onValueChange(newValue)
-                            val newInt = newValue.roundToInt()
-                            if (forceHaptic || newInt != lastHapticValue) {
-                                HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
-                                lastHapticValue = newInt
+                            fun dispatchValue(point: Offset, forceHaptic: Boolean = false) {
+                                val newValue = mapTouchToValue(point)
+                                currentOnValueChange(newValue)
+                                val newInt = newValue.roundToInt()
+                                if (forceHaptic || newInt != lastHapticValue) {
+                                    HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
+                                    lastHapticValue = newInt
+                                }
                             }
-                        }
 
-                        dispatchValue(down.position, forceHaptic = true)
+                            dispatchValue(down.position, forceHaptic = true)
 
-                        var activePointerId = down.id
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            val pointerChange = event.changes.firstOrNull { it.id == activePointerId }
-                                ?: event.changes.firstOrNull { it.pressed }?.also { activePointerId = it.id }
-                                ?: break
+                            var activePointerId = down.id
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val pointerChange = event.changes.firstOrNull { it.id == activePointerId }
+                                    ?: event.changes.firstOrNull { it.pressed }?.also { activePointerId = it.id }
+                                    ?: break
 
-                            if (!pointerChange.pressed) {
+                                if (!pointerChange.pressed) {
+                                    pointerChange.consume()
+                                    break
+                                }
+
                                 pointerChange.consume()
-                                break
+                                dispatchValue(pointerChange.position)
                             }
-
-                            pointerChange.consume()
-                            dispatchValue(pointerChange.position)
+                        } finally {
+                            isInteracting = false
+                            view.parent?.requestDisallowInterceptTouchEvent(false)
+                            currentOnValueChangeFinished?.invoke()
                         }
-
-                        isInteracting = false
-                        view.parent?.requestDisallowInterceptTouchEvent(false)
                     }
                 }
         ) {
             val activeSweep = sweepAngle * normalizedValue
 
-            // 1. Draw Inactive Track
-            if (activeSweep < sweepAngle) {
+            val thumbGapPx = thumbRadius * thumbScale + 6.dp.toPx() + trackThicknessPx / 2f
+            val thumbGapDeg = if (arcRadius > 0f) {
+                Math.toDegrees(thumbGapPx.toDouble() / arcRadius.toDouble()).toFloat()
+            } else 0f
+            val inactiveStartAngle = startAngle + activeSweep + thumbGapDeg
+            val inactiveSweep = sweepAngle - activeSweep - thumbGapDeg
+
+            if (inactiveSweep > 0f) {
                 drawArc(
                     color = inactiveTrackColor,
-                    startAngle = startAngle + activeSweep,
-                    sweepAngle = sweepAngle - activeSweep,
+                    startAngle = inactiveStartAngle,
+                    sweepAngle = inactiveSweep,
                     useCenter = false,
                     style = Stroke(width = trackThicknessPx, cap = StrokeCap.Round),
                     topLeft = Offset(arcCenter.x - arcRadius, arcCenter.y - arcRadius),
@@ -170,7 +193,6 @@ fun ArcProgressSlider(
                 )
             }
 
-            // 2. Draw Active Track (Wavy)
             if (activeSweep > 0) {
                 val wavePath = Path()
 
@@ -209,7 +231,6 @@ fun ArcProgressSlider(
                 )
             }
 
-            // 3. Draw Thumb
             val thumbAngleDeg = startAngle + activeSweep
             val thumbAngleRad = Math.toRadians(thumbAngleDeg.toDouble())
             val thumbX = arcCenter.x + arcRadius * cos(thumbAngleRad)

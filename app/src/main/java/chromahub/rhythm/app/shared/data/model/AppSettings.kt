@@ -26,6 +26,10 @@ import chromahub.rhythm.app.worker.RhythmPulseNotificationWorker
 import chromahub.rhythm.app.worker.UpdateNotificationWorker
 import chromahub.rhythm.app.BuildConfig
 import chromahub.rhythm.app.util.BluetoothLyricsFormatter
+import chromahub.rhythm.app.util.BluetoothDisplayDevice
+import chromahub.rhythm.app.util.BluetoothDisplayDeviceMonitor
+import chromahub.rhythm.app.util.bluetoothDisplayProfileValue
+import chromahub.rhythm.app.util.bluetoothDisplayCompatibilityEnabled
 import java.io.File
 import java.util.Date // Import Date for timestamp
 import java.util.concurrent.TimeUnit
@@ -253,7 +257,13 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_VIRTUALIZER_ENABLED = "virtualizer_enabled"
         private const val KEY_VIRTUALIZER_STRENGTH = "virtualizer_strength"
         private const val KEY_MONO_AUDIO_ENABLED = "mono_audio_enabled"
-
+        private const val KEY_CUSTOM_EQUALIZER_PRESETS = "custom_equalizer_presets"
+        private const val KEY_EQUALIZER_PRESET_ORDER = "equalizer_preset_order"
+        private const val KEY_HIDDEN_EQUALIZER_PRESETS = "hidden_equalizer_presets"
+        private const val KEY_PINNED_AUTOEQ_PROFILES = "pinned_autoeq_profiles"
+        private const val KEY_CUSTOM_AUTOEQ_PROFILES = "custom_autoeq_profiles"
+        private const val KEY_SPEAKER_AUTOEQ_BYPASS = "speaker_autoeq_bypass"
+        
         // Cache Settings
         private const val KEY_MAX_CACHE_SIZE = "max_cache_size"
 
@@ -266,7 +276,13 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_PLAYLISTS = "playlists"
         private const val KEY_FAVORITE_SONGS = "favorite_songs"
         private const val KEY_DEFAULT_PLAYLISTS_ENABLED = "default_playlists_enabled"
-
+        private const val KEY_SHOW_LIKED_IN_PLAYLISTS = "show_liked_in_playlists"
+        private const val KEY_SMART_PLAYLIST_RECENTLY_ADDED = "smart_playlist_recently_added"
+        private const val KEY_SMART_PLAYLIST_MOST_PLAYED = "smart_playlist_most_played"
+        private const val KEY_SMART_PLAYLIST_ON_REPEAT = "smart_playlist_on_repeat"
+        private const val KEY_SMART_PLAYLIST_FORGOTTEN_FAVORITES = "smart_playlist_forgotten_favorites"
+        private const val KEY_SMART_PLAYLIST_RECENTLY_PLAYED = "smart_playlist_recently_played"
+        
         // User Statistics
         private const val KEY_LISTENING_TIME = "listening_time"
         private const val KEY_SONGS_PLAYED = "songs_played"
@@ -317,6 +333,7 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_LAST_PLAYED_TIMESTAMP = "last_played_timestamp"
 
         // API Integration
+        private const val KEY_INTEGRATIONS_ENABLED = "integrations_enabled"
         private const val KEY_DEEZER_API_ENABLED = "deezer_api_enabled"
         private const val KEY_LRCLIB_API_ENABLED = "lrclib_api_enabled"
         private const val KEY_BETTERLYRICS_API_ENABLED = "better_lyrics_api_enabled"
@@ -502,12 +519,15 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_SYNC_SPEED_AND_PITCH = "sync_speed_and_pitch"
         private const val KEY_USE_HOURS_IN_TIME_FORMAT = "use_hours_in_time_format"
         private const val KEY_SHOW_REMAINING_TIME = "show_remaining_time"
-        private const val KEY_USE_EXACT_ARTWORK_COLORS = "use_exact_artwork_colors"
+        private const val KEY_EXPRESSIVE_COLORS = "expressive_colors"
+        private const val KEY_THEME_INTENSITY = "theme_intensity"
         private const val KEY_STOP_PLAYBACK_ON_APP_CLOSE = "stop_playback_on_app_close"
         private const val KEY_QUEUE_PERSISTENCE_ENABLED = "queue_persistence_enabled" // Enable/disable queue persistence
         private const val KEY_SAVED_QUEUE = "saved_queue" // Queue persistence - list of song IDs
         private const val KEY_SAVED_QUEUE_INDEX = "saved_queue_index" // Current position in queue
         private const val KEY_SAVED_PLAYBACK_POSITION = "saved_playback_position" // Current playback position in ms
+        private const val KEY_SAVED_ORIGINAL_QUEUE = "saved_original_queue" // Original un-shuffled queue
+        private const val KEY_SAVED_ORIGINAL_QUEUE_SOURCE = "saved_original_queue_source" // Queue source name
         private const val KEY_HIDE_PLAYED_QUEUE_SONGS = "hide_played_queue_songs" // Hide already-played songs in queue
 
         // Widget Settings
@@ -1061,24 +1081,9 @@ class AppSettings private constructor(context: Context) {
     
     // Lyrically Sources Order
     val defaultLyricallySources = listOf(
-        "APPLE_MUSIC",
-        "SPOTIFY",
-        "NETEASE",
-        "QQ_MUSIC",
-        "KUGOU",
-        "YOUTUBE",
-        "DEEZER",
-        "MUSIXMATCH",
-        "GENIUS"
+        "APPLE_MUSIC"
     )
-    val defaultDisabledLyricallySources = setOf(
-        "SPOTIFY",
-        "QQ_MUSIC",
-        "YOUTUBE",
-        "DEEZER",
-        "MUSIXMATCH",
-        "GENIUS"
-    )
+    val defaultDisabledLyricallySources = emptySet<String>()
     private val _lyricallySourcesOrder = MutableStateFlow(
         prefs.getString(KEY_LYRICALLY_SOURCES_ORDER, null)
             ?.split(",")
@@ -1207,6 +1212,50 @@ class AppSettings private constructor(context: Context) {
     private val _monoAudioEnabled = MutableStateFlow(prefs.getBoolean(KEY_MONO_AUDIO_ENABLED, false))
     val monoAudioEnabled: StateFlow<Boolean> = _monoAudioEnabled.asStateFlow()
     
+    val defaultEqualizerPresetOrder = listOf(
+        "Flat", "Rock", "Pop", "Jazz", "Classical", "Electronic",
+        "Hip Hop", "Vocal", "Bass Boost", "Treble Boost", "V-Shape", "Harman"
+    )
+
+    private val _customEqualizerPresets = MutableStateFlow(
+        CustomEqualizerPreset.fromJson(prefs.getString(KEY_CUSTOM_EQUALIZER_PRESETS, null))
+    )
+    val customEqualizerPresets: StateFlow<List<CustomEqualizerPreset>> = _customEqualizerPresets.asStateFlow()
+
+    private val _equalizerPresetOrder = MutableStateFlow(
+        prefs.getString(KEY_EQUALIZER_PRESET_ORDER, null)
+            ?.split(",")
+            ?.filter { it.isNotBlank() }
+            ?.takeIf { it.isNotEmpty() }
+            ?: defaultEqualizerPresetOrder
+    )
+    val equalizerPresetOrder: StateFlow<List<String>> = _equalizerPresetOrder.asStateFlow()
+
+    private val _hiddenEqualizerPresets = MutableStateFlow(
+        prefs.getString(KEY_HIDDEN_EQUALIZER_PRESETS, null)
+            ?.split(",")
+            ?.filter { it.isNotBlank() }
+            ?.toSet()
+            ?: emptySet()
+    )
+    val hiddenEqualizerPresets: StateFlow<Set<String>> = _hiddenEqualizerPresets.asStateFlow()
+
+    private val _pinnedAutoEQProfiles = MutableStateFlow(
+        prefs.getString(KEY_PINNED_AUTOEQ_PROFILES, null)
+            ?.split(";;")
+            ?.filter { it.isNotBlank() }
+            ?: emptyList()
+    )
+    val pinnedAutoEQProfiles: StateFlow<List<String>> = _pinnedAutoEQProfiles.asStateFlow()
+    
+    private val _customAutoEQProfiles = MutableStateFlow(
+        AutoEQProfile.listFromJson(prefs.getString(KEY_CUSTOM_AUTOEQ_PROFILES, null))
+    )
+    val customAutoEQProfiles: StateFlow<List<AutoEQProfile>> = _customAutoEQProfiles.asStateFlow()
+
+    private val _speakerAutoEQBypass = MutableStateFlow(prefs.getBoolean(KEY_SPEAKER_AUTOEQ_BYPASS, true))
+    val speakerAutoEQBypass: StateFlow<Boolean> = _speakerAutoEQBypass.asStateFlow()
+    
     // Sleep Timer
     private val _sleepTimerActive = MutableStateFlow(prefs.getBoolean(KEY_SLEEP_TIMER_ACTIVE, false))
     val sleepTimerActive: StateFlow<Boolean> = _sleepTimerActive.asStateFlow()
@@ -1289,11 +1338,24 @@ class AppSettings private constructor(context: Context) {
     private val _useExactArtworkColors = MutableStateFlow(prefs.getBoolean(KEY_USE_EXACT_ARTWORK_COLORS, false))
     val useExactArtworkColors: StateFlow<Boolean> = _useExactArtworkColors.asStateFlow()
 
+    private val _expressiveColors = MutableStateFlow(prefs.getBoolean(KEY_EXPRESSIVE_COLORS, true))
+    val expressiveColors: StateFlow<Boolean> = _expressiveColors.asStateFlow()
+
+    private val _themeIntensity = MutableStateFlow(prefs.getString(KEY_THEME_INTENSITY, "STANDARD") ?: "STANDARD")
+    val themeIntensity: StateFlow<String> = _themeIntensity.asStateFlow()
+    
     // Stop Playback on App Close
     private val _stopPlaybackOnAppClose = MutableStateFlow(prefs.getBoolean(KEY_STOP_PLAYBACK_ON_APP_CLOSE, false))
     val stopPlaybackOnAppClose: StateFlow<Boolean> = _stopPlaybackOnAppClose.asStateFlow()
 
     // Queue Persistence
+    private val _continueWithDeviceLibrary = MutableStateFlow(prefs.getBoolean("continue_with_device_library", true))
+    val continueWithDeviceLibrary: StateFlow<Boolean> = _continueWithDeviceLibrary.asStateFlow()
+    fun setContinueWithDeviceLibrary(enabled: Boolean) {
+        prefs.edit { putBoolean("continue_with_device_library", enabled) }
+        _continueWithDeviceLibrary.value = enabled
+    }
+
     private val _queuePersistenceEnabled = MutableStateFlow(prefs.getBoolean(KEY_QUEUE_PERSISTENCE_ENABLED, true))
     val queuePersistenceEnabled: StateFlow<Boolean> = _queuePersistenceEnabled.asStateFlow()
 
@@ -1327,6 +1389,23 @@ class AppSettings private constructor(context: Context) {
     private val _savedPlaybackPosition = MutableStateFlow(prefs.getLong(KEY_SAVED_PLAYBACK_POSITION, 0L))
     val savedPlaybackPosition: StateFlow<Long> = _savedPlaybackPosition.asStateFlow()
 
+    private val _savedOriginalQueue = MutableStateFlow<List<String>>(
+        try {
+            val json = prefs.getString(KEY_SAVED_ORIGINAL_QUEUE, null)
+            if (json != null) {
+                Gson().fromJson(json, object : TypeToken<List<String>>() {}.type)
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    )
+    val savedOriginalQueue: StateFlow<List<String>> = _savedOriginalQueue.asStateFlow()
+
+    private val _savedOriginalQueueSource = MutableStateFlow<String?>(prefs.getString(KEY_SAVED_ORIGINAL_QUEUE_SOURCE, null))
+    val savedOriginalQueueSource: StateFlow<String?> = _savedOriginalQueueSource.asStateFlow()
+    
     // Cache Settings
     private val _maxCacheSize = MutableStateFlow(safeLong(KEY_MAX_CACHE_SIZE, 300L * 1024L * 1024L)) // 300MB default
     val maxCacheSize: StateFlow<Long> = _maxCacheSize.asStateFlow()
@@ -1383,6 +1462,24 @@ class AppSettings private constructor(context: Context) {
     private val _defaultPlaylistsEnabled = MutableStateFlow(prefs.getBoolean(KEY_DEFAULT_PLAYLISTS_ENABLED, true))
     val defaultPlaylistsEnabled: StateFlow<Boolean> = _defaultPlaylistsEnabled.asStateFlow()
 
+    private val _showLikedInPlaylists = MutableStateFlow(prefs.getBoolean(KEY_SHOW_LIKED_IN_PLAYLISTS, false))
+    val showLikedInPlaylists: StateFlow<Boolean> = _showLikedInPlaylists.asStateFlow()
+
+    private val _smartPlaylistRecentlyAdded = MutableStateFlow(prefs.getBoolean(KEY_SMART_PLAYLIST_RECENTLY_ADDED, true))
+    val smartPlaylistRecentlyAdded: StateFlow<Boolean> = _smartPlaylistRecentlyAdded.asStateFlow()
+
+    private val _smartPlaylistMostPlayed = MutableStateFlow(prefs.getBoolean(KEY_SMART_PLAYLIST_MOST_PLAYED, true))
+    val smartPlaylistMostPlayed: StateFlow<Boolean> = _smartPlaylistMostPlayed.asStateFlow()
+
+    private val _smartPlaylistOnRepeat = MutableStateFlow(prefs.getBoolean(KEY_SMART_PLAYLIST_ON_REPEAT, true))
+    val smartPlaylistOnRepeat: StateFlow<Boolean> = _smartPlaylistOnRepeat.asStateFlow()
+
+    private val _smartPlaylistForgottenFavorites = MutableStateFlow(prefs.getBoolean(KEY_SMART_PLAYLIST_FORGOTTEN_FAVORITES, true))
+    val smartPlaylistForgottenFavorites: StateFlow<Boolean> = _smartPlaylistForgottenFavorites.asStateFlow()
+
+    private val _smartPlaylistRecentlyPlayed = MutableStateFlow(prefs.getBoolean(KEY_SMART_PLAYLIST_RECENTLY_PLAYED, true))
+    val smartPlaylistRecentlyPlayed: StateFlow<Boolean> = _smartPlaylistRecentlyPlayed.asStateFlow()
+    
     // User Statistics
     private val _listeningTime = MutableStateFlow(safeLong(KEY_LISTENING_TIME, 0L))
     val listeningTime: StateFlow<Long> = _listeningTime.asStateFlow()
@@ -1616,9 +1713,12 @@ class AppSettings private constructor(context: Context) {
 
     private val _lastPlayedTimestamp = MutableStateFlow(safeLong(KEY_LAST_PLAYED_TIMESTAMP, 0L))
     val lastPlayedTimestamp: StateFlow<Long> = _lastPlayedTimestamp.asStateFlow()
+    
+    private val _integrationsEnabled = MutableStateFlow(prefs.getBoolean(KEY_INTEGRATIONS_ENABLED, false))
+    val integrationsEnabled: StateFlow<Boolean> = _integrationsEnabled.asStateFlow()
 
     // API Enable/Disable States
-    private val _deezerApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_DEEZER_API_ENABLED, BuildConfig.FLAVOR != "fdroid"))
+    private val _deezerApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_DEEZER_API_ENABLED, false))
     val deezerApiEnabled: StateFlow<Boolean> = _deezerApiEnabled.asStateFlow()
 
     private val _lrclibApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_LRCLIB_API_ENABLED, BuildConfig.FLAVOR != "fdroid"))
@@ -1627,7 +1727,7 @@ class AppSettings private constructor(context: Context) {
     private val _betterLyricsApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_BETTERLYRICS_API_ENABLED, BuildConfig.FLAVOR != "fdroid"))
     val betterLyricsApiEnabled: StateFlow<Boolean> = _betterLyricsApiEnabled.asStateFlow()
     
-    private val _ytMusicApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_YTMUSIC_API_ENABLED, BuildConfig.FLAVOR != "fdroid"))
+    private val _ytMusicApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_YTMUSIC_API_ENABLED, false))
     val ytMusicApiEnabled: StateFlow<Boolean> = _ytMusicApiEnabled.asStateFlow()
 
     private val _spotifyApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_SPOTIFY_API_ENABLED, BuildConfig.FLAVOR != "fdroid"))
@@ -1636,7 +1736,7 @@ class AppSettings private constructor(context: Context) {
     private val _lyricallyApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_LYRICALLY_API_ENABLED, BuildConfig.FLAVOR != "fdroid"))
     val lyricallyApiEnabled: StateFlow<Boolean> = _lyricallyApiEnabled.asStateFlow()
 
-    private val _wikipediaApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_WIKIPEDIA_API_ENABLED, BuildConfig.FLAVOR != "fdroid"))
+    private val _wikipediaApiEnabled = MutableStateFlow(prefs.getBoolean(KEY_WIKIPEDIA_API_ENABLED, false))
     val wikipediaApiEnabled: StateFlow<Boolean> = _wikipediaApiEnabled.asStateFlow()
 
     private val _autoFetchArtwork = MutableStateFlow(prefs.getBoolean(KEY_AUTO_FETCH_ARTWORK, true))
@@ -1647,7 +1747,7 @@ class AppSettings private constructor(context: Context) {
     )
     val artistArtworkSource: StateFlow<ArtistArtworkSource> = _artistArtworkSource.asStateFlow()
 
-    private val _appleCanvasEnabled = MutableStateFlow(prefs.getBoolean(KEY_APPLE_CANVAS_ENABLED, true))
+    private val _appleCanvasEnabled = MutableStateFlow(prefs.getBoolean(KEY_APPLE_CANVAS_ENABLED, false))
     val appleCanvasEnabled: StateFlow<Boolean> = _appleCanvasEnabled.asStateFlow()
 
     private val _appleCanvasNetworkMode = MutableStateFlow(
@@ -1672,6 +1772,42 @@ class AppSettings private constructor(context: Context) {
         prefs.getBoolean(KEY_BLUETOOTH_LYRICS_ENABLED, BuildConfig.ENABLE_FORK_DEFAULTS)
     )
     val bluetoothLyricsEnabled: StateFlow<Boolean> = _bluetoothLyricsEnabled.asStateFlow()
+
+    private val bluetoothDisplayDeviceMonitor by lazy { BluetoothDisplayDeviceMonitor(context) { audioRoutingMode.value == "app" } }
+    val connectedUsbAudioOutput: StateFlow<Boolean>
+        get() = bluetoothDisplayDeviceMonitor.usbConnected
+    val currentBluetoothDisplayDevice: StateFlow<BluetoothDisplayDevice?>
+        get() = bluetoothDisplayDeviceMonitor.device
+    fun refreshBluetoothDisplayDevice() = bluetoothDisplayDeviceMonitor.refresh()
+
+    private val _bluetoothDisplayCompatibilityProfiles = MutableStateFlow(loadBluetoothDisplayCompatibilityProfiles())
+    val bluetoothDisplayCompatibilityProfiles: StateFlow<Map<String, Boolean>> =
+        _bluetoothDisplayCompatibilityProfiles.asStateFlow()
+
+    private fun loadBluetoothDisplayCompatibilityProfiles(): Map<String, Boolean> = try {
+        val type = object : TypeToken<Map<String, Boolean>>() {}.type
+        Gson().fromJson<Map<String, Boolean>>(prefs.getString("bluetooth_display_compatibility_profiles", null), type)
+            ?: emptyMap()
+    } catch (_: Exception) { emptyMap() }
+
+    fun effectiveBluetoothDisplayCompatibility(device: BluetoothDisplayDevice?): Boolean =
+        bluetoothDisplayCompatibilityEnabled(device, _bluetoothDisplayCompatibilityProfiles.value,
+            _bluetoothLyricsLegacyCarModeEnabled.value)
+
+    fun setBluetoothDisplayCompatibility(device: BluetoothDisplayDevice?, enabled: Boolean) {
+        if (device == null) return
+        val updated = _bluetoothDisplayCompatibilityProfiles.value + (device.key to enabled)
+        prefs.edit { putString("bluetooth_display_compatibility_profiles", Gson().toJson(updated)) }
+        _bluetoothDisplayCompatibilityProfiles.value = updated
+    }
+
+    fun effectiveBluetoothDisplayOffsetMs(device: BluetoothDisplayDevice?): Int =
+        if (device == null) 0 else bluetoothDisplayProfileValue(device,
+            _bluetoothLyricsOffsetPresets.value, _bluetoothLyricsOffsetMs.value)
+
+    fun setBluetoothDisplayOffset(device: BluetoothDisplayDevice?, offsetMs: Int) {
+        setBluetoothLyricsOffsetForDevice(device?.key, offsetMs)
+    }
 
     private val _bluetoothLyricsLegacyCarModeEnabled = MutableStateFlow(
         prefs.getBoolean(KEY_BLUETOOTH_LYRICS_LEGACY_CAR_MODE_ENABLED, BuildConfig.ENABLE_FORK_DEFAULTS)
@@ -2370,6 +2506,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         prefs.edit { putString(KEY_AUDIO_ROUTING_MODE, mode) }
         _audioRoutingMode.value = mode
         Log.d("AppSettings", "Audio routing mode set to: $mode")
+        refreshBluetoothDisplayDevice()
     }
 
     fun setAudioNormalization(enable: Boolean) {
@@ -2770,23 +2907,15 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         val changed = _preferSongArtwork.value != enabled
         val disableLossless = !enabled && _losslessArtwork.value
         prefs.edit {
-    putBoolean(KEY_PREFER_SONG_ARTWORK, enabled)
-    putBoolean(KEY_IGNORE_MEDIASTORE_COVERS, enabled)
-    putBoolean(KEY_LOSSLESS_ARTWORK, if (disableLossless) false else _losslessArtwork.value)
-}
+            putBoolean(KEY_PREFER_SONG_ARTWORK, enabled)
+            putBoolean(KEY_IGNORE_MEDIASTORE_COVERS, enabled)
+            putBoolean(KEY_LOSSLESS_ARTWORK, if (disableLossless) false else _losslessArtwork.value)
+        }
         _preferSongArtwork.value = enabled
         if (disableLossless) {
             _losslessArtwork.value = false
         }
-
-        if (changed || disableLossless) {
-            val reason = when {
-                enabled -> "prefer_song_artwork_enabled"
-                disableLossless -> "prefer_song_artwork_disabled_and_lossless_reset"
-                else -> "prefer_song_artwork_disabled"
-            }
-            requestFullMediaRescanOnNextLaunch(reason = reason)
-        }
+        updateDerivedSettings()
     }
 
     @Deprecated("Use setPreferSongArtwork")
@@ -2803,13 +2932,6 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         // Lossless artwork requires per-song artwork mode to take effect.
         if (enabled && !_preferSongArtwork.value) {
             setPreferSongArtwork(true)
-        } else if (changed) {
-            val reason = if (enabled) {
-                "lossless_artwork_enabled"
-            } else {
-                "lossless_artwork_disabled"
-            }
-            requestFullMediaRescanOnNextLaunch(reason = reason)
         }
     }
 
@@ -3014,6 +3136,155 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         prefs.edit { putBoolean(KEY_MONO_AUDIO_ENABLED, enable) }
         _monoAudioEnabled.value = enable
     }
+
+    fun saveCustomEqualizerPreset(preset: CustomEqualizerPreset) {
+        val current = _customEqualizerPresets.value.toMutableList()
+        val index = current.indexOfFirst { it.id == preset.id || it.name.equals(preset.name, ignoreCase = true) }
+        if (index >= 0) {
+            current[index] = preset
+        } else {
+            current.add(preset)
+        }
+        val json = CustomEqualizerPreset.toJson(current)
+        prefs.edit { putString(KEY_CUSTOM_EQUALIZER_PRESETS, json) }
+        _customEqualizerPresets.value = current
+
+        // Also ensure preset is in the preset order
+        val order = _equalizerPresetOrder.value.toMutableList()
+        if (preset.name !in order) {
+            val firstBuiltInIndex = order.indexOfFirst { it in defaultEqualizerPresetOrder }
+            if (firstBuiltInIndex >= 0) {
+                order.add(firstBuiltInIndex, preset.name)
+            } else {
+                order.add(preset.name)
+            }
+            setEqualizerPresetOrder(order)
+        }
+    }
+
+    fun deleteCustomEqualizerPreset(id: String) {
+        val current = _customEqualizerPresets.value.toMutableList()
+        val preset = current.find { it.id == id }
+        current.removeAll { it.id == id }
+        val json = CustomEqualizerPreset.toJson(current)
+        prefs.edit { putString(KEY_CUSTOM_EQUALIZER_PRESETS, json) }
+        _customEqualizerPresets.value = current
+
+        if (preset != null) {
+            val order = _equalizerPresetOrder.value.toMutableList()
+            order.remove(preset.name)
+            setEqualizerPresetOrder(order)
+            val hidden = _hiddenEqualizerPresets.value.toMutableSet()
+            hidden.remove(preset.name)
+            setHiddenEqualizerPresets(hidden)
+
+            if (_equalizerPreset.value == preset.name) {
+                setEqualizerPreset("Flat")
+                setEqualizerBandLevels(List(10) { 0f }.joinToString(","))
+            }
+        }
+    }
+
+    fun setEqualizerPresetOrder(order: List<String>) {
+        val orderStr = order.joinToString(",")
+        prefs.edit { putString(KEY_EQUALIZER_PRESET_ORDER, orderStr) }
+        _equalizerPresetOrder.value = order
+    }
+
+    fun resetEqualizerPresetOrder() {
+        val customNames = _customEqualizerPresets.value.map { it.name }
+        val pinnedNames = _pinnedAutoEQProfiles.value.map { "AutoEQ: $it" }
+        val resetOrder = pinnedNames + customNames + defaultEqualizerPresetOrder
+        prefs.edit { remove(KEY_EQUALIZER_PRESET_ORDER) }
+        _equalizerPresetOrder.value = resetOrder
+        setHiddenEqualizerPresets(emptySet())
+    }
+
+    fun setHiddenEqualizerPresets(hidden: Set<String>) {
+        val hiddenStr = hidden.joinToString(",")
+        prefs.edit { putString(KEY_HIDDEN_EQUALIZER_PRESETS, hiddenStr) }
+        _hiddenEqualizerPresets.value = hidden
+    }
+
+    fun pinAutoEQProfile(name: String) {
+        val current = _pinnedAutoEQProfiles.value.toMutableList()
+        if (!current.contains(name)) {
+            current.add(name)
+            val str = current.joinToString(";;")
+            prefs.edit { putString(KEY_PINNED_AUTOEQ_PROFILES, str) }
+            _pinnedAutoEQProfiles.value = current
+
+            val order = _equalizerPresetOrder.value.toMutableList()
+            val presetKey = "AutoEQ: $name"
+            if (presetKey !in order) {
+                val lastAutoEQIndex = order.indexOfLast { it.startsWith("AutoEQ: ") }
+                val insertIndex = if (lastAutoEQIndex >= 0) lastAutoEQIndex + 1 else 0
+                order.add(insertIndex, presetKey)
+                setEqualizerPresetOrder(order)
+            }
+        }
+    }
+
+    fun unpinAutoEQProfile(name: String) {
+        val current = _pinnedAutoEQProfiles.value.toMutableList()
+        current.remove(name)
+        val str = current.joinToString(";;")
+        prefs.edit { putString(KEY_PINNED_AUTOEQ_PROFILES, str) }
+        _pinnedAutoEQProfiles.value = current
+
+        val order = _equalizerPresetOrder.value.toMutableList()
+        val presetKey = "AutoEQ: $name"
+        order.remove(presetKey)
+        setEqualizerPresetOrder(order)
+        val hidden = _hiddenEqualizerPresets.value.toMutableSet()
+        hidden.remove(presetKey)
+        setHiddenEqualizerPresets(hidden)
+    }
+
+    fun saveCustomAutoEQProfile(profile: AutoEQProfile) {
+        val current = _customAutoEQProfiles.value.toMutableList()
+        val index = current.indexOfFirst { it.name.equals(profile.name, ignoreCase = true) }
+        if (index >= 0) {
+            current[index] = profile
+        } else {
+            current.add(profile)
+        }
+        val json = AutoEQProfile.listToJson(current)
+        prefs.edit { putString(KEY_CUSTOM_AUTOEQ_PROFILES, json) }
+        _customAutoEQProfiles.value = current
+    }
+
+    fun saveCustomAutoEQProfiles(profiles: List<AutoEQProfile>) {
+        val current = _customAutoEQProfiles.value.toMutableList()
+        for (profile in profiles) {
+            val index = current.indexOfFirst { it.name.equals(profile.name, ignoreCase = true) }
+            if (index >= 0) {
+                current[index] = profile
+            } else {
+                current.add(profile)
+            }
+        }
+        val json = AutoEQProfile.listToJson(current)
+        prefs.edit { putString(KEY_CUSTOM_AUTOEQ_PROFILES, json) }
+        _customAutoEQProfiles.value = current
+    }
+
+    fun deleteCustomAutoEQProfile(name: String) {
+        val current = _customAutoEQProfiles.value.toMutableList()
+        current.removeAll { it.name.equals(name, ignoreCase = true) }
+        val json = AutoEQProfile.listToJson(current)
+        prefs.edit { putString(KEY_CUSTOM_AUTOEQ_PROFILES, json) }
+        _customAutoEQProfiles.value = current
+        unpinAutoEQProfile(name)
+        if (_autoEQProfile.value.equals(name, ignoreCase = true)) {
+            setAutoEQProfile("")
+        }
+    }
+
+    fun setSpeakerAutoEQBypass(bypass: Boolean) {
+        prefs.edit { putBoolean(KEY_SPEAKER_AUTOEQ_BYPASS, bypass) }
+        _speakerAutoEQBypass.value = bypass
+    }
     
     // Sleep Timer Methods
     fun setSleepTimerActive(active: Boolean) {
@@ -3143,10 +3414,14 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         _showRemainingTime.value = enabled
     }
     
-    // Exact extracted colors from artwork settings methods
-    fun setUseExactArtworkColors(enabled: Boolean) {
-        prefs.edit { putBoolean(KEY_USE_EXACT_ARTWORK_COLORS, enabled) }
-        _useExactArtworkColors.value = enabled
+    fun setExpressiveColors(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_EXPRESSIVE_COLORS, enabled) }
+        _expressiveColors.value = enabled
+    }
+
+    fun setThemeIntensity(intensity: String) {
+        prefs.edit { putString(KEY_THEME_INTENSITY, intensity) }
+        _themeIntensity.value = intensity
     }
 
     // Stop Playback on App Close Methods
@@ -3182,10 +3457,33 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         _savedPlaybackPosition.value = position
     }
 
+    fun setSavedOriginalQueue(songIds: List<String>) {
+        val json = Gson().toJson(songIds)
+        prefs.edit { putString(KEY_SAVED_ORIGINAL_QUEUE, json) }
+        _savedOriginalQueue.value = songIds
+    }
+
+    fun setSavedOriginalQueueSource(sourceName: String?) {
+        if (sourceName == null) {
+            prefs.edit { remove(KEY_SAVED_ORIGINAL_QUEUE_SOURCE) }
+        } else {
+            prefs.edit { putString(KEY_SAVED_ORIGINAL_QUEUE_SOURCE, sourceName) }
+        }
+        _savedOriginalQueueSource.value = sourceName
+    }
+
+    fun clearSavedOriginalQueue() {
+        prefs.edit { remove(KEY_SAVED_ORIGINAL_QUEUE) }
+        prefs.edit { remove(KEY_SAVED_ORIGINAL_QUEUE_SOURCE) }
+        _savedOriginalQueue.value = emptyList()
+        _savedOriginalQueueSource.value = null
+    }
+    
     fun clearSavedQueue() {
         prefs.edit { remove(KEY_SAVED_QUEUE) }
         prefs.edit { remove(KEY_SAVED_QUEUE_INDEX) }
         prefs.edit { remove(KEY_SAVED_PLAYBACK_POSITION) }
+        clearSavedOriginalQueue()
         _savedQueue.value = emptyList()
         _savedQueueIndex.value = -1
         _savedPlaybackPosition.value = 0L
@@ -3257,6 +3555,36 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         _defaultPlaylistsEnabled.value = enabled
     }
 
+    fun setShowLikedInPlaylists(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_SHOW_LIKED_IN_PLAYLISTS, enabled) }
+        _showLikedInPlaylists.value = enabled
+    }
+
+    fun setSmartPlaylistRecentlyAdded(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_SMART_PLAYLIST_RECENTLY_ADDED, enabled) }
+        _smartPlaylistRecentlyAdded.value = enabled
+    }
+
+    fun setSmartPlaylistMostPlayed(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_SMART_PLAYLIST_MOST_PLAYED, enabled) }
+        _smartPlaylistMostPlayed.value = enabled
+    }
+
+    fun setSmartPlaylistOnRepeat(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_SMART_PLAYLIST_ON_REPEAT, enabled) }
+        _smartPlaylistOnRepeat.value = enabled
+    }
+
+    fun setSmartPlaylistForgottenFavorites(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_SMART_PLAYLIST_FORGOTTEN_FAVORITES, enabled) }
+        _smartPlaylistForgottenFavorites.value = enabled
+    }
+
+    fun setSmartPlaylistRecentlyPlayed(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_SMART_PLAYLIST_RECENTLY_PLAYED, enabled) }
+        _smartPlaylistRecentlyPlayed.value = enabled
+    }
+    
     // User Statistics Methods
     fun setListeningTime(time: Long) {
         prefs.edit { putLong(KEY_LISTENING_TIME, time) }
@@ -3550,6 +3878,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
     fun setAppleCanvasEnabled(enabled: Boolean) {
         prefs.edit { putBoolean(KEY_APPLE_CANVAS_ENABLED, enabled) }
         _appleCanvasEnabled.value = enabled
+        if (enabled) setIntegrationsEnabled(true)
     }
 
     fun setAppleCanvasNetworkMode(mode: CanvasNetworkMode) {
@@ -3562,39 +3891,51 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         _artistArtworkSource.value = source
     }
 
+    fun setIntegrationsEnabled(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_INTEGRATIONS_ENABLED, enabled) }
+        _integrationsEnabled.value = enabled
+    }
+
     fun setDeezerApiEnabled(enabled: Boolean) {
         prefs.edit { putBoolean(KEY_DEEZER_API_ENABLED, enabled) }
         _deezerApiEnabled.value = enabled
+        if (enabled) setIntegrationsEnabled(true)
     }
 
     fun setLrcLibApiEnabled(enabled: Boolean) {
         prefs.edit { putBoolean(KEY_LRCLIB_API_ENABLED, enabled) }
         _lrclibApiEnabled.value = enabled
+        if (enabled) setIntegrationsEnabled(true)
     }
 
     fun setBetterLyricsApiEnabled(enabled: Boolean) {
         prefs.edit { putBoolean(KEY_BETTERLYRICS_API_ENABLED, enabled) }
         _betterLyricsApiEnabled.value = enabled
+        if (enabled) setIntegrationsEnabled(true)
     }
     
     fun setYTMusicApiEnabled(enabled: Boolean) {
         prefs.edit { putBoolean(KEY_YTMUSIC_API_ENABLED, enabled) }
         _ytMusicApiEnabled.value = enabled
+        if (enabled) setIntegrationsEnabled(true)
     }
 
     fun setSpotifyApiEnabled(enabled: Boolean) {
         prefs.edit { putBoolean(KEY_SPOTIFY_API_ENABLED, enabled) }
         _spotifyApiEnabled.value = enabled
+        if (enabled) setIntegrationsEnabled(true)
     }
 
     fun setLyricallyApiEnabled(enabled: Boolean) {
         prefs.edit { putBoolean(KEY_LYRICALLY_API_ENABLED, enabled) }
         _lyricallyApiEnabled.value = enabled
+        if (enabled) setIntegrationsEnabled(true)
     }
 
     fun setWikipediaApiEnabled(enabled: Boolean) {
         prefs.edit { putBoolean(KEY_WIKIPEDIA_API_ENABLED, enabled) }
         _wikipediaApiEnabled.value = enabled
+        if (enabled) setIntegrationsEnabled(true)
     }
 
     fun setAutoFetchArtwork(enabled: Boolean) {
@@ -3627,6 +3968,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
 
     fun setBluetoothLyricsLegacyCarModeEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_BLUETOOTH_LYRICS_LEGACY_CAR_MODE_ENABLED, enabled).apply()
+        _bluetoothDisplayCompatibilityProfiles.value = loadBluetoothDisplayCompatibilityProfiles()
         _bluetoothLyricsLegacyCarModeEnabled.value = enabled
     }
 
@@ -5313,7 +5655,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         _replayGainDrc.value = prefs.getBoolean(KEY_REPLAY_GAIN_DRC, true)
         _replayGainPreamp.value = prefs.getFloat(KEY_REPLAY_GAIN_PREAMP, 0f)
         _replayGainPreampUntagged.value = prefs.getFloat(KEY_REPLAY_GAIN_PREAMP_UNTAGGED, 0f)
-        _audioOffloadEnabled.value = prefs.getBoolean(KEY_AUDIO_OFFLOAD_ENABLED, true)
+        _audioOffloadEnabled.value = prefs.getBoolean(KEY_AUDIO_OFFLOAD_ENABLED, false)
         _skipSilenceEnabled.value = prefs.getBoolean(KEY_SKIP_SILENCE, false)
         _batterySaverEnabled.value = prefs.getBoolean(KEY_BATTERY_SAVER_ENABLED, false)
         _batterySaverMode.value = prefs.getString(KEY_BATTERY_SAVER_MODE, "auto") ?: "auto"
@@ -5463,14 +5805,15 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         _lastPlayedTimestamp.value = safeLong(KEY_LAST_PLAYED_TIMESTAMP, 0L)
 
         // API Enable/Disable States
-        _deezerApiEnabled.value = prefs.getBoolean(KEY_DEEZER_API_ENABLED, BuildConfig.FLAVOR != "fdroid")
-        _lrclibApiEnabled.value = prefs.getBoolean(KEY_LRCLIB_API_ENABLED, BuildConfig.FLAVOR != "fdroid")
-        _betterLyricsApiEnabled.value = prefs.getBoolean(KEY_BETTERLYRICS_API_ENABLED, BuildConfig.FLAVOR != "fdroid")
-        _ytMusicApiEnabled.value = prefs.getBoolean(KEY_YTMUSIC_API_ENABLED, BuildConfig.FLAVOR != "fdroid")
-        _spotifyApiEnabled.value = prefs.getBoolean(KEY_SPOTIFY_API_ENABLED, BuildConfig.FLAVOR != "fdroid")
-        _lyricallyApiEnabled.value = prefs.getBoolean(KEY_LYRICALLY_API_ENABLED, BuildConfig.FLAVOR != "fdroid")
-        _wikipediaApiEnabled.value = prefs.getBoolean(KEY_WIKIPEDIA_API_ENABLED, BuildConfig.FLAVOR != "fdroid")
-        _appleCanvasEnabled.value = prefs.getBoolean(KEY_APPLE_CANVAS_ENABLED, true)
+        _integrationsEnabled.value = prefs.getBoolean(KEY_INTEGRATIONS_ENABLED, false)
+        _deezerApiEnabled.value = prefs.getBoolean(KEY_DEEZER_API_ENABLED, false)
+        _lrclibApiEnabled.value = prefs.getBoolean(KEY_LRCLIB_API_ENABLED, false)
+        _betterLyricsApiEnabled.value = prefs.getBoolean(KEY_BETTERLYRICS_API_ENABLED, false)
+        _ytMusicApiEnabled.value = prefs.getBoolean(KEY_YTMUSIC_API_ENABLED, false)
+        _spotifyApiEnabled.value = prefs.getBoolean(KEY_SPOTIFY_API_ENABLED, false)
+        _lyricallyApiEnabled.value = prefs.getBoolean(KEY_LYRICALLY_API_ENABLED, false)
+        _wikipediaApiEnabled.value = prefs.getBoolean(KEY_WIKIPEDIA_API_ENABLED, false)
+        _appleCanvasEnabled.value = prefs.getBoolean(KEY_APPLE_CANVAS_ENABLED, false)
         _appleCanvasNetworkMode.value = CanvasNetworkMode.fromOrdinal(
             prefs.getInt(KEY_APPLE_CANVAS_NETWORK_MODE, CanvasNetworkMode.BOTH.ordinal)
         )
@@ -5494,6 +5837,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
             KEY_BLUETOOTH_LYRICS_ENABLED,
             BuildConfig.ENABLE_FORK_DEFAULTS
         )
+        _bluetoothDisplayCompatibilityProfiles.value = loadBluetoothDisplayCompatibilityProfiles()
         _bluetoothLyricsLegacyCarModeEnabled.value =
             prefs.getBoolean(
                 KEY_BLUETOOTH_LYRICS_LEGACY_CAR_MODE_ENABLED,
@@ -6736,7 +7080,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
                 _expressiveShapeSongArt.value = "CLOVER_8_LEAF"
                 _expressiveShapePlaylistArt.value = "CLOVER_4_LEAF"
                 _expressiveShapeArtistArt.value = "PIXEL_CIRCLE"
-                _expressiveShapePlayerControls.value = "COOKIE_12"
+                _expressiveShapePlayerControls.value = "SUNNY"
                 _expressiveShapeMiniPlayer.value = "COOKIE_4"
             }
             "FRIENDLY" -> {

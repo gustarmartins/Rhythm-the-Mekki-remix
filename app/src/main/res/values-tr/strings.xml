@@ -279,7 +279,6 @@
     
     <!-- Settings - About -->
     <string name="settings_about_music_player">Müzik Çalar</string>
-    <string name="settings_about_project_details">Proje Detayları</string>
     <string name="settings_about_version_label">Sürüm</string>
     <string name="settings_about_build">Yapı</string>
     <string name="settings_about_target_sdk">Hedef SDK</string>
@@ -288,7 +287,6 @@
     <string name="settings_about_credits">Geliştirici</string>
     <string name="settings_about_team_desc">Yenilikçi deneyimler yaratan tutkulu geliştiriciler</string>
     <string name="settings_about_team_chromahub">Takım ChromaHub</string>
-    <string name="settings_about_community">Topluluk</string>
     <string name="about_community_group_maintainers">Paket Bakımcıları</string>
     <string name="about_community_group_collaborators">İşbirlikçileri ve Katkıda Bulunanlar</string>
     <string name="about_community_group_design_testing">Tasarım ve Test</string>
@@ -321,30 +319,10 @@
     <string name="home_no_recently_added">Son Eklenen Albüm Yok</string>
     <string name="home_no_recently_added_desc">Kitaplığınıza eklediğiniz albümler burada görünecek</string>
     <!-- Time-based quotes (0:00-4:59 - Late night) -->
-    <string name="home_quote_late_night_1">Hayalperestler için gece yarısı heyecanları 🌙</string>
-    <string name="home_quote_late_night_2">Gece geç saatlerde çalma listeniz için mükemmel zaman 🎧</string>
-    <string name="home_quote_late_night_3">Müzik gece yarısı daha iyi geliyor ✨</string>
-    <string name="home_quote_late_night_4">Gece müziği çalsın 🌟</string>
     <!-- Time-based quotes (5:00-11:59 - Morning) -->
-    <string name="home_quote_morning_1">Güne mükemmel müzikle başlayın ✨</string>
-    <string name="home_quote_morning_2">Müziğin sabah rutininize enerji vermesine izin verin 🎵</string>
-    <string name="home_quote_morning_3">Her sabah başlamayı bekleyen yeni bir senfonidir 🌅</string>
-    <string name="home_quote_morning_4">Kahve ve müzik - mükemmel sabah karışımı ☕</string>
     <!-- Time-based quotes (12:00-16:59 - Afternoon) -->
-    <string name="home_quote_afternoon_1">En sevdiğiniz ritimlerle gücünüzü artırın 🚀</string>
-    <string name="home_quote_afternoon_2">Müzik her şeyi daha iyi hale getirir 💪</string>
-    <string name="home_quote_afternoon_3">Ritim gününüzü yönlendirsin 🎯</string>
-    <string name="home_quote_afternoon_4">Harika melodilerle odağı artırın 🔥</string>
     <!-- Time-based quotes (17:00-20:59 - Evening) -->
-    <string name="home_quote_evening_1">Rahatlatıcı melodilerle gevşeme zamanı 🌅</string>
-    <string name="home_quote_evening_2">Akşam müziği başlasın 🎶</string>
-    <string name="home_quote_evening_3">Rahatlatıcı çalma listeniz için mükemmel zaman 😌</string>
-    <string name="home_quote_evening_4">En sevdiğiniz şarkılarla rahatlayın 🌇</string>
     <!-- Time-based quotes (21:00-23:59 - Night) -->
-    <string name="home_quote_night_1">Gece vakti müzik zamanıdır 🌙</string>
-    <string name="home_quote_night_2">Gece serenat yapsın sana 🎵</string>
-    <string name="home_quote_night_3">Huzurlu bir gece için mükemmel hisler 🌟</string>
-    <string name="home_quote_night_4">Gecenin sakinliğini kucaklayın 😴</string>
     <!-- Personalized messages -->
     
     <!-- Recommended Section -->
@@ -374,7 +352,6 @@
     <string name="update_now">Şimdi Güncelle</string>
     <!-- LibraryScreen -->
     <string name="library_title">Kütüphane</string>
-    <string name="library_your_music">Müziğiniz</string>
     <string name="library_your_playlists">Çalma listeleriniz</string>
     <string name="library_your_albums">Albümleriniz</string>
     <string name="library_your_artists">Sanatçılarınız</string>
@@ -389,7 +366,6 @@
     <string name="extracting_metadata">Parça ayrıntıları çıkarılıyor…</string>
     <string name="processing_library">Kitaplık optimize ediliyor…</string>
     <string name="library_no_songs">Henüz şarkı yok</string>
-    <string name="library_no_artists">Hiçbir sanatçı bulunamadı</string>
     <string name="library_unknown_year">Bilinmeyen Yıl</string>
     <string name="library_start_collection">Müzik koleksiyonunuzu oluşturmaya başlayın</string>
     <string name="library_sort_artists">Sanatçıları Şuna Göre Sırala:</string>
@@ -405,22 +381,10 @@
         <item quantity="other">Çalma listesi oluşturuluyor ve %1$d şarkı ekleniyor…</item>
     </plurals>
     <string name="library_playlist_name_empty">Oynatma listesi adı boş olamaz</string>
-    <string name="library_no_playlists">Henüz oynatma listesi yok</string>
-    <string name="library_no_albums">Henüz albüm yok</string>
-    <plurals name="library_playlists_count">
-        <item quantity="one">%1$d oynatma listesi</item>
-        <item quantity="other">%1$d oynatma listesi</item>
-    </plurals>
-    <plurals name="library_albums_count">
-        <item quantity="one">%1$d albüm</item>
-        <item quantity="other">%1$d albüm</item>
-    </plurals>
     <!-- Sort Options -->
     <string name="sort_name">Ad</string>
     <string name="sort_date_created">Oluşturulma Tarihi</string>
     <string name="sort_song_count">Şarkı Sayısı</string>
-    <string name="sort_title">Başlık</string>
-    <string name="sort_artist">Sanatçı</string>
     <!-- Storage Permission -->
     <string name="storage_permission_required">Depolama İzni Gerekli</string>
     <string name="storage_permission_desc">Müzik dosyalarınıza göz atmak ve cihazınızın depolama alanını keşfetmek için Rhythm\'ın dosyalarınıza ve medyanıza erişim iznine ihtiyacı var.</string>
@@ -443,8 +407,6 @@
     <string name="common_library">Kütüphane</string>
     <!-- Splash/Loading -->
     <string name="splash_tagline">Müziğiniz, Rhythm\'ınız</string>
-    <string name="splash_loading">Müzik kitaplığınız hazırlanıyor…</string>
-    <string name="splash_loading_streaming">Yayın kurulumunuz hazırlanıyor…</string>
     <string name="splash_ready">Çığır açmaya hazırız!</string>
     <!-- Audio Quality -->
     
@@ -469,8 +431,6 @@
     <string name="updates_cancel_download">İndirmeyi İptal Et</string>
     <string name="cancel_download">İndirmeyi İptal Et</string>
     <string name="download_update">Güncellemeyi İndir</string>
-    <string name="updates_smart_polling">Akıllı Yoklama Etkin</string>
-    <string name="updates_smart_polling_desc">GitHub API çağrılarını en aza indirirken güncellemeleri tespit etmek için etkili HTTP kontrollerinin kullanılması. Yeni sürümler yayınlandığında anında bildirim alacaksınız.</string>
     <string name="updates_channel_desc">Hangi güncelleme kanalını takip edeceğinizi seçin:</string>
     <!-- Onboarding -->
     <string name="onboarding_welcome_to">Hoş Geldiniz</string>
@@ -483,12 +443,10 @@
     <string name="onboarding_backup_desc">Otomatik yedeklemelerle çalma listelerinizi, ayarlarınızı ve tercihlerinizi güvende tutun. Cihazları değiştirirken veya yeniden yükledikten sonra her şeyi geri yükleyin; müzik koleksiyonunuzu asla kaybetmeyin.</string>
     <string name="onboarding_auto_backup">Otomatik yedekleme</string>
     <string name="onboarding_auto_backup_desc">Ayarlarınızı haftalık olarak otomatik olarak yedekleyin</string>
-    <string name="onboarding_backup_center">Yedekleme ve Geri Yükleme Merkezi</string>
     <string name="onboarding_manual_backup_info">İstediğiniz zaman Ayarlar &gt; Yedekleme ve Geri Yükleme bölümünde manuel olarak yedekleme oluşturabilirsiniz.</string>
     <string name="onboarding_what_backed_up">Neler Yedeklenir?</string>
     <string name="onboarding_backed_up_1">Tüm ayarlar, çalma listeleri, temalar ve kitaplık özelleştirmesi</string>
     <string name="onboarding_backed_up_2">Tek dokunuşla dosyalardan veya panodan geri yükleme</string>
-    <string name="onboarding_backed_up_3">Gizlilik için cihazınızda yerel olarak saklanan yedeklemeler</string>
     <string name="onboarding_audio_title">Ses ve Oynatma Deneyimi</string>
     <string name="onboarding_audio_desc">Dokunsal geri bildirim, varsayılan ekran, ses seviyesi kontrolleri, kuyruk davranışı, karıştırma ayarları, şarkı sözü ekranı ve ekolayzır ayarlarıyla ses deneyiminizi özelleştirin.</string>
     <string name="onboarding_lyrics_sources">API: Çevrimiçi şarkı sözleri • Gömülü: Meta veri şarkı sözleri • Yerel: .lrc dosyaları</string>
@@ -497,34 +455,23 @@
     <string name="onboarding_sleep_timer_desc">Uyku Zamanlayıcısı: Ayarlanan süreden sonra oynatmayı otomatik olarak durdurur (Şu An Çalınan ekranından erişim)</string>
     <string name="onboarding_library_title">Müzik Kitaplığınızı Düzenleyin</string>
     <string name="onboarding_library_desc">Albümlerinizin, sanatçılarınızın ve şarkılarınızın nasıl görüntüleneceğini özelleştirin. Tercih ettiğiniz düzeni, sıralama düzenini ve sekme düzenlemesini seçin.</string>
-    <string name="onboarding_library_album_grid">Albüm Izgara Görünümü</string>
-    <string name="onboarding_library_album_grid_desc">Daha iyi görsel tarama için albümleri ızgara düzeninde görüntüleyin</string>
-    <string name="onboarding_library_artist_grid">Sanatçı Izgara Görünümü</string>
-    <string name="onboarding_library_artist_grid_desc">Sanatçıları profil resimleriyle ızgara düzeninde görüntüleyin</string>
-    <string name="onboarding_library_show_lyrics">Şarkı Sözlerini Göster</string>
-    <string name="onboarding_library_show_lyrics_desc">Senkronize şarkı sözlerini oynatıcı ekranında görüntüleyin</string>
     <string name="onboarding_library_how_works">Kütüphane Organizasyonu Nasıl Çalışır?</string>
     <string name="onboarding_library_1">Favorilerinize hızlı erişim için Kitaplık\'taki sekme sırasını özelleştirin</string>
     <string name="onboarding_library_2">Çalma listelerini doğrudan Kitaplık ekranından oluşturun ve yönetin</string>
-    <string name="onboarding_library_3">Gelişmiş görüntüleme ve sıralama seçenekleri Ayarlar &gt; Kitaplık Ayarları\'nda mevcuttur</string>
-    <string name="onboarding_library_4">Varsayılan çalma listeleri (En Son Eklenenler, En Çok Oynananlar) Ayarlar &gt; Çalma Listeleri bölümünden değiştirilebilir</string>
     <string name="onboarding_theme_title">Rhythm\'ı Kendinize Ait Yapın</string>
     <string name="onboarding_theme_desc">Rhythm\'in görünümünü tarzınıza uyacak şekilde kişiselleştirin. Sistem temanızı, yazı tipinizi veya Material Dinamik renklerinizi (Android 12+) seçin.</string>
     <string name="onboarding_more_tuner">Ayarlarda Daha Fazla Özelleştirme</string>
     <string name="onboarding_tuner_1">Özel renk şemaları ve albüm kapağı renk çıkarma</string>
     <string name="onboarding_tuner_2">Yazı tipi özelleştirme ve tipografi ayarları</string>
-    <string name="onboarding_tuner_3">Gelişmiş tema seçenekleri Ayarlar &gt; Tema Özelleştirme bölümünde mevcuttur</string>
     <string name="onboarding_rhythm_guard_title">İşitme Duyunuzu Koruyun</string>
     <string name="onboarding_rhythm_guard_desc">Yaşa duyarlı varsayılanlar ve manuel koruma kontrolleriyle dinlemenizi daha güvenli tutmak için Rhythm Guard\'ı kurun.</string>
     <string name="onboarding_rhythm_guard_mode_title">Rhythm Koruma Modu</string>
     <string name="onboarding_rhythm_guard_age_hint">Yaş profili, Rhythm Guard\'ın daha güvenli dinleme sınırları önermesine yardımcı oluyor.</string>
     <string name="onboarding_rhythm_guard_tip_1">Otomatik mod, minimum kurulumla daha güvenli varsayılanları uygular.</string>
-    <string name="onboarding_rhythm_guard_tip_2">Daha sonra Ayarlar\'da uyarıları ayarlayabilir ve hatırlatıcıları kesebilirsiniz.</string>
     <string name="onboarding_rhythm_guard_tip_3">Manuel mod size uyarılar ve eşikler üzerinde tam kontrol sağlar.</string>
     <string name="onboarding_full_tour_prompt_title">Tam Kurulum Turuna Devam Edilsin mi?</string>
     <string name="onboarding_full_tour_prompt_desc">Çekirdek kurulumu tamamlandı. Gelişmiş özelleştirme için devam edin veya şimdi bitirin ve geri kalanını daha sonra Ayarlar\'dan keşfedin.</string>
     <string name="onboarding_full_tour_prompt_tip_1">Tam tur, oynatma, tema, hareket ve medya tarama seçeneklerini içerir.</string>
-    <string name="onboarding_full_tour_prompt_tip_2">Rhythm Turunu istediğiniz zaman Ayarlar &gt; Geliştirici ve Hata Ayıklama bölümünden yeniden açabilirsiniz.</string>
     <string name="onboarding_full_tour_prompt_tip_3">Burada hiçbir şey kalıcı değildir. Tüm seçimler daha sonra değiştirilebilir.</string>
     <string name="onboarding_continue_full_tour">Tam Tura Devam Et</string>
     <string name="onboarding_finish_now">Kurulumu Şimdi Bitirin</string>
@@ -534,21 +481,18 @@
     <string name="onboarding_media_scan_current_mode">Kara Liste veya Beyaz Liste modunu seçin</string>
     <string name="onboarding_media_scan_blacklist">Kara Liste Modu: Belirli şarkıları ve klasörleri gizleyin (zil sesleri, bildirimler)</string>
     <string name="onboarding_media_scan_whitelist">Beyaz Liste Modu: Yalnızca seçilen klasörlerdeki şarkıları göster</string>
-    <string name="onboarding_media_scan_configure_in_tuner">Ayarlar &gt; Medya Tarama\'da taramayı yapılandırın</string>
     <string name="onboarding_complete_title">Artık Hazırsınız!</string>
     <string name="onboarding_complete_desc">Rhythm oynamaya hazır! Müzik kitaplığınız arka planda taranıyor. İşte yapılandırılmış olanlar:</string>
     <string name="onboarding_whats_next">Sırada Ne Var?</string>
     <string name="onboarding_next_browse">Şarkılarınıza, albümlerinize ve sanatçılarınıza göz atın</string>
     <string name="onboarding_next_create">İlk çalma listenizi oluşturun</string>
     <string name="onboarding_next_finetune">Ekolayzer ile sese ince ayar yapın</string>
-    <string name="onboarding_next_explore">İstediğiniz zaman daha fazla ayarı keşfedin</string>
     <string name="onboarding_settings_change">Tüm ayarlar istediğiniz zaman Ayarlar\'dan değiştirilebilir</string>
     <!-- Onboarding Navigation -->
     <string name="onboarding_back">Geri</string>
     <string name="onboarding_next">Sonraki</string>
     <string name="onboarding_checking">Kontrol ediliyor…</string>
     <string name="onboarding_lets_go">Hadi gidelim!</string>
-    <string name="onboarding_finish_setup">Kurulumu Bitir</string>
     <string name="onboarding_continue">Devam et</string>
     <string name="onboarding_open_settings">Ayarları Aç</string>
     <string name="onboarding_grant_access">Erişim Ver</string>
@@ -571,7 +515,6 @@
     <string name="onboarding_permission_tips">İzin İpuçları</string>
     <string name="onboarding_permission_tip_1">En iyi deneyim için tüm izinleri verin</string>
     <string name="onboarding_permission_tip_2">İzinleri daha sonra Ayarlar\'dan değiştirebilirsiniz</string>
-    <string name="onboarding_permission_tip_3">Rhythm gizliliğinize ve verilerinize saygı duyuyor</string>
     <!-- Onboarding Audio &amp; Playback -->
     <string name="onboarding_default_screen_title">Varsayılan Açılış Ekranı</string>
     <string name="onboarding_default_screen_desc">Rhythm\'ı başlattığınızda hangi ekranın açılacağını seçin</string>
@@ -602,8 +545,6 @@
     <string name="onboarding_periodic_check_desc">Rhythm\'ın GitHub deposundaki güncellemeleri otomatik olarak kontrol edin</string>
     <string name="onboarding_update_notifications_title">Güncelleme Bildirimleri</string>
     <string name="onboarding_update_notifications_desc">Yeni sürümler mevcut olduğunda bildirim alın</string>
-    <string name="onboarding_smart_polling_title">Akıllı Yoklama</string>
-    <string name="onboarding_smart_polling_desc">GitHub API çağrılarını kaydetmek için etkili kontroller kullanın</string>
     <string name="onboarding_check_interval_desc">Güncellemelerin ne sıklıkta kontrol edileceği</string>
     <string name="onboarding_update_channel_title">Kanalı Güncelle</string>
     <string name="onboarding_update_channel_desc">Kararlı veya beta sürümler.</string>
@@ -627,12 +568,6 @@
     <string name="onboarding_dismiss">Reddet</string>
     <string name="onboarding_retry">Tekrar Dene</string>
     <!-- Onboarding: Notifications Step -->
-    <string name="onboarding_notifications_title">Oynatma Bildirimleri</string>
-    <string name="onboarding_notifications_desc">Rhythm\'ın bildirim gölgenizde müzik çalmayı nasıl görüntüleyeceğini kontrol edin. Özel tarzdaki bildirimler veya standart sistem medya kontrolleri arasında seçim yapın.</string>
-    <string name="onboarding_notifications_info_title">Bildirim Özellikleri</string>
-    <string name="onboarding_notification_tip_1">Geçerli parça bilgilerini bir bakışta görün</string>
-    <string name="onboarding_notification_tip_2">Hızlı işlemlerle oynatmayı kontrol edin</string>
-    <string name="onboarding_notification_tip_3">Özel stil temanızla eşleşiyor</string>
     <!-- Onboarding: Gestures Step -->
     <string name="onboarding_gestures_title">Dokunma Hareketleri</string>
     <string name="onboarding_gestures_desc">Sezgisel kaydırma ve dokunma hareketleriyle müzik kitaplığınızda daha hızlı gezinin. Mini oynatıcı ve tam oynatıcı ekranları için hareketleri özelleştirin.</string>
@@ -648,7 +583,6 @@
     <string name="onboarding_gesture_doubletap_desc">Mevcut şarkıyı beğenmek için albüm kapağına iki kez dokunun</string>
     <string name="onboarding_gestures_tips_title">Hareket İpuçları</string>
     <string name="onboarding_gesture_tip_1">Kaydırma hareketleri her iki yönde de çalışır</string>
-    <string name="onboarding_gesture_tip_2">Hızlı kaydırmalar yavaş olanlardan daha hızlı yanıt verir</string>
     <!-- Onboarding: Widgets Step -->
     <string name="onboarding_widgets_title">Başlatıcı Widget\'ları</string>
     <string name="onboarding_widgets_desc">Hızlı müzik kontrolü için başlatıcınıza Rhythm widget\'larını ekleyin. Hangi bilgilerin görüntüleneceğini ve widget\'ın nasıl görüneceğini özelleştirin.</string>
@@ -674,8 +608,6 @@
     <string name="onboarding_stats_features_title">İstatistik Özellikleri</string>
     <string name="onboarding_stats_feature_1">Toplam dinleme süresini güne, haftaya veya aya göre takip edin</string>
     <string name="onboarding_stats_feature_2">En çok çalınan şarkılarınızı görün</string>
-    <string name="onboarding_stats_feature_3">En iyi sanatçılarınızı keşfedin</string>
-    <string name="onboarding_stats_feature_4">Albüm dinleme kalıplarını keşfedin</string>
     <!-- MiniPlayer Swipe Hints -->
     <string name="miniplayer_swipe_up_hint">↑ Tam Oyuncu</string>
     <string name="miniplayer_swipe_down_hint">↓ Reddet</string>
@@ -684,10 +616,6 @@
     <string name="miniplayer_no_song">Şarkı çalmıyor</string>
     <string name="badge_live">CANLI</string>
     <!-- Festive Greetings -->
-    <string name="festive_greeting_christmas">🎄 Mutlu Noeller! 🎅</string>
-    <string name="festive_greeting_new_year">🎆Yeni Yılınız Kutlu Olsun! 🎉</string>
-    <string name="festive_greeting_halloween">🎃 Cadılar Bayramınız Kutlu Olsun! 👻</string>
-    <string name="festive_greeting_valentines">💝 Sevgililer Günü\'nüz kutlu olsun! 💕</string>
     <!-- Settings -->
     <string name="settings_tip_theme">Temanızı renkler, yazı tipleri ve şenlik efektleriyle özelleştirin</string>
     <string name="settings_tip_gestures">Sezgisel kaydırma ve dokunuşlarla oynatmayı daha hızlı kontrol edin, ekstra menülere gerek yok.</string>
@@ -763,7 +691,6 @@
     <string name="playback_lyrics_priority_desc">Şarkı sözlerinin kaynaklarını, davranışlarını, düzenini, boyutunu ve stilini yapılandırın</string>
     <string name="playback_settings">Oynatma Ayarları</string>
     <!-- Components: Lyrics Editor -->
-    <string name="lyrics_placeholder">Şarkı sözlerini buraya girin…\n\nLRC biçimini kullanabilirsiniz:\n[00:12.00] Birinci satır\n[00:17.00] İkinci satır</string>
     <string name="lyrics_editor_title">Şarkı Sözü Düzenleyicisi</string>
     <!-- Components: Song Info -->
     <string name="song_info_title">Şarkı Bilgileri</string>
@@ -781,7 +708,6 @@
     <string name="backup_all_settings_placeholder">Tüm ayarlar, çalma listeleri, temalar ve kitaplık özelleştirmesi</string>
     <string name="backup_restore_tap_placeholder">Tek dokunuşla dosyalardan veya panodan geri yükleme</string>
     <string name="backup_local_storage_placeholder">Gizlilik için cihazınızda yerel olarak saklanan yedeklemeler</string>
-    <string name="library_reorder_tabs">Kitaplık deneyiminizi özelleştirmek için sekmeleri yeniden sıralayın</string>
     <string name="external_services_desc">Müzik deneyiminizi geliştirmek için hangi harici API hizmetlerinin etkin olduğunu kontrol edin. Veri kullanımını ve işlevselliği yönetmek için hizmetleri açın/kapatın.</string>
     <string name="lyrics_source_priority_title">Şarkı Sözü Kaynak Önceliği</string>
     <string name="queue_action_title">Kuyruk Çakışma Eylemi</string>
@@ -828,7 +754,6 @@
     <string name="virtualizer_desc">Stereo ses alanını genişletin</string>
     <string name="strength">Güç</string>
     <string name="open_equalizer_settings">Ekolayzer Ayarlarını Aç</string>
-    <string name="system_equalizer">Sistem Eşitleyici</string>
     <string name="no_equalizer">Sistem ekolayzırı bulunamadı</string>
     <string name="no_audio_ID">Sesli oturum kimliği mevcut değil</string>
     <!-- Sleep Timer -->
@@ -923,9 +848,6 @@
     <string name="settings_section_advanced">Gelişmiş</string>
     <string name="settings_crash_log_history">Kilitlenme Günlüğü Geçmişi</string>
     <string name="settings_crash_log_history_desc">Kilitlenme raporları</string>
-    <string name="settings_experimental_features">Deneysel Özellikler</string>
-    <string name="settings_experimental_features_desc">Son teknoloji özellikler</string>
-    <string name="settings_select_option">Rhythm Ayarları</string>
     <!-- Playlist Actions -->
     <string name="playlist_no_songs_available">Mevcut Şarkı Yok</string>
     <string name="playlist_all_in_playlist">Tüm şarkılar zaten bu çalma listesinde yer alıyor.</string>
@@ -985,7 +907,6 @@
     <string name="cd_export_playlists">Çalma listelerini dışa aktar</string>
     <string name="cd_import_playlist">Çalma listesini içe aktar</string>
     <string name="cd_create_playlist">Çalma listesi oluştur</string>
-    <string name="cd_current_location">Mevcut konum</string>
     <string name="cd_song_info">Şarkı bilgisi</string>
     <string name="cd_no_song_playing">Şarkı çalmıyor</string>
     <string name="cd_show_actions">Eylemleri göster</string>
@@ -1002,7 +923,6 @@
     <string name="cd_show_options">Seçenekleri göster</string>
     <string name="cd_app_updates">Uygulama Güncellemeleri</string>
     <string name="cd_completed">Tamamlandı</string>
-    <string name="cd_language">Dil</string>
     <string name="cd_add_selected_songs">Seçilen şarkıları ekle</string>
     <string name="cd_toggle_multi_select">Çoklu seçimi aç/kapat</string>
     <string name="cd_add_song">Şarkı ekle</string>
@@ -1034,7 +954,6 @@
     <string name="bottomsheet_playback">Oynatma</string>
     <string name="bottomsheet_no_device">Bağlı cihaz yok</string>
     <!-- Bottom Sheet: Album -->
-    <string name="bottomsheet_sort_by">Sıralama ölçütü</string>
     <string name="bottomsheet_all_discs">Tüm Diskler</string>
     <string name="bottomsheet_disc_option">Disk %1$d</string>
     <!-- Bottom Sheet: Home Section Order -->
@@ -1080,13 +999,6 @@
     <string name="service_rhythm_pulse_desc">Rhythm\'dan dost canlısı dinleme hatırlatıcıları ve ipuçları</string>
     <string name="service_rhythm_guard_alerts_desc">Rhythm Muhafızından güvenlik uyarıları</string>
     <string name="service_rhythm_guard_timers_desc">Rhythm Koruma molası ve mola hatırlatıcıları</string>
-    <string name="service_starting">Rhythm başlıyor.</string>
-    <string name="service_loading_settings">Rhythm ayarlarınızı yüklüyor.</string>
-    <string name="service_setup_components">Rhythm temel bileşenleri hazırlıyor.</string>
-    <string name="service_initializing_player">Rhythm oynatmaya hazırlanıyor.</string>
-    <string name="service_creating_controls">Rhythm oynatma kontrolleri oluşturuyor.</string>
-    <string name="service_setup_media_session">Rhythm medya oturumunu hazırlıyor.</string>
-    <string name="service_initializing_controller">Rhythm medya denetleyicisine bağlanıyor.</string>
     <string name="service_ready">Rhythm hazır.</string>
     <string name="service_init_failed">Rhythm başlatılamadı. Lütfen uygulamayı yeniden açın.</string>
     <!-- Crash Activity -->
@@ -1115,7 +1027,6 @@
     <string name="settings_ignore_mediastore_covers_desc">Her ses dosyasındaki gömülü resimleri tercih edin (eski adıyla MediaStore Kapaklarını Yoksay)</string>
     <string name="settings_lossless_artwork">Kayıpsız Yapıt</string>
     <string name="settings_lossless_artwork_desc">Tam çözünürlüklü gömülü şarkı resmini sıkıştırma olmadan göster</string>
-    <string name="settings_song_artwork_restart_required">Çizim modu değiştirildi. Önbellekleri temizlemek ve güncellenmiş resim kaynaklarıyla tam medyayı yeniden taramak için uygulamayı yeniden başlatın.</string>
     <string name="settings_artwork_cache_size">Çizim Önbellek Boyutu</string>
     <string name="settings_artist_parsing">Sanatçılar</string>
     <string name="settings_artist_parsing_desc">Ayırıcılar, ekran</string>
@@ -1237,8 +1148,6 @@
     <!-- Gestures Settings -->
     
     <!-- Playlist Settings Toggle -->
-    <string name="playlist_ask_each_time">Her seferinde sor</string>
-    <string name="playlist_ask_each_time_desc">Seçeneklerle iletişim kutusunu göster</string>
     <!-- About Multi-Artist Parsing -->
     
     <!-- Home Screen Greetings -->
@@ -1281,8 +1190,6 @@
     <!-- Additional UI strings -->
     
     <!-- Sort Orders -->
-    <string name="sort_duration_short_first">Süre (Önce kısa)</string>
-    <string name="sort_duration_long_first">Süre (İlk önce uzun)</string>
     <!-- Context Menu Actions -->
     <string name="action_play_next">Sıradakini oyna</string>
     <string name="action_add_to_queue">Kuyruğa ekle</string>
@@ -1310,10 +1217,7 @@
     <string name="home_section_new_releases">Yeni Çıkanlar</string>
     <string name="home_section_one_visible">En az bir bölüm görünür olmalıdır</string>
     <!-- Library Tabs -->
-    <string name="library_tab_songs">Şarkılar</string>
     <string name="library_tab_playlists">Çalma listeleri</string>
-    <string name="library_tab_albums">Albümler</string>
-    <string name="library_tab_artists">Sanatçılar</string>
     <string name="library_tab_one_visible">En az bir sekme görünür olmalıdır</string>
     <string name="library_tab_order_reset">Sekme sırası ve görünürlük varsayılana sıfırlandı</string>
     <string name="library_tab_order_saved">Sekme sırası ve görünürlük kaydedildi</string>
@@ -1374,7 +1278,6 @@
     <string name="settings_no_crash_logs">Kilitlenme günlüğü bulunamadı. Aferin!</string>
     <string name="settings_player_controls">Oyuncu Kontrolleri</string>
     <string name="settings_player_screen">Oyuncu Ekranı</string>
-    <string name="settings_presets">Ön ayarlar</string>
     <string name="settings_progress_display">İlerleme Göstergesi</string>
     <string name="settings_progress_hidden">İlerleme gizlendi</string>
     <string name="settings_reorder_toggle_sections">Bölümleri Yeniden Sırala ve Değiştir</string>
@@ -1420,7 +1323,6 @@
     <string name="settings_intensity">Yoğunluk</string>
     <string name="settings_more_festivals">Gelecekteki güncellemelere daha fazla festival eklenecek</string>
     <string name="settings_select_festival">Festival Seçin</string>
-    <string name="settings_select_artist_separators">Sanatçı ayırıcılarını seçin</string>
     <string name="settings_snowflake_display_area">Kar Tanesi Gösterim Alanı</string>
     <string name="settings_snowflake_size">Kar Tanesi Boyutu</string>
     <string name="settings_toggle_decoration_elements">Bireysel dekorasyon öğelerini konuma göre değiştirin</string>
@@ -1558,7 +1460,6 @@
     <string name="streaming_selected">Seçildi</string>
     <string name="streaming_connect">Bağlan</string>
     <string name="streaming_manage">Yönet</string>
-    <string name="streaming_manage_service">Seçilen Hizmeti Yönet</string>
     <string name="streaming_service_setup_server_url">Sunucu URL\'si</string>
     <string name="streaming_service_setup_server_url_hint">https://sunucunuz.example.com</string>
     <string name="streaming_service_setup_server_url_supporting">Sunucu adresine ihtiyaç duyan sağlayıcılar için gereklidir.</string>
@@ -1576,19 +1477,11 @@
     <string name="streaming_service_setup_connected_as">%1$s olarak bağlandı</string>
     <string name="streaming_home_selected_service_unavailable">Seçilen hizmet bağlı değil</string>
     <string name="streaming_home_connect_selected_service">Ana Sayfa ve Arama\'yı yüklemek için %1$s\'ı bağlayın.</string>
-    <string name="streaming_home_widget_recommended_empty">Henüz keşfedilecek bir şey yok</string>
-    <string name="streaming_home_widget_new_releases_title">Yeni Çıkanlar</string>
     <string name="streaming_home_widget_new_releases_subtitle">%1$s\'dan yeni eklenen albümler</string>
-    <string name="streaming_home_widget_new_releases_empty">Yeni sürüm mevcut değil</string>
     <string name="streaming_home_widget_empty_hint">Bağlandıktan veya yenilendikten sonra bu işlem biraz zaman alabilir.</string>
     <string name="streaming_library_syncing">Akış feed\'iniz yükleniyor…</string>
-    <string name="streaming_library_empty">Henüz kütüphane içeriği yok</string>
     <string name="streaming_home_no_content_title">Henüz ev içeriği yok</string>
     <string name="streaming_home_no_content_hint">Hizmetiniz senkronizasyonu tamamladıktan sonra yenilemeyi deneyin.</string>
-    <plurals name="streaming_home_widget_playlist_track_count">
-        <item quantity="one">%1$d parça</item>
-        <item quantity="other">%1$d parça</item>
-    </plurals>
     <string name="streaming_home_guard_break_active">Mola aktif: %1$s kaldı</string>
     <string name="streaming_home_guard_exposure">Bugün: %1$d / %2$d dk.</string>
     <string name="streaming_not_selected">Seçilmedi</string>
@@ -1612,10 +1505,6 @@
     <string name="settings_tab_artists">Sanatçılar</string>
     <string name="settings_tab_dates">Tarihler</string>
     <string name="settings_tab_explorer">Gezgin</string>
-    <string name="settings_tab_order_reset">Sekme sırası varsayılana sıfırlandı</string>
-    <string name="settings_tab_order_saved">Sekme sırası kaydedildi</string>
-    <string name="settings_move_up">Yukarı taşı</string>
-    <string name="settings_move_down">Aşağıya doğru hareket et</string>
     <!-- Gestures Settings -->
     <string name="settings_swipe_gestures">Kaydırma Hareketleri</string>
     <string name="settings_swipe_gestures_desc">Açmak/kapatmak için yukarı/aşağı, parçaları atlamak için sola/sağa kaydırın</string>
@@ -1691,7 +1580,6 @@
     <string name="settings_festival_christmas">Noel</string>
     <string name="settings_festival_new_year">Yeni Yıl</string>
     <string name="settings_area_full">Tam</string>
-    <string name="settings_area_sides">Taraflar</string>
     <string name="settings_area_top_third">Üst ⅓</string>
     <string name="settings_snowfall">Kar yağışı</string>
     <string name="settings_snowfall_desc">Animasyonlu düşen kar taneleri</string>
@@ -1737,10 +1625,6 @@
     <string name="settings_gesture_double_tap">Çift Dokunma Resmi</string>
     <string name="settings_gesture_double_tap_desc">İki kez dokunarak oynat/duraklat</string>
     <!-- Queue & Playback Search Strings -->
-    <string name="settings_queue_auto_add">Bağlam Sırası</string>
-    <string name="settings_queue_auto_add_desc">Oyunda ilgili sırayı oluşturun</string>
-    <string name="settings_queue_clear_on_new">Oynatma Sırasını Değiştir</string>
-    <string name="settings_queue_clear_on_new_desc">Doğrudan oynatma için sırayı değiştirin</string>
     <string name="settings_show_played_queue_songs">Çalınan Parçaları Göster</string>
     <string name="settings_show_played_queue_songs_desc">Çalınan parçaları kuyrukta görünür tutun</string>
     <string name="settings_queue_action_dialog_desc">Tek hatlı kuyruk çakışması politikası</string>
@@ -1754,9 +1638,6 @@
     <string name="settings_sleep_timer_search_desc">Oynatmayı otomatik durdurma</string>
     <string name="settings_queue_hours_format">Saatleri Zaman Formatında Kullanın</string>
     <string name="settings_queue_hours_format_desc">Zaman formatında saat</string>
-    <string name="settings_queue_persistence">Kalıcı Sıra</string>
-    <string name="settings_queue_persistence_desc">Başlangıçta kuyruğu geri yükle</string>
-    <string name="settings_list_queue_action_dialog_desc">Sıra etkinken oynatma eylemleri listesi davranışı</string>
     <!-- Experimental Features Search Strings -->
     <string name="settings_exp_festive_theme">Festival Teması</string>
     <string name="settings_exp_festive_theme_desc">Festival dekorasyonları</string>
@@ -1768,8 +1649,6 @@
     <string name="settings_exp_codec_monitoring_desc">Ses bilgilerini günlüğe kaydet</string>
     <string name="settings_exp_audio_device_logging">Ses Cihazı Günlüğü</string>
     <string name="settings_exp_audio_device_logging_desc">Cihaz değişikliklerini günlüğe kaydet</string>
-    <string name="settings_exp_launch_onboarding">Rhythm Turunu Başlatın</string>
-    <string name="settings_exp_launch_onboarding_desc">Rhythm Turunu Yeniden Başlatın</string>
     <string name="settings_exp_test_crash">Test Çökmesi</string>
     <string name="settings_exp_test_crash_desc">Uygulamanın çökmesini zorla</string>
     <string name="settings_broadcast_status_enabled">Durum Yayınını Etkinleştir</string>
@@ -1891,13 +1770,10 @@
     <string name="exp_codec_monitoring">Codec İzleme</string>
     <string name="exp_codec_monitoring_desc">Hata ayıklama için ses codec bileşenini ve format bilgilerini günlüğe kaydedin</string>
     <string name="exp_developer_debugging">Geliştirici ve Hata Ayıklama</string>
-    <string name="exp_launch_onboarding">Rhythm Turunu Başlatın</string>
-    <string name="exp_launch_onboarding_desc">Rhythm Turu deneyimini sıfırlayın ve yeniden başlatın</string>
     <string name="exp_test_crash">Test Çökmesi</string>
     <string name="exp_test_crash_desc">Kilitlenme yönetimini ve raporlamayı test etmek için uygulamayı zorla kilitleyin</string>
     <string name="exp_force_player_compact_mode">Player Kompakt Modunu Zorla</string>
     <string name="exp_force_player_compact_mode_desc">Oynatıcı ekranını kompakt modu kullanmaya zorlayın</string>
-    <string name="exp_third_party_integrations">Üçüncü Taraf Entegrasyonları</string>
     <string name="settings_backup_created">Yedekleme Başarıyla Oluşturuldu</string>
     <string name="settings_backup_settings">Ayarlar</string>
     <string name="settings_center_aligned">Ortaya hizalanmış</string>
@@ -1905,12 +1781,10 @@
     <string name="settings_create_backup_desc">Yedeklemenin tamamını bir JSON dosyasına aktarın</string>
     <string name="settings_backup_action_short">Yedekleme</string>
     <string name="settings_restore_action_short">Geri Yükle</string>
-    <string name="settings_experimental">Deneysel Özellikler</string>
     <string name="settings_left_aligned">Sola hizalanmış</string>
     <string name="settings_player">Oyuncu</string>
     <string name="settings_restore_completed">Geri Yükleme Başarıyla Tamamlandı</string>
     <string name="settings_right_aligned">Sağa hizalanmış</string>
-    <string name="settings_tab_order">Kitaplık Sekmesi Sırası</string>
     <!-- Theme, CrashLog, Home, Lyrics, Shapes, API Strings -->
     <string name="settings_crash_log">Kilitlenme Günlüğü Geçmişi</string>
     <string name="settings_expressive_shapes">Etkileyici Şekiller</string>
@@ -1959,8 +1833,6 @@
     <string name="deviceconfigurationbottomsheet_brand_optional">Marka (Opsiyonel)</string>
     <string name="deviceconfigurationbottomsheet_eg_sony">örneğin Sony</string>
     <string name="deviceconfigurationbottomsheet_select_autoeq_profile">AutoEQ Profilini seçin</string>
-    <string name="deviceconfigurationbottomsheet_find_a_profile_for">Bu cihaz için bir profil bulun…</string>
-    <string name="deviceconfigurationbottomsheet_no_matching_profiles_found">Eşleşen profil bulunamadı</string>
     <string name="multiselectionbottomsheet_go_to_album">Albüme git</string>
     <string name="multiselectionbottomsheet_go_to_artist">Sanatçıya git</string>
     <string name="multiselectionbottomsheet_edit_tags">Etiketleri düzenle</string>
@@ -1978,11 +1850,7 @@
     <string name="localnavigation_stats">İstatistikler</string>
     <string name="addtoplaylistscreen_pick_a_tune_to">Eklemek için bir melodi seçin…</string>
     <string name="addtoplaylistscreen_tap_songs_to_select">Birden fazla şarkı seçmek için şarkılara dokunun ve ardından hepsini bir kerede ekleyin</string>
-    <string name="equalizerscreen_reset_to_flat">Düz\'e Sıfırla</string>
     <string name="equalizerscreen_autoeq_profiles">AutoEQ Profilleri</string>
-    <string name="equalizerscreen_apply_headphonespecific_equalization">Kulaklığa özgü eşitlemeyi uygulayın</string>
-    <string name="equalizerscreen_import_export_and_organize">Profilleri içe aktarın, dışa aktarın ve düzenleyin</string>
-    <string name="equalizerscreen_access_androids_builtin_settings">Android\'ın yerleşik ayarlarına erişin</string>
     <string name="explorertabcontent_browse_storage">Depolama alanına göz atın</string>
     <string name="explorertabcontent_folder_icon">Klasör simgesi</string>
     <string name="explorertabcontent_play_folder_as_playlist">Çalma klasörü (Çalma Listesi olarak)</string>
@@ -1996,22 +1864,12 @@
     <string name="onboardingscreen_tap_the_remove_action">Klasör erişimini güncellemek için kaldırma işlemine dokunun</string>
     <string name="onboardingscreen_interaction">Etkileşim</string>
     <string name="onboardingscreen_choose_your_playback_mode">Oynatma Modunuzu Seçin</string>
-    <string name="onboardingscreen_local_offline_player">Yerel Çevrimdışı Oyuncu</string>
-    <string name="onboardingscreen_play_audio_files_stored">Doğrudan cihazınızda saklanan ses dosyalarını oynatın. Gelişmiş yerel dizin taramayı, istatistikleri ve tema eşleştirmeyi destekler.</string>
-    <string name="onboardingscreen_rhythm_go_streaming">Rhythm GO! (Akış)</string>
-    <string name="onboardingscreen_connect_to_jellyfin_subsonic">Çevrimdışı dinleme için önbelleğe alma desteğiyle, kitaplığınızın tamamını hareket halindeyken yayınlamak için Jellyfin, Subsonic veya Navidrome sunucularına bağlanın.</string>
     <string name="onboardingscreen_playback_mode_tips">Oynatma Modu İpuçları</string>
-    <string name="onboardingscreen_switch_easily_anytime_in">Ayarlar &gt; Entegrasyon bölümünde istediğiniz zaman kolayca geçiş yapın.</string>
     <string name="onboardingscreen_local_mode_scans_and">Yerel mod, cihazınızdaki ses dosyalarını tarar ve kataloglar.</string>
     <string name="onboardingscreen_go_streaming_connects_via">GO Streaming, ses altı/jellyfin API sunucusu aracılığıyla bağlanır.</string>
-    <string name="onboardingscreen_connect_your_streaming_service">Yayın Hizmetinizi Bağlayın</string>
-    <string name="onboardingscreen_connect_your_subsonicnavidrome_or">Akışı başlatmak için Subsonic/Navidrome veya Jellyfin sunucunuzu bağlayın.</string>
     <string name="onboardingscreen_streaming_setup_tips">Yayın Kurulumu İpuçları</string>
-    <string name="onboardingscreen_supports_navidrome_gonic_and">Navidrome, gonic ve tüm ses altı API\'lerini destekler.</string>
-    <string name="onboardingscreen_enable_caching_in_settings">Daha sonra çevrimdışı oynatma için Ayarlar\'da önbelleğe almayı etkinleştirin.</string>
     <string name="onboardingscreen_connection_test_ensures_server">Bağlantı testi, sunucu kimlik bilgilerinin doğru olmasını sağlar.</string>
     <string name="onboardingscreen_subsonic_navidrome">Subsonic / Navidrome</string>
-    <string name="onboardingscreen_jellyfin_server">Jellyfin Sunucusu</string>
     <string name="onboardingscreen_httpsyourservercom">https://sunucunuz.com</string>
     <string name="onboardingscreen_remember_to_include_http">http:// veya https:// eklemeyi unutmayın.</string>
     <string name="onboardingscreen_username">Kullanıcı adı</string>
@@ -2029,11 +1887,7 @@
     <string name="gosettingsscreen_network">Ağ</string>
     <string name="gosettingsscreen_enable_streaming_over_mobile">Mobil veriler üzerinden akışı etkinleştir</string>
     <string name="gosettingsscreen_connection_is_healthy">Bağlantı sağlıklı</string>
-    <string name="streamingcontenthomescreen_your_connected_streaming_service">Bağlı yayın hizmeti oynatma listeleriniz</string>
-    <string name="streamingcontenthomescreen_no_playlists_found">Çalma Listesi Bulunamadı</string>
-    <string name="streamingcontenthomescreen_create_playlists_on_your">Burada görmek için sunucunuzda oynatma listeleri oluşturun.</string>
     <string name="streaminghomescreen_leave_go_mode">Leave Go Mode</string>
-    <string name="streaminglibraryscreen_no_albums">Albüm yok</string>
     <string name="streamingsettingsscreen_streaming_restricted">Akış Kısıtlı</string>
     <string name="streamingmusicviewmodel_failed_to_play_next">Sonraki oynatılamadı: URL çözümlenemiyor</string>
     <string name="streamingmusicviewmodel_failed_to_add_to">Kuyruğa eklenemedi: URL çözümlenemiyor</string>
@@ -2057,18 +1911,13 @@
     <string name="songinfobottomsheet_song_artwork">Şarkı resmi</string>
     <string name="songinfobottomsheet_details">Ayrıntılar</string>
     <string name="songinfobottomsheet_change_artwork">Resmi değiştir</string>
-    <string name="songinfobottomsheet_remove_artwork">Resmi Kaldır</string>
     <string name="songinfobottomsheet_artwork_fetched_successfully_click">Çizimler başarıyla getirildi! Katıştırmak için Kaydet\'i tıklayın.</string>
     <string name="songinfobottomsheet_failed_to_download_artwork_1">URL\'den resim indirilemedi</string>
     <string name="songinfobottomsheet_no_artwork_found_for">Bu şarkı için çevrimiçi sanat eseri bulunamadı</string>
-    <string name="songinfobottomsheet_online_search_failed">Çevrimiçi arama başarısız oldu</string>
     <string name="songinfobottomsheet_online_api_service_unavailable">Çevrimiçi API hizmeti kullanılamıyor</string>
     <string name="songinfobottomsheet_fetching">Getiriliyor…</string>
     <string name="songinfobottomsheet_fetch_online_art">Çevrimiçi Sanatı Getir</string>
     <string name="songinfobottomsheet_update_artwork_and_tags">Resmi ve etiketleri güncelleyin</string>
-    <string name="songinfobottomsheet_fetching_artwork">Sanat Eserleri Alınıyor…</string>
-    <string name="updatebottomsheet_install">Kur</string>
-    <string name="updatebottomsheet_update">Güncelleme</string>
     <string name="collapsibleheader_app_icon">Uygulama Simgesi</string>
     <string name="expressivecomponents_seek_back">Geri ara</string>
     <string name="expressivecomponents_seek_forward">İleriye doğru arama</string>
@@ -2105,7 +1954,6 @@
     <string name="rhythmnavigation_stream">Akış</string>
     <string name="rhythmstatsscreen_top_songs">En Popüler Şarkılar</string>
     <string name="rhythmstatsscreen_listening_habits">Dinleme Alışkanlıkları</string>
-    <string name="rhythmstatsscreen_listening_timeline">Dinleme Zaman Çizelgesi</string>
     <string name="rhythmstatsscreen_no_stats_available_yet">Henüz istatistik mevcut değil</string>
     <string name="rhythmstatsscreen_keep_listening_to_build">Müzik yolculuğunuzu geliştirmek için dinlemeye devam edin!</string>
     <string name="universalsearchscreen_remove_search">Aramayı kaldır</string>
@@ -2118,7 +1966,6 @@
     <string name="universalsearchscreen_artist_not_found">Sanatçı bulunamadı</string>
     <string name="expressiveplayerscreen_more">Daha Fazla</string>
     <string name="expressiveplayerscreen_device">Cihaz</string>
-    <string name="expressiveplayerscreen_load">Yük</string>
     <string name="materialplayerscreen_permission_denied_could_not">İzin reddedildi. Şarkı sözleri eklenemedi.</string>
     <string name="materialplayerscreen_unable_to_share_file">Dosya paylaşılamıyor</string>
     <string name="playerscreen_select_artist">Sanatçı Seç</string>
@@ -2229,7 +2076,6 @@
     <string name="lyrics_settings">Şarkı Sözü Ayarları</string>
     <string name="error_loading_lyrics">Şarkı sözleri yüklenirken hata oluştu: %1$s</string>
     <string name="error_saving_lyrics">Şarkı sözleri kaydedilirken hata oluştu: %1$s</string>
-    <string name="song_metadata_details">%1$s\nSanatçı: %2$s\nAlbüm: %3$s</string>
     <string name="crash_log_title">Çökme tarihi: %1$s</string>
     <string name="widget_settings_radius_desc">%1$ddp (yalnızca Glance widget\'ları)</string>
     <string name="equalizer_open_error">Ekolayzır açılamadı: %1$s</string>
@@ -2300,8 +2146,6 @@
     <string name="lyrics_source_embedded_first_desc">Ses dosyası meta verilerini deneyin → Çevrimiçi API\'ler → .lrc dosyaları</string>
     <string name="lyrics_source_api_first">API Birinci</string>
     <string name="lyrics_source_api_first_desc">Çevrimiçi hizmetleri deneyin → Ses meta verileri → .lrc dosyaları</string>
-    <string name="lyrics_source_local_first">Önce Yerel .lrc</string>
-    <string name="lyrics_source_local_first_desc">.lrc dosyalarını deneyin → Ses meta verileri → Çevrimiçi API\'ler</string>
     <!-- Font / Color Customization Dialogs -->
     <string name="theme_font_source_changed_restart">Yazı tipi kaynağı değiştirildi. Yeni yazı tipini uygulamak için uygulamayı yeniden başlatın.</string>
     <string name="color_source_album_art">Albüm Kapağı</string>
@@ -2389,10 +2233,6 @@
     <string name="autoeqpresetpickerbottomsheet_disable">Yok / AutoEQ\'yu Devre Dışı Bırak</string>
     <string name="autoeqpresetpickerbottomsheet_disable_desc">Kulaklık profilini temizleyin, standart EQ ön ayarlarını kullanın</string>
     <!-- Device Configuration additions -->
-    <plurals name="device_configuration_devices_configured">
-        <item quantity="one">%1$d cihaz yapılandırıldı</item>
-        <item quantity="other">%1$d cihaz yapılandırıldı</item>
-    </plurals>
     <string name="device_configuration_device_recognized">Cihaz Tanındı</string>
     <string name="device_configuration_new_device_detected">Yeni Cihaz Algılandı</string>
     <string name="device_configuration_configured_with">%1$s, %2$s ile yapılandırılmıştır</string>
@@ -2412,13 +2252,8 @@
     <string name="device_configuration_save">Kaydet</string>
     <string name="device_configuration_add">Ekle</string>
     <string name="device_configuration_for_device">%1$s için</string>
-    <plurals name="device_configuration_profiles_available">
-        <item quantity="one">%1$d profil mevcut</item>
-        <item quantity="other">%1$d profil mevcut</item>
-    </plurals>
     <string name="device_configuration_disable_compensation">Kulaklık telafisini devre dışı bırak</string>
     <!-- Common UI element strings -->
-    <string name="common_none">Yok</string>
     <string name="common_back">Geri</string>
     <string name="common_active">Aktif</string>
     <string name="common_disabled">Devre Dışı</string>
@@ -2440,8 +2275,6 @@
     <string name="blacklist_add_folder_desc">Bu klasördeki tüm şarkılar gizlenecek ve oynatmanın dışında tutulacak.</string>
     <string name="blacklist_folder_removed_msg">Klasör kara listeden kaldırıldı</string>
     <string name="blacklist_folder_added_msg">Klasör kara listeye eklendi</string>
-    <string name="blacklist_disc_label">Disk %1$d</string>
-    <string name="blacklist_track_label">Parça %1$d</string>
     <!-- Library & Playlist Dialog additions -->
     <string name="dialog_add_song_to_playlist">Bu oynatma listesine \"%1$s\" ekle</string>
     <plurals name="dialog_songs_in_queue">
@@ -2484,7 +2317,6 @@
     <string name="eq_preset_v_shape">V Şekli</string>
     <string name="eq_preset_harman">Harman</string>
     <string name="eq_preset_custom">Özel</string>
-    <string name="eq_manage_device">Cihazı Yönet</string>
     <string name="eq_system_equalizer">Sistem Eşitleyici</string>
     <string name="eq_enhance_lows">Düşükleri geliştirin</string>
     <string name="eq_widen_sound">Sesi genişlet</string>
@@ -2500,7 +2332,6 @@
     <string name="library_scan_songs">Şarkılar taranıyor…</string>
     <string name="library_scan_media">Medya taranıyor…</string>
     <string name="library_category_all">Hepsi</string>
-    <string name="library_category_favorites">❤️ Favoriler</string>
     <string name="library_category_short">Kısa (&lt; 3 dakika)</string>
     <string name="library_category_medium">Orta (3–5 dk)</string>
     <string name="library_category_long">Uzun (&gt; 5 dk)</string>
@@ -2718,7 +2549,6 @@
     <string name="lyrics_source_attribution">%1$s Şarkı Sözleri</string>
     <string name="lyrics_currently_no_lyrics">Şu anda bu şarkının sözleri mevcut değil.\n</string>
     <string name="lyrics_no_lyrics">Bu şarkının sözleri mevcut değil.</string>
-    <string name="artist_options">Sanatçı Seçenekleri</string>
     <string name="edit_album_title_label">Albüm Başlığı</string>
     <string name="edit_album_artist_label">Albüm Sanatçısı</string>
     <plurals name="autoeq_profiles_available">

@@ -270,7 +270,6 @@
     
     <!-- Settings - About -->
     <string name="settings_about_music_player">뮤직 플레이어</string>
-    <string name="settings_about_project_details">프로젝트 세부사항</string>
     <string name="settings_about_version_label">버전</string>
     <string name="settings_about_build">빌드</string>
     <string name="settings_about_target_sdk">타겟 SDK</string>
@@ -279,7 +278,6 @@
     <string name="settings_about_credits">개발자</string>
     <string name="settings_about_team_desc">혁신적인 경험을 창조하는 열정적인 개발자</string>
     <string name="settings_about_team_chromahub">팀 ChromaHub</string>
-    <string name="settings_about_community">커뮤니티</string>
     <string name="about_community_group_maintainers">패키지 관리자</string>
     <string name="about_community_group_collaborators">공동작업자 및 기여자</string>
     <string name="about_community_group_design_testing">설계 및 테스트</string>
@@ -312,30 +310,10 @@
     <string name="home_no_recently_added">최근 추가된 앨범 없음</string>
     <string name="home_no_recently_added_desc">라이브러리에 추가한 앨범이 여기에 표시됩니다.</string>
     <!-- Time-based quotes (0:00-4:59 - Late night) -->
-    <string name="home_quote_late_night_1">몽상가들을 위한 늦은 밤의 분위기 🌙</string>
-    <string name="home_quote_late_night_2">심야 재생목록을 위한 완벽한 시간 🎧</string>
-    <string name="home_quote_late_night_3">자정에 음악이 더 잘 들립니다 ✨</string>
-    <string name="home_quote_late_night_4">밤의 음악을 틀자 🌟</string>
     <!-- Time-based quotes (5:00-11:59 - Morning) -->
-    <string name="home_quote_morning_1">완벽한 사운드트랙으로 하루를 시작하세요 ✨</string>
-    <string name="home_quote_morning_2">음악으로 아침 루틴에 활력을 불어넣으세요 🎵</string>
-    <string name="home_quote_morning_3">매일 아침은 새로운 교향곡이 시작되기를 기다리고 있습니다 🌅</string>
-    <string name="home_quote_morning_4">커피와 음악 - 완벽한 아침의 조화 😄</string>
     <!-- Time-based quotes (12:00-16:59 - Afternoon) -->
-    <string name="home_quote_afternoon_1">좋아하는 비트로 힘차게 달려보세요 🚀</string>
-    <string name="home_quote_afternoon_2">음악은 모든 것을 더 좋게 만듭니다 💪</string>
-    <string name="home_quote_afternoon_3">리듬에 맞춰 하루를 보내세요 🎯</string>
-    <string name="home_quote_afternoon_4">멋진 음악으로 집중력을 높여보세요 🔥</string>
     <!-- Time-based quotes (17:00-20:59 - Evening) -->
-    <string name="home_quote_evening_1">마음이 편안해지는 멜로디와 함께 여유로운 시간을 보내세요 🌅</string>
-    <string name="home_quote_evening_2">저녁 사운드트랙을 시작해 보세요 🎶</string>
-    <string name="home_quote_evening_3">여유로운 플레이리스트를 위한 완벽한 시간 😌</string>
-    <string name="home_quote_evening_4">좋아하는 음악을 들으며 긴장을 풀어보세요 🌇</string>
     <!-- Time-based quotes (21:00-23:59 - Night) -->
-    <string name="home_quote_night_1">밤은 음악시간 🌙</string>
-    <string name="home_quote_night_2">밤의 세레나데를 들려주세요 🎵</string>
-    <string name="home_quote_night_3">평화로운 밤을 위한 완벽한 분위기 🌟</string>
-    <string name="home_quote_night_4">밤의 고요함을 받아들이세요 😴</string>
     <!-- Personalized messages -->
     
     <!-- Recommended Section -->
@@ -364,7 +342,6 @@
     <string name="update_now">지금 업데이트</string>
     <!-- LibraryScreen -->
     <string name="library_title">도서관</string>
-    <string name="library_your_music">당신의 음악</string>
     <string name="library_your_playlists">재생 목록</string>
     <string name="library_your_albums">당신의 앨범</string>
     <string name="library_your_artists">당신의 아티스트</string>
@@ -379,7 +356,6 @@
     <string name="extracting_metadata">트랙 정보를 추출하는 중…</string>
     <string name="processing_library">라이브러리 최적화 중…</string>
     <string name="library_no_songs">아직 노래가 없습니다</string>
-    <string name="library_no_artists">아티스트를 찾을 수 없습니다.</string>
     <string name="library_unknown_year">연도를 알 수 없음</string>
     <string name="library_start_collection">음악 컬렉션 구축을 시작하세요</string>
     <string name="library_sort_artists">아티스트 정렬 기준</string>
@@ -394,20 +370,10 @@
         <item quantity="other">재생목록 생성 및 %1$d곡 추가…</item>
     </plurals>
     <string name="library_playlist_name_empty">재생목록 이름은 비워둘 수 없습니다.</string>
-    <string name="library_no_playlists">아직 재생 목록이 없습니다</string>
-    <string name="library_no_albums">아직 앨범이 없습니다</string>
-    <plurals name="library_playlists_count">
-        <item quantity="other">%1$d 재생목록</item>
-    </plurals>
-    <plurals name="library_albums_count">
-        <item quantity="other">%1$d 앨범</item>
-    </plurals>
     <!-- Sort Options -->
     <string name="sort_name">이름</string>
     <string name="sort_date_created">작성일</string>
     <string name="sort_song_count">곡수</string>
-    <string name="sort_title">제목</string>
-    <string name="sort_artist">아티스트</string>
     <!-- Storage Permission -->
     <string name="storage_permission_required">저장 권한이 필요합니다</string>
     <string name="storage_permission_desc">음악 파일을 탐색하고 기기의 저장 공간을 탐색하려면 Rhythm에 파일 및 미디어에 액세스할 수 있는 권한이 필요합니다.</string>
@@ -430,8 +396,6 @@
     <string name="common_library">도서관</string>
     <!-- Splash/Loading -->
     <string name="splash_tagline">당신의 음악, 당신의 Rhythm</string>
-    <string name="splash_loading">음악 라이브러리 준비 중…</string>
-    <string name="splash_loading_streaming">스트리밍 설정 준비 중…</string>
     <string name="splash_ready">그루브 준비 완료!</string>
     <!-- Audio Quality -->
     
@@ -456,8 +420,6 @@
     <string name="updates_cancel_download">다운로드 취소</string>
     <string name="cancel_download">다운로드 취소</string>
     <string name="download_update">업데이트 다운로드</string>
-    <string name="updates_smart_polling">스마트 폴링 활성화</string>
-    <string name="updates_smart_polling_desc">효율적인 HTTP 검사를 사용하여 GitHub API 호출을 최소화하면서 업데이트를 감지합니다. 새 버전이 출시되면 즉시 알림을 받게 됩니다.</string>
     <string name="updates_channel_desc">따를 업데이트 채널을 선택하세요:</string>
     <!-- Onboarding -->
     <string name="onboarding_welcome_to">에 오신 것을 환영합니다</string>
@@ -470,12 +432,10 @@
     <string name="onboarding_backup_desc">자동 백업을 통해 재생 목록, 설정 및 기본 설정을 안전하게 유지하세요. 장치를 전환하거나 재설치한 후 모든 것을 복원하세요. 음악 컬렉션을 잃지 마세요.</string>
     <string name="onboarding_auto_backup">자동 백업</string>
     <string name="onboarding_auto_backup_desc">매주 설정을 자동으로 백업합니다.</string>
-    <string name="onboarding_backup_center">백업 및 복원 센터</string>
     <string name="onboarding_manual_backup_info">설정 &gt; 백업 및 복원에서 언제든지 수동으로 백업을 생성할 수 있습니다.</string>
     <string name="onboarding_what_backed_up">무엇이 백업되나요?</string>
     <string name="onboarding_backed_up_1">모든 설정, 재생 목록, 테마 및 라이브러리 사용자 정의</string>
     <string name="onboarding_backed_up_2">탭 한 번으로 파일이나 클립보드에서 복원</string>
-    <string name="onboarding_backed_up_3">개인 정보 보호를 위해 장치에 로컬로 저장된 백업</string>
     <string name="onboarding_audio_title">오디오 및 재생 경험</string>
     <string name="onboarding_audio_desc">햅틱 피드백, 기본 화면, 볼륨 제어, 대기열 동작, 셔플 설정, 가사 표시 및 이퀄라이저 설정으로 오디오 경험을 맞춤화하세요.</string>
     <string name="onboarding_lyrics_sources">API: 온라인 가사 • 임베디드: 메타데이터 가사 • 로컬: .lrc 파일</string>
@@ -484,34 +444,23 @@
     <string name="onboarding_sleep_timer_desc">취침 타이머: 설정된 시간 이후 재생 자동 중지(지금 재생 중 화면에서 액세스)</string>
     <string name="onboarding_library_title">음악 라이브러리 정리</string>
     <string name="onboarding_library_desc">앨범, 아티스트 및 노래가 표시되는 방식을 사용자 정의하세요. 원하는 레이아웃, 정렬 순서, 탭 배열을 선택하세요.</string>
-    <string name="onboarding_library_album_grid">앨범 그리드 보기</string>
-    <string name="onboarding_library_album_grid_desc">더 나은 시각적 탐색을 위해 그리드 레이아웃으로 앨범을 표시합니다.</string>
-    <string name="onboarding_library_artist_grid">아티스트 그리드 보기</string>
-    <string name="onboarding_library_artist_grid_desc">프로필 사진과 함께 그리드 레이아웃으로 아티스트 표시</string>
-    <string name="onboarding_library_show_lyrics">가사 표시</string>
-    <string name="onboarding_library_show_lyrics_desc">플레이어 화면에 동기화된 가사 표시</string>
     <string name="onboarding_library_how_works">도서관 조직의 작동 방식</string>
     <string name="onboarding_library_1">즐겨찾기에 빠르게 액세스할 수 있도록 라이브러리에서 탭 순서를 사용자 정의하세요.</string>
     <string name="onboarding_library_2">라이브러리 화면에서 직접 재생 목록 생성 및 관리</string>
-    <string name="onboarding_library_3">설정 &gt; 라이브러리 설정에서 고급 표시 및 정렬 옵션을 사용할 수 있습니다.</string>
-    <string name="onboarding_library_4">기본 재생 목록(최근 추가, 최다 재생)은 설정 &gt; 재생 목록에서 전환할 수 있습니다.</string>
     <string name="onboarding_theme_title">Rhythm을(를) 당신의 것으로 만드세요</string>
     <string name="onboarding_theme_desc">귀하의 스타일에 맞게 Rhythm의 외모를 맞춤화하세요. 시스템 테마, 글꼴 또는 Material 동적 색상(Android 12+)을 선택하세요.</string>
     <string name="onboarding_more_tuner">설정의 추가 사용자 정의</string>
     <string name="onboarding_tuner_1">사용자 정의 색 구성표 및 앨범 아트 색상 추출</string>
     <string name="onboarding_tuner_2">글꼴 사용자 정의 및 타이포그래피 설정</string>
-    <string name="onboarding_tuner_3">설정 &gt; 테마 사용자 정의에서 고급 테마 옵션을 사용할 수 있습니다.</string>
     <string name="onboarding_rhythm_guard_title">청력을 보호하세요</string>
     <string name="onboarding_rhythm_guard_desc">연령 인식 기본값과 수동 보호 제어를 통해 청취를 더욱 안전하게 유지하려면 Rhythm Guard를 설정하세요.</string>
     <string name="onboarding_rhythm_guard_mode_title">Rhythm 가드 모드</string>
     <string name="onboarding_rhythm_guard_age_hint">연령 프로필은 Rhythm Guard가 보다 안전한 청취 제한을 권장하는 데 도움이 됩니다.</string>
     <string name="onboarding_rhythm_guard_tip_1">자동 모드는 최소한의 설정으로 더 안전한 기본값을 적용합니다.</string>
-    <string name="onboarding_rhythm_guard_tip_2">나중에 설정에서 알림을 조정하고 미리 알림을 중단할 수 있습니다.</string>
     <string name="onboarding_rhythm_guard_tip_3">수동 모드에서는 경고 및 임계값을 완벽하게 제어할 수 있습니다.</string>
     <string name="onboarding_full_tour_prompt_title">전체 설정 둘러보기를 계속하시겠습니까?</string>
     <string name="onboarding_full_tour_prompt_desc">코어 설정이 완료되었습니다. 계속해서 고급 사용자 정의를 진행하거나, 지금 완료하고 나중에 설정에서 나머지 부분을 살펴보세요.</string>
     <string name="onboarding_full_tour_prompt_tip_1">전체 둘러보기에는 재생, 테마, 제스처 및 미디어 검색 옵션이 포함됩니다.</string>
-    <string name="onboarding_full_tour_prompt_tip_2">설정 &gt; 개발자 및 디버깅에서 언제든지 Rhythm 투어를 다시 열 수 있습니다.</string>
     <string name="onboarding_full_tour_prompt_tip_3">여기에는 영구적인 것이 없습니다. 모든 선택 사항은 나중에 변경할 수 있습니다.</string>
     <string name="onboarding_continue_full_tour">전체 둘러보기 계속</string>
     <string name="onboarding_finish_now">지금 설정 완료</string>
@@ -521,21 +470,18 @@
     <string name="onboarding_media_scan_current_mode">블랙리스트 또는 화이트리스트 모드 선택</string>
     <string name="onboarding_media_scan_blacklist">블랙리스트 모드: 특정 노래 및 폴더(벨소리, 알림) 숨기기</string>
     <string name="onboarding_media_scan_whitelist">화이트리스트 모드: 선택한 폴더의 노래만 표시</string>
-    <string name="onboarding_media_scan_configure_in_tuner">설정 &gt; 미디어 스캔에서 스캔 구성</string>
     <string name="onboarding_complete_title">모든 준비가 완료되었습니다!</string>
     <string name="onboarding_complete_desc">Rhythm이(가) 플레이할 준비가 되었습니다! 음악 라이브러리가 백그라운드에서 검색되고 있습니다. 구성된 내용은 다음과 같습니다.</string>
     <string name="onboarding_whats_next">다음은 무엇입니까?</string>
     <string name="onboarding_next_browse">노래, 앨범, 아티스트 찾아보기</string>
     <string name="onboarding_next_create">첫 번째 재생목록 만들기</string>
     <string name="onboarding_next_finetune">이퀄라이저로 오디오 미세 조정</string>
-    <string name="onboarding_next_explore">언제든지 더 많은 설정을 살펴보세요</string>
     <string name="onboarding_settings_change">모든 설정은 설정에서 언제든지 변경할 수 있습니다.</string>
     <!-- Onboarding Navigation -->
     <string name="onboarding_back">뒤로</string>
     <string name="onboarding_next">다음</string>
     <string name="onboarding_checking">확인 중…</string>
     <string name="onboarding_lets_go">가자!</string>
-    <string name="onboarding_finish_setup">설정 완료</string>
     <string name="onboarding_continue">계속</string>
     <string name="onboarding_open_settings">설정 열기</string>
     <string name="onboarding_grant_access">액세스 권한 부여</string>
@@ -558,7 +504,6 @@
     <string name="onboarding_permission_tips">권한 팁</string>
     <string name="onboarding_permission_tip_1">최상의 경험을 위해 모든 권한을 부여하세요</string>
     <string name="onboarding_permission_tip_2">나중에 설정에서 권한을 변경할 수 있습니다</string>
-    <string name="onboarding_permission_tip_3">Rhythm은 귀하의 개인 정보와 데이터를 존중합니다</string>
     <!-- Onboarding Audio &amp; Playback -->
     <string name="onboarding_default_screen_title">기본 랜딩 화면</string>
     <string name="onboarding_default_screen_desc">Rhythm을 시작할 때 열리는 화면을 선택하세요</string>
@@ -589,8 +534,6 @@
     <string name="onboarding_periodic_check_desc">Rhythm의 GitHub 저장소에서 자동으로 업데이트 확인</string>
     <string name="onboarding_update_notifications_title">업데이트 알림</string>
     <string name="onboarding_update_notifications_desc">새 버전이 출시되면 알림을 받습니다.</string>
-    <string name="onboarding_smart_polling_title">스마트 폴링</string>
-    <string name="onboarding_smart_polling_desc">효율적인 검사를 사용하여 GitHub API 호출 저장</string>
     <string name="onboarding_check_interval_desc">업데이트 확인 빈도</string>
     <string name="onboarding_update_channel_title">채널 업데이트</string>
     <string name="onboarding_update_channel_desc">안정 버전 또는 베타 버전.</string>
@@ -614,12 +557,6 @@
     <string name="onboarding_dismiss">닫기</string>
     <string name="onboarding_retry">재시도</string>
     <!-- Onboarding: Notifications Step -->
-    <string name="onboarding_notifications_title">재생 알림</string>
-    <string name="onboarding_notifications_desc">Rhythm이 알림 창에 음악 재생을 표시하는 방법을 제어합니다. 사용자 정의 스타일 알림 또는 표준 시스템 미디어 컨트롤 중에서 선택하세요.</string>
-    <string name="onboarding_notifications_info_title">알림 기능</string>
-    <string name="onboarding_notification_tip_1">현재 트랙 정보를 한눈에 확인</string>
-    <string name="onboarding_notification_tip_2">빠른 동작으로 재생 제어</string>
-    <string name="onboarding_notification_tip_3">테마에 맞는 맞춤 스타일</string>
     <!-- Onboarding: Gestures Step -->
     <string name="onboarding_gestures_title">터치 제스처</string>
     <string name="onboarding_gestures_desc">직관적인 스와이프 및 탭 동작으로 음악 라이브러리를 더 빠르게 탐색하세요. 미니 플레이어 및 전체 플레이어 화면에 대한 제스처를 사용자 정의합니다.</string>
@@ -635,7 +572,6 @@
     <string name="onboarding_gesture_doubletap_desc">현재 노래에 좋아요를 표시하려면 앨범 아트를 두 번 탭하세요.</string>
     <string name="onboarding_gestures_tips_title">제스처 팁</string>
     <string name="onboarding_gesture_tip_1">스와이프 동작은 양방향으로 작동합니다.</string>
-    <string name="onboarding_gesture_tip_2">빠른 스와이프는 느린 스와이프보다 빠르게 반응합니다.</string>
     <!-- Onboarding: Widgets Step -->
     <string name="onboarding_widgets_title">런처 위젯</string>
     <string name="onboarding_widgets_desc">빠른 음악 제어를 위해 실행기에 Rhythm 위젯을 추가하세요. 표시되는 정보와 위젯 모양을 사용자 정의합니다.</string>
@@ -661,8 +597,6 @@
     <string name="onboarding_stats_features_title">통계 기능</string>
     <string name="onboarding_stats_feature_1">일별, 주별, 월별 총 청취 시간 추적</string>
     <string name="onboarding_stats_feature_2">가장 많이 재생된 노래 보기</string>
-    <string name="onboarding_stats_feature_3">최고의 아티스트를 찾아보세요</string>
-    <string name="onboarding_stats_feature_4">앨범 청취 패턴 탐색</string>
     <!-- MiniPlayer Swipe Hints -->
     <string name="miniplayer_swipe_up_hint">↑ 풀 플레이어</string>
     <string name="miniplayer_swipe_down_hint">↓ 닫기</string>
@@ -671,10 +605,6 @@
     <string name="miniplayer_no_song">노래가 재생되지 않습니다.</string>
     <string name="badge_live">라이브</string>
     <!-- Festive Greetings -->
-    <string name="festive_greeting_christmas">🎄메리 크리스마스! 🎅</string>
-    <string name="festive_greeting_new_year">🎆 새해 복 많이 받으세요! 🎉</string>
-    <string name="festive_greeting_halloween">🎃 해피 할로윈! 👻</string>
-    <string name="festive_greeting_valentines">💝 해피 발렌타인데이! 💕</string>
     <!-- Settings -->
     <string name="settings_tip_theme">색상, 글꼴, 축제 효과로 테마를 맞춤설정하세요.</string>
     <string name="settings_tip_gestures">추가 메뉴가 필요 없이 직관적인 스와이프와 탭으로 재생을 더 빠르게 제어할 수 있습니다.</string>
@@ -750,7 +680,6 @@
     <string name="playback_lyrics_priority_desc">가사의 소스, 동작, 레이아웃, 크기 및 스타일 구성</string>
     <string name="playback_settings">재생 설정</string>
     <!-- Components: Lyrics Editor -->
-    <string name="lyrics_placeholder">여기에 가사를 입력하세요…\n\nLRC 형식을 사용할 수 있습니다:\n[00:12.00] 1행\n[00:17.00] 2행</string>
     <string name="lyrics_editor_title">가사 편집기</string>
     <!-- Components: Song Info -->
     <string name="song_info_title">곡 정보</string>
@@ -768,7 +697,6 @@
     <string name="backup_all_settings_placeholder">모든 설정, 재생 목록, 테마 및 라이브러리 사용자 정의</string>
     <string name="backup_restore_tap_placeholder">탭 한 번으로 파일이나 클립보드에서 복원</string>
     <string name="backup_local_storage_placeholder">개인 정보 보호를 위해 장치에 로컬로 저장된 백업</string>
-    <string name="library_reorder_tabs">탭을 재정렬하여 도서관 경험을 맞춤화하세요</string>
     <string name="external_services_desc">음악 경험을 향상시키기 위해 활성화된 외부 API 서비스를 제어합니다. 서비스를 켜거나 끄고 데이터 사용량 및 기능을 관리하세요.</string>
     <string name="lyrics_source_priority_title">가사 소스 우선순위</string>
     <string name="queue_action_title">대기열 충돌 조치</string>
@@ -815,7 +743,6 @@
     <string name="virtualizer_desc">스테레오 사운드스테이지 넓히기</string>
     <string name="strength">힘</string>
     <string name="open_equalizer_settings">이퀄라이저 설정 열기</string>
-    <string name="system_equalizer">시스템 이퀄라이저</string>
     <string name="no_equalizer">시스템 이퀄라이저를 찾을 수 없습니다.</string>
     <string name="no_audio_ID">사용 가능한 오디오 세션 ID가 없습니다.</string>
     <!-- Sleep Timer -->
@@ -910,9 +837,6 @@
     <string name="settings_section_advanced">고급</string>
     <string name="settings_crash_log_history">충돌 로그 기록</string>
     <string name="settings_crash_log_history_desc">충돌 보고서</string>
-    <string name="settings_experimental_features">실험적 특징</string>
-    <string name="settings_experimental_features_desc">최첨단 기능</string>
-    <string name="settings_select_option">Rhythm 설정</string>
     <!-- Playlist Actions -->
     <string name="playlist_no_songs_available">사용 가능한 노래 없음</string>
     <string name="playlist_all_in_playlist">모든 노래가 이미 이 재생 목록에 있습니다.</string>
@@ -972,7 +896,6 @@
     <string name="cd_export_playlists">재생 목록 내보내기</string>
     <string name="cd_import_playlist">재생목록 가져오기</string>
     <string name="cd_create_playlist">재생 목록 만들기</string>
-    <string name="cd_current_location">현재 위치</string>
     <string name="cd_song_info">노래 정보</string>
     <string name="cd_no_song_playing">노래가 재생되지 않습니다.</string>
     <string name="cd_show_actions">작업 표시</string>
@@ -989,7 +912,6 @@
     <string name="cd_show_options">표시 옵션</string>
     <string name="cd_app_updates">앱 업데이트</string>
     <string name="cd_completed">완료됨</string>
-    <string name="cd_language">언어</string>
     <string name="cd_add_selected_songs">선택한 노래 추가</string>
     <string name="cd_toggle_multi_select">다중 선택 전환</string>
     <string name="cd_add_song">노래 추가</string>
@@ -1021,7 +943,6 @@
     <string name="bottomsheet_playback">재생</string>
     <string name="bottomsheet_no_device">연결된 장치가 없습니다.</string>
     <!-- Bottom Sheet: Album -->
-    <string name="bottomsheet_sort_by">정렬 기준</string>
     <string name="bottomsheet_all_discs">모든 디스크</string>
     <string name="bottomsheet_disc_option">디스크 %1$d</string>
     <!-- Bottom Sheet: Home Section Order -->
@@ -1067,13 +988,6 @@
     <string name="service_rhythm_pulse_desc">Rhythm의 친절한 청취 알림 및 팁</string>
     <string name="service_rhythm_guard_alerts_desc">Rhythm 경비병의 안전 경고</string>
     <string name="service_rhythm_guard_timers_desc">Rhythm 가드 브레이크 및 타임아웃 알림</string>
-    <string name="service_starting">Rhythm이(가) 시작 중입니다.</string>
-    <string name="service_loading_settings">Rhythm이(가) 설정을 로드하는 중입니다.</string>
-    <string name="service_setup_components">Rhythm은(는) 핵심 구성요소를 준비 중입니다.</string>
-    <string name="service_initializing_player">Rhythm이(가) 재생을 준비 중입니다.</string>
-    <string name="service_creating_controls">Rhythm이(가) 재생 컨트롤을 생성 중입니다.</string>
-    <string name="service_setup_media_session">Rhythm이(가) 미디어 세션을 준비 중입니다.</string>
-    <string name="service_initializing_controller">Rhythm이(가) 미디어 컨트롤러를 연결하고 있습니다.</string>
     <string name="service_ready">Rhythm이(가) 준비되었습니다.</string>
     <string name="service_init_failed">Rhythm을(를) 시작할 수 없습니다. 앱을 다시 열어주세요.</string>
     <!-- Crash Activity -->
@@ -1102,7 +1016,6 @@
     <string name="settings_ignore_mediastore_covers_desc">각 오디오 파일에 포함된 아트워크를 선호합니다(이전의 MediaStore 커버 무시).</string>
     <string name="settings_lossless_artwork">무손실 아트워크</string>
     <string name="settings_lossless_artwork_desc">압축 없이 포함된 전체 해상도 노래 아트워크 표시</string>
-    <string name="settings_song_artwork_restart_required">아트워크 모드가 변경되었습니다. 캐시를 지우고 업데이트된 아트워크 소스로 전체 미디어를 다시 검색하려면 앱을 다시 시작하세요.</string>
     <string name="settings_artwork_cache_size">작품 캐시 크기</string>
     <string name="settings_artist_parsing">아티스트</string>
     <string name="settings_artist_parsing_desc">구분선, 디스플레이</string>
@@ -1223,8 +1136,6 @@
     <!-- Gestures Settings -->
     
     <!-- Playlist Settings Toggle -->
-    <string name="playlist_ask_each_time">매번 물어보세요</string>
-    <string name="playlist_ask_each_time_desc">옵션이 있는 대화 상자 표시</string>
     <!-- About Multi-Artist Parsing -->
     
     <!-- Home Screen Greetings -->
@@ -1267,8 +1178,6 @@
     <!-- Additional UI strings -->
     
     <!-- Sort Orders -->
-    <string name="sort_duration_short_first">기간(짧은 것부터)</string>
-    <string name="sort_duration_long_first">기간(긴 것부터)</string>
     <!-- Context Menu Actions -->
     <string name="action_play_next">다음 플레이</string>
     <string name="action_add_to_queue">대기열에 추가</string>
@@ -1296,10 +1205,7 @@
     <string name="home_section_new_releases">신규 출시</string>
     <string name="home_section_one_visible">하나 이상의 섹션이 표시되어야 합니다.</string>
     <!-- Library Tabs -->
-    <string name="library_tab_songs">노래</string>
     <string name="library_tab_playlists">재생목록</string>
-    <string name="library_tab_albums">앨범</string>
-    <string name="library_tab_artists">아티스트</string>
     <string name="library_tab_one_visible">탭이 하나 이상 표시되어야 합니다.</string>
     <string name="library_tab_order_reset">탭 순서 및 가시성이 기본값으로 재설정됨</string>
     <string name="library_tab_order_saved">탭 순서 및 가시성이 저장되었습니다.</string>
@@ -1360,7 +1266,6 @@
     <string name="settings_no_crash_logs">충돌 로그를 찾을 수 없습니다. 잘했어요!</string>
     <string name="settings_player_controls">플레이어 컨트롤</string>
     <string name="settings_player_screen">플레이어 화면</string>
-    <string name="settings_presets">프리셋</string>
     <string name="settings_progress_display">진행상황 표시</string>
     <string name="settings_progress_hidden">진행상황 숨김</string>
     <string name="settings_reorder_toggle_sections">섹션 재정렬 및 전환</string>
@@ -1406,7 +1311,6 @@
     <string name="settings_intensity">강도</string>
     <string name="settings_more_festivals">향후 업데이트에 더 많은 축제가 추가될 예정입니다.</string>
     <string name="settings_select_festival">셀렉트 페스티벌</string>
-    <string name="settings_select_artist_separators">아티스트 구분 기호 선택</string>
     <string name="settings_snowflake_display_area">눈송이 표시 영역</string>
     <string name="settings_snowflake_size">눈송이 크기</string>
     <string name="settings_toggle_decoration_elements">위치별로 개별 장식 요소를 전환합니다.</string>
@@ -1541,7 +1445,6 @@
     <string name="streaming_selected">선택됨</string>
     <string name="streaming_connect">연결하다</string>
     <string name="streaming_manage">관리하다</string>
-    <string name="streaming_manage_service">선택한 서비스 관리</string>
     <string name="streaming_service_setup_server_url">서버 URL</string>
     <string name="streaming_service_setup_server_url_hint">https://your-server.example.com</string>
     <string name="streaming_service_setup_server_url_supporting">서버 주소가 필요한 공급자에게 필요합니다.</string>
@@ -1559,18 +1462,11 @@
     <string name="streaming_service_setup_connected_as">%1$s로 연결됨</string>
     <string name="streaming_home_selected_service_unavailable">선택한 서비스가 연결되지 않았습니다</string>
     <string name="streaming_home_connect_selected_service">홈과 검색을 로드하려면 %1$s을 연결하세요.</string>
-    <string name="streaming_home_widget_recommended_empty">아직 발견할 내용이 없습니다.</string>
-    <string name="streaming_home_widget_new_releases_title">신규 출시</string>
     <string name="streaming_home_widget_new_releases_subtitle">최근 %1$s에서 추가된 앨범</string>
-    <string name="streaming_home_widget_new_releases_empty">새로운 릴리스가 없습니다.</string>
     <string name="streaming_home_widget_empty_hint">연결하거나 새로 고친 후 잠시 시간이 걸릴 수 있습니다.</string>
     <string name="streaming_library_syncing">스트리밍 피드 로드 중…</string>
-    <string name="streaming_library_empty">아직 라이브러리 콘텐츠가 없습니다.</string>
     <string name="streaming_home_no_content_title">아직 홈 콘텐츠가 없습니다.</string>
     <string name="streaming_home_no_content_hint">서비스 동기화가 완료된 후 새로고침해 보세요.</string>
-    <plurals name="streaming_home_widget_playlist_track_count">
-        <item quantity="other">%1$d 트랙</item>
-    </plurals>
     <string name="streaming_home_guard_break_active">브레이크 활성: %1$s 남음</string>
     <string name="streaming_home_guard_exposure">오늘: %1$d / %2$d분</string>
     <string name="streaming_not_selected">선택되지 않음</string>
@@ -1594,10 +1490,6 @@
     <string name="settings_tab_artists">아티스트</string>
     <string name="settings_tab_dates">날짜</string>
     <string name="settings_tab_explorer">탐험가</string>
-    <string name="settings_tab_order_reset">탭 순서가 기본값으로 재설정됨</string>
-    <string name="settings_tab_order_saved">탭 순서가 저장되었습니다.</string>
-    <string name="settings_move_up">위로 이동</string>
-    <string name="settings_move_down">아래로 이동</string>
     <!-- Gestures Settings -->
     <string name="settings_swipe_gestures">스와이프 제스처</string>
     <string name="settings_swipe_gestures_desc">열기/해제하려면 위/아래로 스와이프하고, 트랙을 건너뛰려면 왼쪽/오른쪽으로 스와이프하세요.</string>
@@ -1673,7 +1565,6 @@
     <string name="settings_festival_christmas">크리스마스</string>
     <string name="settings_festival_new_year">새해</string>
     <string name="settings_area_full">전체</string>
-    <string name="settings_area_sides">측면</string>
     <string name="settings_area_top_third">상단 ⅓</string>
     <string name="settings_snowfall">강설량</string>
     <string name="settings_snowfall_desc">떨어지는 눈송이 애니메이션</string>
@@ -1719,10 +1610,6 @@
     <string name="settings_gesture_double_tap">더블 탭 아트워크</string>
     <string name="settings_gesture_double_tap_desc">두 번 탭하여 재생/일시 중지</string>
     <!-- Queue & Playback Search Strings -->
-    <string name="settings_queue_auto_add">컨텍스트 큐</string>
-    <string name="settings_queue_auto_add_desc">플레이 시 관련 대기열 구축</string>
-    <string name="settings_queue_clear_on_new">플레이 시 대기열 교체</string>
-    <string name="settings_queue_clear_on_new_desc">직접 플레이를 위해 대기열 교체</string>
     <string name="settings_show_played_queue_songs">재생된 트랙 표시</string>
     <string name="settings_show_played_queue_songs_desc">재생된 트랙을 대기열에 계속 표시</string>
     <string name="settings_queue_action_dialog_desc">단일 트랙 대기열 충돌 정책</string>
@@ -1736,9 +1623,6 @@
     <string name="settings_sleep_timer_search_desc">재생 자동 정지</string>
     <string name="settings_queue_hours_format">시간 형식으로 시간 사용</string>
     <string name="settings_queue_hours_format_desc">시간 형식의 시간</string>
-    <string name="settings_queue_persistence">지속 대기열</string>
-    <string name="settings_queue_persistence_desc">시작 시 대기열 복원</string>
-    <string name="settings_list_queue_action_dialog_desc">대기열이 활성화된 경우 목록 재생 작업의 동작</string>
     <!-- Experimental Features Search Strings -->
     <string name="settings_exp_festive_theme">축제 테마</string>
     <string name="settings_exp_festive_theme_desc">축제 장식</string>
@@ -1750,8 +1634,6 @@
     <string name="settings_exp_codec_monitoring_desc">오디오 정보 기록</string>
     <string name="settings_exp_audio_device_logging">오디오 장치 로깅</string>
     <string name="settings_exp_audio_device_logging_desc">로그 장치 변경</string>
-    <string name="settings_exp_launch_onboarding">Rhythm 투어 시작</string>
-    <string name="settings_exp_launch_onboarding_desc">Rhythm 투어 다시 시작</string>
     <string name="settings_exp_test_crash">테스트 충돌</string>
     <string name="settings_exp_test_crash_desc">강제 앱 충돌</string>
     <string name="settings_broadcast_status_enabled">상태 방송 활성화</string>
@@ -1873,13 +1755,10 @@
     <string name="exp_codec_monitoring">코덱 모니터링</string>
     <string name="exp_codec_monitoring_desc">디버깅을 위한 오디오 코덱 및 형식 정보 기록</string>
     <string name="exp_developer_debugging">개발자 및 디버깅</string>
-    <string name="exp_launch_onboarding">Rhythm 투어 시작</string>
-    <string name="exp_launch_onboarding_desc">Rhythm 투어 경험 재설정 및 다시 시작</string>
     <string name="exp_test_crash">테스트 충돌</string>
     <string name="exp_test_crash_desc">충돌 처리 및 보고를 테스트하기 위해 앱을 강제로 충돌시킵니다.</string>
     <string name="exp_force_player_compact_mode">강제 플레이어 컴팩트 모드</string>
     <string name="exp_force_player_compact_mode_desc">플레이어 화면이 컴팩트 모드를 사용하도록 강제</string>
-    <string name="exp_third_party_integrations">타사 통합</string>
     <string name="settings_backup_created">백업이 성공적으로 생성되었습니다.</string>
     <string name="settings_backup_settings">설정</string>
     <string name="settings_center_aligned">가운데 정렬</string>
@@ -1887,12 +1766,10 @@
     <string name="settings_create_backup_desc">전체 백업을 JSON 파일로 내보내기</string>
     <string name="settings_backup_action_short">백업</string>
     <string name="settings_restore_action_short">복원</string>
-    <string name="settings_experimental">실험적 특징</string>
     <string name="settings_left_aligned">왼쪽 정렬</string>
     <string name="settings_player">플레이어</string>
     <string name="settings_restore_completed">복원이 성공적으로 완료되었습니다.</string>
     <string name="settings_right_aligned">오른쪽 정렬</string>
-    <string name="settings_tab_order">라이브러리 탭 순서</string>
     <!-- Theme, CrashLog, Home, Lyrics, Shapes, API Strings -->
     <string name="settings_crash_log">충돌 로그 기록</string>
     <string name="settings_expressive_shapes">표현적인 모양</string>
@@ -1941,8 +1818,6 @@
     <string name="deviceconfigurationbottomsheet_brand_optional">브랜드(선택사항)</string>
     <string name="deviceconfigurationbottomsheet_eg_sony">예: 소니</string>
     <string name="deviceconfigurationbottomsheet_select_autoeq_profile">AutoEQ 프로필 선택</string>
-    <string name="deviceconfigurationbottomsheet_find_a_profile_for">이 장치의 프로필을 찾아보세요…</string>
-    <string name="deviceconfigurationbottomsheet_no_matching_profiles_found">일치하는 프로필이 없습니다.</string>
     <string name="multiselectionbottomsheet_go_to_album">앨범으로 이동</string>
     <string name="multiselectionbottomsheet_go_to_artist">아티스트로 이동</string>
     <string name="multiselectionbottomsheet_edit_tags">태그 편집</string>
@@ -1960,11 +1835,7 @@
     <string name="localnavigation_stats">통계</string>
     <string name="addtoplaylistscreen_pick_a_tune_to">추가할 곡을 선택하세요…</string>
     <string name="addtoplaylistscreen_tap_songs_to_select">노래를 탭하여 여러 곡을 선택한 다음 한 번에 모두 추가하세요.</string>
-    <string name="equalizerscreen_reset_to_flat">플랫으로 재설정</string>
     <string name="equalizerscreen_autoeq_profiles">AutoEQ 프로필</string>
-    <string name="equalizerscreen_apply_headphonespecific_equalization">헤드폰별 이퀄라이제이션 적용</string>
-    <string name="equalizerscreen_import_export_and_organize">프로필 가져오기, 내보내기 및 구성</string>
-    <string name="equalizerscreen_access_androids_builtin_settings">Android의 내장 설정에 액세스하세요</string>
     <string name="explorertabcontent_browse_storage">스토리지 찾아보기</string>
     <string name="explorertabcontent_folder_icon">폴더 아이콘</string>
     <string name="explorertabcontent_play_folder_as_playlist">재생 폴더(재생 목록)</string>
@@ -1978,22 +1849,12 @@
     <string name="onboardingscreen_tap_the_remove_action">폴더 액세스를 업데이트하려면 제거 작업을 탭하세요.</string>
     <string name="onboardingscreen_interaction">상호작용</string>
     <string name="onboardingscreen_choose_your_playback_mode">재생 모드 선택</string>
-    <string name="onboardingscreen_local_offline_player">로컬 오프라인 플레이어</string>
-    <string name="onboardingscreen_play_audio_files_stored">장치에 직접 저장된 오디오 파일을 재생합니다. 고급 로컬 디렉터리 검색, 통계 및 테마 일치를 지원합니다.</string>
-    <string name="onboardingscreen_rhythm_go_streaming">Rhythm GO!(스트리밍)</string>
-    <string name="onboardingscreen_connect_to_jellyfin_subsonic">Jellyfin, Subsonic 또는 Navidrome 서버에 연결하여 오프라인 청취를 위한 캐싱 지원을 통해 이동 중에도 전체 라이브러리를 스트리밍할 수 있습니다.</string>
     <string name="onboardingscreen_playback_mode_tips">재생 모드 팁</string>
-    <string name="onboardingscreen_switch_easily_anytime_in">설정 &gt; 통합에서 언제든지 쉽게 전환하세요.</string>
     <string name="onboardingscreen_local_mode_scans_and">로컬 모드는 장치의 오디오 파일을 검색하고 목록을 작성합니다.</string>
     <string name="onboardingscreen_go_streaming_connects_via">GO Streaming은 subsonic/jellyfin API 서버를 통해 연결됩니다.</string>
-    <string name="onboardingscreen_connect_your_streaming_service">스트리밍 서비스 연결</string>
-    <string name="onboardingscreen_connect_your_subsonicnavidrome_or">스트리밍을 시작하려면 Subsonic/Navidrome 또는 Jellyfin 서버를 연결하세요.</string>
     <string name="onboardingscreen_streaming_setup_tips">스트리밍 설정 팁</string>
-    <string name="onboardingscreen_supports_navidrome_gonic_and">Navidrome, Gonic 및 모든 아음속 API를 지원합니다.</string>
-    <string name="onboardingscreen_enable_caching_in_settings">나중에 오프라인 재생을 위해 설정에서 캐싱을 활성화하세요.</string>
     <string name="onboardingscreen_connection_test_ensures_server">연결 테스트를 통해 서버 자격 증명이 올바른지 확인합니다.</string>
     <string name="onboardingscreen_subsonic_navidrome">Subsonic / Navidrome</string>
-    <string name="onboardingscreen_jellyfin_server">Jellyfin 서버</string>
     <string name="onboardingscreen_httpsyourservercom">https://your-server.com</string>
     <string name="onboardingscreen_remember_to_include_http">http:// 또는 https://를 포함하는 것을 잊지 마세요.</string>
     <string name="onboardingscreen_username">사용자 이름</string>
@@ -2011,11 +1872,7 @@
     <string name="gosettingsscreen_network">네트워크</string>
     <string name="gosettingsscreen_enable_streaming_over_mobile">모바일 데이터를 통한 스트리밍 활성화</string>
     <string name="gosettingsscreen_connection_is_healthy">연결 상태가 양호합니다.</string>
-    <string name="streamingcontenthomescreen_your_connected_streaming_service">연결된 스트리밍 서비스 재생 목록</string>
-    <string name="streamingcontenthomescreen_no_playlists_found">재생 목록을 찾을 수 없습니다</string>
-    <string name="streamingcontenthomescreen_create_playlists_on_your">여기에서 보려면 서버에 재생 목록을 만드세요.</string>
     <string name="streaminghomescreen_leave_go_mode">Leave Go Mode</string>
-    <string name="streaminglibraryscreen_no_albums">앨범 없음</string>
     <string name="streamingsettingsscreen_streaming_restricted">스트리밍 제한됨</string>
     <string name="streamingmusicviewmodel_failed_to_play_next">다음 재생 실패: URL을 확인할 수 없습니다.</string>
     <string name="streamingmusicviewmodel_failed_to_add_to">대기열에 추가하지 못했습니다. URL을 확인할 수 없습니다.</string>
@@ -2039,18 +1896,13 @@
     <string name="songinfobottomsheet_song_artwork">노래 작품</string>
     <string name="songinfobottomsheet_details">세부사항</string>
     <string name="songinfobottomsheet_change_artwork">작품 변경</string>
-    <string name="songinfobottomsheet_remove_artwork">작품 제거</string>
     <string name="songinfobottomsheet_artwork_fetched_successfully_click">작품을 성공적으로 가져왔습니다! 삽입하려면 저장을 클릭하세요.</string>
     <string name="songinfobottomsheet_failed_to_download_artwork_1">URL에서 작품을 다운로드하지 못했습니다.</string>
     <string name="songinfobottomsheet_no_artwork_found_for">온라인에서 이 노래에 대한 작품을 찾을 수 없습니다.</string>
-    <string name="songinfobottomsheet_online_search_failed">온라인 검색 실패</string>
     <string name="songinfobottomsheet_online_api_service_unavailable">온라인 API 서비스를 이용할 수 없습니다.</string>
     <string name="songinfobottomsheet_fetching">가져오는 중…</string>
     <string name="songinfobottomsheet_fetch_online_art">온라인 아트 가져오기</string>
     <string name="songinfobottomsheet_update_artwork_and_tags">아트워크 및 태그 업데이트</string>
-    <string name="songinfobottomsheet_fetching_artwork">작품을 가져오는 중…</string>
-    <string name="updatebottomsheet_install">설치</string>
-    <string name="updatebottomsheet_update">업데이트</string>
     <string name="collapsibleheader_app_icon">앱 아이콘</string>
     <string name="expressivecomponents_seek_back">뒤로 탐색</string>
     <string name="expressivecomponents_seek_forward">앞으로 탐색</string>
@@ -2087,7 +1939,6 @@
     <string name="rhythmnavigation_stream">스트림</string>
     <string name="rhythmstatsscreen_top_songs">인기곡</string>
     <string name="rhythmstatsscreen_listening_habits">듣는 습관</string>
-    <string name="rhythmstatsscreen_listening_timeline">청취 타임라인</string>
     <string name="rhythmstatsscreen_no_stats_available_yet">아직 통계가 없습니다.</string>
     <string name="rhythmstatsscreen_keep_listening_to_build">음악적 여정을 구축하려면 계속 들어보세요!</string>
     <string name="universalsearchscreen_remove_search">검색 제거</string>
@@ -2100,7 +1951,6 @@
     <string name="universalsearchscreen_artist_not_found">아티스트를 찾을 수 없습니다</string>
     <string name="expressiveplayerscreen_more">더보기</string>
     <string name="expressiveplayerscreen_device">장치</string>
-    <string name="expressiveplayerscreen_load">로드</string>
     <string name="materialplayerscreen_permission_denied_could_not">권한이 거부되었습니다. 가사를 삽입할 수 없습니다.</string>
     <string name="materialplayerscreen_unable_to_share_file">파일을 공유할 수 없습니다</string>
     <string name="playerscreen_select_artist">아티스트 선택</string>
@@ -2210,7 +2060,6 @@
     <string name="lyrics_settings">가사 설정</string>
     <string name="error_loading_lyrics">가사 로드 중 오류 발생: %1$s</string>
     <string name="error_saving_lyrics">가사 저장 오류: %1$s</string>
-    <string name="song_metadata_details">%1$s\n아티스트: %2$s\n앨범: %3$s</string>
     <string name="crash_log_title">충돌 발생 날짜: %1$s</string>
     <string name="widget_settings_radius_desc">%1$ddp(Glance 위젯만 해당)</string>
     <string name="equalizer_open_error">이퀄라이저를 열 수 없습니다: %1$s</string>
@@ -2280,8 +2129,6 @@
     <string name="lyrics_source_embedded_first_desc">오디오 파일 메타데이터 → 온라인 API → .lrc 파일 사용해 보기</string>
     <string name="lyrics_source_api_first">API 첫 번째</string>
     <string name="lyrics_source_api_first_desc">온라인 서비스 → 오디오 메타데이터 → .lrc 파일 사용해 보기</string>
-    <string name="lyrics_source_local_first">로컬 .lrc 먼저</string>
-    <string name="lyrics_source_local_first_desc">.lrc 파일 → 오디오 메타데이터 → 온라인 API 사용해 보기</string>
     <!-- Font / Color Customization Dialogs -->
     <string name="theme_font_source_changed_restart">글꼴 소스가 변경되었습니다. 새 글꼴을 적용하려면 앱을 다시 시작하세요.</string>
     <string name="color_source_album_art">앨범 아트</string>
@@ -2369,9 +2216,6 @@
     <string name="autoeqpresetpickerbottomsheet_disable">없음 / AutoEQ 비활성화</string>
     <string name="autoeqpresetpickerbottomsheet_disable_desc">헤드폰 프로필을 지우고 표준 EQ 사전 설정을 사용합니다.</string>
     <!-- Device Configuration additions -->
-    <plurals name="device_configuration_devices_configured">
-        <item quantity="other">%1$d개의 장치가 구성됨</item>
-    </plurals>
     <string name="device_configuration_device_recognized">장치 인식됨</string>
     <string name="device_configuration_new_device_detected">새로운 장치 감지</string>
     <string name="device_configuration_configured_with">%1$s은 %2$s로 구성됩니다.</string>
@@ -2391,12 +2235,8 @@
     <string name="device_configuration_save">저장</string>
     <string name="device_configuration_add">추가</string>
     <string name="device_configuration_for_device">%1$s의 경우</string>
-    <plurals name="device_configuration_profiles_available">
-        <item quantity="other">%1$d 프로필 사용 가능</item>
-    </plurals>
     <string name="device_configuration_disable_compensation">헤드폰 보상 비활성화</string>
     <!-- Common UI element strings -->
-    <string name="common_none">없음</string>
     <string name="common_back">뒤로</string>
     <string name="common_active">액티브</string>
     <string name="common_disabled">장애인</string>
@@ -2418,8 +2258,6 @@
     <string name="blacklist_add_folder_desc">이 폴더의 모든 노래는 숨겨지고 재생에서 제외됩니다.</string>
     <string name="blacklist_folder_removed_msg">블랙리스트에서 폴더가 제거되었습니다.</string>
     <string name="blacklist_folder_added_msg">블랙리스트에 폴더가 추가되었습니다</string>
-    <string name="blacklist_disc_label">디스크 %1$d</string>
-    <string name="blacklist_track_label">트랙 %1$d</string>
     <!-- Library & Playlist Dialog additions -->
     <string name="dialog_add_song_to_playlist">이 재생목록에 \"%1$s\" 추가</string>
     <plurals name="dialog_songs_in_queue">
@@ -2460,7 +2298,6 @@
     <string name="eq_preset_v_shape">V자형</string>
     <string name="eq_preset_harman">하만</string>
     <string name="eq_preset_custom">커스텀</string>
-    <string name="eq_manage_device">장치 관리</string>
     <string name="eq_system_equalizer">시스템 이퀄라이저</string>
     <string name="eq_enhance_lows">저음 강화</string>
     <string name="eq_widen_sound">소리 넓히기</string>
@@ -2476,7 +2313,6 @@
     <string name="library_scan_songs">노래 스캔 중…</string>
     <string name="library_scan_media">미디어 검색 중…</string>
     <string name="library_category_all">모두</string>
-    <string name="library_category_favorites">❤️ 즐겨찾기</string>
     <string name="library_category_short">단편(&lt; 3분)</string>
     <string name="library_category_medium">중간(3~5분)</string>
     <string name="library_category_long">길게(&gt; 5분)</string>
@@ -2691,7 +2527,6 @@
     <string name="lyrics_source_attribution">%1$s의 가사</string>
     <string name="lyrics_currently_no_lyrics">현재 이 노래에는 가사가 없습니다.\n</string>
     <string name="lyrics_no_lyrics">이 노래에는 가사가 없습니다.</string>
-    <string name="artist_options">아티스트 옵션</string>
     <string name="edit_album_title_label">앨범 제목</string>
     <string name="edit_album_artist_label">앨범 아티스트</string>
     <plurals name="autoeq_profiles_available">

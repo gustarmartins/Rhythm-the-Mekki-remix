@@ -181,7 +181,7 @@ fun ExtraControlBottomSheet(
 
         if ("SPEED" !in hiddenChips || "PITCH" !in hiddenChips) {
             add(ControlAction(
-                icon = MaterialSymbolIcon("tune", filled = true),
+                icon = MaterialSymbolIcon("speed", filled = true),
                 label = context.getString(R.string.player_speed_and_pitch),
                 description = context.getString(R.string.extrasheet_tempo_pitch),
                 containerColor = secondary,
@@ -420,24 +420,12 @@ private fun ControlGridItem(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            Surface(
-                modifier = Modifier.size(36.dp),
-                shape = CircleShape,
-                color = containerColor.copy(alpha = 0.25f),
-                tonalElevation = 0.dp
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = iconColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconColor,
+                modifier = Modifier.size(24.dp)
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 

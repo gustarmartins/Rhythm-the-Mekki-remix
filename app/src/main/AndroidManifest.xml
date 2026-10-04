@@ -9,9 +9,6 @@
     <uses-permission android:name="android.permission.MANAGE_MEDIA" />
     <!-- Required with MANAGE_MEDIA to suppress per-file createWriteRequest confirmation. -->
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
-    <!-- Images permission is OPTIONAL - only needed for enhanced album art display -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" android:required="false" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -299,6 +296,13 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+
+        <!-- On-demand album and song artwork provider -->
+        <provider
+            android:name=".infrastructure.provider.RhythmAlbumArtProvider"
+            android:authorities="${applicationId}.albumart"
+            android:exported="true"
+            android:grantUriPermissions="true" />
     </application>
 
 </manifest>

@@ -7,6 +7,7 @@ package chromahub.rhythm.app.features.local.presentation.screens
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
+import androidx.activity.compose.BackHandler
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.*
@@ -60,6 +61,7 @@ import chromahub.rhythm.app.shared.data.model.findAlbumForRoute
 import chromahub.rhythm.app.shared.presentation.components.player.PlayingEqIcon
 import chromahub.rhythm.app.shared.presentation.components.AudioQualityIcon
 import chromahub.rhythm.app.shared.presentation.components.common.M3PlaceholderType
+import chromahub.rhythm.app.shared.presentation.components.common.horizontalEdgeBlend
 import chromahub.rhythm.app.shared.presentation.components.common.M3CircularLoader
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.HapticUtils
@@ -76,9 +78,13 @@ import chromahub.rhythm.app.network.CanvasArtwork
 import chromahub.rhythm.app.shared.data.model.CanvasNetworkMode
 import chromahub.rhythm.app.core.utils.NetworkUtils
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.ArtistChooserBottomSheet
-import chromahub.rhythm.app.shared.presentation.components.bottomsheets.PlaylistSongOptionsBottomSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SongOverflowBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmSortMenuContent
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmSortMenuElevation
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmSortMenuShape
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmSortOption
+import chromahub.rhythm.app.shared.presentation.components.common.HeaderAction
+import chromahub.rhythm.app.shared.presentation.components.common.HeaderActionGroup
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmDetailActionButton
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonType
 import chromahub.rhythm.app.util.ArtistSeparator
@@ -215,6 +221,7 @@ fun AlbumDetailScreen(
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
+    BackHandler { onBack() }
     val density = LocalDensity.current
     val isTablet = windowScreenWidthDp() >= 600
     val isLandscapeTablet = isTablet && windowScreenWidthDp() > windowScreenHeightDp()
@@ -259,6 +266,12 @@ fun AlbumDetailScreen(
     val selectedDisc = songDisplayState.selectedDisc
     val shouldShowDiscFilter = !libraryCombineDiscs && availableDiscs.size > 1
 
+    val isAlbumActive = remember(currentSong, allDisplaySongs) {
+        currentSong != null && allDisplaySongs.any { it.id == currentSong.id }
+    }
+    val isAlbumPlaying = isAlbumActive && isPlaying
+    val isShuffleActive by viewModel.isShuffleEnabled.collectAsState()
+
     // Multi-artist picker state
     var showArtistPicker by remember { mutableStateOf(false) }
     var artistPickerCandidates by remember { mutableStateOf<List<Artist>>(emptyList()) }
@@ -289,11 +302,15 @@ fun AlbumDetailScreen(
         }
     }
 
+    val integrationsEnabled by appSettings.integrationsEnabled.collectAsState()
     val wikipediaApiEnabled by appSettings.wikipediaApiEnabled.collectAsState()
+    val wikipediaApiActive = wikipediaApiEnabled && integrationsEnabled
+    val appleCanvasEnabled by appSettings.appleCanvasEnabled.collectAsState()
+    val appleCanvasActive = appleCanvasEnabled && integrationsEnabled
     var description by remember(albumId) { mutableStateOf<String?>(null) }
     var isDescriptionLoading by remember(albumId) { mutableStateOf(false) }
 
-    LaunchedEffect(albumId, albumName, album?.artist, allDisplaySongs, wikipediaApiEnabled) {
+    LaunchedEffect(albumId, albumName, album?.artist, allDisplaySongs, wikipediaApiActive, appleCanvasActive) {
         val fallbackArtist = allDisplaySongs.firstOrNull()?.artist
         val effectiveArtistName = album?.artist?.takeIf { it.isNotBlank() && !it.equals("<unknown>", ignoreCase = true) }
             ?: fallbackArtist?.takeIf { it.isNotBlank() && !it.equals("<unknown>", ignoreCase = true) }
@@ -302,10 +319,10 @@ fun AlbumDetailScreen(
             isDescriptionLoading = true
             withContext(Dispatchers.IO) {
                 var desc: String? = null
-                if (effectiveArtistName != null) {
+                if (effectiveArtistName != null && appleCanvasActive) {
                     desc = AppleMusicCanvasProvider.getAlbumDescription(albumName, effectiveArtistName)
                 }
-                if (desc.isNullOrBlank() && wikipediaApiEnabled) {
+                if (desc.isNullOrBlank() && wikipediaApiActive) {
                     desc = WikipediaProvider.getAlbumDescription(albumName, effectiveArtistName)
                 }
                 withContext(Dispatchers.Main) {
@@ -316,17 +333,16 @@ fun AlbumDetailScreen(
         }
     }
 
-    val appleCanvasEnabled by appSettings.appleCanvasEnabled.collectAsState()
     val appleCanvasNetworkMode by appSettings.appleCanvasNetworkMode.collectAsState()
     var canvasArtwork by remember(albumId) { mutableStateOf<CanvasArtwork?>(null) }
     var canvasLoading by remember(albumId) { mutableStateOf(false) }
 
-    LaunchedEffect(albumId, albumName, album?.artist, allDisplaySongs, appleCanvasEnabled, appleCanvasNetworkMode) {
+    LaunchedEffect(albumId, albumName, album?.artist, allDisplaySongs, appleCanvasActive, appleCanvasNetworkMode) {
         canvasArtwork = null
         canvasLoading = false
 
         val artistName = album?.artist ?: allDisplaySongs.firstOrNull()?.artist
-        if (albumName.isNotBlank() && artistName != null && appleCanvasEnabled) {
+        if (albumName.isNotBlank() && artistName != null && appleCanvasActive) {
             val hasNetwork = if (appleCanvasNetworkMode == CanvasNetworkMode.WIFI_ONLY) {
                 NetworkUtils.isWifiConnected(context)
             } else {
@@ -366,7 +382,7 @@ fun AlbumDetailScreen(
         album?.artist ?: allDisplaySongs.firstOrNull()?.artist ?: "Unknown Artist"
     }
     val displayArtworkUri = album?.artworkUri ?: allDisplaySongs.firstNotNullOfOrNull { it.artworkUri }
-    val hasCanvas = appleCanvasEnabled && canvasArtwork != null
+    val hasCanvas = appleCanvasActive && canvasArtwork != null
     val backgroundColor = MaterialTheme.colorScheme.background
     val isLoading = isContentLoadingOverride ?: (album == null && allDisplaySongs.isEmpty())
 
@@ -517,7 +533,10 @@ fun AlbumDetailScreen(
                             // Artwork card — canvas used as full backdrop, not inside the card
                             Surface(
                                 modifier = Modifier.size(300.dp),
-                                shape = RoundedCornerShape(32.dp),
+                                shape = rememberExpressiveShapeFor(
+                                    ExpressiveShapeTarget.ALBUM_ART,
+                                    fallbackShape = RoundedCornerShape(32.dp)
+                                ),
                                 shadowElevation = 16.dp
                             ) {
                                 if (displayArtworkUri != null) {
@@ -576,13 +595,17 @@ fun AlbumDetailScreen(
                                 RhythmDetailActionButton(
                                     onClick = {
                                         HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                        onPlayAll(displaySongs)
+                                        if (isAlbumActive) {
+                                            viewModel.togglePlayPause()
+                                        } else {
+                                            onPlayAll(displaySongs)
+                                        }
                                     },
                                     height = 50.dp,
                                     isFirst = true,
                                     isLast = false,
-                                    icon = RhythmIcons.Play,
-                                    text = stringResource(R.string.action_play_all),
+                                    icon = if (isAlbumPlaying) RhythmIcons.Pause else RhythmIcons.Play,
+                                    text = if (isAlbumPlaying) stringResource(R.string.action_pause) else if (isAlbumActive) stringResource(R.string.action_resume) else stringResource(R.string.action_play_all),
                                     fontWeight = FontWeight.Bold
                                 )
 
@@ -592,7 +615,7 @@ fun AlbumDetailScreen(
                                         onShufflePlay(displaySongs)
                                     },
                                     height = 50.dp,
-                                    type = RhythmButtonType.Tonal,
+                                    type = if (isAlbumActive && isShuffleActive) RhythmButtonType.Filled else RhythmButtonType.Tonal,
                                     isFirst = false,
                                     isLast = true,
                                     icon = RhythmIcons.Shuffle,
@@ -924,28 +947,24 @@ fun AlbumDetailScreen(
                                     modifier = Modifier.padding(end = 12.dp)
                                 ) {
                                     Box {
-                                        FilledIconButton(
-                                            onClick = { showSortMenu = true },
-                                            modifier = Modifier.size(40.dp),
-                                            colors = IconButtonDefaults.filledIconButtonColors(
-                                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                                contentColor = MaterialTheme.colorScheme.onSurface
+                                        HeaderActionGroup(
+                                            actions = listOf(
+                                                HeaderAction(
+                                                    icon = RhythmIcons.Actions.Sort,
+                                                    contentDescription = stringResource(R.string.content_desc_sort_songs),
+                                                    onClick = { showSortMenu = true }
+                                                )
                                             )
-                                        ) {
-                                            Icon(
-                                                imageVector = RhythmIcons.Actions.Sort,
-                                                contentDescription = stringResource(R.string.content_desc_sort_songs),
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
+                                        )
 
                                         DropdownMenu(
                                             expanded = showSortMenu,
                                             onDismissRequest = { showSortMenu = false },
-                                            shape = RoundedCornerShape(20.dp),
+                                            shape = RhythmSortMenuShape,
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                            shadowElevation = RhythmSortMenuElevation,
                                             modifier = Modifier
                                                 .widthIn(min = 250.dp)
-                                                .background(MaterialTheme.colorScheme.surfaceContainer)
                                                 .padding(8.dp)
                                         ) {
                                             RhythmSortMenuContent(
@@ -1025,13 +1044,17 @@ fun AlbumDetailScreen(
                                             RhythmDetailActionButton(
                                                 onClick = {
                                                     HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                                    onPlayAll(displaySongs)
+                                                    if (isAlbumActive) {
+                                                        viewModel.togglePlayPause()
+                                                    } else {
+                                                        onPlayAll(displaySongs)
+                                                    }
                                                 },
                                                 height = 52.dp,
                                                 isFirst = true,
                                                 isLast = false,
-                                                icon = RhythmIcons.Play,
-                                                text = stringResource(R.string.action_play_all),
+                                                icon = if (isAlbumPlaying) RhythmIcons.Pause else RhythmIcons.Play,
+                                                text = if (isAlbumPlaying) stringResource(R.string.action_pause) else if (isAlbumActive) stringResource(R.string.action_resume) else stringResource(R.string.action_play_all),
                                                 fontWeight = FontWeight.Bold
                                             )
 
@@ -1041,7 +1064,7 @@ fun AlbumDetailScreen(
                                                     onShufflePlay(displaySongs)
                                                 },
                                                 height = 52.dp,
-                                                type = RhythmButtonType.Tonal,
+                                                type = if (isAlbumActive && isShuffleActive) RhythmButtonType.Filled else RhythmButtonType.Tonal,
                                                 isFirst = false,
                                                 isLast = true,
                                                 icon = RhythmIcons.Shuffle,
@@ -1187,46 +1210,55 @@ fun AlbumDetailScreen(
     }
 
     if (showSongOptionsSheet && selectedSongForOptions != null) {
-        PlaylistSongOptionsBottomSheet(
-            song = selectedSongForOptions!!,
+        val targetSong = selectedSongForOptions!!
+        SongOverflowBottomSheet(
+            song = targetSong,
             onDismiss = { showSongOptionsSheet = false },
-            onShare = {
-                onShare(selectedSongForOptions!!)
+            onPlay = {
+                onSongClickInContext(targetSong, displaySongs)
                 showSongOptionsSheet = false
             },
-            onRemoveFromPlaylist = { },
             onPlayNext = {
-                onPlayNext(selectedSongForOptions!!)
+                onPlayNext(targetSong)
                 showSongOptionsSheet = false
-                Toast.makeText(context, context.getString(R.string.will_play_next, selectedSongForOptions!!.title), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.will_play_next, targetSong.title), Toast.LENGTH_SHORT).show()
             },
             onAddToQueue = {
-                onAddToQueue(selectedSongForOptions!!)
+                onAddToQueue(targetSong)
                 showSongOptionsSheet = false
-                Toast.makeText(context, context.getString(R.string.added_to_queue, selectedSongForOptions!!.title), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.added_to_queue, targetSong.title), Toast.LENGTH_SHORT).show()
+            },
+            isFavorite = favoriteSongs.contains(targetSong.id),
+            onToggleFavorite = {
+                onToggleFavorite(targetSong)
             },
             onAddToPlaylist = {
-                onAddSongToPlaylist(selectedSongForOptions!!)
+                onAddSongToPlaylist(targetSong)
                 showSongOptionsSheet = false
+            },
+            onGoToArtist = {
+                showSongOptionsSheet = false
+                handleArtistTap(targetSong)
             },
             onShowSongInfo = {
-                onShowSongInfo(selectedSongForOptions!!)
+                onShowSongInfo(targetSong)
                 showSongOptionsSheet = false
             },
-            onGoToAlbum = { },
-            onGoToArtist = {
-                val song = selectedSongForOptions!!
-                showSongOptionsSheet = false
-                handleArtistTap(song)
-            },
-            showRemoveFromPlaylist = false,
-            showGoToAlbum = false,
-            isStreamingMode = isStreamingMode,
-            onDeleteSong = {
-                viewModel.deleteSong(selectedSongForOptions!!)
+            onAddToBlacklist = {
+                onAddToBlacklist(targetSong)
                 showSongOptionsSheet = false
             },
-            haptics = haptics
+            onDeleteSong = if (!isStreamingMode) {
+                {
+                    viewModel.deleteSong(targetSong)
+                    showSongOptionsSheet = false
+                }
+            } else null,
+            onShare = {
+                onShare(targetSong)
+                showSongOptionsSheet = false
+            },
+            isStreaming = isStreamingMode
         )
     }
 }
@@ -1239,8 +1271,12 @@ private fun AlbumDiscFilterChips(
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(horizontal = 24.dp)
 ) {
+    val discRowState = rememberLazyListState()
     LazyRow(
-        modifier = modifier.fillMaxWidth(),
+        state = discRowState,
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalEdgeBlend(lazyListState = discRowState, fadeWidth = 24.dp),
         contentPadding = contentPadding,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -1365,10 +1401,11 @@ private fun AlbumListControls(
             DropdownMenu(
                 expanded = showSortMenu,
                 onDismissRequest = onDismissSortMenu,
-                shape = RoundedCornerShape(20.dp),
+                shape = RhythmSortMenuShape,
+                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                shadowElevation = RhythmSortMenuElevation,
                 modifier = Modifier
                     .widthIn(min = 250.dp)
-                    .background(MaterialTheme.colorScheme.surfaceContainer)
                     .padding(8.dp)
             ) {
                 RhythmSortMenuContent(
@@ -1467,7 +1504,7 @@ private fun AlbumSongItem(
 
     val containerColor by animateColorAsState(
         targetValue = when {
-            isCurrentSong -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.30f)
+            isCurrentSong -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.surfaceContainer
         },
         animationSpec = tween(300),
@@ -1498,7 +1535,7 @@ private fun AlbumSongItem(
                         ExpressiveShapeTarget.SONG_ART,
                         fallbackShape = MaterialTheme.shapes.large
                     ),
-                    border = if (isCurrentSong) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+                    border = if (isCurrentSong) BorderStroke(2.dp, MaterialTheme.colorScheme.onPrimary) else null
                 ) {
                     M3ImageUtils.TrackImage(
                         imageUrl = song.artworkUri,
@@ -1514,13 +1551,13 @@ private fun AlbumSongItem(
                             .size(18.dp)
                             .offset(x = 4.dp, y = 4.dp),
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         shadowElevation = 0.dp
                     ) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             PlayingEqIcon(
                                 modifier = Modifier.size(width = 10.dp, height = 8.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
+                                color = MaterialTheme.colorScheme.primary,
                                 isPlaying = isPlaying,
                                 bars = 3
                             )
@@ -1540,7 +1577,7 @@ private fun AlbumSongItem(
                     fontWeight = if (isCurrentSong) FontWeight.Bold else FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    color = if (isCurrentSong) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    color = if (isCurrentSong) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(
@@ -1551,7 +1588,7 @@ private fun AlbumSongItem(
                     Text(
                         text = song.artist,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (isCurrentSong) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                        color = if (isCurrentSong) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1561,6 +1598,7 @@ private fun AlbumSongItem(
                         song = song,
                         iconSize = 16.dp,
                         padding = 0.dp,
+                        tint = if (isCurrentSong) MaterialTheme.colorScheme.onPrimary else null,
                         modifier = Modifier.padding(start = 8.dp)
                     )
                 }
@@ -1570,7 +1608,7 @@ private fun AlbumSongItem(
                 Text(
                     text = formatDuration(song.duration, useHoursFormat),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    color = if (isCurrentSong) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     modifier = Modifier.padding(end = 4.dp)
                 )
             }
@@ -1586,8 +1624,14 @@ private fun AlbumSongItem(
                     .height(44.dp),
                 shape = RoundedCornerShape(50),
                 colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = if (isCurrentSong)
+                        MaterialTheme.colorScheme.onPrimary
+                    else
+                        MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = if (isCurrentSong)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.onPrimaryContainer
                 )
             ) {
                 Icon(

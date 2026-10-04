@@ -64,6 +64,7 @@ import androidx.compose.material3.CircularWavyProgressIndicator
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.unit.dp
@@ -486,7 +487,7 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                     isPlaying = true,
                     showThumb = previewThumbStyle != ThumbStyle.NONE,
                     thumbStyle = previewThumbStyle,
-                    thumbSize = 14.dp,
+                    thumbSize = 18.dp,
                     rotateThumbWhenPlaying = playerProgressThumbRotate
                 )
 
@@ -710,15 +711,21 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                     .padding(horizontal = 24.dp)
                     .padding(bottom = 24.dp)
             ) {
+                val radiusSliderState = remember(tempRadius) {
+                    SliderState(
+                        value = tempRadius.toFloat(),
+                        steps = 39,
+                        trackRange = 0f..40f
+                    )
+                }
+                radiusSliderState.value = tempRadius.toFloat()
                 Slider(
-                    value = tempRadius.toFloat(),
+                    state = radiusSliderState,
                     onValueChange = { tempRadius = it.toInt() },
                     onValueChangeFinished = {
                         HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
                         appSettings.setPlayerArtworkCornerRadius(tempRadius)
                     },
-                    valueRange = 0f..40f,
-                    steps = 39,
                     colors = SliderDefaults.colors(
                         thumbColor = MaterialTheme.colorScheme.primary,
                         activeTrackColor = MaterialTheme.colorScheme.primary
@@ -787,15 +794,21 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                     .padding(horizontal = 24.dp)
                     .padding(bottom = 24.dp)
             ) {
+                val intensitySliderState = remember(tempIntensity) {
+                    SliderState(
+                        value = tempIntensity,
+                        steps = 39,
+                        trackRange = 0.0f..1.0f
+                    )
+                }
+                intensitySliderState.value = tempIntensity
                 Slider(
-                    value = tempIntensity,
+                    state = intensitySliderState,
                     onValueChange = { tempIntensity = it },
                     onValueChangeFinished = {
                         HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
                         appSettings.setPlayerAmbientBackdropIntensity(tempIntensity)
                     },
-                    valueRange = 0.0f..1.0f,
-                    steps = 39,
                     colors = SliderDefaults.colors(
                         thumbColor = MaterialTheme.colorScheme.primary,
                         activeTrackColor = MaterialTheme.colorScheme.primary
@@ -1026,7 +1039,7 @@ fun ProgressStyleBottomSheet(
                         shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = if (isSelected)
-                                MaterialTheme.colorScheme.onPrimaryContainer
+                                MaterialTheme.colorScheme.primaryContainer
                             else
                                 MaterialTheme.colorScheme.surfaceContainerHigh
                         ),
@@ -1049,11 +1062,11 @@ fun ProgressStyleBottomSheet(
                                     style = progressStyleEnum,
                                     modifier = Modifier.fillMaxWidth(),
                                     progressColor = if (isSelected)
-                                        MaterialTheme.colorScheme.primaryContainer
+                                        MaterialTheme.colorScheme.onPrimaryContainer
                                     else
                                         MaterialTheme.colorScheme.primary,
                                     trackColor = if (isSelected)
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
                                     else
                                         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
                                     height = 6.dp,
@@ -1073,7 +1086,7 @@ fun ProgressStyleBottomSheet(
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = if (isSelected)
-                                        MaterialTheme.colorScheme.primaryContainer
+                                        MaterialTheme.colorScheme.onPrimaryContainer
                                     else
                                         MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
@@ -1145,7 +1158,19 @@ fun ThumbStyleBottomSheet(
         ThumbStyleOption("FLOWER", "Flower", MaterialSymbolIcon("local_florist"), "M3 flower"),
         ThumbStyleOption("HEART", "Heart", MaterialSymbolIcon("favorite"), "M3 heart"),
         ThumbStyleOption("COOKIE", "Cookie", MaterialSymbolIcon("cookie"), "M3 6-sided cookie"),
-        ThumbStyleOption("PUFFY", "Puffy", MaterialSymbolIcon("cloud"), "M3 puffy")
+        ThumbStyleOption("PUFFY", "Puffy", MaterialSymbolIcon("cloud"), "M3 puffy"),
+        ThumbStyleOption("CLOVER", "Clover", MaterialSymbolIcon("eco"), "M3 4-leaf clover"),
+        ThumbStyleOption("CLOVER_8", "Clover 8", MaterialSymbolIcon("spa"), "M3 8-leaf clover"),
+        ThumbStyleOption("BURST", "Burst", MaterialSymbolIcon("star"), "M3 burst"),
+        ThumbStyleOption("SOFT_BURST", "Soft Burst", MaterialSymbolIcon("blur_on"), "M3 soft burst"),
+        ThumbStyleOption("SUNNY", "Sunny", MaterialSymbolIcon("wb_sunny"), "M3 sunny"),
+        ThumbStyleOption("BOOM", "Boom", MaterialSymbolIcon("flare"), "M3 boom"),
+        ThumbStyleOption("PUFFY_DIAMOND", "Puffy Diamond", MaterialSymbolIcon("cloud_circle"), "M3 puffy diamond"),
+        ThumbStyleOption("GEM", "Gem", MaterialSymbolIcon("diamond"), "M3 gem"),
+        ThumbStyleOption("TRIANGLE", "Triangle", MaterialSymbolIcon("change_history"), "M3 triangle"),
+        ThumbStyleOption("PENTAGON", "Pentagon", MaterialSymbolIcon("pentagon"), "M3 pentagon"),
+        ThumbStyleOption("COOKIE_12", "Cookie 12", MaterialSymbolIcon("cookie"), "M3 12-sided cookie"),
+        ThumbStyleOption("CLAM_SHELL", "Clam", MaterialSymbolIcon("water_drop"), "M3 clam shell")
     )
 
     RhythmAdaptiveModalSheet(
@@ -1189,7 +1214,7 @@ fun ThumbStyleBottomSheet(
                         shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = if (isSelected)
-                                MaterialTheme.colorScheme.onPrimaryContainer
+                                MaterialTheme.colorScheme.primaryContainer
                             else
                                 MaterialTheme.colorScheme.surfaceContainerHigh
                         ),
@@ -1212,18 +1237,18 @@ fun ThumbStyleBottomSheet(
                                     style = ProgressStyle.NORMAL,
                                     modifier = Modifier.fillMaxWidth(),
                                     progressColor = if (isSelected)
-                                        MaterialTheme.colorScheme.primaryContainer
+                                        MaterialTheme.colorScheme.onPrimaryContainer
                                     else
                                         MaterialTheme.colorScheme.primary,
                                     trackColor = if (isSelected)
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
                                     else
                                         MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
                                     height = 6.dp,
                                     isPlaying = true,
                                     showThumb = thumbStyleEnum != ThumbStyle.NONE,
                                     thumbStyle = thumbStyleEnum,
-                                    thumbSize = 12.dp
+                                    thumbSize = 18.dp
                                 )
                             }
 
@@ -1239,7 +1264,7 @@ fun ThumbStyleBottomSheet(
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = if (isSelected)
-                                        MaterialTheme.colorScheme.primaryContainer
+                                        MaterialTheme.colorScheme.onPrimaryContainer
                                     else
                                         MaterialTheme.colorScheme.onSurface,
                                     maxLines = 1,
@@ -1318,7 +1343,7 @@ fun PlayerTextAlignmentBottomSheet(
                         shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = if (isSelected)
-                                MaterialTheme.colorScheme.onPrimaryContainer
+                                MaterialTheme.colorScheme.primaryContainer
                             else
                                 MaterialTheme.colorScheme.surfaceContainerHigh
                         ),
@@ -1362,7 +1387,7 @@ fun PlayerTextAlignmentBottomSheet(
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                 color = if (isSelected)
-                                    MaterialTheme.colorScheme.primaryContainer
+                                    MaterialTheme.colorScheme.onPrimaryContainer
                                 else
                                     MaterialTheme.colorScheme.onSurface
                             )
@@ -1371,7 +1396,7 @@ fun PlayerTextAlignmentBottomSheet(
                                 Icon(
                                     imageVector = RhythmIcons.Check,
                                     contentDescription = stringResource(R.string.streaming_selected),
-                                    tint = MaterialTheme.colorScheme.primaryContainer,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }

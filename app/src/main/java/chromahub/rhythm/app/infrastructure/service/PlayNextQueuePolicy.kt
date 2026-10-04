@@ -3,6 +3,13 @@ package chromahub.rhythm.app.infrastructure.service
 /** Private app/service protocol for ordered additions, independent of the AVRCP view. */
 object PlayNextCommand {
     const val ACTION = "chromahub.rhythm.app.ENQUEUE_PLAY_NEXT"
+    const val GET_QUEUE = "chromahub.rhythm.app.GET_PLAYBACK_QUEUE"
+    const val OFFSET = "queue_offset"
+    const val LIMIT = "queue_limit"
+    const val TOTAL = "queue_total"
+    const val REVISION = "queue_revision"
+    const val IDS = "queue_ids"
+    const val SOURCE = "queue_source"
     const val ITEMS = "items"
     const val ENTRY_TOKEN = "rhythm_play_next_entry"
     const val INSERTION_INDEX = "insertion_index"

@@ -37,6 +37,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.delay
 import androidx.compose.material3.*
+import androidx.compose.material3.SliderState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -308,14 +309,13 @@ fun WidgetSettingsScreen(
             }
 
             
-            // Tips Card
             item {
                 Spacer(modifier = Modifier.height(24.dp))
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.84f)
                     )
                 ) {
                     Column(
@@ -326,7 +326,7 @@ fun WidgetSettingsScreen(
                         ) {
                             Icon(
                                 imageVector = MaterialSymbolIcon("lightbulb", filled = true),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                tint = MaterialTheme.colorScheme.primary,
                                 contentDescription = null,
                                 modifier = Modifier.size(24.dp)
                             )
@@ -591,7 +591,7 @@ fun ActionPickerSheet(
                         },
                         colors = CardDefaults.cardColors(
                             containerColor = if (isSelected)
-                                MaterialTheme.colorScheme.onPrimaryContainer
+                                MaterialTheme.colorScheme.primaryContainer
                             else
                                 MaterialTheme.colorScheme.surfaceContainerHigh
                         ),
@@ -608,7 +608,7 @@ fun ActionPickerSheet(
                                 imageVector = option.icon,
                                 contentDescription = null,
                                 tint = if (isSelected)
-                                    MaterialTheme.colorScheme.primaryContainer
+                                    MaterialTheme.colorScheme.onPrimaryContainer
                                 else
                                     MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(if (isSelected) 30.dp else 26.dp)
@@ -622,7 +622,7 @@ fun ActionPickerSheet(
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = if (isSelected)
-                                        MaterialTheme.colorScheme.primaryContainer
+                                        MaterialTheme.colorScheme.onPrimaryContainer
                                     else
                                         MaterialTheme.colorScheme.onSurface
                                 )
@@ -631,7 +631,7 @@ fun ActionPickerSheet(
                                     text = option.desc,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (isSelected)
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                                     else
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -641,7 +641,7 @@ fun ActionPickerSheet(
                                 Icon(
                                     imageVector = RhythmIcons.CheckCircle,
                                     contentDescription = stringResource(R.string.streaming_selected),
-                                    tint = MaterialTheme.colorScheme.primaryContainer,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(28.dp)
                                 )
                             }
@@ -665,7 +665,7 @@ fun WidgetTipItem(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(18.dp)
         )
         Spacer(modifier = Modifier.width(12.dp))
@@ -725,16 +725,22 @@ fun WidgetCornerRadiusSheet(
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 24.dp)
         ) {
+            val tempRadiusSliderState = remember(tempRadius) {
+                SliderState(
+                    value = tempRadius.toFloat(),
+                    steps = 59,
+                    trackRange = 0f..60f
+                )
+            }
+            tempRadiusSliderState.value = tempRadius.toFloat()
             Slider(
-                value = tempRadius.toFloat(),
+                state = tempRadiusSliderState,
                 onValueChange = { tempRadius = it.toInt() },
                 onValueChangeFinished = {
                     HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
                     appSettings.setWidgetCornerRadius(tempRadius)
                     updateAllWidgets(context)
                 },
-                valueRange = 0f..60f,
-                steps = 59,
                 colors = SliderDefaults.colors(
                     thumbColor = MaterialTheme.colorScheme.primary,
                     activeTrackColor = MaterialTheme.colorScheme.primary
@@ -842,7 +848,7 @@ fun WidgetThemeSheet(
                         },
                         colors = CardDefaults.cardColors(
                             containerColor = if (isSelected)
-                                MaterialTheme.colorScheme.onPrimaryContainer
+                                MaterialTheme.colorScheme.primaryContainer
                             else
                                 MaterialTheme.colorScheme.surfaceContainerHigh
                         ),
@@ -859,7 +865,7 @@ fun WidgetThemeSheet(
                                 imageVector = icon,
                                 contentDescription = null,
                                 tint = if (isSelected)
-                                    MaterialTheme.colorScheme.primaryContainer
+                                    MaterialTheme.colorScheme.onPrimaryContainer
                                 else
                                     MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(if (isSelected) 30.dp else 26.dp)
@@ -873,7 +879,7 @@ fun WidgetThemeSheet(
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color = if (isSelected)
-                                        MaterialTheme.colorScheme.primaryContainer
+                                        MaterialTheme.colorScheme.onPrimaryContainer
                                     else
                                         MaterialTheme.colorScheme.onSurface
                                 )
@@ -882,7 +888,7 @@ fun WidgetThemeSheet(
                                     text = desc,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (isSelected)
-                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                                     else
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -892,7 +898,7 @@ fun WidgetThemeSheet(
                                 Icon(
                                     imageVector = RhythmIcons.CheckCircle,
                                     contentDescription = stringResource(R.string.streaming_selected),
-                                    tint = MaterialTheme.colorScheme.primaryContainer,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(28.dp)
                                 )
                             }

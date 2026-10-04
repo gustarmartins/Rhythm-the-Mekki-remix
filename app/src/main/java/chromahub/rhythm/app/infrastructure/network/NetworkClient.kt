@@ -59,7 +59,9 @@ object NetworkClient {
                 Log.w(TAG, "Error logging HTTP message: ${e.message}")
             }
         }.apply {
-            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.HEADERS else HttpLoggingInterceptor.Level.NONE
+            // BASIC (request line + status) in debug only; headers carry cookies and are never logged.
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
+            listOf("Authorization", "Cookie", "Set-Cookie").forEach(::redactHeader)
         }
     }
     
@@ -70,11 +72,12 @@ object NetworkClient {
         
         while (currentRetry < MAX_RETRIES) {
             try {
-                Log.d(TAG, "Attempting request (attempt ${currentRetry + 1}/${MAX_RETRIES}): ${chain.request().url}")
+                if (BuildConfig.DEBUG && currentRetry > 0) {
+                    Log.d(TAG, "Retrying request (attempt ${currentRetry + 1}/${MAX_RETRIES}): ${chain.request().url}")
+                }
                 response = chain.proceed(chain.request())
                 
                 if (response.isSuccessful) {
-                    Log.d(TAG, "Request successful: ${chain.request().url}")
                     return@Interceptor response
                 } else {
                     val code = response.code
@@ -131,18 +134,26 @@ object NetworkClient {
         throw lastException ?: IOException("Request failed after $MAX_RETRIES retries")
     }
     
-    private fun deezerHeadersInterceptor() = Interceptor { chain ->
+    private fun appHeadersInterceptor(
+        customUserAgent: String? = null,
+        extraHeaders: Map<String, String> = emptyMap()
+    ) = Interceptor { chain ->
         try {
-            val request = chain.request().newBuilder()
-                .header("User-Agent", "RhythmApp/${BuildConfig.VERSION_NAME} (Android)")
+            val userAgent = customUserAgent ?: "Rhythm/${BuildConfig.VERSION_NAME} (https://github.com/cromaguy/Rhythm)"
+            val requestBuilder = chain.request().newBuilder()
+                .header("User-Agent", userAgent)
                 .header("Accept", "application/json")
-                .build()
-            chain.proceed(request)
+            extraHeaders.forEach { (key, value) ->
+                requestBuilder.header(key, value)
+            }
+            chain.proceed(requestBuilder.build())
         } catch (e: Exception) {
-            Log.e(TAG, "Error in deezer headers interceptor: ${e.message}")
+            Log.e(TAG, "Error in app headers interceptor: ${e.message}")
             throw e
         }
     }
+
+    private fun deezerHeadersInterceptor() = appHeadersInterceptor("RhythmApp/${BuildConfig.VERSION_NAME} (Android)")
     
     private val deezerHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -166,7 +177,12 @@ object NetworkClient {
     
     private val lrclibHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
+            .addInterceptor(appHeadersInterceptor(
+                customUserAgent = "Rhythm/${BuildConfig.VERSION_NAME} (https://github.com/cromaguy/Rhythm)",
+                extraHeaders = mapOf("Lrclib-Client" to "Rhythm/${BuildConfig.VERSION_NAME} (https://github.com/cromaguy/Rhythm)")
+            ))
             .addInterceptor(loggingInterceptor)
+            .addInterceptor(retryInterceptor)
             .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
             .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
@@ -185,7 +201,9 @@ object NetworkClient {
     
     private val betterlyricsHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
+            .addInterceptor(appHeadersInterceptor())
             .addInterceptor(loggingInterceptor)
+            .addInterceptor(retryInterceptor)
             .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT, TimeUnit.SECONDS)
             .writeTimeout(WRITE_TIMEOUT, TimeUnit.SECONDS)
@@ -223,6 +241,7 @@ object NetworkClient {
     
     private val spotifyHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
+            .addInterceptor(appHeadersInterceptor())
             .addInterceptor(loggingInterceptor)
             .addInterceptor(retryInterceptor)
             .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
@@ -263,6 +282,7 @@ object NetworkClient {
 
     private val itunesHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
+            .addInterceptor(appHeadersInterceptor())
             .addInterceptor(loggingInterceptor)
             .addInterceptor(retryInterceptor)
             .connectTimeout(CONNECT_TIMEOUT, TimeUnit.SECONDS)
@@ -316,14 +336,14 @@ object NetworkClient {
             .build()
     }
     
-    // Helper methods to check if APIs are enabled (respects both BuildConfig AND runtime settings)
-    fun isDeezerApiEnabled(): Boolean = BuildConfig.ENABLE_DEEZER && (appSettings?.deezerApiEnabled?.value ?: false)
-    fun isLrcLibApiEnabled(): Boolean = BuildConfig.ENABLE_LRCLIB && (appSettings?.lrclibApiEnabled?.value ?: false)
-    fun isBetterLyricsApiEnabled(): Boolean = BuildConfig.ENABLE_BETTERLYRICS && (appSettings?.betterLyricsApiEnabled?.value ?: false)
-    fun isYTMusicApiEnabled(): Boolean = BuildConfig.ENABLE_YOUTUBE_MUSIC && (appSettings?.ytMusicApiEnabled?.value ?: false)
-    fun isSpotifyApiEnabled(): Boolean = BuildConfig.ENABLE_SPOTIFY_SEARCH && (appSettings?.spotifyApiEnabled?.value ?: false)
-    fun isLyricallyApiEnabled(): Boolean = BuildConfig.ENABLE_LYRICALLY_API && (appSettings?.lyricallyApiEnabled?.value ?: false)
-    fun isWikipediaApiEnabled(): Boolean = BuildConfig.ENABLE_WIKIPEDIA && (appSettings?.wikipediaApiEnabled?.value ?: false)
+    private fun integrationsOn(): Boolean = appSettings?.integrationsEnabled?.value ?: false
+    fun isDeezerApiEnabled(): Boolean = BuildConfig.ENABLE_DEEZER && integrationsOn() && (appSettings?.deezerApiEnabled?.value ?: false)
+    fun isLrcLibApiEnabled(): Boolean = BuildConfig.ENABLE_LRCLIB && integrationsOn() && (appSettings?.lrclibApiEnabled?.value ?: false)
+    fun isBetterLyricsApiEnabled(): Boolean = BuildConfig.ENABLE_BETTERLYRICS && integrationsOn() && (appSettings?.betterLyricsApiEnabled?.value ?: false)
+    fun isYTMusicApiEnabled(): Boolean = BuildConfig.ENABLE_YOUTUBE_MUSIC && integrationsOn() && (appSettings?.ytMusicApiEnabled?.value ?: false)
+    fun isSpotifyApiEnabled(): Boolean = BuildConfig.ENABLE_SPOTIFY_SEARCH && integrationsOn() && (appSettings?.spotifyApiEnabled?.value ?: false)
+    fun isLyricallyApiEnabled(): Boolean = BuildConfig.ENABLE_LYRICALLY_API && integrationsOn() && (appSettings?.lyricallyApiEnabled?.value ?: false)
+    fun isWikipediaApiEnabled(): Boolean = BuildConfig.ENABLE_WIKIPEDIA && integrationsOn() && (appSettings?.wikipediaApiEnabled?.value ?: false)
     
     // Get Spotify API credentials
     fun getSpotifyClientId(): String = appSettings?.spotifyClientId?.value ?: ""

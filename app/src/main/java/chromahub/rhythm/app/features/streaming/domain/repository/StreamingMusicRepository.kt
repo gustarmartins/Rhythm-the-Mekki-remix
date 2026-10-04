@@ -12,6 +12,7 @@ import chromahub.rhythm.app.features.streaming.domain.model.StreamingAlbum
 import chromahub.rhythm.app.features.streaming.domain.model.StreamingArtist
 import chromahub.rhythm.app.features.streaming.domain.model.StreamingPlaylist
 import chromahub.rhythm.app.features.streaming.domain.model.StreamingSong
+import chromahub.rhythm.app.shared.data.model.LyricsData
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -19,6 +20,15 @@ import kotlinx.coroutines.flow.Flow
  * Extends the base MusicRepository with streaming-specific operations.
  */
 interface StreamingMusicRepository : MusicRepository {
+
+    companion object {
+        /**
+         * Most songs a library sync keeps. The catalog is held in memory and cached on disk at
+         * roughly 1 KB per song, so this bounds both. A larger library is cut off in album-list
+         * order, which is alphabetical by artist.
+         */
+        const val MAX_LIBRARY_SONGS = 50_000
+    }
     
     /**
      * Get the current streaming service source type.
@@ -70,9 +80,16 @@ interface StreamingMusicRepository : MusicRepository {
      * Sync the provider library catalog so songs, albums, and artists are derived from real track data.
      */
     suspend fun syncCatalog(
-        limit: Int = 5_000,
+        limit: Int = MAX_LIBRARY_SONGS,
         onProgress: ((current: Int, total: Int, songsCount: Int) -> Unit)? = null
     ): List<StreamingSong>
+
+    /**
+     * Cheaply checks whether the server library changed since the cached catalog was fetched,
+     * i.e. whether [syncCatalog] would fetch it again. Checks once per process; later calls,
+     * and services that cannot tell, return false.
+     */
+    suspend fun isCatalogOutdated(): Boolean
     
     /**
      * Get browse categories/genres.
@@ -260,4 +277,24 @@ interface StreamingMusicRepository : MusicRepository {
      * Report that playback has stopped (scrobbling)
      */
     suspend fun reportPlaybackStop(songId: String, positionMs: Long): Boolean
+
+    /**
+     * Report playback progress (scrobbling/now playing progress).
+     */
+    suspend fun reportPlaybackProgress(songId: String, positionMs: Long, isPaused: Boolean = false): Boolean = false
+
+    /**
+     * Get lyrics for a song from the active streaming service.
+     */
+    suspend fun getLyrics(songId: String, artist: String? = null, title: String? = null): LyricsData?
+
+    /**
+     * Checks if there is a cached catalog available on disk or in memory for the given service.
+     */
+    fun hasCachedCatalog(serviceId: String? = null): Boolean
+
+    /**
+     * Suspends until the catalog cache has been loaded from disk (in the background) at start-up.
+     */
+    suspend fun awaitCatalogCacheLoaded()
 }

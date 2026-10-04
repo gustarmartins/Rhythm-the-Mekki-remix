@@ -270,7 +270,6 @@
     
     <!-- Settings - About -->
     <string name="settings_about_music_player">Máy nghe nhạc</string>
-    <string name="settings_about_project_details">Chi tiết dự án</string>
     <string name="settings_about_version_label">Phiên bản</string>
     <string name="settings_about_build">Xây dựng</string>
     <string name="settings_about_target_sdk">SDK mục tiêu</string>
@@ -279,7 +278,6 @@
     <string name="settings_about_credits">Nhà phát triển</string>
     <string name="settings_about_team_desc">Nhà phát triển đam mê tạo ra trải nghiệm sáng tạo</string>
     <string name="settings_about_team_chromahub">Đội ChromaHub</string>
-    <string name="settings_about_community">Cộng đồng</string>
     <string name="about_community_group_maintainers">Người bảo trì gói</string>
     <string name="about_community_group_collaborators">Cộng tác viên &amp; cộng tác viên</string>
     <string name="about_community_group_design_testing">Thiết kế &amp; Thử nghiệm</string>
@@ -312,30 +310,10 @@
     <string name="home_no_recently_added">Không có Album nào được thêm gần đây</string>
     <string name="home_no_recently_added_desc">Album bạn thêm vào thư viện sẽ xuất hiện ở đây</string>
     <!-- Time-based quotes (0:00-4:59 - Late night) -->
-    <string name="home_quote_late_night_1">Cảm xúc đêm khuya dành cho những kẻ mộng mơ 🌙</string>
-    <string name="home_quote_late_night_2">Thời điểm hoàn hảo cho danh sách nhạc đêm khuya của bạn 🎧</string>
-    <string name="home_quote_late_night_3">Âm nhạc nghe hay hơn vào lúc nửa đêm ✨</string>
-    <string name="home_quote_late_night_4">Hãy để nhạc đêm vang lên 🌟</string>
     <!-- Time-based quotes (5:00-11:59 - Morning) -->
-    <string name="home_quote_morning_1">Bắt đầu ngày mới với nhạc nền hoàn hảo ✨</string>
-    <string name="home_quote_morning_2">Hãy để âm nhạc tiếp thêm sinh lực cho buổi sáng của bạn 🎵</string>
-    <string name="home_quote_morning_3">Mỗi buổi sáng là một bản giao hưởng mới đang chờ bắt đầu 🌅</string>
-    <string name="home_quote_morning_4">Cà phê và âm nhạc - sự kết hợp hoàn hảo cho buổi sáng ☕</string>
     <!-- Time-based quotes (12:00-16:59 - Afternoon) -->
-    <string name="home_quote_afternoon_1">Mạnh mẽ vượt qua những giai điệu yêu thích của bạn 🚀</string>
-    <string name="home_quote_afternoon_2">Âm nhạc khiến mọi thứ trở nên tốt đẹp hơn 💪</string>
-    <string name="home_quote_afternoon_3">Hãy để nhịp điệu dẫn dắt ngày của bạn 🎯</string>
-    <string name="home_quote_afternoon_4">Tăng cường sự tập trung bằng những giai điệu tuyệt vời 🔥</string>
     <!-- Time-based quotes (17:00-20:59 - Evening) -->
-    <string name="home_quote_evening_1">Đã đến lúc thư giãn với những giai điệu nhẹ nhàng 🌅</string>
-    <string name="home_quote_evening_2">Hãy để nhạc nền buổi tối bắt đầu 🎶</string>
-    <string name="home_quote_evening_3">Thời điểm hoàn hảo cho danh sách nhạc thư giãn của bạn 😌</string>
-    <string name="home_quote_evening_4">Thư giãn với những giai điệu yêu thích của bạn 🌇</string>
     <!-- Time-based quotes (21:00-23:59 - Night) -->
-    <string name="home_quote_night_1">Đêm là thời gian của âm nhạc 🌙</string>
-    <string name="home_quote_night_2">Hãy để màn đêm buông thả bạn 🎵</string>
-    <string name="home_quote_night_3">Cảm xúc hoàn hảo cho một đêm yên bình 🌟</string>
-    <string name="home_quote_night_4">Ôm lấy sự tĩnh lặng của màn đêm 😴</string>
     <!-- Personalized messages -->
     
     <!-- Recommended Section -->
@@ -364,7 +342,6 @@
     <string name="update_now">Cập nhật ngay</string>
     <!-- LibraryScreen -->
     <string name="library_title">Thư viện</string>
-    <string name="library_your_music">Âm nhạc của bạn</string>
     <string name="library_your_playlists">Danh sách phát của bạn</string>
     <string name="library_your_albums">Album của bạn</string>
     <string name="library_your_artists">Nghệ sĩ của bạn</string>
@@ -379,7 +356,6 @@
     <string name="extracting_metadata">Đang trích xuất chi tiết bản nhạc…</string>
     <string name="processing_library">Tối ưu hóa thư viện…</string>
     <string name="library_no_songs">Chưa có bài hát nào</string>
-    <string name="library_no_artists">Không tìm thấy nghệ sĩ nào</string>
     <string name="library_unknown_year">Năm không rõ</string>
     <string name="library_start_collection">Bắt đầu xây dựng bộ sưu tập nhạc của bạn</string>
     <string name="library_sort_artists">Sắp xếp nghệ sĩ theo</string>
@@ -394,20 +370,10 @@
         <item quantity="other">Tạo danh sách phát và thêm %1$d bài hát…</item>
     </plurals>
     <string name="library_playlist_name_empty">Tên danh sách phát không được để trống</string>
-    <string name="library_no_playlists">Chưa có danh sách phát nào</string>
-    <string name="library_no_albums">Chưa có album nào</string>
-    <plurals name="library_playlists_count">
-        <item quantity="other">%1$d danh sách phát</item>
-    </plurals>
-    <plurals name="library_albums_count">
-        <item quantity="other">%1$d album</item>
-    </plurals>
     <!-- Sort Options -->
     <string name="sort_name">Tên</string>
     <string name="sort_date_created">Ngày tạo</string>
     <string name="sort_song_count">Số bài hát</string>
-    <string name="sort_title">Tiêu đề</string>
-    <string name="sort_artist">Nghệ sĩ</string>
     <!-- Storage Permission -->
     <string name="storage_permission_required">Cần có quyền lưu trữ</string>
     <string name="storage_permission_desc">Để duyệt các tệp nhạc và khám phá bộ nhớ trên thiết bị của bạn, Rhythm cần có quyền truy cập các tệp và phương tiện của bạn.</string>
@@ -430,8 +396,6 @@
     <string name="common_library">Thư viện</string>
     <!-- Splash/Loading -->
     <string name="splash_tagline">Âm nhạc của bạn, Rhythm của bạn</string>
-    <string name="splash_loading">Đang chuẩn bị thư viện nhạc của bạn…</string>
-    <string name="splash_loading_streaming">Đang chuẩn bị thiết lập phát trực tuyến của bạn…</string>
     <string name="splash_ready">Sẵn sàng lao vào!</string>
     <!-- Audio Quality -->
     
@@ -456,8 +420,6 @@
     <string name="updates_cancel_download">Hủy tải xuống</string>
     <string name="cancel_download">Hủy tải xuống</string>
     <string name="download_update">Tải xuống bản cập nhật</string>
-    <string name="updates_smart_polling">Hoạt động bỏ phiếu thông minh</string>
-    <string name="updates_smart_polling_desc">Sử dụng các biện pháp kiểm tra HTTP hiệu quả để phát hiện các bản cập nhật đồng thời giảm thiểu lệnh gọi GitHub API. Bạn sẽ nhận được thông báo ngay lập tức khi phiên bản mới được phát hành.</string>
     <string name="updates_channel_desc">Chọn kênh cập nhật để theo dõi:</string>
     <!-- Onboarding -->
     <string name="onboarding_welcome_to">Chào mừng đến với</string>
@@ -470,12 +432,10 @@
     <string name="onboarding_backup_desc">Giữ danh sách phát, cài đặt và tùy chọn của bạn an toàn bằng tính năng sao lưu tự động. Khôi phục mọi thứ khi chuyển đổi thiết bị hoặc sau khi cài đặt lại - không bao giờ mất bộ sưu tập nhạc của bạn.</string>
     <string name="onboarding_auto_backup">Tự động sao lưu</string>
     <string name="onboarding_auto_backup_desc">Tự động sao lưu cài đặt của bạn hàng tuần</string>
-    <string name="onboarding_backup_center">Trung tâm sao lưu và phục hồi</string>
     <string name="onboarding_manual_backup_info">Bạn có thể tạo bản sao lưu theo cách thủ công bất cứ lúc nào trong Cài đặt &gt; Sao lưu &amp; Khôi phục</string>
     <string name="onboarding_what_backed_up">Điều gì được sao lưu?</string>
     <string name="onboarding_backed_up_1">Tất cả cài đặt, danh sách phát, chủ đề và tùy chỉnh thư viện</string>
     <string name="onboarding_backed_up_2">Khôi phục từ tập tin hoặc bảng nhớ tạm bằng một lần nhấn</string>
-    <string name="onboarding_backed_up_3">Các bản sao lưu được lưu trữ cục bộ trên thiết bị của bạn để đảm bảo quyền riêng tư</string>
     <string name="onboarding_audio_title">Trải nghiệm âm thanh và phát lại</string>
     <string name="onboarding_audio_desc">Tùy chỉnh trải nghiệm âm thanh của bạn với phản hồi xúc giác, màn hình mặc định, điều khiển âm lượng, hành vi xếp hàng, cài đặt phát ngẫu nhiên, hiển thị lời bài hát và cài đặt bộ chỉnh âm.</string>
     <string name="onboarding_lyrics_sources">API: Lời bài hát trực tuyến • Đã nhúng: Lời bài hát Siêu dữ liệu • Cục bộ: tệp .lrc</string>
@@ -484,34 +444,23 @@
     <string name="onboarding_sleep_timer_desc">Hẹn giờ ngủ: Tự động dừng phát lại sau thời gian đã đặt (truy cập từ màn hình Đang phát)</string>
     <string name="onboarding_library_title">Sắp xếp thư viện nhạc của bạn</string>
     <string name="onboarding_library_desc">Tùy chỉnh cách hiển thị album, nghệ sĩ và bài hát của bạn. Chọn bố cục, thứ tự sắp xếp và sắp xếp tab ưa thích của bạn.</string>
-    <string name="onboarding_library_album_grid">Chế độ xem lưới album</string>
-    <string name="onboarding_library_album_grid_desc">Hiển thị album ở dạng lưới để duyệt trực quan hơn</string>
-    <string name="onboarding_library_artist_grid">Chế độ xem lưới nghệ sĩ</string>
-    <string name="onboarding_library_artist_grid_desc">Hiển thị nghệ sĩ theo bố cục dạng lưới với ảnh hồ sơ</string>
-    <string name="onboarding_library_show_lyrics">Hiển thị lời bài hát</string>
-    <string name="onboarding_library_show_lyrics_desc">Hiển thị lời bài hát được đồng bộ hóa trong màn hình trình phát</string>
     <string name="onboarding_library_how_works">Cách tổ chức thư viện hoạt động</string>
     <string name="onboarding_library_1">Tùy chỉnh thứ tự tab trong Thư viện để truy cập nhanh vào mục yêu thích của bạn</string>
     <string name="onboarding_library_2">Tạo và quản lý danh sách phát trực tiếp từ màn hình Thư viện</string>
-    <string name="onboarding_library_3">Tùy chọn hiển thị và sắp xếp nâng cao có sẵn trong Cài đặt &gt; Cài đặt thư viện</string>
-    <string name="onboarding_library_4">Bạn có thể bật tắt danh sách phát mặc định (Được thêm gần đây, Được phát nhiều nhất) trong Cài đặt &gt; Danh sách phát</string>
     <string name="onboarding_theme_title">Biến Rhythm thành của bạn</string>
     <string name="onboarding_theme_desc">Cá nhân hóa ngoại hình của Rhythm để phù hợp với phong cách của bạn. Chọn chủ đề hệ thống, phông chữ hoặc Material Màu động của bạn (Android 12+).</string>
     <string name="onboarding_more_tuner">Tùy chỉnh thêm trong Cài đặt</string>
     <string name="onboarding_tuner_1">Phối màu tùy chỉnh và trích xuất màu ảnh bìa album</string>
     <string name="onboarding_tuner_2">Cài đặt tùy chỉnh phông chữ và kiểu chữ</string>
-    <string name="onboarding_tuner_3">Tùy chọn chủ đề nâng cao có sẵn trong Cài đặt &gt; Tùy chỉnh chủ đề</string>
     <string name="onboarding_rhythm_guard_title">Bảo vệ thính giác của bạn</string>
     <string name="onboarding_rhythm_guard_desc">Thiết lập Rhythm Guard để giúp quá trình nghe của bạn an toàn hơn với các cài đặt mặc định phù hợp với độ tuổi và các biện pháp kiểm soát bảo vệ thủ công.</string>
     <string name="onboarding_rhythm_guard_mode_title">Chế độ bảo vệ Rhythm</string>
     <string name="onboarding_rhythm_guard_age_hint">Hồ sơ độ tuổi giúp Rhythm Guard đề xuất giới hạn nghe an toàn hơn.</string>
     <string name="onboarding_rhythm_guard_tip_1">Chế độ tự động áp dụng các giá trị mặc định an toàn hơn với mức thiết lập tối thiểu.</string>
-    <string name="onboarding_rhythm_guard_tip_2">Bạn có thể điều chỉnh cảnh báo và ngắt lời nhắc sau trong Cài đặt.</string>
     <string name="onboarding_rhythm_guard_tip_3">Chế độ thủ công cho phép bạn toàn quyền kiểm soát các cảnh báo và ngưỡng.</string>
     <string name="onboarding_full_tour_prompt_title">Tiếp tục tham quan thiết lập đầy đủ?</string>
     <string name="onboarding_full_tour_prompt_desc">Thiết lập cốt lõi đã hoàn tất. Tiếp tục tùy chỉnh nâng cao hoặc hoàn thành ngay bây giờ và khám phá phần còn lại sau từ Cài đặt.</string>
     <string name="onboarding_full_tour_prompt_tip_1">Chuyến tham quan đầy đủ bao gồm các tùy chọn phát lại, chủ đề, cử chỉ và quét phương tiện.</string>
-    <string name="onboarding_full_tour_prompt_tip_2">Bạn có thể mở lại Rhythm Tour bất kỳ lúc nào từ Cài đặt &gt; Nhà phát triển &amp; Gỡ lỗi.</string>
     <string name="onboarding_full_tour_prompt_tip_3">Ở đây không có gì là vĩnh viễn. Tất cả các lựa chọn có thể được thay đổi sau này.</string>
     <string name="onboarding_continue_full_tour">Tiếp tục chuyến tham quan đầy đủ</string>
     <string name="onboarding_finish_now">Hoàn tất thiết lập ngay</string>
@@ -521,21 +470,18 @@
     <string name="onboarding_media_scan_current_mode">Chọn chế độ Danh sách đen hoặc Danh sách trắng</string>
     <string name="onboarding_media_scan_blacklist">Chế độ danh sách đen: Ẩn các bài hát và thư mục cụ thể (nhạc chuông, thông báo)</string>
     <string name="onboarding_media_scan_whitelist">Chế độ danh sách trắng: Chỉ hiển thị các bài hát từ các thư mục đã chọn</string>
-    <string name="onboarding_media_scan_configure_in_tuner">Định cấu hình quét trong Cài đặt &gt; Quét phương tiện</string>
     <string name="onboarding_complete_title">Bạn đã sẵn sàng!</string>
     <string name="onboarding_complete_desc">Rhythm đã sẵn sàng chơi! Thư viện nhạc của bạn đang được quét ở chế độ nền. Đây là những gì được cấu hình:</string>
     <string name="onboarding_whats_next">Tiếp theo là gì?</string>
     <string name="onboarding_next_browse">Duyệt các bài hát, album và nghệ sĩ của bạn</string>
     <string name="onboarding_next_create">Tạo danh sách phát đầu tiên của bạn</string>
     <string name="onboarding_next_finetune">Tinh chỉnh âm thanh bằng Bộ chỉnh âm</string>
-    <string name="onboarding_next_explore">Khám phá thêm cài đặt bất cứ lúc nào</string>
     <string name="onboarding_settings_change">Tất cả các cài đặt có thể được thay đổi bất cứ lúc nào trong Cài đặt</string>
     <!-- Onboarding Navigation -->
     <string name="onboarding_back">Trở lại</string>
     <string name="onboarding_next">Tiếp theo</string>
     <string name="onboarding_checking">Đang kiểm tra…</string>
     <string name="onboarding_lets_go">Đi thôi!</string>
-    <string name="onboarding_finish_setup">Hoàn tất thiết lập</string>
     <string name="onboarding_continue">Tiếp tục</string>
     <string name="onboarding_open_settings">Mở Cài đặt</string>
     <string name="onboarding_grant_access">Cấp quyền truy cập</string>
@@ -558,7 +504,6 @@
     <string name="onboarding_permission_tips">Mẹo về quyền</string>
     <string name="onboarding_permission_tip_1">Cấp mọi quyền để có trải nghiệm tốt nhất</string>
     <string name="onboarding_permission_tip_2">Bạn có thể thay đổi quyền sau trong Cài đặt</string>
-    <string name="onboarding_permission_tip_3">Rhythm tôn trọng quyền riêng tư và dữ liệu của bạn</string>
     <!-- Onboarding Audio &amp; Playback -->
     <string name="onboarding_default_screen_title">Màn hình đích mặc định</string>
     <string name="onboarding_default_screen_desc">Chọn màn hình nào sẽ mở khi bạn khởi chạy Rhythm</string>
@@ -589,8 +534,6 @@
     <string name="onboarding_periodic_check_desc">Tự động kiểm tra các bản cập nhật từ kho lưu trữ GitHub của Rhythm</string>
     <string name="onboarding_update_notifications_title">Thông báo cập nhật</string>
     <string name="onboarding_update_notifications_desc">Nhận thông báo khi có phiên bản mới</string>
-    <string name="onboarding_smart_polling_title">Bỏ phiếu thông minh</string>
-    <string name="onboarding_smart_polling_desc">Sử dụng các biện pháp kiểm tra hiệu quả để lưu lệnh gọi GitHub API</string>
     <string name="onboarding_check_interval_desc">Tần suất kiểm tra cập nhật</string>
     <string name="onboarding_update_channel_title">Cập nhật kênh</string>
     <string name="onboarding_update_channel_desc">Phiên bản ổn định hoặc beta.</string>
@@ -614,12 +557,6 @@
     <string name="onboarding_dismiss">Loại bỏ</string>
     <string name="onboarding_retry">Thử lại</string>
     <!-- Onboarding: Notifications Step -->
-    <string name="onboarding_notifications_title">Thông báo phát lại</string>
-    <string name="onboarding_notifications_desc">Kiểm soát cách Rhythm hiển thị tính năng phát nhạc trong bóng thông báo của bạn. Chọn giữa các thông báo theo kiểu tùy chỉnh hoặc điều khiển phương tiện hệ thống tiêu chuẩn.</string>
-    <string name="onboarding_notifications_info_title">Tính năng thông báo</string>
-    <string name="onboarding_notification_tip_1">Xem nhanh thông tin bản nhạc hiện tại</string>
-    <string name="onboarding_notification_tip_2">Điều khiển phát lại bằng các thao tác nhanh</string>
-    <string name="onboarding_notification_tip_3">Kiểu tùy chỉnh phù hợp với chủ đề của bạn</string>
     <!-- Onboarding: Gestures Step -->
     <string name="onboarding_gestures_title">Cử chỉ chạm</string>
     <string name="onboarding_gestures_desc">Điều hướng thư viện nhạc của bạn nhanh hơn bằng cử chỉ vuốt và chạm trực quan. Tùy chỉnh cử chỉ cho trình phát mini và màn hình trình phát đầy đủ.</string>
@@ -635,7 +572,6 @@
     <string name="onboarding_gesture_doubletap_desc">Nhấn đúp vào ảnh bìa album để thích bài hát hiện tại</string>
     <string name="onboarding_gestures_tips_title">Mẹo cử chỉ</string>
     <string name="onboarding_gesture_tip_1">Cử chỉ vuốt hoạt động theo cả hai hướng</string>
-    <string name="onboarding_gesture_tip_2">Vuốt nhanh phản hồi nhanh hơn vuốt chậm</string>
     <!-- Onboarding: Widgets Step -->
     <string name="onboarding_widgets_title">Tiện ích Trình khởi chạy</string>
     <string name="onboarding_widgets_desc">Thêm tiện ích Rhythm vào trình khởi chạy của bạn để điều khiển nhạc nhanh chóng. Tùy chỉnh thông tin nào được hiển thị và giao diện của tiện ích.</string>
@@ -661,8 +597,6 @@
     <string name="onboarding_stats_features_title">Tính năng thống kê</string>
     <string name="onboarding_stats_feature_1">Theo dõi tổng thời gian nghe theo ngày, tuần, tháng</string>
     <string name="onboarding_stats_feature_2">Xem các bài hát bạn phát nhiều nhất</string>
-    <string name="onboarding_stats_feature_3">Khám phá các nghệ sĩ hàng đầu của bạn</string>
-    <string name="onboarding_stats_feature_4">Khám phá các kiểu nghe album</string>
     <!-- MiniPlayer Swipe Hints -->
     <string name="miniplayer_swipe_up_hint">↑ Người chơi đầy đủ</string>
     <string name="miniplayer_swipe_down_hint">↓ Loại bỏ</string>
@@ -671,10 +605,6 @@
     <string name="miniplayer_no_song">Không phát bài hát</string>
     <string name="badge_live">TRỰC TIẾP</string>
     <!-- Festive Greetings -->
-    <string name="festive_greeting_christmas">🎄 Giáng sinh vui vẻ! 🎅</string>
-    <string name="festive_greeting_new_year">🎆 Chúc mừng năm mới! 🎉</string>
-    <string name="festive_greeting_halloween">🎃 Halloween vui vẻ! 👻</string>
-    <string name="festive_greeting_valentines">💝 Chúc mừng ngày lễ tình nhân! 💕</string>
     <!-- Settings -->
     <string name="settings_tip_theme">Tùy chỉnh chủ đề của bạn bằng màu sắc, phông chữ và hiệu ứng lễ hội</string>
     <string name="settings_tip_gestures">Kiểm soát quá trình phát lại nhanh hơn bằng thao tác vuốt và chạm trực quan, không cần thêm menu.</string>
@@ -750,7 +680,6 @@
     <string name="playback_lyrics_priority_desc">Định cấu hình nguồn, hành vi, bố cục, kích thước và kiểu dáng của lời bài hát</string>
     <string name="playback_settings">Cài đặt phát lại</string>
     <!-- Components: Lyrics Editor -->
-    <string name="lyrics_placeholder">Nhập lời bài hát vào đây…\n\nBạn có thể sử dụng định dạng LRC:\n[00:12.00] Dòng một\n[00:17.00] Dòng hai</string>
     <string name="lyrics_editor_title">Biên tập lời bài hát</string>
     <!-- Components: Song Info -->
     <string name="song_info_title">Thông tin bài hát</string>
@@ -768,7 +697,6 @@
     <string name="backup_all_settings_placeholder">Tất cả cài đặt, danh sách phát, chủ đề và tùy chỉnh thư viện</string>
     <string name="backup_restore_tap_placeholder">Khôi phục từ tập tin hoặc bảng nhớ tạm bằng một lần nhấn</string>
     <string name="backup_local_storage_placeholder">Các bản sao lưu được lưu trữ cục bộ trên thiết bị của bạn để đảm bảo quyền riêng tư</string>
-    <string name="library_reorder_tabs">Sắp xếp lại các tab để tùy chỉnh trải nghiệm thư viện của bạn</string>
     <string name="external_services_desc">Kiểm soát những dịch vụ API bên ngoài nào đang hoạt động để nâng cao trải nghiệm âm nhạc của bạn. Bật/tắt dịch vụ để quản lý chức năng và mức sử dụng dữ liệu.</string>
     <string name="lyrics_source_priority_title">Ưu tiên nguồn lời bài hát</string>
     <string name="queue_action_title">Hành động xung đột hàng đợi</string>
@@ -815,7 +743,6 @@
     <string name="virtualizer_desc">Mở rộng âm trường âm thanh nổi</string>
     <string name="strength">Sức mạnh</string>
     <string name="open_equalizer_settings">Mở cài đặt bộ chỉnh âm</string>
-    <string name="system_equalizer">Bộ cân bằng hệ thống</string>
     <string name="no_equalizer">Không tìm thấy bộ cân bằng hệ thống</string>
     <string name="no_audio_ID">Không có ID phiên âm thanh</string>
     <!-- Sleep Timer -->
@@ -910,9 +837,6 @@
     <string name="settings_section_advanced">Nâng cao</string>
     <string name="settings_crash_log_history">Lịch sử nhật ký sự cố</string>
     <string name="settings_crash_log_history_desc">Báo cáo sự cố</string>
-    <string name="settings_experimental_features">Tính năng thử nghiệm</string>
-    <string name="settings_experimental_features_desc">Tính năng tiên tiến</string>
-    <string name="settings_select_option">Cài đặt Rhythm</string>
     <!-- Playlist Actions -->
     <string name="playlist_no_songs_available">Không có bài hát nào</string>
     <string name="playlist_all_in_playlist">Tất cả các bài hát đều đã có trong danh sách phát này.</string>
@@ -972,7 +896,6 @@
     <string name="cd_export_playlists">Xuất danh sách phát</string>
     <string name="cd_import_playlist">Nhập danh sách phát</string>
     <string name="cd_create_playlist">Tạo danh sách phát</string>
-    <string name="cd_current_location">Vị trí hiện tại</string>
     <string name="cd_song_info">Thông tin bài hát</string>
     <string name="cd_no_song_playing">Không phát bài hát</string>
     <string name="cd_show_actions">Hiển thị hành động</string>
@@ -989,7 +912,6 @@
     <string name="cd_show_options">Hiển thị các tùy chọn</string>
     <string name="cd_app_updates">Cập nhật ứng dụng</string>
     <string name="cd_completed">Đã hoàn thành</string>
-    <string name="cd_language">Ngôn ngữ</string>
     <string name="cd_add_selected_songs">Thêm bài hát đã chọn</string>
     <string name="cd_toggle_multi_select">Chuyển đổi chọn nhiều</string>
     <string name="cd_add_song">Thêm bài hát</string>
@@ -1021,7 +943,6 @@
     <string name="bottomsheet_playback">Phát lại</string>
     <string name="bottomsheet_no_device">Không có thiết bị nào được kết nối</string>
     <!-- Bottom Sheet: Album -->
-    <string name="bottomsheet_sort_by">Sắp xếp theo</string>
     <string name="bottomsheet_all_discs">Tất cả các đĩa</string>
     <string name="bottomsheet_disc_option">Đĩa %1$d</string>
     <!-- Bottom Sheet: Home Section Order -->
@@ -1067,13 +988,6 @@
     <string name="service_rhythm_pulse_desc">Lời nhắc và mẹo lắng nghe thân thiện từ Rhythm</string>
     <string name="service_rhythm_guard_alerts_desc">Cảnh báo an toàn từ Rhythm Guard</string>
     <string name="service_rhythm_guard_timers_desc">Rhythm Nhắc nhở nghỉ bảo vệ và hết thời gian chờ</string>
-    <string name="service_starting">Rhythm đang bắt đầu.</string>
-    <string name="service_loading_settings">Rhythm đang tải cài đặt của bạn.</string>
-    <string name="service_setup_components">Rhythm đang chuẩn bị các thành phần cốt lõi.</string>
-    <string name="service_initializing_player">Rhythm đang chuẩn bị phát lại.</string>
-    <string name="service_creating_controls">Rhythm đang tạo điều khiển phát lại.</string>
-    <string name="service_setup_media_session">Rhythm đang chuẩn bị phiên truyền thông.</string>
-    <string name="service_initializing_controller">Rhythm đang kết nối bộ điều khiển phương tiện.</string>
     <string name="service_ready">Rhythm đã sẵn sàng.</string>
     <string name="service_init_failed">Rhythm không thể khởi động. Vui lòng mở lại ứng dụng.</string>
     <!-- Crash Activity -->
@@ -1102,7 +1016,6 @@
     <string name="settings_ignore_mediastore_covers_desc">Ưu tiên tác phẩm nghệ thuật được nhúng từ mỗi tệp âm thanh (trước đây là Bỏ qua Bìa MediaStore)</string>
     <string name="settings_lossless_artwork">Tác phẩm nghệ thuật không mất dữ liệu</string>
     <string name="settings_lossless_artwork_desc">Hiển thị tác phẩm nghệ thuật bài hát được nhúng có độ phân giải đầy đủ mà không cần nén</string>
-    <string name="settings_song_artwork_restart_required">Chế độ tác phẩm nghệ thuật đã thay đổi. Khởi động lại ứng dụng để xóa bộ nhớ đệm và quét lại toàn bộ phương tiện với các nguồn tác phẩm nghệ thuật được cập nhật.</string>
     <string name="settings_artwork_cache_size">Kích thước bộ đệm tác phẩm nghệ thuật</string>
     <string name="settings_artist_parsing">Nghệ sĩ</string>
     <string name="settings_artist_parsing_desc">Dụng cụ phân cách, hiển thị</string>
@@ -1223,8 +1136,6 @@
     <!-- Gestures Settings -->
     
     <!-- Playlist Settings Toggle -->
-    <string name="playlist_ask_each_time">Hỏi mỗi lần</string>
-    <string name="playlist_ask_each_time_desc">Hiển thị hộp thoại với các tùy chọn</string>
     <!-- About Multi-Artist Parsing -->
     
     <!-- Home Screen Greetings -->
@@ -1267,8 +1178,6 @@
     <!-- Additional UI strings -->
     
     <!-- Sort Orders -->
-    <string name="sort_duration_short_first">Thời lượng (Ngắn đầu tiên)</string>
-    <string name="sort_duration_long_first">Thời lượng (Dài đầu tiên)</string>
     <!-- Context Menu Actions -->
     <string name="action_play_next">Chơi tiếp</string>
     <string name="action_add_to_queue">Thêm vào hàng đợi</string>
@@ -1296,10 +1205,7 @@
     <string name="home_section_new_releases">Bản phát hành mới</string>
     <string name="home_section_one_visible">Ít nhất một phần phải hiển thị</string>
     <!-- Library Tabs -->
-    <string name="library_tab_songs">Bài hát</string>
     <string name="library_tab_playlists">Danh sách phát</string>
-    <string name="library_tab_albums">Album</string>
-    <string name="library_tab_artists">Nghệ sĩ</string>
     <string name="library_tab_one_visible">Ít nhất một tab phải hiển thị</string>
     <string name="library_tab_order_reset">Thứ tự tab và khả năng hiển thị được đặt lại về mặc định</string>
     <string name="library_tab_order_saved">Đã lưu thứ tự tab và khả năng hiển thị</string>
@@ -1360,7 +1266,6 @@
     <string name="settings_no_crash_logs">Không tìm thấy nhật ký sự cố. Làm tốt lắm!</string>
     <string name="settings_player_controls">Điều khiển người chơi</string>
     <string name="settings_player_screen">Màn hình người chơi</string>
-    <string name="settings_presets">Cài đặt trước</string>
     <string name="settings_progress_display">Hiển thị tiến trình</string>
     <string name="settings_progress_hidden">Tiến trình bị ẩn</string>
     <string name="settings_reorder_toggle_sections">Sắp xếp lại &amp; Chuyển đổi các phần</string>
@@ -1406,7 +1311,6 @@
     <string name="settings_intensity">Cường độ</string>
     <string name="settings_more_festivals">Nhiều lễ hội khác sẽ được bổ sung trong các bản cập nhật trong tương lai</string>
     <string name="settings_select_festival">Chọn lễ hội</string>
-    <string name="settings_select_artist_separators">Chọn dấu phân cách nghệ sĩ</string>
     <string name="settings_snowflake_display_area">Khu trưng bày bông tuyết</string>
     <string name="settings_snowflake_size">Kích thước bông tuyết</string>
     <string name="settings_toggle_decoration_elements">Chuyển đổi các yếu tố trang trí riêng lẻ theo vị trí</string>
@@ -1541,7 +1445,6 @@
     <string name="streaming_selected">Đã chọn</string>
     <string name="streaming_connect">Kết nối</string>
     <string name="streaming_manage">Quản lý</string>
-    <string name="streaming_manage_service">Quản lý dịch vụ đã chọn</string>
     <string name="streaming_service_setup_server_url">URL máy chủ</string>
     <string name="streaming_service_setup_server_url_hint">https://your-server.example.com</string>
     <string name="streaming_service_setup_server_url_supporting">Bắt buộc đối với các nhà cung cấp cần địa chỉ máy chủ.</string>
@@ -1559,18 +1462,11 @@
     <string name="streaming_service_setup_connected_as">Đã kết nối dưới dạng %1$s</string>
     <string name="streaming_home_selected_service_unavailable">Dịch vụ đã chọn không được kết nối</string>
     <string name="streaming_home_connect_selected_service">Kết nối %1$s để tải Trang chủ và Tìm kiếm.</string>
-    <string name="streaming_home_widget_recommended_empty">Chưa có gì để khám phá</string>
-    <string name="streaming_home_widget_new_releases_title">Bản phát hành mới</string>
     <string name="streaming_home_widget_new_releases_subtitle">Album được thêm gần đây từ %1$s</string>
-    <string name="streaming_home_widget_new_releases_empty">Không có bản phát hành mới</string>
     <string name="streaming_home_widget_empty_hint">Quá trình này có thể mất chút thời gian sau khi bạn kết nối hoặc làm mới.</string>
     <string name="streaming_library_syncing">Đang tải nguồn cấp dữ liệu phát trực tuyến của bạn…</string>
-    <string name="streaming_library_empty">Chưa có nội dung thư viện</string>
     <string name="streaming_home_no_content_title">Chưa có nội dung gia đình</string>
     <string name="streaming_home_no_content_hint">Hãy thử làm mới sau khi dịch vụ của bạn đồng bộ hóa xong.</string>
-    <plurals name="streaming_home_widget_playlist_track_count">
-        <item quantity="other">%1$d bài hát</item>
-    </plurals>
     <string name="streaming_home_guard_break_active">Nghỉ hoạt động: còn lại %1$s</string>
     <string name="streaming_home_guard_exposure">Hôm nay: %1$d / %2$d phút</string>
     <string name="streaming_not_selected">Không được chọn</string>
@@ -1594,10 +1490,6 @@
     <string name="settings_tab_artists">Nghệ sĩ</string>
     <string name="settings_tab_dates">Ngày tháng</string>
     <string name="settings_tab_explorer">Nhà thám hiểm</string>
-    <string name="settings_tab_order_reset">Đặt lại thứ tự tab về mặc định</string>
-    <string name="settings_tab_order_saved">Đã lưu thứ tự tab</string>
-    <string name="settings_move_up">Di chuyển lên</string>
-    <string name="settings_move_down">Di chuyển xuống</string>
     <!-- Gestures Settings -->
     <string name="settings_swipe_gestures">Cử chỉ vuốt</string>
     <string name="settings_swipe_gestures_desc">Vuốt lên/xuống để mở/đóng, sang trái/phải để bỏ qua bài hát</string>
@@ -1673,7 +1565,6 @@
     <string name="settings_festival_christmas">Giáng sinh</string>
     <string name="settings_festival_new_year">Năm Mới</string>
     <string name="settings_area_full">Đầy đủ</string>
-    <string name="settings_area_sides">Bên</string>
     <string name="settings_area_top_third">Đỉnh ⅓</string>
     <string name="settings_snowfall">Tuyết rơi</string>
     <string name="settings_snowfall_desc">Hoạt hình những bông tuyết rơi</string>
@@ -1719,10 +1610,6 @@
     <string name="settings_gesture_double_tap">Tác phẩm nghệ thuật chạm đúp</string>
     <string name="settings_gesture_double_tap_desc">Nhấn đúp vào phát/tạm dừng</string>
     <!-- Queue & Playback Search Strings -->
-    <string name="settings_queue_auto_add">Hàng đợi ngữ cảnh</string>
-    <string name="settings_queue_auto_add_desc">Xây dựng hàng đợi liên quan khi chơi</string>
-    <string name="settings_queue_clear_on_new">Thay thế hàng đợi trên Play</string>
-    <string name="settings_queue_clear_on_new_desc">Thay thế hàng đợi để phát trực tiếp</string>
     <string name="settings_show_played_queue_songs">Hiển thị các bản nhạc đã phát</string>
     <string name="settings_show_played_queue_songs_desc">Giữ các bản nhạc đã phát luôn hiển thị trong hàng đợi</string>
     <string name="settings_queue_action_dialog_desc">Chính sách xung đột hàng đợi một bài hát</string>
@@ -1736,9 +1623,6 @@
     <string name="settings_sleep_timer_search_desc">Tự động dừng phát lại</string>
     <string name="settings_queue_hours_format">Sử dụng Giờ trong Định dạng Thời gian</string>
     <string name="settings_queue_hours_format_desc">Giờ ở định dạng thời gian</string>
-    <string name="settings_queue_persistence">Hàng đợi kiên trì</string>
-    <string name="settings_queue_persistence_desc">Khôi phục hàng đợi khi bắt đầu</string>
-    <string name="settings_list_queue_action_dialog_desc">Hành vi của danh sách Hành động phát khi hàng đợi đang hoạt động</string>
     <!-- Experimental Features Search Strings -->
     <string name="settings_exp_festive_theme">Chủ đề lễ hội</string>
     <string name="settings_exp_festive_theme_desc">Trang trí lễ hội</string>
@@ -1750,8 +1634,6 @@
     <string name="settings_exp_codec_monitoring_desc">Ghi lại thông tin âm thanh</string>
     <string name="settings_exp_audio_device_logging">Ghi nhật ký thiết bị âm thanh</string>
     <string name="settings_exp_audio_device_logging_desc">Ghi nhật ký thay đổi thiết bị</string>
-    <string name="settings_exp_launch_onboarding">Khởi động chuyến tham quan Rhythm</string>
-    <string name="settings_exp_launch_onboarding_desc">Khởi động lại chuyến tham quan Rhythm</string>
     <string name="settings_exp_test_crash">Sự cố thử nghiệm</string>
     <string name="settings_exp_test_crash_desc">Buộc ứng dụng bị sập</string>
     <string name="settings_broadcast_status_enabled">Kích hoạt tính năng phát sóng trạng thái</string>
@@ -1873,13 +1755,10 @@
     <string name="exp_codec_monitoring">Giám sát mã hóa</string>
     <string name="exp_codec_monitoring_desc">Ghi lại thông tin định dạng và codec âm thanh để gỡ lỗi</string>
     <string name="exp_developer_debugging">Nhà phát triển và gỡ lỗi</string>
-    <string name="exp_launch_onboarding">Khởi động chuyến tham quan Rhythm</string>
-    <string name="exp_launch_onboarding_desc">Đặt lại và khởi chạy lại trải nghiệm Chuyến tham quan Rhythm</string>
     <string name="exp_test_crash">Thử nghiệm sự cố</string>
     <string name="exp_test_crash_desc">Buộc đóng ứng dụng để kiểm tra việc xử lý và báo cáo sự cố</string>
     <string name="exp_force_player_compact_mode">Buộc người chơi ở chế độ thu gọn</string>
     <string name="exp_force_player_compact_mode_desc">Buộc màn hình trình phát sử dụng chế độ thu gọn</string>
-    <string name="exp_third_party_integrations">Tích hợp của bên thứ ba</string>
     <string name="settings_backup_created">Sao lưu được tạo thành công</string>
     <string name="settings_backup_settings">Cài đặt</string>
     <string name="settings_center_aligned">Căn giữa</string>
@@ -1887,12 +1766,10 @@
     <string name="settings_create_backup_desc">Xuất bản sao lưu hoàn chỉnh sang tệp JSON</string>
     <string name="settings_backup_action_short">Sao lưu</string>
     <string name="settings_restore_action_short">Khôi phục</string>
-    <string name="settings_experimental">Tính năng thử nghiệm</string>
     <string name="settings_left_aligned">Căn trái</string>
     <string name="settings_player">Người chơi</string>
     <string name="settings_restore_completed">Khôi phục hoàn tất thành công</string>
     <string name="settings_right_aligned">Căn phải</string>
-    <string name="settings_tab_order">Thứ tự tab thư viện</string>
     <!-- Theme, CrashLog, Home, Lyrics, Shapes, API Strings -->
     <string name="settings_crash_log">Lịch sử nhật ký sự cố</string>
     <string name="settings_expressive_shapes">Hình dạng biểu cảm</string>
@@ -1941,8 +1818,6 @@
     <string name="deviceconfigurationbottomsheet_brand_optional">Thương hiệu (Tùy chọn)</string>
     <string name="deviceconfigurationbottomsheet_eg_sony">ví dụ: Sony</string>
     <string name="deviceconfigurationbottomsheet_select_autoeq_profile">Chọn cấu hình AutoEQ</string>
-    <string name="deviceconfigurationbottomsheet_find_a_profile_for">Tìm hồ sơ cho thiết bị này…</string>
-    <string name="deviceconfigurationbottomsheet_no_matching_profiles_found">Không tìm thấy hồ sơ phù hợp</string>
     <string name="multiselectionbottomsheet_go_to_album">Vào album</string>
     <string name="multiselectionbottomsheet_go_to_artist">Đến với nghệ sĩ</string>
     <string name="multiselectionbottomsheet_edit_tags">Chỉnh sửa thẻ</string>
@@ -1960,11 +1835,7 @@
     <string name="localnavigation_stats">Số liệu thống kê</string>
     <string name="addtoplaylistscreen_pick_a_tune_to">Chọn một giai điệu để thêm…</string>
     <string name="addtoplaylistscreen_tap_songs_to_select">Nhấn vào các bài hát để chọn nhiều bài hát, sau đó thêm tất cả chúng cùng một lúc</string>
-    <string name="equalizerscreen_reset_to_flat">Đặt lại về dạng phẳng</string>
     <string name="equalizerscreen_autoeq_profiles">Cấu hình AutoEQ</string>
-    <string name="equalizerscreen_apply_headphonespecific_equalization">Áp dụng cân bằng dành riêng cho tai nghe</string>
-    <string name="equalizerscreen_import_export_and_organize">Nhập, xuất và sắp xếp hồ sơ</string>
-    <string name="equalizerscreen_access_androids_builtin_settings">Truy cập cài đặt tích hợp của Android</string>
     <string name="explorertabcontent_browse_storage">Duyệt lưu trữ</string>
     <string name="explorertabcontent_folder_icon">Biểu tượng thư mục</string>
     <string name="explorertabcontent_play_folder_as_playlist">Thư mục phát (dưới dạng Danh sách phát)</string>
@@ -1978,22 +1849,12 @@
     <string name="onboardingscreen_tap_the_remove_action">Nhấn vào thao tác xóa để cập nhật quyền truy cập thư mục</string>
     <string name="onboardingscreen_interaction">Tương tác</string>
     <string name="onboardingscreen_choose_your_playback_mode">Chọn Chế độ Phát lại của Bạn</string>
-    <string name="onboardingscreen_local_offline_player">Trình phát ngoại tuyến cục bộ</string>
-    <string name="onboardingscreen_play_audio_files_stored">Phát các tệp âm thanh được lưu trữ trực tiếp trên thiết bị của bạn. Hỗ trợ quét thư mục cục bộ nâng cao, thống kê và khớp chủ đề.</string>
-    <string name="onboardingscreen_rhythm_go_streaming">Rhythm GO! (Truyền phát)</string>
-    <string name="onboardingscreen_connect_to_jellyfin_subsonic">Kết nối với máy chủ Jellyfin, Subsonic hoặc Navidrome để truyền trực tuyến toàn bộ thư viện của bạn khi đang di chuyển, có hỗ trợ bộ nhớ đệm để nghe ngoại tuyến.</string>
     <string name="onboardingscreen_playback_mode_tips">Mẹo về chế độ phát lại</string>
-    <string name="onboardingscreen_switch_easily_anytime_in">Dễ dàng chuyển đổi bất kỳ lúc nào trong Cài đặt &gt; Tích hợp.</string>
     <string name="onboardingscreen_local_mode_scans_and">Chế độ cục bộ quét và lập danh mục các tệp âm thanh trên thiết bị của bạn.</string>
     <string name="onboardingscreen_go_streaming_connects_via">GO Streaming kết nối qua máy chủ cận âm/jellyfin API.</string>
-    <string name="onboardingscreen_connect_your_streaming_service">Kết nối dịch vụ phát trực tuyến của bạn</string>
-    <string name="onboardingscreen_connect_your_subsonicnavidrome_or">Kết nối máy chủ Subsonic/Navidrome hoặc Jellyfin của bạn để bắt đầu phát trực tuyến.</string>
     <string name="onboardingscreen_streaming_setup_tips">Mẹo thiết lập phát trực tuyến</string>
-    <string name="onboardingscreen_supports_navidrome_gonic_and">Hỗ trợ Navidrome, gonic và tất cả các API cận âm.</string>
-    <string name="onboardingscreen_enable_caching_in_settings">Bật bộ nhớ đệm trong Cài đặt để phát lại ngoại tuyến sau.</string>
     <string name="onboardingscreen_connection_test_ensures_server">Kiểm tra kết nối đảm bảo thông tin đăng nhập máy chủ là chính xác.</string>
     <string name="onboardingscreen_subsonic_navidrome">Subsonic / Navidrome</string>
-    <string name="onboardingscreen_jellyfin_server">Máy chủ Jellyfin</string>
     <string name="onboardingscreen_httpsyourservercom">https://your-server.com</string>
     <string name="onboardingscreen_remember_to_include_http">Nhớ thêm http:// hoặc https://</string>
     <string name="onboardingscreen_username">Tên người dùng</string>
@@ -2011,11 +1872,7 @@
     <string name="gosettingsscreen_network">Mạng</string>
     <string name="gosettingsscreen_enable_streaming_over_mobile">Bật truyền phát qua dữ liệu di động</string>
     <string name="gosettingsscreen_connection_is_healthy">Kết nối tốt</string>
-    <string name="streamingcontenthomescreen_your_connected_streaming_service">Danh sách phát dịch vụ phát trực tuyến được kết nối của bạn</string>
-    <string name="streamingcontenthomescreen_no_playlists_found">Không tìm thấy danh sách phát nào</string>
-    <string name="streamingcontenthomescreen_create_playlists_on_your">Tạo danh sách phát trên máy chủ của bạn để xem chúng tại đây.</string>
     <string name="streaminghomescreen_leave_go_mode">Leave Go Mode</string>
-    <string name="streaminglibraryscreen_no_albums">Không có album</string>
     <string name="streamingsettingsscreen_streaming_restricted">Hạn chế phát trực tuyến</string>
     <string name="streamingmusicviewmodel_failed_to_play_next">Không thể phát tiếp theo: Không thể phân giải URL</string>
     <string name="streamingmusicviewmodel_failed_to_add_to">Không thể thêm vào hàng đợi: Không thể phân giải URL</string>
@@ -2039,18 +1896,13 @@
     <string name="songinfobottomsheet_song_artwork">Tác phẩm nghệ thuật bài hát</string>
     <string name="songinfobottomsheet_details">Chi tiết</string>
     <string name="songinfobottomsheet_change_artwork">Thay đổi tác phẩm nghệ thuật</string>
-    <string name="songinfobottomsheet_remove_artwork">Xóa tác phẩm nghệ thuật</string>
     <string name="songinfobottomsheet_artwork_fetched_successfully_click">Đã tải tác phẩm nghệ thuật thành công! Nhấn Lưu để nhúng.</string>
     <string name="songinfobottomsheet_failed_to_download_artwork_1">Không thể tải xuống tác phẩm nghệ thuật từ URL</string>
     <string name="songinfobottomsheet_no_artwork_found_for">Không tìm thấy tác phẩm nghệ thuật nào cho bài hát này trực tuyến</string>
-    <string name="songinfobottomsheet_online_search_failed">Tìm kiếm trực tuyến không thành công</string>
     <string name="songinfobottomsheet_online_api_service_unavailable">Dịch vụ API trực tuyến không khả dụng</string>
     <string name="songinfobottomsheet_fetching">Đang tìm nạp…</string>
     <string name="songinfobottomsheet_fetch_online_art">Tìm nạp nghệ thuật trực tuyến</string>
     <string name="songinfobottomsheet_update_artwork_and_tags">Cập nhật tác phẩm nghệ thuật và thẻ</string>
-    <string name="songinfobottomsheet_fetching_artwork">Đang tìm nạp tác phẩm nghệ thuật…</string>
-    <string name="updatebottomsheet_install">Cài đặt</string>
-    <string name="updatebottomsheet_update">Cập nhật</string>
     <string name="collapsibleheader_app_icon">Biểu tượng ứng dụng</string>
     <string name="expressivecomponents_seek_back">Tìm lại</string>
     <string name="expressivecomponents_seek_forward">Tìm về phía trước</string>
@@ -2087,7 +1939,6 @@
     <string name="rhythmnavigation_stream">Luồng</string>
     <string name="rhythmstatsscreen_top_songs">Bài hát hàng đầu</string>
     <string name="rhythmstatsscreen_listening_habits">Thói quen lắng nghe</string>
-    <string name="rhythmstatsscreen_listening_timeline">Dòng thời gian nghe</string>
     <string name="rhythmstatsscreen_no_stats_available_yet">Chưa có số liệu thống kê</string>
     <string name="rhythmstatsscreen_keep_listening_to_build">Hãy tiếp tục lắng nghe để xây dựng hành trình âm nhạc của bạn!</string>
     <string name="universalsearchscreen_remove_search">Xóa tìm kiếm</string>
@@ -2100,7 +1951,6 @@
     <string name="universalsearchscreen_artist_not_found">Không tìm thấy nghệ sĩ</string>
     <string name="expressiveplayerscreen_more">Thêm</string>
     <string name="expressiveplayerscreen_device">Thiết bị</string>
-    <string name="expressiveplayerscreen_load">Tải</string>
     <string name="materialplayerscreen_permission_denied_could_not">Quyền bị từ chối. Không thể nhúng lời bài hát.</string>
     <string name="materialplayerscreen_unable_to_share_file">Không thể chia sẻ tập tin</string>
     <string name="playerscreen_select_artist">Chọn nghệ sĩ</string>
@@ -2210,7 +2060,6 @@
     <string name="lyrics_settings">Cài đặt lời bài hát</string>
     <string name="error_loading_lyrics">Lỗi tải lời bài hát: %1$s</string>
     <string name="error_saving_lyrics">Lỗi lưu lời bài hát: %1$s</string>
-    <string name="song_metadata_details">%1$s\nNghệ sĩ: %2$s\nAlbum: %3$s</string>
     <string name="crash_log_title">Đã gặp sự cố vào: %1$s</string>
     <string name="widget_settings_radius_desc">%1$ddp (chỉ tiện ích Glance)</string>
     <string name="equalizer_open_error">Không thể mở bộ chỉnh âm: %1$s</string>
@@ -2280,8 +2129,6 @@
     <string name="lyrics_source_embedded_first_desc">Thử siêu dữ liệu tệp âm thanh → API trực tuyến → tệp .lrc</string>
     <string name="lyrics_source_api_first">API Đầu tiên</string>
     <string name="lyrics_source_api_first_desc">Thử các dịch vụ trực tuyến → Siêu dữ liệu âm thanh → Tệp .lrc</string>
-    <string name="lyrics_source_local_first">.lrc cục bộ đầu tiên</string>
-    <string name="lyrics_source_local_first_desc">Thử tệp .lrc → Siêu dữ liệu âm thanh → API trực tuyến</string>
     <!-- Font / Color Customization Dialogs -->
     <string name="theme_font_source_changed_restart">Nguồn phông chữ đã thay đổi. Khởi động lại ứng dụng để áp dụng phông chữ mới.</string>
     <string name="color_source_album_art">Album nghệ thuật</string>
@@ -2369,9 +2216,6 @@
     <string name="autoeqpresetpickerbottomsheet_disable">Không / Tắt AutoEQ</string>
     <string name="autoeqpresetpickerbottomsheet_disable_desc">Xóa cấu hình tai nghe, sử dụng cài đặt trước EQ tiêu chuẩn</string>
     <!-- Device Configuration additions -->
-    <plurals name="device_configuration_devices_configured">
-        <item quantity="other">Đã định cấu hình %1$d thiết bị</item>
-    </plurals>
     <string name="device_configuration_device_recognized">Thiết bị được nhận dạng</string>
     <string name="device_configuration_new_device_detected">Đã phát hiện thiết bị mới</string>
     <string name="device_configuration_configured_with">%1$s được định cấu hình bằng %2$s</string>
@@ -2391,12 +2235,8 @@
     <string name="device_configuration_save">Lưu</string>
     <string name="device_configuration_add">Thêm</string>
     <string name="device_configuration_for_device">Đối với %1$s</string>
-    <plurals name="device_configuration_profiles_available">
-        <item quantity="other">Có sẵn %1$d hồ sơ</item>
-    </plurals>
     <string name="device_configuration_disable_compensation">Tắt bù tai nghe</string>
     <!-- Common UI element strings -->
-    <string name="common_none">Không có</string>
     <string name="common_back">Trở lại</string>
     <string name="common_active">Đang hoạt động</string>
     <string name="common_disabled">Bị vô hiệu hóa</string>
@@ -2418,8 +2258,6 @@
     <string name="blacklist_add_folder_desc">Tất cả các bài hát trong thư mục này sẽ bị ẩn và không được phát lại.</string>
     <string name="blacklist_folder_removed_msg">Đã xóa thư mục khỏi danh sách đen</string>
     <string name="blacklist_folder_added_msg">Thư mục được thêm vào danh sách đen</string>
-    <string name="blacklist_disc_label">Đĩa %1$d</string>
-    <string name="blacklist_track_label">Theo dõi %1$d</string>
     <!-- Library & Playlist Dialog additions -->
     <string name="dialog_add_song_to_playlist">Thêm \"%1$s\" vào danh sách phát này</string>
     <plurals name="dialog_songs_in_queue">
@@ -2460,7 +2298,6 @@
     <string name="eq_preset_v_shape">Hình chữ V</string>
     <string name="eq_preset_harman">Harman</string>
     <string name="eq_preset_custom">Tùy chỉnh</string>
-    <string name="eq_manage_device">Quản lý thiết bị</string>
     <string name="eq_system_equalizer">Bộ cân bằng hệ thống</string>
     <string name="eq_enhance_lows">Tăng cường mức thấp</string>
     <string name="eq_widen_sound">Mở rộng âm thanh</string>
@@ -2476,7 +2313,6 @@
     <string name="library_scan_songs">Đang quét bài hát…</string>
     <string name="library_scan_media">Đang quét phương tiện…</string>
     <string name="library_category_all">Tất cả</string>
-    <string name="library_category_favorites">❤️ Yêu thích</string>
     <string name="library_category_short">Ngắn (&lt; 3 phút)</string>
     <string name="library_category_medium">Trung bình (3–5 phút)</string>
     <string name="library_category_long">Dài (&gt; 5 phút)</string>
@@ -2691,7 +2527,6 @@
     <string name="lyrics_source_attribution">Lời bài hát của %1$s</string>
     <string name="lyrics_currently_no_lyrics">Hiện tại không có lời bài hát nào cho bài hát này.\n</string>
     <string name="lyrics_no_lyrics">Không có lời bài hát nào cho bài hát này.</string>
-    <string name="artist_options">Tùy chọn nghệ sĩ</string>
     <string name="edit_album_title_label">Tiêu đề album</string>
     <string name="edit_album_artist_label">Nghệ sĩ tạo album</string>
     <plurals name="autoeq_profiles_available">

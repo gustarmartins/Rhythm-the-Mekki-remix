@@ -12,6 +12,7 @@ import chromahub.rhythm.app.shared.presentation.components.icons.Icon
 import android.content.Context
 import androidx.compose.ui.focus.FocusRequester
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import android.widget.Toast
 import chromahub.rhythm.app.shared.presentation.screens.settings.SettingsSearchBar
@@ -50,17 +51,20 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmSortMenuContent
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmSortMenuElevation
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmSortMenuShape
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmSortOption
+import chromahub.rhythm.app.shared.presentation.components.common.HeaderAction
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmDetailActionButton
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmGroupedMenuContent
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmMenuItem
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmDetailActionButtonFullWidth
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonType
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveScrollBar
 import chromahub.rhythm.app.shared.presentation.components.common.playlistDetailFastScrollLabel
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -72,6 +76,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -141,7 +146,7 @@ import chromahub.rhythm.app.shared.presentation.theme.rememberExpressiveShape
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeTarget
 import chromahub.rhythm.app.shared.presentation.components.common.DragDropLazyColumn
 import chromahub.rhythm.app.shared.presentation.components.player.formatDuration
-import chromahub.rhythm.app.shared.presentation.components.bottomsheets.PlaylistSongOptionsBottomSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SongOverflowBottomSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SongInfoBottomSheet
 import kotlinx.coroutines.delay // Import delay
 import androidx.compose.animation.core.Spring
@@ -245,6 +250,7 @@ fun PlaylistDetailScreen(
     var showPlaylistSelector by remember { mutableStateOf(false) }
     var selectedSongForInfo by remember { mutableStateOf<Song?>(null) }
     var showSongInfo by remember { mutableStateOf(false) }
+    var showSongInfoInEditMode by remember { mutableStateOf(false) }
 
     var currentArtworkUri by remember(playlist.id, playlist.artworkUri) {
         mutableStateOf(playlist.artworkUri)
@@ -252,7 +258,7 @@ fun PlaylistDetailScreen(
     var showCustomizeImageDialog by remember { mutableStateOf(false) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
             musicViewModel.updatePlaylistArtwork(playlist.id, uri) {
@@ -265,7 +271,11 @@ fun PlaylistDetailScreen(
         CustomizePlaylistImageDialog(
             playlistName = playlist.name,
             onDismiss = { showCustomizeImageDialog = false },
-            onSelectImage = { imagePickerLauncher.launch("image/*") },
+            onSelectImage = {
+                imagePickerLauncher.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                )
+            },
             onResetImage = {
                 musicViewModel.updatePlaylistArtwork(playlist.id, null) {
                     currentArtworkUri = null
@@ -282,6 +292,7 @@ fun PlaylistDetailScreen(
     // Song picker sheet state
     val coroutineScope = rememberCoroutineScope()
     val allSongs by musicViewModel.filteredSongs.collectAsState()
+    val favoriteSongs by musicViewModel.favoriteSongs.collectAsState()
     var showSongPicker by remember { mutableStateOf(false) }
     val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden, enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded))
 
@@ -543,52 +554,71 @@ fun PlaylistDetailScreen(
     }
     
     if (showSongOptionsSheet && selectedSongForOptions != null) {
-        PlaylistSongOptionsBottomSheet(
-            song = selectedSongForOptions!!,
+        val targetSong = selectedSongForOptions!!
+        SongOverflowBottomSheet(
+            song = targetSong,
             onDismiss = { showSongOptionsSheet = false },
-            onShare = {
-                onShare(selectedSongForOptions!!)
-                showSongOptionsSheet = false
-            },
-            onRemoveFromPlaylist = {
-                onRemoveSong(selectedSongForOptions!!, context.getString(R.string.playlist_removed_from_playlist, selectedSongForOptions!!.title))
+            onPlay = {
+                onPlaySongFromPlaylist?.invoke(targetSong, playlist.songs) ?: onSongClick(targetSong)
                 showSongOptionsSheet = false
             },
             onPlayNext = {
-                onPlayNext(selectedSongForOptions!!)
+                onPlayNext(targetSong)
                 showSongOptionsSheet = false
-                Toast.makeText(context, context.getString(R.string.will_play_next, selectedSongForOptions!!.title), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.will_play_next, targetSong.title), Toast.LENGTH_SHORT).show()
             },
             onAddToQueue = {
-                onAddToQueue(selectedSongForOptions!!)
+                onAddToQueue(targetSong)
                 showSongOptionsSheet = false
-                Toast.makeText(context, context.getString(R.string.added_to_queue, selectedSongForOptions!!.title), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.added_to_queue, targetSong.title), Toast.LENGTH_SHORT).show()
+            },
+            isFavorite = favoriteSongs.contains(targetSong.id),
+            onToggleFavorite = {
+                onToggleFavorite(targetSong)
             },
             onAddToPlaylist = {
-                onAddToPlaylist(selectedSongForOptions!!)
-                showSongOptionsSheet = false
-            },
-            onShowSongInfo = {
-                selectedSongForInfo = selectedSongForOptions
-                showSongInfo = true
+                onAddToPlaylist(targetSong)
                 showSongOptionsSheet = false
             },
             onGoToAlbum = {
-                onGoToAlbum(selectedSongForOptions!!)
+                onGoToAlbum(targetSong)
                 showSongOptionsSheet = false
             },
             onGoToArtist = {
-                onGoToArtist(selectedSongForOptions!!)
+                onGoToArtist(targetSong)
                 showSongOptionsSheet = false
             },
-            showRemoveFromPlaylist = canEditPlaylist || isStreamingPlaylist,
-            showAddToPlaylist = false,
-            isStreamingMode = isStreamingPlaylist,
-            onDeleteSong = {
-                musicViewModel.deleteSong(selectedSongForOptions!!)
+            onShowSongInfo = {
+                selectedSongForInfo = targetSong
+                showSongInfoInEditMode = false
+                showSongInfo = true
                 showSongOptionsSheet = false
             },
-            haptics = haptics
+            onEditSong = if (!isStreamingPlaylist) {
+                {
+                    selectedSongForInfo = targetSong
+                    showSongInfoInEditMode = true
+                    showSongInfo = true
+                    showSongOptionsSheet = false
+                }
+            } else null,
+            onRemoveFromPlaylist = if (canEditPlaylist || isStreamingPlaylist) {
+                {
+                    onRemoveSong(targetSong, context.getString(R.string.playlist_removed_from_playlist, targetSong.title))
+                    showSongOptionsSheet = false
+                }
+            } else null,
+            onDeleteSong = if (!isStreamingPlaylist) {
+                {
+                    musicViewModel.deleteSong(targetSong)
+                    showSongOptionsSheet = false
+                }
+            } else null,
+            onShare = {
+                onShare(targetSong)
+                showSongOptionsSheet = false
+            },
+            isStreaming = isStreamingPlaylist
         )
     }
 
@@ -625,8 +655,10 @@ fun PlaylistDetailScreen(
             song = selectedSongForInfo,
             onDismiss = {
                 showSongInfo = false
+                showSongInfoInEditMode = false
                 selectedSongForInfo = null
             },
+            startInEditMode = showSongInfoInEditMode,
             appSettings = appSettings,
             isStreamingMode = isStreamingPlaylist,
             onEditSong = { title, artist, album, genre, year, trackNumber, artworkUri, removeArtwork, albumArtist, composer, discNumber, onComplete ->
@@ -695,131 +727,88 @@ fun PlaylistDetailScreen(
                 onBack()
             }
         },
-        actions = {
-            // Sort button (only show if sorting is available)
-            val isDefault = playlist.id == "1" || playlist.id == "2" || playlist.id == "3"
-            if (isDefault || (onUpdatePlaylistSongs != null && playlist.songs.size > 1)) {
-                val sortButtonScale by animateFloatAsState(
-                    targetValue = if (showSortMenu) 0.95f else 1f,
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                    label = "sortButtonScale"
+        headerActions = buildList {
+            if (playlist.isDefault || (onUpdatePlaylistSongs != null && playlist.songs.size > 1)) {
+                add(
+                    HeaderAction(
+                        contentDescription = context.getString(R.string.content_desc_sort_songs),
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                            showSortMenu = true
+                        },
+                        content = {
+                            val sortText = when (currentPlaylistSort) {
+                                PlaylistSortOrder.TITLE_ASC, PlaylistSortOrder.TITLE_DESC -> "Title"
+                                PlaylistSortOrder.ARTIST_ASC, PlaylistSortOrder.ARTIST_DESC -> "Artist"
+                                PlaylistSortOrder.ALBUM_ASC, PlaylistSortOrder.ALBUM_DESC -> "Album"
+                                PlaylistSortOrder.DURATION_ASC, PlaylistSortOrder.DURATION_DESC -> "Duration"
+                                PlaylistSortOrder.DATE_ADDED_ASC, PlaylistSortOrder.DATE_ADDED_DESC -> "Date Added"
+                            }
+                            val sortArrowIcon = when (currentPlaylistSort) {
+                                PlaylistSortOrder.TITLE_ASC, PlaylistSortOrder.ARTIST_ASC, PlaylistSortOrder.ALBUM_ASC,
+                                PlaylistSortOrder.DURATION_ASC, PlaylistSortOrder.DATE_ADDED_ASC -> RhythmIcons.ArrowUpward
+                                else -> RhythmIcons.ArrowDownward
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = RhythmIcons.Sort,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = sortText,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = sortArrowIcon,
+                                    contentDescription = if (currentPlaylistSort.name.endsWith("_ASC")) "Ascending" else "Descending",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    )
                 )
-                
-                FilledTonalButton(
-                    onClick = {
-                        HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                        showSortMenu = true
-                    },
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    ),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-                    modifier = Modifier.graphicsLayer {
-                        scaleX = sortButtonScale
-                        scaleY = sortButtonScale
-                    }
-                ) {
-                    Icon(
-                        imageVector = RhythmIcons.Sort,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    // Sort order text
-                    val sortText = when (currentPlaylistSort) {
-                        PlaylistSortOrder.TITLE_ASC, PlaylistSortOrder.TITLE_DESC -> "Title"
-                        PlaylistSortOrder.ARTIST_ASC, PlaylistSortOrder.ARTIST_DESC -> "Artist"
-                        PlaylistSortOrder.ALBUM_ASC, PlaylistSortOrder.ALBUM_DESC -> "Album"
-                        PlaylistSortOrder.DURATION_ASC, PlaylistSortOrder.DURATION_DESC -> "Duration"
-                        PlaylistSortOrder.DATE_ADDED_ASC, PlaylistSortOrder.DATE_ADDED_DESC -> "Date Added"
-                    }
-
-                    Text(
-                        text = sortText,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Medium
-                    )
-                    
-                    Spacer(modifier = Modifier.width(4.dp))
-                    
-                    val sortArrowIcon = when (currentPlaylistSort) {
-                        PlaylistSortOrder.TITLE_ASC, PlaylistSortOrder.ARTIST_ASC, PlaylistSortOrder.ALBUM_ASC, 
-                        PlaylistSortOrder.DURATION_ASC, PlaylistSortOrder.DATE_ADDED_ASC -> RhythmIcons.ArrowUpward
-                        else -> RhythmIcons.ArrowDownward
-                    }
-                    
-                    Icon(
-                        imageVector = sortArrowIcon,
-                        contentDescription = if (currentPlaylistSort.name.endsWith("_ASC")) "Ascending" else "Descending",
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
             }
-            
+
             if (canEditPlaylist || isStreamingPlaylist) {
-                FilledIconButton(
-                    onClick = {
-                        HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                        showMenu = true
-                    },
-                    colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                ) {
-                    Icon(
-                        imageVector = RhythmIcons.More,
+                add(
+                    HeaderAction(
+                        icon = RhythmIcons.More,
                         contentDescription = context.getString(R.string.playlist_more_options),
-                        modifier = Modifier.size(20.dp)
+                        onClick = {
+                            HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                            showMenu = true
+                        }
                     )
-                }
+                )
+            }
+        },
+        actions = {
+            val isDefault = playlist.isDefault
+            if (canEditPlaylist || isStreamingPlaylist) {
                 DropdownMenu(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false },
                     modifier = Modifier
                         .widthIn(min = 220.dp)
-                        .background(MaterialTheme.colorScheme.surfaceContainer)
-                        .padding(5.dp),
-                    shape = RoundedCornerShape(18.dp)
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(4.dp),
+                    shape = RoundedCornerShape(20.dp)
                 ) {
+                    val playlistMenuItems = buildList {
                     // Reorder songs option
                     if (isDefault || (onReorderSongs != null && playlist.songs.isNotEmpty())) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        if (isReorderMode) context.getString(R.string.playlist_done_reordering) else context.getString(R.string.playlist_reorder_songs),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                },
-                                leadingIcon = {
-                                    Surface(
-                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                                        shape = CircleShape,
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = if (isReorderMode) RhythmIcons.Check else MaterialSymbolIcon("reorder"),
-                                            contentDescription = null,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(6.dp)
-                                        )
-                                    }
-                                },
+                        add(
+                            RhythmMenuItem(
+                                title = if (isReorderMode) context.getString(R.string.playlist_done_reordering) else context.getString(R.string.playlist_reorder_songs),
+                                icon = if (isReorderMode) RhythmIcons.Check else MaterialSymbolIcon("reorder"),
+                                iconContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
                                     showMenu = false
                                     isReorderMode = !isReorderMode
                                     // Exit multi-select mode when entering reorder mode
@@ -829,44 +818,18 @@ fun PlaylistDetailScreen(
                                     }
                                 }
                             )
-                        }
+                        )
                     }
                     
                     // Select songs option (multi-select mode)
                     if (playlist.songs.isNotEmpty()) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        if (isMultiSelectMode) "Cancel selection" else "Select songs",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                },
-                                leadingIcon = {
-                                    Surface(
-                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                                        shape = CircleShape,
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = if (isMultiSelectMode) RhythmIcons.Close else MaterialSymbolIcon("check_box"),
-                                            contentDescription = null,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(6.dp)
-                                        )
-                                    }
-                                },
+                        add(
+                            RhythmMenuItem(
+                                title = if (isMultiSelectMode) "Cancel selection" else "Select songs",
+                                icon = if (isMultiSelectMode) RhythmIcons.Close else MaterialSymbolIcon("check_box"),
+                                iconContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
                                     showMenu = false
                                     isMultiSelectMode = !isMultiSelectMode
                                     // Exit reorder mode when entering multi-select mode
@@ -877,232 +840,103 @@ fun PlaylistDetailScreen(
                                     }
                                 }
                             )
-                        }
+                        )
                     }
                     
                     // Export playlist option
                     if (!isDefault && (onExportPlaylist != null || onExportPlaylistToCustomLocation != null)) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "Export playlist",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                },
-                                leadingIcon = {
-                                    Surface(
-                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                                        shape = CircleShape,
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = MaterialSymbolIcon("file_upload"),
-                                            contentDescription = null,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(6.dp)
-                                        )
-                                    }
-                                },
+                        add(
+                            RhythmMenuItem(
+                                title = "Export playlist",
+                                icon = MaterialSymbolIcon("file_upload"),
+                                iconContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
                                     showMenu = false
                                     showExportDialog = true
                                 }
                             )
-                        }
+                        )
                     }
                     
                     // Import playlist option
                     if (!isDefault && onImportPlaylist != null) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "Import playlist",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                },
-                                leadingIcon = {
-                                    Surface(
-                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                                        shape = CircleShape,
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = RhythmIcons.Actions.Download,
-                                            contentDescription = null,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(6.dp)
-                                        )
-                                    }
-                                },
+                        add(
+                            RhythmMenuItem(
+                                title = "Import playlist",
+                                icon = RhythmIcons.Actions.Download,
+                                iconContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
                                 onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
                                     showMenu = false
                                     showImportDialog = true
                                 }
                             )
-                        }
+                        )
                     }
                     
                     // Customize playlist image option (local playlists only)
                     if (canEditPlaylist) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    "Customize image",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                            },
-                            leadingIcon = {
-                                Surface(
-                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                                    shape = CircleShape,
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = RhythmIcons.Image,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .padding(6.dp)
-                                    )
+                        add(
+                            RhythmMenuItem(
+                                title = "Customize image",
+                                icon = RhythmIcons.Image,
+                                iconContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                iconTint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                onClick = {
+                                    showMenu = false
+                                    showCustomizeImageDialog = true
                                 }
-                            },
-                            onClick = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                showMenu = false
-                                showCustomizeImageDialog = true
-                            }
+                            )
                         )
-                    }
                     }
 
                     // Rename playlist option
                     if (!isDefault) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "Rename playlist",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                },
-                                leadingIcon = {
-                                    Surface(
-                                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
-                                        shape = CircleShape,
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = RhythmIcons.Edit,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(6.dp)
-                                        )
-                                    }
-                                },
+                        add(
+                            RhythmMenuItem(
+                                title = "Rename playlist",
+                                icon = RhythmIcons.Edit,
+                                iconContainerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                                iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
                                 onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
                                     showMenu = false
                                     newPlaylistName = playlist.name
                                     showRenameDialog = true
                                 }
                             )
-                        }
+                        )
                     }
                     
                     // Delete playlist option
                     if (!isDefault) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surface,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        "Delete playlist",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                },
-                                leadingIcon = {
-                                    Surface(
-                                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
-                                        shape = CircleShape,
-                                        modifier = Modifier.size(32.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = RhythmIcons.Delete,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                                .padding(6.dp)
-                                        )
-                                    }
-                                },
+                        add(
+                            RhythmMenuItem(
+                                title = "Delete playlist",
+                                icon = RhythmIcons.Delete,
+                                iconContainerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                                iconTint = MaterialTheme.colorScheme.onErrorContainer,
+                                isDestructive = true,
                                 onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
                                     showMenu = false
                                     showDeleteDialog = true
                                 }
                             )
-                        }
+                        )
                     }
+                    }
+                    RhythmGroupedMenuContent(items = playlistMenuItems)
                 }
                 
                 // Sort menu dropdown
                 DropdownMenu(
                     expanded = showSortMenu,
                     onDismissRequest = { showSortMenu = false },
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RhythmSortMenuShape,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    shadowElevation = RhythmSortMenuElevation,
                     modifier = Modifier
                         .widthIn(min = 250.dp)
-                        .background(MaterialTheme.colorScheme.surfaceContainer)
                         .padding(8.dp)
                 ) {
                     val currentKey = when (currentPlaylistSort) {
@@ -1245,6 +1079,12 @@ fun PlaylistDetailScreen(
                         animationSpec = tween(durationMillis = 200)
                     )
                 ) {
+                val isPlaylistActive = remember(currentSong, playlist.songs) {
+                    currentSong != null && playlist.songs.any { it.id == currentSong.id }
+                }
+                val isPlaylistPlaying = isPlaylistActive && isPlaying
+                val isShuffleActive by musicViewModel.isShuffleEnabled.collectAsState()
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1256,12 +1096,16 @@ fun PlaylistDetailScreen(
                     RhythmDetailActionButton(
                         onClick = {
                             HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                            onPlayAll()
+                            if (isPlaylistActive) {
+                                onPlayPause()
+                            } else {
+                                onPlayAll()
+                            }
                         },
                         isFirst = true,
                         isLast = false,
-                        icon = RhythmIcons.Play,
-                        text = stringResource(R.string.action_play_all),
+                        icon = if (isPlaylistPlaying) RhythmIcons.Pause else RhythmIcons.Play,
+                        text = if (isPlaylistPlaying) stringResource(R.string.action_pause) else if (isPlaylistActive) stringResource(R.string.action_resume) else stringResource(R.string.action_play_all),
                         fontWeight = FontWeight.Bold
                     )
                     
@@ -1270,7 +1114,7 @@ fun PlaylistDetailScreen(
                             HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                             onShufflePlay()
                         },
-                        type = RhythmButtonType.Tonal,
+                        type = if (isPlaylistActive && isShuffleActive) RhythmButtonType.Filled else RhythmButtonType.Tonal,
                         isFirst = false,
                         isLast = true,
                         icon = RhythmIcons.Shuffle,
@@ -1395,14 +1239,24 @@ fun PlaylistDetailScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             if (playlist.songs.isNotEmpty()) {
+                                val isPlaylistActive = remember(currentSong, playlist.songs) {
+                                    currentSong != null && playlist.songs.any { it.id == currentSong.id }
+                                }
+                                val isPlaylistPlaying = isPlaylistActive && isPlaying
+                                val isShuffleActive by musicViewModel.isShuffleEnabled.collectAsState()
+
                                 // Play All button
                                 RhythmDetailActionButtonFullWidth(
                                     onClick = {
                                         HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                        onPlayAll()
+                                        if (isPlaylistActive) {
+                                            onPlayPause()
+                                        } else {
+                                            onPlayAll()
+                                        }
                                     },
-                                    icon = RhythmIcons.Play,
-                                    text = stringResource(R.string.action_play_all),
+                                    icon = if (isPlaylistPlaying) RhythmIcons.Pause else RhythmIcons.Play,
+                                    text = if (isPlaylistPlaying) stringResource(R.string.action_pause) else if (isPlaylistActive) stringResource(R.string.action_resume) else stringResource(R.string.action_play_all),
                                     fontWeight = FontWeight.Normal
                                 )
 
@@ -1412,7 +1266,7 @@ fun PlaylistDetailScreen(
                                         HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                                         onShufflePlay()
                                     },
-                                    type = RhythmButtonType.Tonal,
+                                    type = if (isPlaylistActive && isShuffleActive) RhythmButtonType.Filled else RhythmButtonType.Tonal,
                                     icon = RhythmIcons.Shuffle,
                                     iconSize = 24.dp,
                                     text = stringResource(R.string.action_shuffle),
@@ -1615,7 +1469,7 @@ fun PlaylistDetailScreen(
                                             .padding(horizontal = 20.dp),
                                         shape = RoundedCornerShape(28.dp),
                                         colors = CardDefaults.cardColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainer
                                         )
                                     ) {
                                         Column(
@@ -2061,7 +1915,6 @@ fun PlaylistDetailScreen(
                         end = if (canScroll && !isReorderMode) 28.dp else 16.dp
                     ),
                 contentPadding = PaddingValues(
-//                    top = if (playlist.songs.isNotEmpty()) 90.dp else 16.dp,
                     bottom = (LocalMiniPlayerPadding.current.calculateBottomPadding() + 20.dp).coerceAtLeast(120.dp)
                 )
             ) {
@@ -2111,7 +1964,7 @@ fun PlaylistDetailScreen(
                                     .padding(horizontal = 20.dp),
                                 shape = RoundedCornerShape(28.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainer
                                 )
                             ) {
                                 Column(
@@ -2746,19 +2599,24 @@ fun PlaylistSongItem(
     
     // Animated colors for current song
     val titleColor by animateColorAsState(
-        targetValue = if (isCurrentSong) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+        targetValue = if (isCurrentSong && !isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
         animationSpec = tween(300),
         label = "titleColor"
     )
     val artistColor by animateColorAsState(
-        targetValue = if (isCurrentSong) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+        targetValue = if (isCurrentSong && !isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
         animationSpec = tween(300),
         label = "artistColor"
     )
-    val containerColor by animateColorAsState(
-        targetValue = if (isCurrentSong) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface,
+    val albumColor by animateColorAsState(
+        targetValue = if (isCurrentSong && !isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
         animationSpec = tween(300),
-        label = "containerColor"
+        label = "albumColor"
+    )
+    val durationColor by animateColorAsState(
+        targetValue = if (isCurrentSong && !isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        animationSpec = tween(300),
+        label = "durationColor"
     )
     
     // Remove confirmation dialog (only show if onRemove is provided)
@@ -2815,9 +2673,11 @@ fun PlaylistSongItem(
     
     // Update container color for selection
     val selectionContainerColor by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f) 
-                      else if (isCurrentSong) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f) 
-                      else MaterialTheme.colorScheme.surface,
+        targetValue = when {
+            isSelected -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+            isCurrentSong -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.surfaceContainer
+        },
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
@@ -2853,7 +2713,7 @@ fun PlaylistSongItem(
         shadowElevation = 0.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = 8.dp, vertical = 2.dp)
             .graphicsLayer {
                 scaleX = itemScale
                 scaleY = itemScale
@@ -2862,7 +2722,7 @@ fun PlaylistSongItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Checkbox for multi-select mode
@@ -2897,7 +2757,7 @@ fun PlaylistSongItem(
                         fallbackShape = RoundedCornerShape(12.dp)
                     ),
                     tonalElevation = 4.dp,
-                    border = if (isCurrentSong) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.tertiary) else null
+                    border = if (isCurrentSong && !isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.onPrimary) else if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.tertiary) else null
                 ) {
                     M3ImageUtils.TrackImage(
                         imageUrl = song.artworkUri,
@@ -2913,7 +2773,7 @@ fun PlaylistSongItem(
                             .size(20.dp)
                             .offset(x = 4.dp, y = 4.dp),
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         shadowElevation = 0.dp
                     ) {
                         Box(
@@ -2922,7 +2782,7 @@ fun PlaylistSongItem(
                         ) {
                             PlayingEqIcon(
                                 modifier = Modifier.size(width = 12.dp, height = 10.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
+                                color = MaterialTheme.colorScheme.primary,
                                 isPlaying = isPlaying,
                                 bars = 3
                             )
@@ -2960,7 +2820,7 @@ fun PlaylistSongItem(
                     Text(
                         text = song.album,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                        color = albumColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -2972,7 +2832,7 @@ fun PlaylistSongItem(
                 Text(
                     text = formatDuration(song.duration, useHoursFormat),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    color = durationColor,
                     modifier = Modifier.padding(end = 4.dp)
                 )
             }
@@ -3025,22 +2885,30 @@ fun PlaylistSongItem(
                     )
                 }
             } else {
-                // 3-dot menu button matching SearchSongItem style
                 FilledIconButton(
                     onClick = {
-                        HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                        HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                         onMoreClick?.invoke()
                     },
-                    modifier = Modifier.size(36.dp),
+                    modifier = Modifier
+                        .width(32.dp)
+                        .height(44.dp),
+                    shape = RoundedCornerShape(50),
                     colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        containerColor = if (isCurrentSong && !isSelected)
+                            MaterialTheme.colorScheme.onPrimary
+                        else
+                            MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = if (isCurrentSong && !isSelected)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 ) {
                     Icon(
                         imageVector = RhythmIcons.More,
                         contentDescription = stringResource(R.string.content_desc_more_options),
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }

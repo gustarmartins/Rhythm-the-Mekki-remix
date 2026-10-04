@@ -15,10 +15,86 @@ All notable changes to Rhythm will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.5.494.1293 Upstream Sync] - 2026-10-04
+
+### Added
+- Integrate the remaining upstream main changes through ef16e7bd, including playlist persistence, smart playlists, streaming server improvements, duet lyrics, artwork handling, crossfade and UI updates.
+- Continue from the device library when the selected songs finish, enabled by default with a Playback setting to turn it off.
+- Save Bluetooth display delay and compatibility independently for each device; normal speaker output uses the full queue.
+
+### Fixed
+- Reuse unchanged metadata for automatic library updates and ignore storage changes outside the selected music scope.
+- Preserve the complete queue and occurrence index during Bluetooth compatibility transitions and app reconnection.
+- Keep FIFO Play Next, timed lyric variants, JamesDSP effect ownership and verified FLAC/artwork edits.
+
+### Changed
+- Name the master switch Synced lyrics in media displays, covering Bluetooth displays, Android notifications and dynamic islands.
+- Rename the legacy display workaround BT compatibility mode.
+
 ## [Unreleased]
 
 ### Added
 - 
+
+## [5.5.492.1288 Beta] - 2026-10-01
+
+### Added
+- USB DAC and USB headset now appear in the audio output switcher with device product names
+- New Audio Routing dialog to switch between Bit-Perfect, app-managed, and system routing modes
+- Crossfade now has its own dedicated settings screen showing active/disabled/constrained state, with controls for fade duration, repeat-one behavior, and skip behavior
+
+### Fixed
+- Equalizer sliders no longer reset adjacent band values when adjusting a single band (#618)
+- ReplayGain no longer causes a volume burst when switching tracks (#610)
+- Crossfade queue no longer stalls after a few tracks and correctly continues through the playlist (#652)
+- Skip Silence no longer accelerates or distorts quiet song intros (#652)
+- USB DAC playback no longer incorrectly triggers RhythmGuard speaker volume protection
+- ALAC and other high-resolution audio formats (FLAC, Opus) now decode correctly via FFmpeg extension — previously produced silence due to a class reflection failure (#652)
+- Lyrics desync on track skip and queue state loss on shuffle toggle (#612, #613)
+- Recycled bitmap crash in MediaSession artwork scaling (#603)
+- Online artwork no longer disappears when switching tracks or refreshing the library (#616)
+- Jellyfin and Navidrome playback, download endpoints, lyrics, and quality switching (#561, #605, #606, #617)
+- Bluetooth CDM SecurityException handled gracefully instead of crashing
+
+### Performance
+- Audio processors (EQ, Bass Boost, Virtualizer, ReplayGain) now bypass the buffer pipeline entirely when disabled, eliminating unnecessary memory copies per audio packet
+- Preferred audio device now correctly bound to ExoPlayer's AudioTrack so AudioFlinger applies Bit-Perfect mixer configuration instead of falling back to resampling
+
+## [5.5.487.1274] - 2026-09-18
+
+### Fixed
+- fix(player): bypass ExoPlayer cache for local media and sanitize OGG metadata writes
+- fix(player): harden audio offload gating and migrate to PlayerTransferState
+- perf(artwork): implement two-tier artwork cache with zero-copy descriptor serving
+
+## [5.5.485.1270] - 2026-09-17
+
+### Added
+- Persistent playback queue and shuffle memory: automatically restores your playlist, exact track position, and shuffle state across app restarts (#595)
+- AutoEQ headroom protection: automatic preamp attenuation (-maxGain) prevents audio distortion and digital clipping when boosting EQ bands
+- AutoEQ speaker bypass: automatically turns off AutoEQ when playing through device speakers and restores it when headphones or external audio connect
+- Custom AutoEQ profile management: import, save, and reorder custom equalizer profiles across sessions
+- Multi-voice and duet lyrics display with synchronized part highlighting across LRC, TTML, and syllable renderers (#587)
+- Theme Intensity customization (Standard, Medium, Vivid) and Expressive Color Set options for dynamic Material 3 palettes (#590)
+- Android Photo Picker integration for selecting custom album and playlist artwork without requiring media storage permissions
+- On-demand lossless album artwork streaming directly from embedded audio tags with instant visual updates
+
+### Changed
+- Equalizer preset frequency mapping now logarithmically interpolates 10-band presets to match device hardware bands accurately
+- Dynamic color extraction from album artwork refined to preserve natural hues and color vibrancy
+- Adopted Android 15 edge-to-edge layout design and modernized Material 3 Slider interactions
+- Updated translations from Weblate
+
+### Fixed
+- Fixed playback queue being wiped or re-shuffled when reopening the app or restarting playback (#595)
+- Fixed lyric fetching for explicit songs and downloaded audio files, and resolved LRCLIB HTTP 520 connection errors (#587, #583)
+- Fixed lyrics cache invalidation and eliminated fetch cancellation thrashing during rapid song skips (#585)
+- Hardened background media service startup flow to prevent service crashes and notification failures
+- Equalizer curve rendering clamped within display bounds to eliminate visual clipping artifacts
+
+### Performance
+- Zero-latency song details sheet: offloaded file path resolution and MediaStore queries to background threads to eliminate UI thread blocking (#589)
+- Efficient on-demand artwork streaming eliminating redundant disk caching and memory overhead
 
 ## [5.5.480.1260 Bluetooth Lyrics] - 2026-09-08
 

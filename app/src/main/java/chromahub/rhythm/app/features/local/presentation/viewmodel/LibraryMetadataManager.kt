@@ -29,13 +29,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import androidx.core.content.edit
+import chromahub.rhythm.app.network.NetworkClient
+import okhttp3.Request
 
 class LibraryMetadataManager(
     private val context: Application,
     private val scope: CoroutineScope,
     private val getCurrentSong: () -> Song?,
     private val updateCurrentSongMetadata: (Song) -> Unit,
-    private val bulkUpdateSongs: (Map<String, Song>) -> Unit
+    private val bulkUpdateSongs: (Map<String, Song>) -> Unit,
+    private val pausePlaybackForWrite: ((String) -> Pair<Long, Boolean>?)? = null,
+    private val resumePlaybackAfterWrite: ((String, Pair<Long, Boolean>?) -> Unit)? = null
 ) {
 
     companion object {
@@ -74,27 +78,51 @@ class LibraryMetadataManager(
         onPermissionRequired: ((PendingWriteRequest) -> Unit)? = null
     ) {
         scope.launch {
+            var playbackState: Pair<Long, Boolean>? = null
             try {
                 val appContext = context.applicationContext
 
-                val tempArtworkUri = if (artworkUri != null && artworkUri.scheme == "content") {
-                    try {
-                        withContext(Dispatchers.IO) {
-                            val tempFile = File(appContext.cacheDir, "temp_single_edit_art_${System.currentTimeMillis()}.jpg")
-                            appContext.contentResolver.openInputStream(artworkUri)?.use { input ->
-                                tempFile.outputStream().use { output ->
-                                    input.copyTo(output)
+                val tempArtworkUri = if (artworkUri != null) {
+                    if (artworkUri.scheme == "http" || artworkUri.scheme == "https") {
+                        try {
+                            withContext(Dispatchers.IO) {
+                                val tempFile = File(appContext.cacheDir, "temp_single_edit_online_${System.currentTimeMillis()}.jpg")
+                                val request = Request.Builder().url(artworkUri.toString()).build()
+                                val response = NetworkClient.genericHttpClient.newCall(request).execute()
+                                if (response.isSuccessful) {
+                                    response.body.byteStream().use { input ->
+                                        tempFile.outputStream().use { output ->
+                                            input.copyTo(output)
+                                        }
+                                    }
+                                    Uri.fromFile(tempFile)
+                                } else {
+                                    artworkUri
                                 }
                             }
-                            Uri.fromFile(tempFile)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to download online artwork for single edit", e)
+                            artworkUri
                         }
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to pre-cache single edit artwork", e)
+                    } else if (artworkUri.scheme == "content") {
+                        try {
+                            withContext(Dispatchers.IO) {
+                                val tempFile = File(appContext.cacheDir, "temp_single_edit_art_${System.currentTimeMillis()}.jpg")
+                                appContext.contentResolver.openInputStream(artworkUri)?.use { input ->
+                                    tempFile.outputStream().use { output ->
+                                        input.copyTo(output)
+                                    }
+                                }
+                                Uri.fromFile(tempFile)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed to pre-cache single edit artwork", e)
+                            artworkUri
+                        }
+                    } else {
                         artworkUri
                     }
-                } else {
-                    artworkUri
-                }
+                } else null
 
                 // Early format check — unsupported formats cannot be tag-edited
                 val fileExtension = run {
@@ -120,6 +148,10 @@ class LibraryMetadataManager(
                     artist
                 } else {
                     song.albumArtist
+                }
+
+                playbackState = withContext(Dispatchers.Main) {
+                    pausePlaybackForWrite?.invoke(song.id)
                 }
 
                 val success = withContext(Dispatchers.IO) {
@@ -187,6 +219,7 @@ class LibraryMetadataManager(
                 }
                 
                 withContext(Dispatchers.Main) {
+                    resumePlaybackAfterWrite?.invoke(song.id, playbackState)
                     if (success) {
                         Log.d(TAG, "Successfully updated file metadata for: $title by $artist")
                         onSuccess(true)
@@ -231,6 +264,9 @@ class LibraryMetadataManager(
             } catch (e: RecoverableSecurityExceptionWrapper) {
                 // Android 11+ scoped storage restriction - file not owned by app
                 Log.w(TAG, "RecoverableSecurityException - attempting createWriteRequest approach")
+                withContext(Dispatchers.Main) {
+                    resumePlaybackAfterWrite?.invoke(song.id, playbackState)
+                }
                 
                 val appContext = context.applicationContext
                 val finalAlbumArtist = if (!albumArtist.isNullOrBlank()) {
@@ -309,6 +345,7 @@ class LibraryMetadataManager(
             } catch (e: Exception) {
                 Log.e(TAG, "Error saving metadata", e)
                 withContext(Dispatchers.Main) {
+                    resumePlaybackAfterWrite?.invoke(song.id, playbackState)
                     onError("Failed to save metadata: ${e.message ?: "Unknown error"}")
                 }
             }
@@ -330,7 +367,11 @@ class LibraryMetadataManager(
             return
         }
         
+        val songId = pendingRequest.song.id
         scope.launch {
+            val playbackState = withContext(Dispatchers.Main) {
+                pausePlaybackForWrite?.invoke(songId)
+            }
             try {
                 val appContext = context.applicationContext
                 val success = withContext(Dispatchers.IO) {
@@ -383,11 +424,13 @@ class LibraryMetadataManager(
                     updateCurrentSongMetadata(updatedSong)
                     
                     withContext(Dispatchers.Main) {
+                        resumePlaybackAfterWrite?.invoke(songId, playbackState)
                         Log.d(TAG, "Successfully completed metadata write after permission granted")
                         onSuccess()
                     }
                 } else {
                     withContext(Dispatchers.Main) {
+                        resumePlaybackAfterWrite?.invoke(songId, playbackState)
                         onError("Failed to write metadata even after permission was granted")
                     }
                 }
@@ -395,6 +438,7 @@ class LibraryMetadataManager(
                 Log.e(TAG, "Error completing metadata write after permission", e)
                 _pendingWriteRequest.value = null
                 withContext(Dispatchers.Main) {
+                    resumePlaybackAfterWrite?.invoke(songId, playbackState)
                     onError("Error: ${e.message}")
                 }
             }
@@ -782,20 +826,67 @@ class LibraryMetadataManager(
         }
     }
 
-    private suspend fun saveArtworkToCache(context: Context, song: Song, artworkUri: Uri): Uri? {
+    private suspend fun saveArtworkToCache(context: Context, song: Song, artworkUri: Uri): Uri? = withContext(Dispatchers.IO) {
         try {
-            context.contentResolver.openInputStream(artworkUri)?.use { inputStream ->
-                val artworkFile = File(context.cacheDir, "artwork_${song.id}.jpg")
-                artworkFile.outputStream().use { output ->
-                    inputStream.copyTo(output)
-                }
-                Log.d(TAG, "Artwork saved to cache: ${artworkFile.absolutePath}")
-                return artworkFile.toUri()
+            val artworkDir = File(context.filesDir, "custom_artwork").apply {
+                if (!exists()) mkdirs()
             }
-            return null
+            val artworkFile = File(artworkDir, "artwork_${song.id}.jpg")
+
+            val inputStream = if (artworkUri.scheme == "http" || artworkUri.scheme == "https") {
+                val request = Request.Builder().url(artworkUri.toString()).build()
+                val response = NetworkClient.genericHttpClient.newCall(request).execute()
+                if (!response.isSuccessful) return@withContext null
+                response.body.byteStream()
+            } else {
+                context.contentResolver.openInputStream(artworkUri)
+            }
+
+            inputStream?.use { input ->
+                artworkFile.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+                Log.d(TAG, "Artwork saved to persistent storage: ${artworkFile.absolutePath}")
+                artworkFile.toUri()
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to save artwork to cache", e)
-            throw e
+            null
+        }
+    }
+
+    /**
+     * Saves artwork only to library (local app storage and Room / artwork_overrides) without embedding into the audio file.
+     */
+    fun saveArtworkToLibraryOnly(
+        song: Song,
+        artworkUri: Uri,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        scope.launch {
+            try {
+                val appContext = context.applicationContext
+                val cachedUri = saveArtworkToCache(appContext, song, artworkUri)
+                if (cachedUri != null) {
+                    persistArtworkOverrideUri(appContext, song.id, cachedUri)
+                    MediaUtils.deleteCachedEmbeddedArtwork(appContext.cacheDir, song.uri)
+                    val updatedSong = song.copy(artworkUri = cachedUri)
+                    updateCurrentSongMetadata(updatedSong)
+                    withContext(Dispatchers.Main) {
+                        onSuccess()
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        onError("Failed to download or cache artwork")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error saving artwork to library only", e)
+                withContext(Dispatchers.Main) {
+                    onError(e.message ?: "Failed to save artwork to library")
+                }
+            }
         }
     }
 
@@ -830,6 +921,10 @@ class LibraryMetadataManager(
             if (cachedArtwork.exists()) {
                 cachedArtwork.delete()
             }
+            val persistentArtwork = File(File(context.filesDir, "custom_artwork"), "artwork_${songId}.jpg")
+            if (persistentArtwork.exists()) {
+                persistentArtwork.delete()
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Failed to clear cached artwork for song $songId", e)
         }
@@ -845,12 +940,16 @@ class LibraryMetadataManager(
         onPermissionRequired: ((PendingLyricsWriteRequest) -> Unit)? = null
     ) {
         scope.launch(Dispatchers.IO) {
+            val song = getCurrentSong()
+            if (song == null) {
+                Log.w(TAG, "Cannot embed lyrics - no current song")
+                return@launch
+            }
+            val songId = song.id
+            val playbackState = withContext(Dispatchers.Main) {
+                pausePlaybackForWrite?.invoke(songId)
+            }
             try {
-                val song = getCurrentSong()
-                if (song == null) {
-                    Log.w(TAG, "Cannot embed lyrics - no current song")
-                    return@launch
-                }
                 val appContext = context
 
                 // Early format check — OGG Opus and other unsupported codecs cannot be tag-edited
@@ -864,6 +963,7 @@ class LibraryMetadataManager(
                 }
                 if (fileExtension.isNotEmpty() && !MediaUtils.isSupportedByJaudiotagger(fileExtension)) {
                     withContext(Dispatchers.Main) {
+                        resumePlaybackAfterWrite?.invoke(songId, playbackState)
                         val msg = appContext.getString(R.string.lyrics_embed_failed) +
                             " — .$fileExtension files are not supported. Try MP3, FLAC, OGG, WAV, or M4A."
                         Toast.makeText(appContext, msg, Toast.LENGTH_LONG).show()
@@ -874,6 +974,7 @@ class LibraryMetadataManager(
 
                 val success = MediaUtils.embedLyricsInFile(appContext, song, lyrics)
                 withContext(Dispatchers.Main) {
+                    resumePlaybackAfterWrite?.invoke(songId, playbackState)
                     if (success) {
                         Toast.makeText(
                             appContext,
@@ -914,7 +1015,9 @@ class LibraryMetadataManager(
             } catch (e: RecoverableSecurityExceptionWrapper) {
                 Log.w(TAG, "RecoverableSecurityException for lyrics - attempting createWriteRequest")
                 val appContext = context
-                val song = getCurrentSong() ?: return@launch
+                withContext(Dispatchers.Main) {
+                    resumePlaybackAfterWrite?.invoke(songId, playbackState)
+                }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     val pendingRequest = MediaUtils.createWriteRequestForLyrics(appContext, song, lyrics)
                     withContext(Dispatchers.Main) {
@@ -934,6 +1037,7 @@ class LibraryMetadataManager(
             } catch (e: Exception) {
                 Log.e(TAG, "Error embedding lyrics in file", e)
                 withContext(Dispatchers.Main) {
+                    resumePlaybackAfterWrite?.invoke(songId, playbackState)
                     Toast.makeText(
                         context,
                         context.getString(R.string.lyrics_embed_failed),
@@ -957,7 +1061,11 @@ class LibraryMetadataManager(
             onError("No pending lyrics write request")
             return
         }
+        val songId = pendingRequest.song.id
         scope.launch {
+            val playbackState = withContext(Dispatchers.Main) {
+                pausePlaybackForWrite?.invoke(songId)
+            }
             try {
                 val appContext = context.applicationContext
                 val success = withContext(Dispatchers.IO) {
@@ -965,6 +1073,7 @@ class LibraryMetadataManager(
                 }
                 _pendingLyricsWriteRequest.value = null
                 withContext(Dispatchers.Main) {
+                    resumePlaybackAfterWrite?.invoke(songId, playbackState)
                     if (success) {
                         Toast.makeText(
                             appContext,
@@ -980,6 +1089,7 @@ class LibraryMetadataManager(
                 Log.e(TAG, "Error completing lyrics write after permission", e)
                 _pendingLyricsWriteRequest.value = null
                 withContext(Dispatchers.Main) {
+                    resumePlaybackAfterWrite?.invoke(songId, playbackState)
                     onError("Error: ${e.message}")
                 }
             }

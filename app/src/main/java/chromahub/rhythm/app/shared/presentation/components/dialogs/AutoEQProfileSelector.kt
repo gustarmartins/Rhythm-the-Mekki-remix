@@ -11,6 +11,8 @@ import chromahub.rhythm.app.shared.presentation.components.bottomsheets.Adaptive
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 import androidx.compose.foundation.lazy.rememberLazyListState
+import chromahub.rhythm.app.shared.presentation.components.common.M3CircularLoader
+import chromahub.rhythm.app.shared.presentation.components.common.horizontalEdgeBlend
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
@@ -269,153 +271,159 @@ fun AutoEQProfileSelector(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(horizontal = 5.dp, vertical = 8.dp)
                 )
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 5.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        item {
-                            val isSelected = selectedBrand == null
-                            val cornerRadius by animateDpAsState(
-                                targetValue = if (isSelected) 24.dp else 12.dp,
-                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                                label = "chipCornerRadius"
+                val brandRowState = rememberLazyListState()
+                LazyRow(
+                    state = brandRowState,
+                    contentPadding = PaddingValues(horizontal = 5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.horizontalEdgeBlend(lazyListState = brandRowState, fadeWidth = 12.dp)
+                ) {
+                    item {
+                        val isSelected = selectedBrand == null
+                        val cornerRadius by animateDpAsState(
+                            targetValue = if (isSelected) 24.dp else 12.dp,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                            label = "chipCornerRadius"
+                        )
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedBrand = null },
+                            label = { Text(stringResource(R.string.autoeqprofileselector_all)) },
+                            leadingIcon = if (isSelected) {
+                                {
+                                    Icon(
+                                        imageVector = RhythmIcons.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(FilterChipDefaults.IconSize)
+                                    )
+                                }
+                            } else null,
+                            shape = RoundedCornerShape(cornerRadius),
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
                             )
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { selectedBrand = null },
-                                label = { Text(stringResource(R.string.autoeqprofileselector_all)) },
-                                leadingIcon = if (isSelected) {
-                                    {
-                                        Icon(
-                                            imageVector = RhythmIcons.Check,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                                        )
-                                    }
-                                } else null,
-                                shape = RoundedCornerShape(cornerRadius),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            )
-                        }
-                        items(brands) { brand ->
-                            val isSelected = selectedBrand == brand
-                            val cornerRadius by animateDpAsState(
-                                targetValue = if (isSelected) 24.dp else 12.dp,
-                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                                label = "chipCornerRadius"
-                            )
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { selectedBrand = brand },
-                                label = { Text(brand) },
-                                leadingIcon = if (isSelected) {
-                                    {
-                                        Icon(
-                                            imageVector = RhythmIcons.Check,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                                        )
-                                    }
-                                } else null,
-                                shape = RoundedCornerShape(cornerRadius),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            )
-                        }
+                        )
                     }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // Type filters
-                    Text(
-                        text = stringResource(R.string.autoeqpresetpickerbottomsheet_type),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 8.dp)
-                    )
-                    LazyRow(
-                        contentPadding = PaddingValues(horizontal = 5.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        item {
-                            val isSelected = selectedType == null
-                            val cornerRadius by animateDpAsState(
-                                targetValue = if (isSelected) 24.dp else 12.dp,
-                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                                label = "chipCornerRadius"
+                    items(brands) { brand ->
+                        val isSelected = selectedBrand == brand
+                        val cornerRadius by animateDpAsState(
+                            targetValue = if (isSelected) 24.dp else 12.dp,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                            label = "chipCornerRadius"
+                        )
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedBrand = brand },
+                            label = { Text(brand) },
+                            leadingIcon = if (isSelected) {
+                                {
+                                    Icon(
+                                        imageVector = RhythmIcons.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(FilterChipDefaults.IconSize)
+                                    )
+                                }
+                            } else null,
+                            shape = RoundedCornerShape(cornerRadius),
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
                             )
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { selectedType = null },
-                                label = { Text(stringResource(R.string.autoeqprofileselector_all)) },
-                                leadingIcon = if (isSelected) {
-                                    {
-                                        Icon(
-                                            imageVector = RhythmIcons.Check,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                                        )
-                                    }
-                                } else null,
-                                shape = RoundedCornerShape(cornerRadius),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            )
-                        }
-                        items(types) { type ->
-                            val isSelected = selectedType == type
-                            val cornerRadius by animateDpAsState(
-                                targetValue = if (isSelected) 24.dp else 12.dp,
-                                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                                label = "chipCornerRadius"
-                            )
-                            FilterChip(
-                                selected = isSelected,
-                                onClick = { selectedType = type },
-                                label = { Text(type) },
-                                leadingIcon = if (isSelected) {
-                                    {
-                                        Icon(
-                                            imageVector = RhythmIcons.Check,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                                        )
-                                    }
-                                } else null,
-                                shape = RoundedCornerShape(cornerRadius),
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            )
-                        }
+                        )
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Type filters
+                Text(
+                    text = stringResource(R.string.autoeqpresetpickerbottomsheet_type),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 8.dp)
+                )
+                val typeRowState = rememberLazyListState()
+                LazyRow(
+                    state = typeRowState,
+                    contentPadding = PaddingValues(horizontal = 5.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.horizontalEdgeBlend(lazyListState = typeRowState, fadeWidth = 12.dp)
+                ) {
+                    item {
+                        val isSelected = selectedType == null
+                        val cornerRadius by animateDpAsState(
+                            targetValue = if (isSelected) 24.dp else 12.dp,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                            label = "chipCornerRadius"
+                        )
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedType = null },
+                            label = { Text(stringResource(R.string.autoeqprofileselector_all)) },
+                            leadingIcon = if (isSelected) {
+                                {
+                                    Icon(
+                                        imageVector = RhythmIcons.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(FilterChipDefaults.IconSize)
+                                    )
+                                }
+                            } else null,
+                            shape = RoundedCornerShape(cornerRadius),
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        )
+                    }
+                    items(types) { type ->
+                        val isSelected = selectedType == type
+                        val cornerRadius by animateDpAsState(
+                            targetValue = if (isSelected) 24.dp else 12.dp,
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                            label = "chipCornerRadius"
+                        )
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedType = type },
+                            label = { Text(type) },
+                            leadingIcon = if (isSelected) {
+                                {
+                                    Icon(
+                                        imageVector = RhythmIcons.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(FilterChipDefaults.IconSize)
+                                    )
+                                }
+                            } else null,
+                            shape = RoundedCornerShape(cornerRadius),
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
                 }
                 
                 // Loading indicator
@@ -426,7 +434,7 @@ fun AutoEQProfileSelector(
                             .padding(32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator()
+                        M3CircularLoader(modifier = Modifier.size(48.dp), strokeWidth = 4f)
                     }
                 }
                 
@@ -494,7 +502,7 @@ private fun ProfileCard(
             .clip(RoundedCornerShape(20.dp)),
         colors = CardDefaults.cardColors(
             containerColor = if (isActive)
-                MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                MaterialTheme.colorScheme.primaryContainer
             else
                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
         ),
@@ -544,7 +552,7 @@ private fun ProfileCard(
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
                         color = if (isActive)
-                            MaterialTheme.colorScheme.primaryContainer
+                            MaterialTheme.colorScheme.onPrimaryContainer
                         else
                             MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
@@ -560,7 +568,7 @@ private fun ProfileCard(
                                 text = profile.brand,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (isActive)
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                                 else
                                     MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -577,7 +585,7 @@ private fun ProfileCard(
                                 text = profile.type,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (isActive)
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                                 else
                                     MaterialTheme.colorScheme.onSurfaceVariant
                             )

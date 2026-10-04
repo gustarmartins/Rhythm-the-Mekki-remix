@@ -6,6 +6,7 @@
 package chromahub.rhythm.app.shared.presentation.components.bottomsheets
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 
+import chromahub.rhythm.app.shared.presentation.components.common.MarqueeText
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
@@ -237,7 +238,7 @@ fun MultiSelectionBottomSheet(
                             }
                             add(
                                 MultiOptionItem(
-                                    icon = RhythmIcons.Queue,
+                                    icon = RhythmIcons.AddToQueue,
                                     text = context.getString(R.string.action_add_to_queue),
                                     containerColor = primaryContainer,
                                     iconColor = onPrimaryContainer,
@@ -256,7 +257,7 @@ fun MultiSelectionBottomSheet(
                             if (onToggleLikeAll != null) {
                                 add(
                                     MultiOptionItem(
-                                        icon = if (allAreLiked) MaterialSymbolIcon("thumb_down", filled = true) else MaterialSymbolIcon("thumb_up", filled = true),
+                                        icon = if (allAreLiked) MaterialSymbolIcon("thumb_up", filled = true) else MaterialSymbolIcon("thumb_up", filled = false),
                                         text = if (allAreLiked) context.getString(R.string.action_dislike) else context.getString(R.string.action_like),
                                         containerColor = tertiaryContainer,
                                         iconColor = onTertiaryContainer,
@@ -408,20 +409,13 @@ private fun MultiSelectionHeader(
         
         Spacer(modifier = Modifier.height(18.dp))
         
-        // Selection info card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-            ),
-            shape = RoundedCornerShape(20.dp)
+        // Selection info
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
                 // Stacked album arts
                 val stackedImageSize = 56.dp
                 val stackedOverlap = 28.dp
@@ -461,16 +455,17 @@ private fun MultiSelectionHeader(
                     )
                     
                     if (selectedSongs.isNotEmpty()) {
-                        Text(
+                        MarqueeText(
                             text = "${selectedSongs.first().artist} • ${selectedSongs.first().album}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            ),
+                            gradientEdgeColor = MaterialTheme.colorScheme.surfaceContainer,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
             }
-        }
     }
 }
 
@@ -501,24 +496,12 @@ private fun SongOptionGridItem(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            Surface(
-                modifier = Modifier.size(36.dp),
-                shape = CircleShape,
-                color = containerColor.copy(alpha = 0.25f),
-                tonalElevation = 0.dp
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = iconColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconColor,
+                modifier = Modifier.size(24.dp)
+            )
             
             Spacer(modifier = Modifier.height(12.dp))
             
@@ -545,7 +528,7 @@ private fun StackedAlbumArts(
     val imageSize = 56.dp
     val overlap = 28.dp
     val borderWidth = 3.dp
-    val borderColor = MaterialTheme.colorScheme.surface
+    val borderColor = MaterialTheme.colorScheme.surfaceContainer
     
     Box(
         modifier = modifier,

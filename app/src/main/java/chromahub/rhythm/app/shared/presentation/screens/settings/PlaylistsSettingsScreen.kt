@@ -165,9 +165,11 @@ import chromahub.rhythm.app.shared.presentation.screens.settings.SettingItem
 import chromahub.rhythm.app.shared.presentation.screens.settings.SettingGroup
 
 
-// ✅ FULLY MERGED Playlists Screen (simplified playlist management)
 @Composable
-fun PlaylistsSettingsScreen(onBackClick: () -> Unit) {
+fun PlaylistsSettingsScreen(
+    onBackClick: () -> Unit,
+    onNavigateTo: (String) -> Unit = {}
+) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val appSettings = AppSettings.getInstance(context)
@@ -240,53 +242,56 @@ fun PlaylistsSettingsScreen(onBackClick: () -> Unit) {
             items = listOf(
                 SettingItem(
                     RhythmIcons.Library,
-                    context.getString(R.string.settings_enable_default_playlists),
-                    context.getString(R.string.settings_enable_default_playlists_desc),
-                    onClick = null,
-                    toggleState = defaultPlaylistsEnabled,
-                    onToggleChange = { enabled ->
-                        musicViewModel.setDefaultPlaylistsEnabled(enabled)
+                    context.getString(R.string.settings_default_playlists),
+                    if (defaultPlaylistsEnabled) {
+                        "${defaultPlaylists.size} active"
+                    } else {
+                        context.getString(R.string.status_disabled)
+                    },
+                    onClick = {
+                        HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                        onNavigateTo(SettingsRoutes.DEFAULT_PLAYLISTS)
                     }
                 )
-            ) + if (defaultPlaylists.isNotEmpty()) {
+            ) + (if (defaultPlaylists.isNotEmpty()) {
                 defaultPlaylists.map { playlist ->
                     SettingItem(
-                        RhythmIcons.MusicNote,
-                        playlist.name,
-                        "${playlist.songs.size} songs",
-                        onClick = null, // No action for default playlists
+                        icon = null,
+                        title = playlist.name,
+                        description = "${playlist.songs.size} songs",
+                        onClick = null,
                         data = playlist.id
                     )
                 }
             } else {
                 listOf(
                     SettingItem(
-                        RhythmIcons.Info,
-                        context.getString(R.string.settings_no_default_playlists),
-                        context.getString(R.string.settings_no_default_playlists_desc),
+                        icon = null,
+                        title = context.getString(R.string.settings_no_default_playlists),
+                        description = context.getString(R.string.settings_no_default_playlists_desc),
                         onClick = null
                     )
                 )
-            }
+            })
         ),
         SettingGroup(
             title = context.getString(R.string.settings_my_playlists),
             items = if (userPlaylists.isNotEmpty()) {
                 userPlaylists.map { playlist ->
                     SettingItem(
-                        RhythmIcons.Queue,
-                        playlist.name,
-                        "${playlist.songs.size} songs",
-                        onClick = null, // No navigation
-                        data = playlist.id // Store playlist ID for deletion
+                        icon = null,
+                        title = playlist.name,
+                        description = "${playlist.songs.size} songs",
+                        onClick = null,
+                        data = playlist.id
                     )
                 }
             } else {
                 listOf(
                     SettingItem(
-                        RhythmIcons.Add,
-                        context.getString(R.string.settings_no_custom_playlists),
-                        context.getString(R.string.settings_no_custom_playlists_desc),
+                        icon = null,
+                        title = context.getString(R.string.settings_no_custom_playlists),
+                        description = context.getString(R.string.settings_no_custom_playlists_desc),
                         onClick = {
                             HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                             showCreatePlaylistDialog = true
@@ -323,79 +328,75 @@ fun PlaylistsSettingsScreen(onBackClick: () -> Unit) {
             // Collection Statistics Card
             item {
                 Spacer(modifier = Modifier.height(24.dp))
-                Text(
-                    text = context.getString(R.string.settings_playlists_overview),
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
-                )
-                Card(
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Card(
-                                modifier = Modifier.weight(1f),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                                )
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(
-                                        text = "${playlists.size}",
-                                        style = MaterialTheme.typography.headlineMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = context.getString(R.string.settings_total),
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Card(
-                                modifier = Modifier.weight(1f),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                                )
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(
-                                        text = "${userPlaylists.size}",
-                                        style = MaterialTheme.typography.headlineMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = context.getString(R.string.settings_custom),
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Card(
-                                modifier = Modifier.weight(1f),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
-                                )
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    Text(
-                                        text = "${defaultPlaylists.size}",
-                                        style = MaterialTheme.typography.headlineMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = context.getString(R.string.settings_default),
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                }
-                            }
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(
+                            topStart = 24.dp,
+                            bottomStart = 24.dp,
+                            topEnd = 6.dp,
+                            bottomEnd = 6.dp
+                        ),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "${playlists.size}",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = context.getString(R.string.settings_total),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(6.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "${userPlaylists.size}",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = context.getString(R.string.settings_custom),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(
+                            topStart = 6.dp,
+                            bottomStart = 6.dp,
+                            topEnd = 24.dp,
+                            bottomEnd = 24.dp
+                        ),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "${defaultPlaylists.size}",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = context.getString(R.string.settings_default),
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
                     }
                 }

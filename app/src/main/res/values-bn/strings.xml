@@ -279,7 +279,6 @@
     
     <!-- Settings - About -->
     <string name="settings_about_music_player">মিউজিক প্লেয়ার</string>
-    <string name="settings_about_project_details">প্রকল্পের বিবরণ</string>
     <string name="settings_about_version_label">সংস্করণ</string>
     <string name="settings_about_build">নির্মাণ</string>
     <string name="settings_about_target_sdk">টার্গেট SDK</string>
@@ -288,7 +287,6 @@
     <string name="settings_about_credits">বিকাশকারী</string>
     <string name="settings_about_team_desc">উত্সাহী বিকাশকারীরা উদ্ভাবনী অভিজ্ঞতা তৈরি করে</string>
     <string name="settings_about_team_chromahub">দল ChromaHub</string>
-    <string name="settings_about_community">সম্প্রদায়</string>
     <string name="about_community_group_maintainers">প্যাকেজ রক্ষণাবেক্ষণকারী</string>
     <string name="about_community_group_collaborators">সহযোগী ও অবদানকারী</string>
     <string name="about_community_group_design_testing">ডিজাইন ও টেস্টিং</string>
@@ -321,30 +319,10 @@
     <string name="home_no_recently_added">কোনো সম্প্রতি যোগ করা অ্যালবাম নেই৷</string>
     <string name="home_no_recently_added_desc">আপনি আপনার লাইব্রেরিতে যোগ করা অ্যালবামগুলি এখানে প্রদর্শিত হবে৷</string>
     <!-- Time-based quotes (0:00-4:59 - Late night) -->
-    <string name="home_quote_late_night_1">স্বপ্নদর্শীদের জন্য গভীর রাতের কম্পন 🌙</string>
-    <string name="home_quote_late_night_2">আপনার গভীর রাতের প্লেলিস্টের জন্য উপযুক্ত সময় 🎧</string>
-    <string name="home_quote_late_night_3">মধ্যরাতে মিউজিক ভালো শোনায় ✨</string>
-    <string name="home_quote_late_night_4">রাতের গান 🌟 বাজতে দিন</string>
     <!-- Time-based quotes (5:00-11:59 - Morning) -->
-    <string name="home_quote_morning_1">নিখুঁত সাউন্ডট্র্যাক ✨ দিয়ে আপনার দিন শুরু করুন</string>
-    <string name="home_quote_morning_2">সঙ্গীত আপনার সকালের রুটিনকে উজ্জীবিত করতে দিন 🎵</string>
-    <string name="home_quote_morning_3">প্রতিদিন সকালে একটি নতুন সিম্ফনি শুরু হওয়ার অপেক্ষায় থাকে 🌅</string>
-    <string name="home_quote_morning_4">কফি এবং সঙ্গীত - নিখুঁত সকালের মিশ্রণ ☕</string>
     <!-- Time-based quotes (12:00-16:59 - Afternoon) -->
-    <string name="home_quote_afternoon_1">আপনার প্রিয় বিট 🚀 দিয়ে শক্তি দিন</string>
-    <string name="home_quote_afternoon_2">সঙ্গীত সবকিছুকে ভালো করে 💪</string>
-    <string name="home_quote_afternoon_3">ছন্দ আপনার দিন গাইড করুন 🎯</string>
-    <string name="home_quote_afternoon_4">দুর্দান্ত সুর দিয়ে ফোকাস বাড়ান 🔥</string>
     <!-- Time-based quotes (17:00-20:59 - Evening) -->
-    <string name="home_quote_evening_1">প্রশান্তিদায়ক সুরের সাথে শান্ত হওয়ার সময় 🌅</string>
-    <string name="home_quote_evening_2">সন্ধ্যার সাউন্ডট্র্যাক শুরু হোক 🎶</string>
-    <string name="home_quote_evening_3">আপনার চিল প্লেলিস্টের জন্য উপযুক্ত সময় 😌</string>
-    <string name="home_quote_evening_4">আপনার প্রিয় সুরের সাথে হাওয়া 🌇</string>
     <!-- Time-based quotes (21:00-23:59 - Night) -->
-    <string name="home_quote_night_1">রাতের সময় হল গানের সময় 🌙</string>
-    <string name="home_quote_night_2">রাত তোমাকে সেরেনাড করুক 🎵</string>
-    <string name="home_quote_night_3">একটি শান্তিপূর্ণ রাতের জন্য পারফেক্ট ভাইবস 🌟</string>
-    <string name="home_quote_night_4">রাতের শান্তকে আলিঙ্গন কর 😴</string>
     <!-- Personalized messages -->
     
     <!-- Recommended Section -->
@@ -374,7 +352,6 @@
     <string name="update_now">এখনই আপডেট করুন</string>
     <!-- LibraryScreen -->
     <string name="library_title">লাইব্রেরি</string>
-    <string name="library_your_music">আপনার সঙ্গীত</string>
     <string name="library_your_playlists">আপনার প্লেলিস্ট</string>
     <string name="library_your_albums">আপনার অ্যালবাম</string>
     <string name="library_your_artists">আপনার শিল্পী</string>
@@ -389,7 +366,6 @@
     <string name="extracting_metadata">ট্র্যাকের বিবরণ বের করা হচ্ছে…</string>
     <string name="processing_library">লাইব্রেরি অপ্টিমাইজ করা হচ্ছে…</string>
     <string name="library_no_songs">এখনও কোন গান</string>
-    <string name="library_no_artists">কোনো শিল্পী পাওয়া যায়নি</string>
     <string name="library_unknown_year">অজানা বছর</string>
     <string name="library_start_collection">আপনার সঙ্গীত সংগ্রহ নির্মাণ শুরু করুন</string>
     <string name="library_sort_artists">দ্বারা শিল্পী সাজান</string>
@@ -405,22 +381,10 @@
         <item quantity="other">প্লেলিস্ট তৈরি করা হচ্ছে এবং %1$dটি গান যোগ করা হচ্ছে…</item>
     </plurals>
     <string name="library_playlist_name_empty">প্লেলিস্টের নাম খালি রাখা যাবে না</string>
-    <string name="library_no_playlists">এখনো কোনো প্লেলিস্ট নেই</string>
-    <string name="library_no_albums">এখনও কোনো অ্যালবাম নেই</string>
-    <plurals name="library_playlists_count">
-        <item quantity="one">%1$d প্লেলিস্ট</item>
-        <item quantity="other">%1$d প্লেলিস্ট</item>
-    </plurals>
-    <plurals name="library_albums_count">
-        <item quantity="one">%1$dটি অ্যালবাম</item>
-        <item quantity="other">%1$dটি অ্যালবাম</item>
-    </plurals>
     <!-- Sort Options -->
     <string name="sort_name">নাম</string>
     <string name="sort_date_created">তৈরির তারিখ</string>
     <string name="sort_song_count">গানের সংখ্যা</string>
-    <string name="sort_title">শিরোনাম</string>
-    <string name="sort_artist">শিল্পী</string>
     <!-- Storage Permission -->
     <string name="storage_permission_required">স্টোরেজ অনুমতি প্রয়োজন</string>
     <string name="storage_permission_desc">আপনার সঙ্গীত ফাইলগুলি ব্রাউজ করতে এবং আপনার ডিভাইসের স্টোরেজ অন্বেষণ করতে, Rhythm-এর আপনার ফাইল এবং মিডিয়া অ্যাক্সেস করার অনুমতি প্রয়োজন৷</string>
@@ -443,8 +407,6 @@
     <string name="common_library">লাইব্রেরি</string>
     <!-- Splash/Loading -->
     <string name="splash_tagline">আপনার সঙ্গীত, আপনার Rhythm</string>
-    <string name="splash_loading">আপনার সঙ্গীত গ্রন্থাগার প্রস্তুত করা হচ্ছে…</string>
-    <string name="splash_loading_streaming">আপনার স্ট্রিমিং সেটআপ প্রস্তুত করা হচ্ছে…</string>
     <string name="splash_ready">খাঁজ কাটার জন্য প্রস্তুত!</string>
     <!-- Audio Quality -->
     
@@ -469,8 +431,6 @@
     <string name="updates_cancel_download">ডাউনলোড বাতিল করুন</string>
     <string name="cancel_download">ডাউনলোড বাতিল করুন</string>
     <string name="download_update">আপডেট ডাউনলোড করুন</string>
-    <string name="updates_smart_polling">স্মার্ট পোলিং সক্রিয়</string>
-    <string name="updates_smart_polling_desc">GitHub API কল কমানোর সময় আপডেট সনাক্ত করতে দক্ষ HTTP চেক ব্যবহার করা। নতুন সংস্করণ প্রকাশিত হলে আপনি তাত্ক্ষণিক বিজ্ঞপ্তি পাবেন৷</string>
     <string name="updates_channel_desc">কোন আপডেট চ্যানেল অনুসরণ করতে হবে তা বেছে নিন:</string>
     <!-- Onboarding -->
     <string name="onboarding_welcome_to">স্বাগতম</string>
@@ -483,12 +443,10 @@
     <string name="onboarding_backup_desc">স্বয়ংক্রিয় ব্যাকআপের মাধ্যমে আপনার প্লেলিস্ট, সেটিংস এবং পছন্দগুলি সুরক্ষিত রাখুন৷ ডিভাইসগুলি পরিবর্তন করার সময় বা পুনরায় ইনস্টল করার পরে সবকিছু পুনরুদ্ধার করুন - আপনার সঙ্গীত সংগ্রহ কখনই হারাবেন না৷</string>
     <string name="onboarding_auto_backup">অটো-ব্যাকআপ</string>
     <string name="onboarding_auto_backup_desc">প্রতি সপ্তাহে স্বয়ংক্রিয়ভাবে আপনার সেটিংস ব্যাকআপ করুন</string>
-    <string name="onboarding_backup_center">ব্যাকআপ এবং পুনরুদ্ধার কেন্দ্র</string>
     <string name="onboarding_manual_backup_info">আপনি সেটিংস &gt; ব্যাকআপ এবং পুনরুদ্ধারে যে কোনো সময় ম্যানুয়ালি ব্যাকআপ তৈরি করতে পারেন</string>
     <string name="onboarding_what_backed_up">কি ব্যাক আপ পায়?</string>
     <string name="onboarding_backed_up_1">সমস্ত সেটিংস, প্লেলিস্ট, থিম এবং লাইব্রেরি কাস্টমাইজেশন</string>
     <string name="onboarding_backed_up_2">ফাইল বা ক্লিপবোর্ড থেকে এক ট্যাপ দিয়ে পুনরুদ্ধার করুন</string>
-    <string name="onboarding_backed_up_3">গোপনীয়তার জন্য আপনার ডিভাইসে স্থানীয়ভাবে সংরক্ষিত ব্যাকআপ</string>
     <string name="onboarding_audio_title">অডিও এবং প্লেব্যাক অভিজ্ঞতা</string>
     <string name="onboarding_audio_desc">হ্যাপটিক ফিডব্যাক, ডিফল্ট স্ক্রিন, ভলিউম কন্ট্রোল, সারি আচরণ, শাফেল সেটিংস, লিরিক্স ডিসপ্লে এবং ইকুয়ালাইজার সেটিংস সহ আপনার অডিও অভিজ্ঞতা কাস্টমাইজ করুন।</string>
     <string name="onboarding_lyrics_sources">API: অনলাইন গান • এমবেডেড: মেটাডেটা লিরিক্স • স্থানীয়: .lrc ফাইল</string>
@@ -497,34 +455,23 @@
     <string name="onboarding_sleep_timer_desc">স্লিপ টাইমার: সেট সময়ের পরে প্লেব্যাক অটো-স্টপ (এখন প্লেয়িং স্ক্রীন থেকে অ্যাক্সেস)</string>
     <string name="onboarding_library_title">আপনার সঙ্গীত লাইব্রেরি সংগঠিত</string>
     <string name="onboarding_library_desc">আপনার অ্যালবাম, শিল্পী এবং গানগুলি কীভাবে প্রদর্শিত হবে তা কাস্টমাইজ করুন। আপনার পছন্দের লেআউট, সাজানোর ক্রম এবং ট্যাব বিন্যাস বেছে নিন।</string>
-    <string name="onboarding_library_album_grid">অ্যালবাম গ্রিড ভিউ</string>
-    <string name="onboarding_library_album_grid_desc">ভালো ভিজ্যুয়াল ব্রাউজিংয়ের জন্য গ্রিড লেআউটে অ্যালবাম প্রদর্শন করুন</string>
-    <string name="onboarding_library_artist_grid">শিল্পী গ্রিড ভিউ</string>
-    <string name="onboarding_library_artist_grid_desc">প্রোফাইল ছবি সহ গ্রিড লেআউটে শিল্পীদের প্রদর্শন করুন</string>
-    <string name="onboarding_library_show_lyrics">গানের কথা দেখান</string>
-    <string name="onboarding_library_show_lyrics_desc">প্লেয়ার স্ক্রিনে সিঙ্ক্রোনাইজড লিরিক্স প্রদর্শন করুন</string>
     <string name="onboarding_library_how_works">গ্রন্থাগার সংস্থা কিভাবে কাজ করে</string>
     <string name="onboarding_library_1">আপনার পছন্দে দ্রুত অ্যাক্সেসের জন্য লাইব্রেরিতে ট্যাব অর্ডার কাস্টমাইজ করুন</string>
     <string name="onboarding_library_2">লাইব্রেরি স্ক্রীন থেকে সরাসরি প্লেলিস্ট তৈরি ও পরিচালনা করুন</string>
-    <string name="onboarding_library_3">সেটিংস &gt; লাইব্রেরি সেটিংসে উন্নত প্রদর্শন এবং সাজানোর বিকল্প উপলব্ধ</string>
-    <string name="onboarding_library_4">ডিফল্ট প্লেলিস্ট (সম্প্রতি যোগ করা, সর্বাধিক প্লে করা) সেটিংস &gt; প্লেলিস্টে টগল করা যেতে পারে</string>
     <string name="onboarding_theme_title">Rhythm কে নিজের করে নিন</string>
     <string name="onboarding_theme_desc">আপনার শৈলীর সাথে মেলে Rhythm-এর চেহারাকে ব্যক্তিগত করুন। আপনার সিস্টেম থিম, ফন্ট, বা Material আপনি গতিশীল রং (Android 12+) চয়ন করুন৷</string>
     <string name="onboarding_more_tuner">সেটিংসে আরও কাস্টমাইজেশন</string>
     <string name="onboarding_tuner_1">কাস্টম কালার স্কিম এবং অ্যালবাম আর্ট কালার এক্সট্রাকশন</string>
     <string name="onboarding_tuner_2">ফন্ট কাস্টমাইজেশন এবং টাইপোগ্রাফি সেটিংস</string>
-    <string name="onboarding_tuner_3">উন্নত থিম বিকল্পগুলি সেটিংস &gt; থিম কাস্টমাইজেশনে উপলব্ধ</string>
     <string name="onboarding_rhythm_guard_title">আপনার শ্রবণশক্তি রক্ষা করুন</string>
     <string name="onboarding_rhythm_guard_desc">বয়স-সচেতন ডিফল্ট এবং ম্যানুয়াল সুরক্ষা নিয়ন্ত্রণের সাথে আপনার শ্রবণকে সুরক্ষিত রাখতে Rhythm গার্ড সেট আপ করুন৷</string>
     <string name="onboarding_rhythm_guard_mode_title">Rhythm গার্ড মোড</string>
     <string name="onboarding_rhythm_guard_age_hint">বয়স প্রোফাইল Rhythm গার্ডকে সুরক্ষিত শোনার সীমা সুপারিশ করতে সাহায্য করে।</string>
     <string name="onboarding_rhythm_guard_tip_1">অটো মোড ন্যূনতম সেটআপ সহ নিরাপদ ডিফল্ট প্রয়োগ করে।</string>
-    <string name="onboarding_rhythm_guard_tip_2">আপনি সতর্কতা টিউন করতে পারেন এবং পরে সেটিংসে অনুস্মারক ভাঙতে পারেন।</string>
     <string name="onboarding_rhythm_guard_tip_3">ম্যানুয়াল মোড আপনাকে সতর্কতা এবং থ্রেশহোল্ডের উপর সম্পূর্ণ নিয়ন্ত্রণ দেয়।</string>
     <string name="onboarding_full_tour_prompt_title">সম্পূর্ণ সেটআপ ট্যুর চালিয়ে যাবেন?</string>
     <string name="onboarding_full_tour_prompt_desc">কোর সেটআপ করা হয়। উন্নত কাস্টমাইজেশনের জন্য চালিয়ে যান, অথবা এখনই শেষ করুন এবং সেটিংস থেকে পরে বাকিটা অন্বেষণ করুন।</string>
     <string name="onboarding_full_tour_prompt_tip_1">পূর্ণ সফরে প্লেব্যাক, থিম, অঙ্গভঙ্গি এবং মিডিয়া স্ক্যান বিকল্পগুলি অন্তর্ভুক্ত রয়েছে।</string>
-    <string name="onboarding_full_tour_prompt_tip_2">আপনি সেটিংস &gt; বিকাশকারী এবং ডিবাগিং থেকে যেকোনো সময় Rhythm ট্যুর পুনরায় খুলতে পারেন।</string>
     <string name="onboarding_full_tour_prompt_tip_3">এখানে কোন কিছুই স্থায়ী নয়। সব পছন্দ পরে পরিবর্তন করা যেতে পারে.</string>
     <string name="onboarding_continue_full_tour">সম্পূর্ণ ট্যুর চালিয়ে যান</string>
     <string name="onboarding_finish_now">এখনই সেটআপ শেষ করুন</string>
@@ -534,21 +481,18 @@
     <string name="onboarding_media_scan_current_mode">ব্ল্যাকলিস্ট বা হোয়াইটলিস্ট মোড বেছে নিন</string>
     <string name="onboarding_media_scan_blacklist">ব্ল্যাকলিস্ট মোড: নির্দিষ্ট গান এবং ফোল্ডার লুকান (রিংটোন, বিজ্ঞপ্তি)</string>
     <string name="onboarding_media_scan_whitelist">হোয়াইটলিস্ট মোড: শুধুমাত্র নির্বাচিত ফোল্ডার থেকে গান দেখান</string>
-    <string name="onboarding_media_scan_configure_in_tuner">সেটিংস &gt; মিডিয়া স্ক্যানে স্ক্যানিং কনফিগার করুন</string>
     <string name="onboarding_complete_title">আপনি সব প্রস্তুত!</string>
     <string name="onboarding_complete_desc">Rhythm খেলার জন্য প্রস্তুত! ব্যাকগ্রাউন্ডে আপনার মিউজিক লাইব্রেরি স্ক্যান করা হচ্ছে। এখানে কি কনফিগার করা হয়েছে:</string>
     <string name="onboarding_whats_next">এরপর কি?</string>
     <string name="onboarding_next_browse">আপনার গান, অ্যালবাম এবং শিল্পীদের ব্রাউজ করুন</string>
     <string name="onboarding_next_create">আপনার প্রথম প্লেলিস্ট তৈরি করুন</string>
     <string name="onboarding_next_finetune">ইকুয়ালাইজার দিয়ে ফাইন-টিউন অডিও</string>
-    <string name="onboarding_next_explore">যেকোনো সময় আরো সেটিংস অন্বেষণ করুন</string>
     <string name="onboarding_settings_change">সেটিংসে গিয়ে যেকোনো সময় সব সেটিংস পরিবর্তন করা যেতে পারে</string>
     <!-- Onboarding Navigation -->
     <string name="onboarding_back">ফিরে</string>
     <string name="onboarding_next">পরবর্তী</string>
     <string name="onboarding_checking">পরীক্ষা করা হচ্ছে…</string>
     <string name="onboarding_lets_go">চলুন!</string>
-    <string name="onboarding_finish_setup">সেটআপ শেষ করুন</string>
     <string name="onboarding_continue">চালিয়ে যান</string>
     <string name="onboarding_open_settings">সেটিংস খুলুন</string>
     <string name="onboarding_grant_access">প্রবেশাধিকার মঞ্জুর করুন</string>
@@ -571,7 +515,6 @@
     <string name="onboarding_permission_tips">অনুমতি টিপস</string>
     <string name="onboarding_permission_tip_1">সর্বোত্তম অভিজ্ঞতার জন্য সমস্ত অনুমতি দিন</string>
     <string name="onboarding_permission_tip_2">আপনি সেটিংসে পরে অনুমতি পরিবর্তন করতে পারেন</string>
-    <string name="onboarding_permission_tip_3">Rhythm আপনার গোপনীয়তা এবং ডেটাকে সম্মান করে৷</string>
     <!-- Onboarding Audio &amp; Playback -->
     <string name="onboarding_default_screen_title">ডিফল্ট ল্যান্ডিং স্ক্রিন</string>
     <string name="onboarding_default_screen_desc">আপনি Rhythm চালু করার সময় কোন স্ক্রীন খোলে তা বেছে নিন</string>
@@ -602,8 +545,6 @@
     <string name="onboarding_periodic_check_desc">স্বয়ংক্রিয়ভাবে Rhythm-এর GitHub রেপো থেকে আপডেটগুলি পরীক্ষা করুন৷</string>
     <string name="onboarding_update_notifications_title">আপডেট বিজ্ঞপ্তি</string>
     <string name="onboarding_update_notifications_desc">নতুন সংস্করণ পাওয়া গেলে বিজ্ঞপ্তি পান</string>
-    <string name="onboarding_smart_polling_title">স্মার্ট পোলিং</string>
-    <string name="onboarding_smart_polling_desc">GitHub API কলগুলি সংরক্ষণ করতে দক্ষ চেকগুলি ব্যবহার করুন৷</string>
     <string name="onboarding_check_interval_desc">কত ঘন ঘন আপডেটের জন্য চেক করতে হবে</string>
     <string name="onboarding_update_channel_title">চ্যানেল আপডেট করুন</string>
     <string name="onboarding_update_channel_desc">স্থিতিশীল বা বিটা সংস্করণ।</string>
@@ -627,12 +568,6 @@
     <string name="onboarding_dismiss">খারিজ</string>
     <string name="onboarding_retry">পুনরায় চেষ্টা করুন</string>
     <!-- Onboarding: Notifications Step -->
-    <string name="onboarding_notifications_title">প্লেব্যাক বিজ্ঞপ্তি</string>
-    <string name="onboarding_notifications_desc">কীভাবে Rhythm আপনার বিজ্ঞপ্তির ছায়ায় মিউজিক প্লেব্যাক প্রদর্শন করে তা নিয়ন্ত্রণ করুন। কাস্টম স্টাইল করা বিজ্ঞপ্তি বা স্ট্যান্ডার্ড সিস্টেম মিডিয়া কন্ট্রোলের মধ্যে বেছে নিন।</string>
-    <string name="onboarding_notifications_info_title">বিজ্ঞপ্তি বৈশিষ্ট্য</string>
-    <string name="onboarding_notification_tip_1">এক নজরে বর্তমান ট্র্যাক তথ্য দেখুন</string>
-    <string name="onboarding_notification_tip_2">দ্রুত অ্যাকশন সহ প্লেব্যাক নিয়ন্ত্রণ করুন</string>
-    <string name="onboarding_notification_tip_3">কাস্টম শৈলী আপনার থিমের সাথে মেলে</string>
     <!-- Onboarding: Gestures Step -->
     <string name="onboarding_gestures_title">স্পর্শ অঙ্গভঙ্গি</string>
     <string name="onboarding_gestures_desc">স্বজ্ঞাত সোয়াইপ এবং আলতো চাপার অঙ্গভঙ্গি দিয়ে দ্রুত আপনার সঙ্গীত লাইব্রেরিতে নেভিগেট করুন। মিনি প্লেয়ার এবং পূর্ণ প্লেয়ার স্ক্রিনের জন্য অঙ্গভঙ্গি কাস্টমাইজ করুন।</string>
@@ -648,7 +583,6 @@
     <string name="onboarding_gesture_doubletap_desc">বর্তমান গানটি পছন্দ করতে অ্যালবাম শিল্পে ডবল ট্যাপ করুন</string>
     <string name="onboarding_gestures_tips_title">অঙ্গভঙ্গি টিপস</string>
     <string name="onboarding_gesture_tip_1">সোয়াইপ অঙ্গভঙ্গি উভয় দিকেই কাজ করে</string>
-    <string name="onboarding_gesture_tip_2">দ্রুত সোয়াইপ ধীরগতির চেয়ে দ্রুত সাড়া দেয়</string>
     <!-- Onboarding: Widgets Step -->
     <string name="onboarding_widgets_title">লঞ্চার উইজেট</string>
     <string name="onboarding_widgets_desc">দ্রুত সঙ্গীত নিয়ন্ত্রণের জন্য আপনার লঞ্চারে Rhythm উইজেট যোগ করুন। কোন তথ্য প্রদর্শিত হবে এবং উইজেটটি কেমন হবে তা কাস্টমাইজ করুন।</string>
@@ -674,8 +608,6 @@
     <string name="onboarding_stats_features_title">পরিসংখ্যান বৈশিষ্ট্য</string>
     <string name="onboarding_stats_feature_1">দিন, সপ্তাহ বা মাসে মোট শোনার সময় ট্র্যাক করুন</string>
     <string name="onboarding_stats_feature_2">আপনার সর্বাধিক বাজানো গান দেখুন</string>
-    <string name="onboarding_stats_feature_3">আপনার শীর্ষ শিল্পীদের আবিষ্কার করুন</string>
-    <string name="onboarding_stats_feature_4">অ্যালবাম শোনার ধরণগুলি অন্বেষণ করুন</string>
     <!-- MiniPlayer Swipe Hints -->
     <string name="miniplayer_swipe_up_hint">↑ সম্পূর্ণ প্লেয়ার</string>
     <string name="miniplayer_swipe_down_hint">↓ খারিজ</string>
@@ -684,10 +616,6 @@
     <string name="miniplayer_no_song">কোন গান বাজানো</string>
     <string name="badge_live">লাইভ</string>
     <!-- Festive Greetings -->
-    <string name="festive_greeting_christmas">🎄 শুভ বড়দিন! 🎅</string>
-    <string name="festive_greeting_new_year">🎆 শুভ নববর্ষ! 🎉</string>
-    <string name="festive_greeting_halloween">🎃 শুভ হ্যালোইন! 👻</string>
-    <string name="festive_greeting_valentines">💝 শুভ ভালোবাসা দিবস! 💕</string>
     <!-- Settings -->
     <string name="settings_tip_theme">রঙ, ফন্ট, এবং উত্সব প্রভাব সঙ্গে আপনার থিম কাস্টমাইজ করুন</string>
     <string name="settings_tip_gestures">স্বজ্ঞাত সোয়াইপ এবং ট্যাপ দিয়ে দ্রুত প্লেব্যাক নিয়ন্ত্রণ করুন, কোনো অতিরিক্ত মেনুর প্রয়োজন নেই।</string>
@@ -763,7 +691,6 @@
     <string name="playback_lyrics_priority_desc">গানের উৎস, আচরণ, বিন্যাস, আকার এবং স্টাইলিং কনফিগার করুন</string>
     <string name="playback_settings">প্লেব্যাক সেটিংস</string>
     <!-- Components: Lyrics Editor -->
-    <string name="lyrics_placeholder">এখানে গানের কথা লিখুন…\n\nআপনি LRC ফর্ম্যাট ব্যবহার করতে পারেন:\n[00:12.00] লাইন এক\n[00:17.00] লাইন দুই</string>
     <string name="lyrics_editor_title">গানের কথা সম্পাদক</string>
     <!-- Components: Song Info -->
     <string name="song_info_title">গানের তথ্য</string>
@@ -781,7 +708,6 @@
     <string name="backup_all_settings_placeholder">সমস্ত সেটিংস, প্লেলিস্ট, থিম এবং লাইব্রেরি কাস্টমাইজেশন</string>
     <string name="backup_restore_tap_placeholder">ফাইল বা ক্লিপবোর্ড থেকে এক ট্যাপ দিয়ে পুনরুদ্ধার করুন</string>
     <string name="backup_local_storage_placeholder">গোপনীয়তার জন্য আপনার ডিভাইসে স্থানীয়ভাবে সংরক্ষিত ব্যাকআপ</string>
-    <string name="library_reorder_tabs">আপনার লাইব্রেরির অভিজ্ঞতা কাস্টমাইজ করতে ট্যাবগুলিকে পুনরায় সাজান</string>
     <string name="external_services_desc">আপনার সঙ্গীত অভিজ্ঞতা উন্নত করতে কোন বাহ্যিক API পরিষেবাগুলি সক্রিয় তা নিয়ন্ত্রণ করুন৷ ডেটা ব্যবহার এবং কার্যকারিতা পরিচালনা করতে পরিষেবা চালু/বন্ধ টগল করুন।</string>
     <string name="lyrics_source_priority_title">গানের উৎস অগ্রাধিকার</string>
     <string name="queue_action_title">কিউ কনফ্লিক্ট অ্যাকশন</string>
@@ -828,7 +754,6 @@
     <string name="virtualizer_desc">স্টেরিও সাউন্ড স্টেজ প্রশস্ত করুন</string>
     <string name="strength">শক্তি</string>
     <string name="open_equalizer_settings">ইকুয়ালাইজার সেটিংস খুলুন</string>
-    <string name="system_equalizer">সিস্টেম ইকুয়ালাইজার</string>
     <string name="no_equalizer">কোনো সিস্টেম ইকুয়ালাইজার পাওয়া যায়নি</string>
     <string name="no_audio_ID">কোন অডিও সেশন আইডি উপলব্ধ</string>
     <!-- Sleep Timer -->
@@ -923,9 +848,6 @@
     <string name="settings_section_advanced">উন্নত</string>
     <string name="settings_crash_log_history">ক্র্যাশ লগ ইতিহাস</string>
     <string name="settings_crash_log_history_desc">ক্র্যাশ রিপোর্ট</string>
-    <string name="settings_experimental_features">পরীক্ষামূলক বৈশিষ্ট্য</string>
-    <string name="settings_experimental_features_desc">অত্যাধুনিক বৈশিষ্ট্য</string>
-    <string name="settings_select_option">Rhythm সেটিংস</string>
     <!-- Playlist Actions -->
     <string name="playlist_no_songs_available">কোন গান পাওয়া যায় না</string>
     <string name="playlist_all_in_playlist">সমস্ত গান ইতিমধ্যেই এই প্লেলিস্টে রয়েছে৷</string>
@@ -985,7 +907,6 @@
     <string name="cd_export_playlists">প্লেলিস্ট রপ্তানি করুন</string>
     <string name="cd_import_playlist">প্লেলিস্ট আমদানি করুন</string>
     <string name="cd_create_playlist">প্লেলিস্ট তৈরি করুন</string>
-    <string name="cd_current_location">বর্তমান অবস্থান</string>
     <string name="cd_song_info">গানের তথ্য</string>
     <string name="cd_no_song_playing">কোন গান বাজানো</string>
     <string name="cd_show_actions">কর্ম দেখান</string>
@@ -1002,7 +923,6 @@
     <string name="cd_show_options">অপশন দেখান</string>
     <string name="cd_app_updates">অ্যাপ আপডেট</string>
     <string name="cd_completed">সমাপ্ত</string>
-    <string name="cd_language">ভাষা</string>
     <string name="cd_add_selected_songs">নির্বাচিত গান যোগ করুন</string>
     <string name="cd_toggle_multi_select">মাল্টি-সিলেক্ট টগল করুন</string>
     <string name="cd_add_song">গান যোগ করুন</string>
@@ -1034,7 +954,6 @@
     <string name="bottomsheet_playback">প্লেব্যাক</string>
     <string name="bottomsheet_no_device">কোনো ডিভাইস সংযুক্ত নেই</string>
     <!-- Bottom Sheet: Album -->
-    <string name="bottomsheet_sort_by">অনুসারে সাজান</string>
     <string name="bottomsheet_all_discs">সমস্ত ডিস্ক</string>
     <string name="bottomsheet_disc_option">ডিস্ক %1$d</string>
     <!-- Bottom Sheet: Home Section Order -->
@@ -1080,13 +999,6 @@
     <string name="service_rhythm_pulse_desc">বন্ধুত্বপূর্ণ শোনার অনুস্মারক এবং টিপস Rhythm থেকে</string>
     <string name="service_rhythm_guard_alerts_desc">Rhythm গার্ড থেকে নিরাপত্তা সতর্কতা</string>
     <string name="service_rhythm_guard_timers_desc">Rhythm গার্ড ব্রেক এবং টাইমআউট রিমাইন্ডার</string>
-    <string name="service_starting">Rhythm শুরু হচ্ছে।</string>
-    <string name="service_loading_settings">Rhythm আপনার সেটিংস লোড করছে৷</string>
-    <string name="service_setup_components">Rhythm মূল উপাদান প্রস্তুত করছে।</string>
-    <string name="service_initializing_player">Rhythm প্লেব্যাকের প্রস্তুতি নিচ্ছে৷</string>
-    <string name="service_creating_controls">Rhythm প্লেব্যাক নিয়ন্ত্রণ তৈরি করছে৷</string>
-    <string name="service_setup_media_session">Rhythm মিডিয়া সেশনের প্রস্তুতি নিচ্ছে৷</string>
-    <string name="service_initializing_controller">Rhythm মিডিয়া কন্ট্রোলারকে সংযুক্ত করছে।</string>
     <string name="service_ready">Rhythm প্রস্তুত।</string>
     <string name="service_init_failed">Rhythm শুরু করা যায়নি। অনুগ্রহ করে অ্যাপটি আবার খুলুন।</string>
     <!-- Crash Activity -->
@@ -1115,7 +1027,6 @@
     <string name="settings_ignore_mediastore_covers_desc">প্রতিটি অডিও ফাইল থেকে এমবেডেড আর্টওয়ার্ক পছন্দ করুন (পূর্বে মিডিয়াস্টোর কভারগুলি উপেক্ষা করুন)</string>
     <string name="settings_lossless_artwork">ক্ষতিহীন আর্টওয়ার্ক</string>
     <string name="settings_lossless_artwork_desc">কম্প্রেশন ছাড়াই ফুল-রেজোলিউশন এমবেডেড গানের শিল্পকর্ম দেখান</string>
-    <string name="settings_song_artwork_restart_required">আর্টওয়ার্ক মোড পরিবর্তিত হয়েছে। ক্যাশে সাফ করতে অ্যাপটি রিস্টার্ট করুন এবং আপডেট করা আর্টওয়ার্ক সোর্স সহ একটি সম্পূর্ণ মিডিয়া রিস্ক্যান চালান।</string>
     <string name="settings_artwork_cache_size">আর্টওয়ার্ক ক্যাশ সাইজ</string>
     <string name="settings_artist_parsing">শিল্পী</string>
     <string name="settings_artist_parsing_desc">বিভাজক, প্রদর্শন</string>
@@ -1237,8 +1148,6 @@
     <!-- Gestures Settings -->
     
     <!-- Playlist Settings Toggle -->
-    <string name="playlist_ask_each_time">প্রতিবার জিজ্ঞাসা করুন</string>
-    <string name="playlist_ask_each_time_desc">বিকল্প সহ ডায়ালগ দেখান</string>
     <!-- About Multi-Artist Parsing -->
     
     <!-- Home Screen Greetings -->
@@ -1281,8 +1190,6 @@
     <!-- Additional UI strings -->
     
     <!-- Sort Orders -->
-    <string name="sort_duration_short_first">সময়কাল (প্রথম সংক্ষিপ্ত)</string>
-    <string name="sort_duration_long_first">সময়কাল (প্রথম দীর্ঘ)</string>
     <!-- Context Menu Actions -->
     <string name="action_play_next">পরবর্তী খেলুন</string>
     <string name="action_add_to_queue">সারিতে যোগ করুন</string>
@@ -1310,10 +1217,7 @@
     <string name="home_section_new_releases">নতুন রিলিজ</string>
     <string name="home_section_one_visible">অন্তত একটি বিভাগ দৃশ্যমান হতে হবে</string>
     <!-- Library Tabs -->
-    <string name="library_tab_songs">গান</string>
     <string name="library_tab_playlists">প্লেলিস্ট</string>
-    <string name="library_tab_albums">অ্যালবাম</string>
-    <string name="library_tab_artists">শিল্পী</string>
     <string name="library_tab_one_visible">অন্তত একটি ট্যাব দৃশ্যমান হতে হবে</string>
     <string name="library_tab_order_reset">ট্যাব অর্ডার এবং দৃশ্যমানতা ডিফল্টে রিসেট করা হয়েছে</string>
     <string name="library_tab_order_saved">ট্যাব অর্ডার এবং দৃশ্যমানতা সংরক্ষণ করা হয়েছে</string>
@@ -1374,7 +1278,6 @@
     <string name="settings_no_crash_logs">কোনো ক্র্যাশ লগ পাওয়া যায়নি। ভালো কাজ!</string>
     <string name="settings_player_controls">প্লেয়ার কন্ট্রোল</string>
     <string name="settings_player_screen">প্লেয়ার স্ক্রিন</string>
-    <string name="settings_presets">প্রিসেট</string>
     <string name="settings_progress_display">অগ্রগতি প্রদর্শন</string>
     <string name="settings_progress_hidden">অগ্রগতি গোপন</string>
     <string name="settings_reorder_toggle_sections">বিভাগগুলি পুনরায় সাজান এবং টগল করুন</string>
@@ -1420,7 +1323,6 @@
     <string name="settings_intensity">তীব্রতা</string>
     <string name="settings_more_festivals">আরও উত্সব ভবিষ্যতে আপডেট যোগ করা হবে</string>
     <string name="settings_select_festival">উৎসব নির্বাচন করুন</string>
-    <string name="settings_select_artist_separators">শিল্পী বিভাজক নির্বাচন করুন</string>
     <string name="settings_snowflake_display_area">স্নোফ্লেক ডিসপ্লে এরিয়া</string>
     <string name="settings_snowflake_size">স্নোফ্লেক সাইজ</string>
     <string name="settings_toggle_decoration_elements">অবস্থান অনুসারে পৃথক প্রসাধন উপাদান টগল করুন</string>
@@ -1558,7 +1460,6 @@
     <string name="streaming_selected">নির্বাচিত</string>
     <string name="streaming_connect">সংযোগ করুন</string>
     <string name="streaming_manage">পরিচালনা করুন</string>
-    <string name="streaming_manage_service">নির্বাচিত পরিষেবা পরিচালনা করুন</string>
     <string name="streaming_service_setup_server_url">সার্ভার URL</string>
     <string name="streaming_service_setup_server_url_hint">https://your-server.example.com</string>
     <string name="streaming_service_setup_server_url_supporting">একটি সার্ভার ঠিকানা প্রয়োজন যে প্রদানকারীদের জন্য প্রয়োজন.</string>
@@ -1576,19 +1477,11 @@
     <string name="streaming_service_setup_connected_as">%1$s হিসাবে সংযুক্ত</string>
     <string name="streaming_home_selected_service_unavailable">নির্বাচিত পরিষেবা সংযুক্ত নয়</string>
     <string name="streaming_home_connect_selected_service">হোম এবং অনুসন্ধান লোড করতে %1$s সংযোগ করুন৷</string>
-    <string name="streaming_home_widget_recommended_empty">এখনো আবিষ্কার করার কিছু নেই</string>
-    <string name="streaming_home_widget_new_releases_title">নতুন রিলিজ</string>
     <string name="streaming_home_widget_new_releases_subtitle">%1$s থেকে সম্প্রতি যোগ করা অ্যালবামগুলি</string>
-    <string name="streaming_home_widget_new_releases_empty">কোন নতুন রিলিজ উপলব্ধ</string>
     <string name="streaming_home_widget_empty_hint">আপনি সংযোগ বা রিফ্রেশ করার পরে এটি একটি মুহূর্ত নিতে পারে।</string>
     <string name="streaming_library_syncing">আপনার স্ট্রিমিং ফিড লোড হচ্ছে…</string>
-    <string name="streaming_library_empty">এখনো কোনো লাইব্রেরি বিষয়বস্তু নেই</string>
     <string name="streaming_home_no_content_title">এখনো কোনো হোম কন্টেন্ট নেই</string>
     <string name="streaming_home_no_content_hint">আপনার পরিষেবা সিঙ্ক করা শেষ হলে রিফ্রেশ করার চেষ্টা করুন।</string>
-    <plurals name="streaming_home_widget_playlist_track_count">
-        <item quantity="one">%1$dটি ট্র্যাক</item>
-        <item quantity="other">%1$dটি ট্র্যাক</item>
-    </plurals>
     <string name="streaming_home_guard_break_active">ব্রেক সক্রিয়: %1$s বাকি</string>
     <string name="streaming_home_guard_exposure">আজ: %1$d / %2$d মিনিট</string>
     <string name="streaming_not_selected">নির্বাচিত হয়নি</string>
@@ -1612,10 +1505,6 @@
     <string name="settings_tab_artists">শিল্পী</string>
     <string name="settings_tab_dates">তারিখ</string>
     <string name="settings_tab_explorer">এক্সপ্লোরার</string>
-    <string name="settings_tab_order_reset">ট্যাব অর্ডার ডিফল্টে রিসেট</string>
-    <string name="settings_tab_order_saved">ট্যাব অর্ডার সংরক্ষিত</string>
-    <string name="settings_move_up">উপরে সরান</string>
-    <string name="settings_move_down">নিচে সরান</string>
     <!-- Gestures Settings -->
     <string name="settings_swipe_gestures">সোয়াইপ অঙ্গভঙ্গি</string>
     <string name="settings_swipe_gestures_desc">খুলতে/খারিজ করতে উপরে/নীচে সোয়াইপ করুন, ট্র্যাকগুলি এড়িয়ে যেতে বাম/ডান দিন</string>
@@ -1691,7 +1580,6 @@
     <string name="settings_festival_christmas">বড়দিন</string>
     <string name="settings_festival_new_year">নববর্ষ</string>
     <string name="settings_area_full">পূর্ণ</string>
-    <string name="settings_area_sides">পক্ষ</string>
     <string name="settings_area_top_third">শীর্ষ ⅓</string>
     <string name="settings_snowfall">তুষারপাত</string>
     <string name="settings_snowfall_desc">অ্যানিমেটেড পতনশীল স্নোফ্লেক্স</string>
@@ -1737,10 +1625,6 @@
     <string name="settings_gesture_double_tap">ডবল ট্যাপ আর্টওয়ার্ক</string>
     <string name="settings_gesture_double_tap_desc">ডবল ট্যাপ প্লে/পজ করুন</string>
     <!-- Queue & Playback Search Strings -->
-    <string name="settings_queue_auto_add">প্রসঙ্গ সারি</string>
-    <string name="settings_queue_auto_add_desc">খেলায় সম্পর্কিত সারি তৈরি করুন</string>
-    <string name="settings_queue_clear_on_new">প্লেতে সারি প্রতিস্থাপন করুন</string>
-    <string name="settings_queue_clear_on_new_desc">সরাসরি খেলার জন্য সারি প্রতিস্থাপন করুন</string>
     <string name="settings_show_played_queue_songs">প্লেড ট্র্যাক দেখান</string>
     <string name="settings_show_played_queue_songs_desc">প্লে ট্র্যাকগুলি সারিতে দৃশ্যমান রাখুন</string>
     <string name="settings_queue_action_dialog_desc">একক-ট্র্যাক সারি সংঘর্ষ নীতি</string>
@@ -1754,9 +1638,6 @@
     <string name="settings_sleep_timer_search_desc">অটো-স্টপ প্লেব্যাক</string>
     <string name="settings_queue_hours_format">সময় বিন্যাসে ঘন্টা ব্যবহার করুন</string>
     <string name="settings_queue_hours_format_desc">সময় বিন্যাসে ঘন্টা</string>
-    <string name="settings_queue_persistence">স্থির সারি</string>
-    <string name="settings_queue_persistence_desc">শুরুতে সারি পুনরুদ্ধার করুন</string>
-    <string name="settings_list_queue_action_dialog_desc">তালিকার জন্য আচরণ যখন সারি সক্রিয় থাকে তখন অ্যাকশন চালান</string>
     <!-- Experimental Features Search Strings -->
     <string name="settings_exp_festive_theme">উৎসবের থিম</string>
     <string name="settings_exp_festive_theme_desc">উত্সব সজ্জা</string>
@@ -1768,8 +1649,6 @@
     <string name="settings_exp_codec_monitoring_desc">লগ অডিও তথ্য</string>
     <string name="settings_exp_audio_device_logging">অডিও ডিভাইস লগিং</string>
     <string name="settings_exp_audio_device_logging_desc">লগ ডিভাইস পরিবর্তন</string>
-    <string name="settings_exp_launch_onboarding">লঞ্চ Rhythm ট্যুর</string>
-    <string name="settings_exp_launch_onboarding_desc">পুনরায় চালু করুন Rhythm ট্যুর</string>
     <string name="settings_exp_test_crash">টেস্ট ক্র্যাশ</string>
     <string name="settings_exp_test_crash_desc">জোর করে অ্যাপ ক্র্যাশ করুন</string>
     <string name="settings_broadcast_status_enabled">স্ট্যাটাস ব্রডকাস্টিং সক্ষম করুন</string>
@@ -1891,13 +1770,10 @@
     <string name="exp_codec_monitoring">কোডেক মনিটরিং</string>
     <string name="exp_codec_monitoring_desc">ডিবাগিংয়ের জন্য অডিও কোডেক এবং ফরম্যাট তথ্য লগ করুন</string>
     <string name="exp_developer_debugging">বিকাশকারী এবং ডিবাগিং</string>
-    <string name="exp_launch_onboarding">লঞ্চ Rhythm ট্যুর</string>
-    <string name="exp_launch_onboarding_desc">রিসেট করুন এবং Rhythm ট্যুর অভিজ্ঞতা পুনরায় চালু করুন</string>
     <string name="exp_test_crash">টেস্ট ক্র্যাশ</string>
     <string name="exp_test_crash_desc">ক্র্যাশ হ্যান্ডলিং এবং রিপোর্টিং পরীক্ষা করার জন্য জোর করে অ্যাপটি ক্র্যাশ করুন</string>
     <string name="exp_force_player_compact_mode">ফোর্স প্লেয়ার কমপ্যাক্ট মোড</string>
     <string name="exp_force_player_compact_mode_desc">প্লেয়ার স্ক্রীনকে কমপ্যাক্ট মোড ব্যবহার করতে বাধ্য করুন</string>
-    <string name="exp_third_party_integrations">থার্ড-পার্টি ইন্টিগ্রেশন</string>
     <string name="settings_backup_created">ব্যাকআপ সফলভাবে তৈরি করা হয়েছে</string>
     <string name="settings_backup_settings">সেটিংস</string>
     <string name="settings_center_aligned">কেন্দ্রে সারিবদ্ধ</string>
@@ -1905,12 +1781,10 @@
     <string name="settings_create_backup_desc">একটি JSON ফাইলে সম্পূর্ণ ব্যাকআপ রপ্তানি করুন</string>
     <string name="settings_backup_action_short">ব্যাকআপ</string>
     <string name="settings_restore_action_short">পুনরুদ্ধার করুন</string>
-    <string name="settings_experimental">পরীক্ষামূলক বৈশিষ্ট্য</string>
     <string name="settings_left_aligned">বাম প্রান্তিককৃত</string>
     <string name="settings_player">খেলোয়াড়</string>
     <string name="settings_restore_completed">পুনরুদ্ধার সফলভাবে সম্পন্ন হয়েছে</string>
     <string name="settings_right_aligned">ডান প্রান্তিককৃত</string>
-    <string name="settings_tab_order">লাইব্রেরি ট্যাব অর্ডার</string>
     <!-- Theme, CrashLog, Home, Lyrics, Shapes, API Strings -->
     <string name="settings_crash_log">ক্র্যাশ লগ ইতিহাস</string>
     <string name="settings_expressive_shapes">অভিব্যক্তিপূর্ণ আকার</string>
@@ -1959,8 +1833,6 @@
     <string name="deviceconfigurationbottomsheet_brand_optional">ব্র্যান্ড (ঐচ্ছিক)</string>
     <string name="deviceconfigurationbottomsheet_eg_sony">যেমন, সনি</string>
     <string name="deviceconfigurationbottomsheet_select_autoeq_profile">AutoEQ প্রোফাইল নির্বাচন করুন</string>
-    <string name="deviceconfigurationbottomsheet_find_a_profile_for">এই ডিভাইসের জন্য একটি প্রোফাইল খুঁজুন…</string>
-    <string name="deviceconfigurationbottomsheet_no_matching_profiles_found">কোনো মিলিত প্রোফাইল পাওয়া যায়নি</string>
     <string name="multiselectionbottomsheet_go_to_album">অ্যালবামে যান</string>
     <string name="multiselectionbottomsheet_go_to_artist">শিল্পীর কাছে যান</string>
     <string name="multiselectionbottomsheet_edit_tags">ট্যাগ সম্পাদনা করুন</string>
@@ -1978,11 +1850,7 @@
     <string name="localnavigation_stats">পরিসংখ্যান</string>
     <string name="addtoplaylistscreen_pick_a_tune_to">যোগ করার জন্য একটি টিউন বেছে নিন…</string>
     <string name="addtoplaylistscreen_tap_songs_to_select">একাধিক নির্বাচন করতে গান আলতো চাপুন, তারপরে একযোগে সেগুলি যোগ করুন</string>
-    <string name="equalizerscreen_reset_to_flat">ফ্ল্যাটে রিসেট করুন</string>
     <string name="equalizerscreen_autoeq_profiles">AutoEQ প্রোফাইল</string>
-    <string name="equalizerscreen_apply_headphonespecific_equalization">হেডফোন-নির্দিষ্ট সমতা প্রয়োগ করুন</string>
-    <string name="equalizerscreen_import_export_and_organize">প্রোফাইল আমদানি, রপ্তানি এবং সংগঠিত করুন</string>
-    <string name="equalizerscreen_access_androids_builtin_settings">Android-এর অন্তর্নির্মিত সেটিংস অ্যাক্সেস করুন</string>
     <string name="explorertabcontent_browse_storage">স্টোরেজ ব্রাউজ করুন</string>
     <string name="explorertabcontent_folder_icon">ফোল্ডার আইকন</string>
     <string name="explorertabcontent_play_folder_as_playlist">প্লে ফোল্ডার (প্লেলিস্ট হিসাবে)</string>
@@ -1996,22 +1864,12 @@
     <string name="onboardingscreen_tap_the_remove_action">ফোল্ডার অ্যাক্সেস আপডেট করতে অপসারণ অ্যাকশনে আলতো চাপুন</string>
     <string name="onboardingscreen_interaction">মিথস্ক্রিয়া</string>
     <string name="onboardingscreen_choose_your_playback_mode">আপনার প্লেব্যাক মোড বেছে নিন</string>
-    <string name="onboardingscreen_local_offline_player">স্থানীয় অফলাইন প্লেয়ার</string>
-    <string name="onboardingscreen_play_audio_files_stored">সরাসরি আপনার ডিভাইসে সংরক্ষিত অডিও ফাইল চালান। উন্নত স্থানীয় ডিরেক্টরি স্ক্যানিং, পরিসংখ্যান, এবং থিম ম্যাচিং সমর্থন করে।</string>
-    <string name="onboardingscreen_rhythm_go_streaming">Rhythm GO! (স্ট্রিমিং)</string>
-    <string name="onboardingscreen_connect_to_jellyfin_subsonic">অফলাইনে শোনার জন্য ক্যাশিং সমর্থন সহ যেতে যেতে আপনার সমগ্র লাইব্রেরি স্ট্রিম করতে Jellyfin, Subsonic বা Navidrome সার্ভারের সাথে সংযোগ করুন৷</string>
     <string name="onboardingscreen_playback_mode_tips">প্লেব্যাক মোড টিপস</string>
-    <string name="onboardingscreen_switch_easily_anytime_in">সেটিংস &gt; ইন্টিগ্রেশনে যেকোনও সময় সহজেই স্যুইচ করুন।</string>
     <string name="onboardingscreen_local_mode_scans_and">স্থানীয় মোড আপনার ডিভাইসে অডিও ফাইল স্ক্যান এবং ক্যাটালগ.</string>
     <string name="onboardingscreen_go_streaming_connects_via">GO Streaming সাবসনিক/জেলিফিন API সার্ভারের মাধ্যমে সংযোগ করে।</string>
-    <string name="onboardingscreen_connect_your_streaming_service">আপনার স্ট্রিমিং পরিষেবা সংযুক্ত করুন</string>
-    <string name="onboardingscreen_connect_your_subsonicnavidrome_or">স্ট্রিমিং শুরু করতে আপনার Subsonic/Navidrome বা Jellyfin সার্ভারের সাথে সংযোগ করুন৷</string>
     <string name="onboardingscreen_streaming_setup_tips">স্ট্রিমিং সেটআপ টিপস</string>
-    <string name="onboardingscreen_supports_navidrome_gonic_and">Navidrome, গনিক এবং সমস্ত সাবসনিক API সমর্থন করে।</string>
-    <string name="onboardingscreen_enable_caching_in_settings">পরে অফলাইন প্লেব্যাকের জন্য সেটিংসে ক্যাশিং সক্ষম করুন।</string>
     <string name="onboardingscreen_connection_test_ensures_server">সংযোগ পরীক্ষা নিশ্চিত করে যে সার্ভারের শংসাপত্র সঠিক।</string>
     <string name="onboardingscreen_subsonic_navidrome">Subsonic / Navidrome</string>
-    <string name="onboardingscreen_jellyfin_server">Jellyfin সার্ভার</string>
     <string name="onboardingscreen_httpsyourservercom">https://your-server.com</string>
     <string name="onboardingscreen_remember_to_include_http">http:// অথবা https:// অন্তর্ভুক্ত করতে মনে রাখবেন</string>
     <string name="onboardingscreen_username">ব্যবহারকারীর নাম</string>
@@ -2029,11 +1887,7 @@
     <string name="gosettingsscreen_network">নেটওয়ার্ক</string>
     <string name="gosettingsscreen_enable_streaming_over_mobile">মোবাইল ডেটার মাধ্যমে স্ট্রিমিং সক্ষম করুন</string>
     <string name="gosettingsscreen_connection_is_healthy">সংযোগ স্বাস্থ্যকর</string>
-    <string name="streamingcontenthomescreen_your_connected_streaming_service">আপনার সংযুক্ত স্ট্রিমিং পরিষেবা প্লেলিস্ট</string>
-    <string name="streamingcontenthomescreen_no_playlists_found">কোনো প্লেলিস্ট পাওয়া যায়নি</string>
-    <string name="streamingcontenthomescreen_create_playlists_on_your">এখানে দেখতে আপনার সার্ভারে প্লেলিস্ট তৈরি করুন।</string>
     <string name="streaminghomescreen_leave_go_mode">Leave Go Mode</string>
-    <string name="streaminglibraryscreen_no_albums">কোনো অ্যালবাম নেই</string>
     <string name="streamingsettingsscreen_streaming_restricted">স্ট্রিমিং সীমাবদ্ধ</string>
     <string name="streamingmusicviewmodel_failed_to_play_next">পরবর্তী খেলতে ব্যর্থ: URL সমাধান করতে অক্ষম</string>
     <string name="streamingmusicviewmodel_failed_to_add_to">সারিতে যোগ করতে ব্যর্থ: URL সমাধান করতে অক্ষম</string>
@@ -2057,18 +1911,13 @@
     <string name="songinfobottomsheet_song_artwork">গানের শিল্পকর্ম</string>
     <string name="songinfobottomsheet_details">বিস্তারিত</string>
     <string name="songinfobottomsheet_change_artwork">আর্টওয়ার্ক পরিবর্তন</string>
-    <string name="songinfobottomsheet_remove_artwork">আর্টওয়ার্ক সরান</string>
     <string name="songinfobottomsheet_artwork_fetched_successfully_click">আর্টওয়ার্ক সফলভাবে আনা হয়েছে! এম্বেড করতে সংরক্ষণ করুন ক্লিক করুন।</string>
     <string name="songinfobottomsheet_failed_to_download_artwork_1">ইউআরএল থেকে আর্টওয়ার্ক ডাউনলোড করতে ব্যর্থ</string>
     <string name="songinfobottomsheet_no_artwork_found_for">অনলাইনে এই গানটির জন্য কোনো শিল্পকর্ম পাওয়া যায়নি</string>
-    <string name="songinfobottomsheet_online_search_failed">অনলাইন অনুসন্ধান ব্যর্থ হয়েছে</string>
     <string name="songinfobottomsheet_online_api_service_unavailable">অনলাইন API পরিষেবা অনুপলব্ধ৷</string>
     <string name="songinfobottomsheet_fetching">আনা হচ্ছে…</string>
     <string name="songinfobottomsheet_fetch_online_art">অনলাইন আর্ট আনুন</string>
     <string name="songinfobottomsheet_update_artwork_and_tags">আর্টওয়ার্ক এবং ট্যাগ আপডেট করুন</string>
-    <string name="songinfobottomsheet_fetching_artwork">আর্টওয়ার্ক আনা হচ্ছে…</string>
-    <string name="updatebottomsheet_install">ইনস্টল করুন</string>
-    <string name="updatebottomsheet_update">আপডেট</string>
     <string name="collapsibleheader_app_icon">অ্যাপ আইকন</string>
     <string name="expressivecomponents_seek_back">ফিরে চাও</string>
     <string name="expressivecomponents_seek_forward">সামনে তাকান</string>
@@ -2105,7 +1954,6 @@
     <string name="rhythmnavigation_stream">প্রবাহ</string>
     <string name="rhythmstatsscreen_top_songs">সেরা গান</string>
     <string name="rhythmstatsscreen_listening_habits">শোনার অভ্যাস</string>
-    <string name="rhythmstatsscreen_listening_timeline">টাইমলাইন শোনা</string>
     <string name="rhythmstatsscreen_no_stats_available_yet">এখনো কোনো পরিসংখ্যান পাওয়া যায়নি</string>
     <string name="rhythmstatsscreen_keep_listening_to_build">আপনার সঙ্গীত যাত্রা নির্মাণ শুনতে থাকুন!</string>
     <string name="universalsearchscreen_remove_search">অনুসন্ধান সরান</string>
@@ -2118,7 +1966,6 @@
     <string name="universalsearchscreen_artist_not_found">শিল্পী পাওয়া যায়নি</string>
     <string name="expressiveplayerscreen_more">আরও</string>
     <string name="expressiveplayerscreen_device">ডিভাইস</string>
-    <string name="expressiveplayerscreen_load">লোড</string>
     <string name="materialplayerscreen_permission_denied_could_not">অনুমতি অস্বীকার করা হয়েছে. লিরিক্স এম্বেড করা যায়নি।</string>
     <string name="materialplayerscreen_unable_to_share_file">ফাইল শেয়ার করতে অক্ষম</string>
     <string name="playerscreen_select_artist">শিল্পী নির্বাচন করুন</string>
@@ -2229,7 +2076,6 @@
     <string name="lyrics_settings">লিরিক্স সেটিংস</string>
     <string name="error_loading_lyrics">গানের কথা লোড করার সময় ত্রুটি: %1$s</string>
     <string name="error_saving_lyrics">গানের কথা সংরক্ষণে ত্রুটি: %1$s</string>
-    <string name="song_metadata_details">%1$s\nশিল্পী: %2$s\nঅ্যালবাম: %3$s</string>
     <string name="crash_log_title">ক্র্যাশ হয়েছে: %1$s</string>
     <string name="widget_settings_radius_desc">%1$ddp (শুধুমাত্র Glance উইজেট)</string>
     <string name="equalizer_open_error">ইকুয়ালাইজার খুলতে পারেনি: %1$s</string>
@@ -2300,8 +2146,6 @@
     <string name="lyrics_source_embedded_first_desc">অডিও ফাইল মেটাডেটা → অনলাইন APIs → .lrc ফাইল ব্যবহার করে দেখুন</string>
     <string name="lyrics_source_api_first">API প্রথমে</string>
     <string name="lyrics_source_api_first_desc">অনলাইন পরিষেবাগুলি চেষ্টা করুন → অডিও মেটাডেটা → .lrc ফাইল৷</string>
-    <string name="lyrics_source_local_first">স্থানীয় .lrc প্রথম</string>
-    <string name="lyrics_source_local_first_desc">.lrc ফাইল → অডিও মেটাডেটা → অনলাইন API ব্যবহার করে দেখুন</string>
     <!-- Font / Color Customization Dialogs -->
     <string name="theme_font_source_changed_restart">হরফের উৎস পরিবর্তন করা হয়েছে। নতুন ফন্ট প্রয়োগ করতে অ্যাপটি পুনরায় চালু করুন।</string>
     <string name="color_source_album_art">অ্যালবাম আর্ট</string>
@@ -2389,10 +2233,6 @@
     <string name="autoeqpresetpickerbottomsheet_disable">নেই / অটোইকিউ অক্ষম করুন</string>
     <string name="autoeqpresetpickerbottomsheet_disable_desc">হেডফোন প্রোফাইল পরিষ্কার করুন, স্ট্যান্ডার্ড EQ প্রিসেট ব্যবহার করুন</string>
     <!-- Device Configuration additions -->
-    <plurals name="device_configuration_devices_configured">
-        <item quantity="one">%1$dটি ডিভাইস কনফিগার করা হয়েছে</item>
-        <item quantity="other">%1$dটি ডিভাইস কনফিগার করা হয়েছে</item>
-    </plurals>
     <string name="device_configuration_device_recognized">ডিভাইস স্বীকৃত</string>
     <string name="device_configuration_new_device_detected">নতুন ডিভাইস সনাক্ত করা হয়েছে</string>
     <string name="device_configuration_configured_with">%1$s %2$s দিয়ে কনফিগার করা হয়েছে</string>
@@ -2412,13 +2252,8 @@
     <string name="device_configuration_save">সংরক্ষণ করুন</string>
     <string name="device_configuration_add">যোগ করুন</string>
     <string name="device_configuration_for_device">%1$s এর জন্য</string>
-    <plurals name="device_configuration_profiles_available">
-        <item quantity="one">%1$dটি প্রোফাইল উপলব্ধ৷</item>
-        <item quantity="other">%1$dটি প্রোফাইল উপলব্ধ৷</item>
-    </plurals>
     <string name="device_configuration_disable_compensation">হেডফোন ক্ষতিপূরণ অক্ষম করুন</string>
     <!-- Common UI element strings -->
-    <string name="common_none">কোনোটিই নয়</string>
     <string name="common_back">ফিরে</string>
     <string name="common_active">সক্রিয়</string>
     <string name="common_disabled">অক্ষম</string>
@@ -2440,8 +2275,6 @@
     <string name="blacklist_add_folder_desc">এই ফোল্ডারের সমস্ত গান লুকানো হবে এবং প্লেব্যাক থেকে বাদ দেওয়া হবে৷</string>
     <string name="blacklist_folder_removed_msg">কালো তালিকা থেকে ফোল্ডার সরানো হয়েছে</string>
     <string name="blacklist_folder_added_msg">ফোল্ডার কালো তালিকায় যোগ করা হয়েছে</string>
-    <string name="blacklist_disc_label">ডিস্ক %1$d</string>
-    <string name="blacklist_track_label">ট্র্যাক %1$d</string>
     <!-- Library & Playlist Dialog additions -->
     <string name="dialog_add_song_to_playlist">এই প্লেলিস্টে \"%1$s\" যোগ করুন</string>
     <plurals name="dialog_songs_in_queue">
@@ -2484,7 +2317,6 @@
     <string name="eq_preset_v_shape">ভি-আকৃতি</string>
     <string name="eq_preset_harman">হারমান</string>
     <string name="eq_preset_custom">কাস্টম</string>
-    <string name="eq_manage_device">ডিভাইস পরিচালনা করুন</string>
     <string name="eq_system_equalizer">সিস্টেম ইকুয়ালাইজার</string>
     <string name="eq_enhance_lows">নিম্নমান উন্নত</string>
     <string name="eq_widen_sound">প্রশস্ত শব্দ</string>
@@ -2500,7 +2332,6 @@
     <string name="library_scan_songs">গান স্ক্যান করা হচ্ছে…</string>
     <string name="library_scan_media">মিডিয়া স্ক্যান করা হচ্ছে…</string>
     <string name="library_category_all">সব</string>
-    <string name="library_category_favorites">❤️ প্রিয়</string>
     <string name="library_category_short">সংক্ষিপ্ত (&lt;3 মিনিট)</string>
     <string name="library_category_medium">মাঝারি (৩–৫ মিনিট)</string>
     <string name="library_category_long">দীর্ঘ (&gt; ৫ মিনিট)</string>
@@ -2718,7 +2549,6 @@
     <string name="lyrics_source_attribution">গানের কথা %1$s</string>
     <string name="lyrics_currently_no_lyrics">বর্তমানে এই গানের কোনো লিরিক পাওয়া যায় না।\n</string>
     <string name="lyrics_no_lyrics">এই গানের জন্য কোন লিরিক্স পাওয়া যায় না।</string>
-    <string name="artist_options">শিল্পী বিকল্প</string>
     <string name="edit_album_title_label">অ্যালবামের শিরোনাম</string>
     <string name="edit_album_artist_label">অ্যালবাম শিল্পী</string>
     <plurals name="autoeq_profiles_available">

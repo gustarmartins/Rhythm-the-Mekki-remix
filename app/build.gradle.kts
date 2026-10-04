@@ -32,11 +32,11 @@ android {
         
         val overrideVersionCode = project.findProperty("versionCodeOverride")?.toString()?.toIntOrNull()
         val overrideVersionName = project.findProperty("versionNameOverride")?.toString()
-        versionCode = overrideVersionCode ?: 554801263
-        versionName = overrideVersionName ?: "5.5.480.1263-fifo-queue"
+        versionCode = overrideVersionCode ?: 554941293
+        versionName = overrideVersionName ?: "5.5.494.1293-upstream-sync"
 
         val overrideReleaseDate = project.findProperty("releaseDateOverride")?.toString()
-        buildConfigField("String", "RELEASE_DATE", "\"${overrideReleaseDate ?: "2026-10-03"}\"")
+        buildConfigField("String", "RELEASE_DATE", "\"${overrideReleaseDate ?: "2026-10-04"}\"")
 
         val isNightly = project.findProperty("nightly")?.toString() == "true"
         buildConfigField("boolean", "IS_NIGHTLY", isNightly.toString())
@@ -257,7 +257,6 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     
     // Material 3 dependencies
-    implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.material3.android)
     implementation(libs.androidx.material3.window.size)
     implementation(libs.androidx.window)
@@ -269,6 +268,7 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.session)
+    implementation(libs.androidx.media3.datasource.okhttp)
     implementation(libs.androidx.media3.exoplayer.midi)
     implementation(libs.org.jellyfin.media3.ffmpeg.decoder)
     
@@ -340,6 +340,9 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit)
+    testImplementation(libs.com.squareup.okhttp3.mockwebserver3)
+    // Real org.json for JVM tests; android.jar only has stubs.
+    testImplementation(libs.org.json)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))

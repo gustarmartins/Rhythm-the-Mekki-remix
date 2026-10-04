@@ -9,7 +9,9 @@ package chromahub.rhythm.app.features.local.presentation.screens
 
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import chromahub.rhythm.app.shared.presentation.components.dialogs.CustomizeArtistImageDialog
 
@@ -24,11 +26,15 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import chromahub.rhythm.app.shared.presentation.components.common.horizontalEdgeBlend
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -76,7 +82,11 @@ import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShap
 import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShapeFor
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmSongMenuContent
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmSortMenuContent
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmSortMenuElevation
+import chromahub.rhythm.app.shared.presentation.components.common.RhythmSortMenuShape
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmSortOption
+import chromahub.rhythm.app.shared.presentation.components.common.HeaderAction
+import chromahub.rhythm.app.shared.presentation.components.common.HeaderActionGroup
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmDetailActionButton
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmButtonType
 import chromahub.rhythm.app.network.WikipediaProvider
@@ -136,6 +146,7 @@ fun ArtistDetailScreen(
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
+    BackHandler { onBack() }
     val isTablet = windowScreenWidthDp() >= 600
     val isLandscapeTablet = isTablet && windowScreenWidthDp() > windowScreenHeightDp()
 
@@ -144,7 +155,9 @@ fun ArtistDetailScreen(
     val artistSeparatorEnabled by appSettings.artistSeparatorEnabled.collectAsState()
     val artistSeparatorDelimiters by appSettings.artistSeparatorDelimiters.collectAsState()
     val useHoursFormat by appSettings.useHoursInTimeFormat.collectAsState()
+    val integrationsEnabled by appSettings.integrationsEnabled.collectAsState()
     val wikipediaApiEnabled by appSettings.wikipediaApiEnabled.collectAsState()
+    val wikipediaApiActive = wikipediaApiEnabled && integrationsEnabled
     val albumScreenGradientBlur by appSettings.albumBottomSheetGradientBlur.collectAsState()
     
     // Get songs and albums from viewModel
@@ -162,7 +175,7 @@ fun ArtistDetailScreen(
     var showCustomizeImageDialog by remember { mutableStateOf(false) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null && artist != null) {
             viewModel.updateArtistArtwork(artist, uri) {
@@ -175,7 +188,11 @@ fun ArtistDetailScreen(
         CustomizeArtistImageDialog(
             artistName = artist.name,
             onDismiss = { showCustomizeImageDialog = false },
-            onSelectImage = { imagePickerLauncher.launch("image/*") },
+            onSelectImage = {
+                imagePickerLauncher.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                )
+            },
             onResetImage = {
                 viewModel.updateArtistArtwork(artist, null) {
                     currentArtworkUri = null
@@ -259,12 +276,18 @@ fun ArtistDetailScreen(
         }
     }
 
+    val isArtistActive = remember(currentSong, artistSongs) {
+        currentSong != null && artistSongs.any { it.id == currentSong.id }
+    }
+    val isArtistPlaying = isArtistActive && isPlaying
+    val isShuffleActive by viewModel.isShuffleEnabled.collectAsState()
+
     // Artist description from Wikipedia if enabled
     var artistDescription by remember(artistName) { mutableStateOf<String?>(null) }
     var isDescriptionLoading by remember(artistName) { mutableStateOf(false) }
 
-    LaunchedEffect(artistName, wikipediaApiEnabled) {
-        if (artistName.isNotBlank() && wikipediaApiEnabled) {
+    LaunchedEffect(artistName, wikipediaApiActive) {
+        if (artistName.isNotBlank() && wikipediaApiActive) {
             isDescriptionLoading = true
             withContext(Dispatchers.IO) {
                 val desc = WikipediaProvider.getAlbumDescription(artistName, null)
@@ -294,6 +317,10 @@ fun ArtistDetailScreen(
     val artistArtworkSource by appSettings.artistArtworkSource.collectAsState()
     val displayArtworkUri = if (artistArtworkSource == ArtistArtworkSource.DISABLED) null else (currentArtworkUri ?: rawArtistSongs.firstNotNullOfOrNull { it.artworkUri })
     val backgroundColor = MaterialTheme.colorScheme.background
+    val artistArtShape = rememberExpressiveShapeFor(
+        target = ExpressiveShapeTarget.ARTIST_ART,
+        fallbackShape = CircleShape
+    )
 
     if (isLandscapeTablet) {
         // Animated infinite transition for backdrop orbs (matching AlbumDetailScreen)
@@ -430,7 +457,8 @@ fun ArtistDetailScreen(
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(32.dp),
+                                    .padding(32.dp)
+                                    .verticalScroll(rememberScrollState()),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
@@ -445,7 +473,7 @@ fun ArtistDetailScreen(
                                                 HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
                                                 showCustomizeImageDialog = true
                                             },
-                                        shape = RoundedCornerShape(32.dp),
+                                        shape = artistArtShape,
                                         shadowElevation = 12.dp
                                     ) {
                                         AsyncImage(
@@ -517,6 +545,38 @@ fun ArtistDetailScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
                                     textAlign = TextAlign.Center
                                 )
+
+                                if (!isArtistContentLoading && artistSongs.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(20.dp))
+                                    ArtistActionButtons(
+                                        artistSongs = artistSongs,
+                                        onPlayAll = {
+                                            if (artistSongs.isNotEmpty()) {
+                                                onPlayAll(artistSongs)
+                                                onPlayerClick()
+                                            }
+                                        },
+                                        onShufflePlay = {
+                                            if (artistSongs.isNotEmpty()) {
+                                                onShufflePlay(artistSongs)
+                                                onPlayerClick()
+                                            }
+                                        },
+                                        onAddToQueueAll = {
+                                            if (artistSongs.isNotEmpty()) {
+                                                onAddToQueueAll(artistSongs)
+                                            }
+                                        },
+                                        haptics = haptics,
+                                        isArtistActive = isArtistActive,
+                                        isArtistPlaying = isArtistPlaying,
+                                        isShuffleActive = isShuffleActive,
+                                        onPlayPause = { viewModel.togglePlayPause() },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 8.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -538,8 +598,8 @@ fun ArtistDetailScreen(
                             ),
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            item {
-                                if (isArtistContentLoading) {
+                            if (isArtistContentLoading) {
+                                item {
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -548,28 +608,6 @@ fun ArtistDetailScreen(
                                     ) {
                                         M3CircularLoader(modifier = Modifier.size(48.dp), color = MaterialTheme.colorScheme.primary, strokeWidth = 4f)
                                     }
-                                } else {
-                                    ArtistActionButtons(
-                                        artistSongs = artistSongs,
-                                        onPlayAll = {
-                                            if (artistSongs.isNotEmpty()) {
-                                                onPlayAll(artistSongs)
-                                                onPlayerClick()
-                                            }
-                                        },
-                                        onShufflePlay = {
-                                            if (artistSongs.isNotEmpty()) {
-                                                onShufflePlay(artistSongs)
-                                                onPlayerClick()
-                                            }
-                                        },
-                                        onAddToQueueAll = {
-                                            if (artistSongs.isNotEmpty()) {
-                                                onAddToQueueAll(artistSongs)
-                                            }
-                                        },
-                                        haptics = haptics
-                                    )
                                 }
                             }
 
@@ -862,49 +900,33 @@ fun ArtistDetailScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier = Modifier.padding(end = 12.dp)
                                 ) {
-                                    FilledIconButton(
-                                        onClick = {
-                                            HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                            showCustomizeImageDialog = true
-                                        },
-                                        modifier = Modifier.size(40.dp),
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                            contentColor = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    ) {
-                                        Icon(
-                                            imageVector = RhythmIcons.Edit,
-                                            contentDescription = stringResource(R.string.content_desc_customize_artwork),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(8.dp))
-
                                     Box {
-                                        FilledIconButton(
-                                            onClick = { showSortMenu = true },
-                                            modifier = Modifier.size(40.dp),
-                                            colors = IconButtonDefaults.filledIconButtonColors(
-                                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                                                contentColor = MaterialTheme.colorScheme.onSurface
+                                        HeaderActionGroup(
+                                            actions = listOf(
+                                                HeaderAction(
+                                                    icon = RhythmIcons.Edit,
+                                                    contentDescription = stringResource(R.string.content_desc_customize_artwork),
+                                                    onClick = {
+                                                        HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                                        showCustomizeImageDialog = true
+                                                    }
+                                                ),
+                                                HeaderAction(
+                                                    icon = RhythmIcons.Actions.Sort,
+                                                    contentDescription = stringResource(R.string.content_desc_sort_songs),
+                                                    onClick = { showSortMenu = true }
+                                                )
                                             )
-                                        ) {
-                                            Icon(
-                                                imageVector = RhythmIcons.Actions.Sort,
-                                                contentDescription = stringResource(R.string.content_desc_sort_songs),
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
+                                        )
 
                                         DropdownMenu(
                                             expanded = showSortMenu,
                                             onDismissRequest = { showSortMenu = false },
-                                            shape = RoundedCornerShape(20.dp),
+                                            shape = RhythmSortMenuShape,
+                                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                            shadowElevation = RhythmSortMenuElevation,
                                             modifier = Modifier
                                                 .widthIn(min = 250.dp)
-                                                .background(MaterialTheme.colorScheme.surfaceContainer)
                                                 .padding(8.dp)
                                         ) {
                                             RhythmSortMenuContent(
@@ -985,7 +1007,11 @@ fun ArtistDetailScreen(
                                                 onAddToQueueAll(artistSongs)
                                             }
                                         },
-                                        haptics = haptics
+                                        haptics = haptics,
+                                        isArtistActive = isArtistActive,
+                                        isArtistPlaying = isArtistPlaying,
+                                        isShuffleActive = isShuffleActive,
+                                        onPlayPause = { viewModel.togglePlayPause() }
                                     )
                                 }
                             }
@@ -1152,7 +1178,14 @@ private fun ArtistActionButtons(
     onPlayAll: () -> Unit,
     onShufflePlay: () -> Unit,
     onAddToQueueAll: () -> Unit,
-    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    modifier: Modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 24.dp, vertical = 8.dp),
+    isArtistActive: Boolean = false,
+    isArtistPlaying: Boolean = false,
+    isShuffleActive: Boolean = false,
+    onPlayPause: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var addToQueuePressed by remember { mutableStateOf(false) }
@@ -1174,9 +1207,7 @@ private fun ArtistActionButtons(
     }
     
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 8.dp),
+        modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(
@@ -1187,13 +1218,17 @@ private fun ArtistActionButtons(
             RhythmDetailActionButton(
                 onClick = {
                     HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                    onPlayAll()
+                    if (isArtistActive) {
+                        onPlayPause()
+                    } else {
+                        onPlayAll()
+                    }
                 },
                 isFirst = true,
                 isLast = false,
                 enabled = artistSongs.isNotEmpty(),
-                icon = RhythmIcons.Play,
-                text = stringResource(R.string.action_play_all),
+                icon = if (isArtistPlaying) RhythmIcons.Pause else RhythmIcons.Play,
+                text = if (isArtistPlaying) stringResource(R.string.action_pause) else if (isArtistActive) stringResource(R.string.action_resume) else stringResource(R.string.action_play_all),
                 fontWeight = FontWeight.Bold,
                 contentPadding = PaddingValues(horizontal = 24.dp)
             )
@@ -1204,7 +1239,7 @@ private fun ArtistActionButtons(
                     HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                     onShufflePlay()
                 },
-                type = RhythmButtonType.Tonal,
+                type = if (isArtistActive && isShuffleActive) RhythmButtonType.Filled else RhythmButtonType.Tonal,
                 isFirst = false,
                 isLast = true,
                 enabled = artistSongs.isNotEmpty(),
@@ -1302,7 +1337,13 @@ private fun ArtistAlbumsSection(
         
         Spacer(modifier = Modifier.height(8.dp))
         
+        val artistAlbumsListState = rememberLazyListState()
         LazyRow(
+            state = artistAlbumsListState,
+            modifier = Modifier.horizontalEdgeBlend(
+                lazyListState = artistAlbumsListState,
+                fadeWidth = 20.dp
+            ),
             contentPadding = PaddingValues(horizontal = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -1349,7 +1390,7 @@ private fun ArtistAlbumCard(
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
         )
     ) {
         Column {
@@ -1504,7 +1545,7 @@ private fun ArtistSongItem(
     
     val containerColor by animateColorAsState(
         targetValue = when {
-            isCurrentSong -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.30f)
+            isCurrentSong -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.surfaceContainer
         },
         animationSpec = tween(300),
@@ -1541,7 +1582,7 @@ private fun ArtistSongItem(
                         ExpressiveShapeTarget.SONG_ART,
                         fallbackShape = MaterialTheme.shapes.large
                     ),
-                    border = if (isCurrentSong) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+                    border = if (isCurrentSong) BorderStroke(2.dp, MaterialTheme.colorScheme.onPrimary) else null
                 ) {
                     M3ImageUtils.TrackImage(
                         imageUrl = song.artworkUri,
@@ -1557,13 +1598,13 @@ private fun ArtistSongItem(
                             .size(18.dp)
                             .offset(x = 4.dp, y = 4.dp),
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         shadowElevation = 0.dp
                     ) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             PlayingEqIcon(
                                 modifier = Modifier.size(width = 10.dp, height = 8.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
+                                color = MaterialTheme.colorScheme.primary,
                                 isPlaying = isPlaying,
                                 bars = 3
                             )
@@ -1583,7 +1624,7 @@ private fun ArtistSongItem(
                     fontWeight = if (isCurrentSong) FontWeight.Bold else FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    color = if (isCurrentSong) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    color = if (isCurrentSong) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(
@@ -1594,7 +1635,7 @@ private fun ArtistSongItem(
                     Text(
                         text = song.album,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (isCurrentSong) MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                        color = if (isCurrentSong) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f)
                                 else MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1604,6 +1645,7 @@ private fun ArtistSongItem(
                         song = song,
                         iconSize = 16.dp,
                         padding = 0.dp,
+                        tint = if (isCurrentSong) MaterialTheme.colorScheme.onPrimary else null,
                         modifier = Modifier.padding(start = 8.dp)
                     )
                 }
@@ -1613,7 +1655,7 @@ private fun ArtistSongItem(
                 Text(
                     text = formatDuration(song.duration, useHoursFormat),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    color = if (isCurrentSong) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.75f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     modifier = Modifier.padding(end = 4.dp)
                 )
             }
@@ -1630,8 +1672,14 @@ private fun ArtistSongItem(
                             .height(44.dp),
                         shape = RoundedCornerShape(50),
                         colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            containerColor = if (isCurrentSong)
+                                MaterialTheme.colorScheme.onPrimary
+                            else
+                                MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = if (isCurrentSong)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     ) {
                         Icon(

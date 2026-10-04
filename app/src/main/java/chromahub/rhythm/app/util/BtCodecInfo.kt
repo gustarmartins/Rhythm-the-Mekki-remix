@@ -132,7 +132,7 @@ data class BtCodecInfo(
                             @Suppress("deprecation") codecConfig.codecType
                         ) as String
                 } catch (t: Throwable) {
-                    Log.e(TAG, "reflection failed", t)
+                    Log.d(TAG, "reflection failed: ${t.message}")
                     return null
                 }
             }.takeIf { !it.startsWith("UNKNOWN CODEC") }
@@ -156,6 +156,7 @@ data class BtCodecInfo(
             private val context: Context
         ) : BluetoothProfile.ServiceListener {
             var a2dp: BluetoothA2dp? = null
+
             override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
                 if (profile != BluetoothProfile.A2DP) {
                     Log.e(TAG, "wrong profile $profile connected")
@@ -176,7 +177,12 @@ data class BtCodecInfo(
                     BluetoothA2dp::class.java.getMethod("getActiveDevice")
                         .invoke(a2dp) as BluetoothDevice?
                 } catch (t: Throwable) {
-                    Log.e(TAG, "getActiveDevice failed", t)
+                    val cause = (t as? java.lang.reflect.InvocationTargetException)?.targetException ?: t
+                    if (cause is SecurityException) {
+                        Log.d(TAG, "getActiveDevice not permitted by system: ${cause.message}")
+                    } else {
+                        Log.w(TAG, "getActiveDevice failed: ${cause.message}")
+                    }
                     callback(null)
                     return
                 }
@@ -189,7 +195,17 @@ data class BtCodecInfo(
                     )
                         .invoke(a2dp, device) as BluetoothCodecStatus?
                 } catch (t: Throwable) {
-                    Log.e(TAG, "getCodecStatus failed", t)
+                    val cause = (t as? java.lang.reflect.InvocationTargetException)?.targetException ?: t
+                    if (cause is SecurityException) {
+                        Log.d(
+                            TAG,
+                            "getCodecStatus not permitted by system (requires CDM association or privileged permission): ${cause.message}"
+                        )
+                    } else if (cause is NoSuchMethodException) {
+                        Log.d(TAG, "getCodecStatus method not found on this device")
+                    } else {
+                        Log.w(TAG, "getCodecStatus failed: ${cause.message}")
+                    }
                     null
                 }?.codecConfig
                 callback(fromCodecConfig(codec))

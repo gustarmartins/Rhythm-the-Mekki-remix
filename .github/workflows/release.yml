@@ -64,7 +64,7 @@ jobs:
           GITHUB_REPO: ${{ github.event.repository.name }}
         run: |
           if [ "${{ inputs.build_only }}" = "true" ]; then
-            ./gradlew :app:assembleGithubRelease --no-daemon --no-parallel --max-workers=1 \
+            ./gradlew :app:testGithubDebugUnitTest :app:assembleGithubRelease --no-daemon --no-parallel --max-workers=1 \
               -Pkotlin.compiler.execution.strategy=in-process \
               '-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8' --console=plain
           else
@@ -90,6 +90,15 @@ jobs:
           name: rhythm-github-release
           path: app/build/outputs/apk/github/release/Rhythm-*
           if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload unit test results
+        if: ${{ always() && inputs.build_only }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: rhythm-unit-test-results
+          path: app/build/test-results/testGithubDebugUnitTest/*.xml
+          if-no-files-found: warn
           retention-days: 7
 
       - name: Set prerelease flag

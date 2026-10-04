@@ -16,8 +16,7 @@ fun PlaybackSpeedDialog(
     onSyncChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit,
     onSave: (Float) -> Unit,
-    onSaveBoth: ((speed: Float, pitch: Float) -> Unit)? = null,
-    onSetDefaultSpeed: ((Float) -> Unit)? = null
+    onSaveBoth: ((speed: Float, pitch: Float) -> Unit)? = null
 ) {
     PlaybackSpeedAndPitchBottomSheet(
         currentSpeed = currentSpeed,
@@ -31,7 +30,6 @@ fun PlaybackSpeedDialog(
             } else {
                 onSave(speed)
             }
-        },
-        onSetDefaultSpeed = onSetDefaultSpeed
+        }
     )
 }

@@ -27,53 +27,53 @@ class AudioCapabilitiesMonitor(private val context: Context) {
     companion object {
         private const val TAG = "AudioCapabilitiesMonitor"
 
-        /** Returns the active A2DP/SCO device name, or null for non-Bluetooth output. */
-        fun activeBluetoothOutputName(audioManager: AudioManager): String? {
+        fun activeBluetoothOutputName(audioManager: AudioManager): String? =
+            activeBluetoothOutputDevice(audioManager)?.name
+
+        /** Query the media route rather than treating every connected device as active. */
+        fun activeBluetoothOutputDevice(audioManager: AudioManager, context: Context? = null): BluetoothDisplayDevice? {
             return try {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                    @Suppress("DEPRECATION")
-                    return if (audioManager.isBluetoothA2dpOn) "Bluetooth" else null
+                val outputs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val attributes = android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                    audioManager.getAudioDevicesForAttributes(attributes)
+                } else {
+                    // Older Android exposes its selected media route through MediaRouter.
+                    val router = context?.getSystemService(Context.MEDIA_ROUTER_SERVICE) as? android.media.MediaRouter
+                    val route = router?.getSelectedRoute(android.media.MediaRouter.ROUTE_TYPE_LIVE_AUDIO)
+                    if (route?.deviceType != android.media.MediaRouter.RouteInfo.DEVICE_TYPE_BLUETOOTH) return null
+                    audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).toList()
                 }
-
-                val device = audioManager
-                    .getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-                    .firstOrNull {
-                        it.isSink && (it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
-                            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO)
-                    } ?: return null
-
-                // Some devices report the handset model as the sink product name.
+                val device = outputs.firstOrNull { it.isSink && isBluetoothOutputType(it.type) }
+                    ?: return null
+                val address = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) device.address else null
                 val remoteName = try {
-                    // AudioDeviceInfo.address was added in API 28. Keep API 26/27
-                    // Bluetooth output detection functional by falling back to productName.
-                    val address = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        device.address
-                    } else {
-                        null
+                    address?.takeIf { it.matches(Regex("(?i)[0-9a-f]{2}(:[0-9a-f]{2}){5}")) }?.let {
+                        @Suppress("DEPRECATION")
+                        BluetoothAdapter.getDefaultAdapter()?.getRemoteDevice(it)?.name
                     }
-                    address
-                        ?.takeIf { it.contains(':') }
-                        ?.let {
-                            @Suppress("DEPRECATION")
-                            BluetoothAdapter.getDefaultAdapter()?.getRemoteDevice(it)?.name
-                        }
-                } catch (e: SecurityException) {
-                    null // BLUETOOTH_CONNECT not granted
-                } catch (e: IllegalArgumentException) {
-                    null // not a valid MAC
-                }
-
+                } catch (_: SecurityException) { null } catch (_: IllegalArgumentException) { null }
+                val routeName = (context?.getSystemService(Context.MEDIA_ROUTER_SERVICE) as? android.media.MediaRouter)
+                    ?.getSelectedRoute(android.media.MediaRouter.ROUTE_TYPE_LIVE_AUDIO)
+                    ?.takeIf { it.deviceType == android.media.MediaRouter.RouteInfo.DEVICE_TYPE_BLUETOOTH }
+                    ?.name?.toString()?.trim()?.takeIf { it.isNotBlank() }
                 val productName = device.productName?.toString()?.trim()
                     ?.takeIf { it.isNotBlank() && !it.equals(Build.MODEL, ignoreCase = true) }
-
-                remoteName?.trim()?.takeIf { it.isNotBlank() }
-                    ?: productName
-                    ?: "Bluetooth"
+                BluetoothDisplayDevice.from(address, remoteName?.trim()?.takeIf { it.isNotBlank() } ?: routeName ?: productName ?: "Bluetooth")
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to resolve active Bluetooth output name", e)
+                Log.w(TAG, "Unable to resolve Bluetooth media route", e)
                 null
             }
         }
+
+        fun isBluetoothOutputType(type: Int): Boolean =
+            type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP || type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                    (type == AudioDeviceInfo.TYPE_BLE_HEADSET || type == AudioDeviceInfo.TYPE_BLE_SPEAKER)) ||
+                (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && type == AudioDeviceInfo.TYPE_BLE_BROADCAST)
+
     }
     
     interface Listener {

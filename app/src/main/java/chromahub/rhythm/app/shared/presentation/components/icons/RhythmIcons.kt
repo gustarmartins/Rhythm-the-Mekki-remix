@@ -99,9 +99,9 @@ object RhythmIcons {
         val Artist = MaterialSymbolIcon("person", filled = true)
         val ArtistOutlined = MaterialSymbolIcon("person")
         val Playlist = MaterialSymbolIcon("playlist_play")
-        val PlaylistOutlined = MaterialSymbolIcon("playlist_add")
+        val PlaylistOutlined = MaterialSymbolIcon("playlist_play")
         val MusicNote = MaterialSymbolIcon("music_note")
-        val Audiotrack = MaterialSymbolIcon("audiotrack")
+        val Audiotrack = MaterialSymbolIcon("audio_file")
         val MusicOff = MaterialSymbolIcon("music_off")
     }
 
@@ -123,7 +123,7 @@ object RhythmIcons {
         val Download = MaterialSymbolIcon("download")
         val Tune = MaterialSymbolIcon("tune")
         val Sort = MaterialSymbolIcon("sort")
-        val Update = MaterialSymbolIcon("system_update")
+        val Update = MaterialSymbolIcon("update")
         val Info = MaterialSymbolIcon("info")
         val Pushpin = MaterialSymbolIcon("push_pin", filled = true)
         val PinOutline = MaterialSymbolIcon("push_pin")
@@ -152,6 +152,8 @@ object RhythmIcons {
         val CastConnected = MaterialSymbolIcon("cast_connected")
         val Location = MaterialSymbolIcon("place", filled = true)
         val LocationOutlined = MaterialSymbolIcon("place")
+        val Usb = MaterialSymbolIcon("usb", filled = true)
+        val UsbOutlined = MaterialSymbolIcon("usb")
     }
 
     // ═══════════════════════════════════════════════════
@@ -188,7 +190,7 @@ object RhythmIcons {
         val SortByAlpha = MaterialSymbolIcon("sort_by_alpha", filled = true)
         val Folder = MaterialSymbolIcon("folder", filled = true)
         val FolderOpen = MaterialSymbolIcon("folder_open")
-        val InsertDriveFile = MaterialSymbolIcon("insert_drive_file")
+        val InsertDriveFile = MaterialSymbolIcon("description")
         val Image = MaterialSymbolIcon("image")
         val Category = MaterialSymbolIcon("category")
         val DateRange = MaterialSymbolIcon("date_range")
@@ -289,7 +291,7 @@ object RhythmIcons {
     val Edit = Actions.Edit
     val Delete = Actions.Delete
     val AddToPlaylist = MaterialSymbolIcon("playlist_add")
-    val AddToQueue = MaterialSymbolIcon("playlist_add")
+    val AddToQueue = MaterialSymbolIcon("add_to_queue")
     val More = Actions.More
     val Queue = Player.Queue
     val Check = Actions.Check

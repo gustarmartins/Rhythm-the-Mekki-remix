@@ -29,10 +29,17 @@ import chromahub.rhythm.app.shared.presentation.components.bottomsheets.Extended
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.RandomAccessFile
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import com.kyant.taglib.Picture
 import com.kyant.taglib.TagLib
+import android.content.res.AssetFileDescriptor
 import android.os.ParcelFileDescriptor
+import chromahub.rhythm.app.infrastructure.service.player.AudioCacheManager
 
 
 /**
@@ -115,7 +122,227 @@ object MediaUtils {
     @Volatile
     private var lastEmbeddedArtworkCleanupMs: Long = 0L
 
-    private val folderCoverCache = java.util.concurrent.ConcurrentHashMap<String, File?>()
+    private val NO_FOLDER_COVER_SENTINEL = File("")
+    private val folderCoverCache = ConcurrentHashMap<String, File>()
+
+    private const val RAW_ART_CACHE_MAX_BYTES = 24L * 1024 * 1024
+    private const val RAW_ART_MAX_ENTRY_BYTES = 8L * 1024 * 1024
+    private const val RAW_ART_CACHE_MAX_ENTRIES = 1024
+    private const val ART_L2_DIR = "rhythm_art_l2"
+    private const val ART_L2_MAX_BYTES = 32L * 1024 * 1024
+    private const val ART_L2_MAX_FILES = 400
+
+    private val rawArtworkCacheLock = Any()
+    private var rawArtworkCacheBytes = 0L
+    private val rawArtworkCache = object : LinkedHashMap<String, ByteArray>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ByteArray>): Boolean = false
+    }
+
+    private val NO_ARTWORK_SENTINEL = ByteArray(0)
+
+    private val rawArtworkRefCounts = HashMap<ByteArray, Int>()
+
+    private fun acquireRefLocked(value: ByteArray) {
+        rawArtworkRefCounts[value] = (rawArtworkRefCounts[value] ?: 0) + 1
+    }
+
+    private fun releaseRefLocked(value: ByteArray) {
+        val remaining = (rawArtworkRefCounts[value] ?: 1) - 1
+        if (remaining <= 0) {
+            rawArtworkRefCounts.remove(value)
+            rawArtworkCacheBytes -= value.size
+        } else {
+            rawArtworkRefCounts[value] = remaining
+        }
+    }
+
+    private fun putRawArtwork(key: String, value: ByteArray) {
+        synchronized(rawArtworkCacheLock) {
+            val existing = rawArtworkCache[key]
+            if (existing != null) {
+                if (existing === value) return
+                releaseRefLocked(existing)
+            }
+            rawArtworkCache[key] = value
+            if ((rawArtworkRefCounts[value] ?: 0) == 0) {
+                rawArtworkCacheBytes += value.size
+            }
+            acquireRefLocked(value)
+            val iterator = rawArtworkCache.entries.iterator()
+            while ((rawArtworkCacheBytes > RAW_ART_CACHE_MAX_BYTES || rawArtworkCache.size > RAW_ART_CACHE_MAX_ENTRIES) && iterator.hasNext()) {
+                val entry = iterator.next()
+                iterator.remove()
+                releaseRefLocked(entry.value)
+            }
+        }
+    }
+
+    internal fun getRawArtworkCacheBytesForTesting(): Long = synchronized(rawArtworkCacheLock) { rawArtworkCacheBytes }
+    internal fun getRawArtworkCacheSizeForTesting(): Int = synchronized(rawArtworkCacheLock) { rawArtworkCache.size }
+    internal fun putRawArtworkForTesting(key: String, value: ByteArray) = putRawArtwork(key, value)
+
+    private const val FOLDER_COVER_BYTES_MAX_ENTRIES = 256
+    private const val FOLDER_COVER_BYTES_MAX_BYTES = 12L * 1024 * 1024
+    private const val FOLDER_COVER_MAX_ENTRY_BYTES = 4L * 1024 * 1024
+
+    private val folderCoverBytesLock = Any()
+    private var folderCoverBytesTotal = 0L
+    private val folderCoverBytesCache = object : LinkedHashMap<String, ByteArray>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ByteArray>): Boolean = false
+    }
+
+    private fun folderCoverKey(coverFile: File): String? = try {
+        if (!coverFile.isFile) null
+        else "${coverFile.canonicalPath}|${coverFile.lastModified()}|${coverFile.length()}"
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun cachedFolderCoverBytes(coverFile: File): ByteArray? {
+        val key = folderCoverKey(coverFile) ?: return null
+        synchronized(folderCoverBytesLock) {
+            return folderCoverBytesCache[key]
+        }
+    }
+
+    private fun cacheFolderCoverBytes(coverFile: File?, bytes: ByteArray) {
+        if (coverFile == null || bytes.isEmpty() || bytes.size > FOLDER_COVER_MAX_ENTRY_BYTES) return
+        val key = folderCoverKey(coverFile) ?: return
+        synchronized(folderCoverBytesLock) {
+            folderCoverBytesCache[key]?.let { folderCoverBytesTotal -= it.size }
+            folderCoverBytesCache[key] = bytes
+            folderCoverBytesTotal += bytes.size
+            val iterator = folderCoverBytesCache.entries.iterator()
+            while ((folderCoverBytesTotal > FOLDER_COVER_BYTES_MAX_BYTES || folderCoverBytesCache.size > FOLDER_COVER_BYTES_MAX_ENTRIES) && iterator.hasNext()) {
+                val entry = iterator.next()
+                iterator.remove()
+                folderCoverBytesTotal -= entry.value.size
+            }
+        }
+    }
+
+    private val artL2WriteCounter = AtomicInteger(0)
+    private val rawArtInFlight = ConcurrentHashMap<String, CountDownLatch>()
+    private val artL2FileNameRegex = Regex("^[0-9a-f]{64}$")
+
+    private fun rawArtworkCacheKey(filePath: String?): String? {
+        if (filePath.isNullOrBlank()) return null
+        return try {
+            val file = File(filePath)
+            if (!file.isFile) return null
+            "${file.canonicalPath}|${file.lastModified()}|${file.length()}"
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun clearRawArtworkCache() {
+        synchronized(rawArtworkCacheLock) {
+            rawArtworkCache.clear()
+            rawArtworkCacheBytes = 0L
+            rawArtworkRefCounts.clear()
+        }
+        synchronized(folderCoverBytesLock) {
+            folderCoverBytesCache.clear()
+            folderCoverBytesTotal = 0L
+        }
+        folderCoverCache.clear()
+    }
+
+    private fun artworkL2Dir(baseCacheDir: File): File = File(baseCacheDir, ART_L2_DIR)
+
+    private fun sha256Hex(value: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray(Charsets.UTF_8))
+        return digest.joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xFF) }
+    }
+
+    private fun l2KeyForFile(cacheKey: String): String = sha256Hex("rhythm_art_l2|$cacheKey")
+
+    private fun readArtworkFromDiskCache(baseCacheDir: File, l2Key: String): ByteArray? {
+        return try {
+            if (!artL2FileNameRegex.matches(l2Key)) return null
+            val file = File(artworkL2Dir(baseCacheDir), l2Key)
+            if (!file.isFile) return null
+            file.setLastModified(System.currentTimeMillis())
+            val bytes = file.readBytes()
+            if (bytes.isEmpty()) null else bytes
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun writeArtworkToDiskCache(baseCacheDir: File, l2Key: String, bytes: ByteArray) {
+        try {
+            if (bytes.isEmpty() || bytes.size > RAW_ART_MAX_ENTRY_BYTES) return
+            if (!artL2FileNameRegex.matches(l2Key)) return
+            val dir = artworkL2Dir(baseCacheDir)
+            if (!dir.exists() && !dir.mkdirs()) return
+            val target = File(dir, l2Key)
+            if (target.isFile && target.length() == bytes.size.toLong()) return
+            val temp = File.createTempFile("art", ".tmp", dir)
+            try {
+                temp.writeBytes(bytes)
+                if (!temp.renameTo(target)) {
+                    temp.delete()
+                }
+            } catch (writeError: Exception) {
+                temp.delete()
+                throw writeError
+            }
+            if (artL2WriteCounter.incrementAndGet() % 32 == 0) {
+                pruneArtworkDiskCache(baseCacheDir)
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun pruneArtworkDiskCache(baseCacheDir: File) {
+        try {
+            val dir = artworkL2Dir(baseCacheDir)
+            val files = dir.listFiles { file -> file.isFile } ?: return
+            val now = System.currentTimeMillis()
+            files.filterNot { artL2FileNameRegex.matches(it.name) }
+                .filter { now - it.lastModified() > 10 * 60 * 1000L }
+                .forEach { it.delete() }
+            val known = files.filter { artL2FileNameRegex.matches(it.name) }
+            var total = known.sumOf { it.length() }
+            val lru = known.sortedBy { it.lastModified() }.toMutableList()
+            while ((total > ART_L2_MAX_BYTES || lru.size > ART_L2_MAX_FILES) && lru.isNotEmpty()) {
+                val file = lru.removeAt(0)
+                val size = file.length()
+                if (file.delete()) {
+                    total -= size
+                }
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    fun clearArtworkDiskCache(baseCacheDir: File) {
+        try {
+            artworkL2Dir(baseCacheDir).deleteRecursively()
+        } catch (_: Exception) {
+        }
+    }
+
+    fun openArtworkDiskCacheDescriptor(baseCacheDir: File, filePath: String?): AssetFileDescriptor? {
+        val key = rawArtworkCacheKey(filePath) ?: return null
+        return try {
+            val l2Key = l2KeyForFile(key)
+            if (!artL2FileNameRegex.matches(l2Key)) return null
+            val file = File(artworkL2Dir(baseCacheDir), l2Key)
+            if (!file.isFile || file.length() <= 0L) return null
+            file.setLastModified(System.currentTimeMillis())
+            AssetFileDescriptor(
+                ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY),
+                0,
+                file.length()
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     private fun applyArtworkToTag(
         context: Context,
@@ -930,6 +1157,180 @@ object MediaUtils {
     }
 
     /**
+     * Inspects an OGG/Opus container file, walks all Ogg pages, detects the end of valid
+     * Ogg pages (including last End-Of-Stream page), and truncates any trailing junk bytes.
+     * Prevents MediaCodecAudioRenderer errors caused by un-truncated ghost pages.
+     *
+     * @param file The file to check and sanitize
+     * @return true if trailing junk bytes were truncated, false otherwise
+     */
+    fun sanitizeOggFile(file: File): Boolean {
+        if (!file.exists() || !file.canWrite() || file.length() < 27) return false
+        try {
+            RandomAccessFile(file, "rw").use { raf ->
+                val fileLength = raf.length()
+                var offset = 0L
+                var lastValidOffset = 0L
+                val headerBuf = ByteArray(27)
+
+                while (offset + 27 <= fileLength) {
+                    raf.seek(offset)
+                    raf.readFully(headerBuf)
+                    if (headerBuf[0] != 0x4F.toByte() || headerBuf[1] != 0x67.toByte() ||
+                        headerBuf[2] != 0x67.toByte() || headerBuf[3] != 0x53.toByte()
+                    ) {
+                        break
+                    }
+                    val segCount = headerBuf[26].toInt() and 0xFF
+                    if (offset + 27 + segCount > fileLength) {
+                        break
+                    }
+                    val segTable = ByteArray(segCount)
+                    raf.readFully(segTable)
+                    var bodySize = 0L
+                    for (b in segTable) {
+                        bodySize += (b.toInt() and 0xFF)
+                    }
+                    val pageSize = 27L + segCount + bodySize
+                    if (offset + pageSize > fileLength) {
+                        break
+                    }
+                    offset += pageSize
+                    lastValidOffset = offset
+                }
+
+                if (lastValidOffset > 0 && lastValidOffset < fileLength) {
+                    val junkBytes = fileLength - lastValidOffset
+                    Log.w(
+                        TAG,
+                        "sanitizeOggFile: Truncating $junkBytes trailing junk bytes from ${file.name} (valid: $lastValidOffset, original: $fileLength)"
+                    )
+                    raf.setLength(lastValidOffset)
+                    raf.fd.sync()
+                    return true
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sanitizing Ogg file: ${file.name}", e)
+        }
+        return false
+    }
+
+    /**
+     * Writes the contents of a temp file to a ContentResolver URI ensuring complete truncation
+     * and flushing of the destination file descriptor to avoid corrupted trailing bytes.
+     *
+     * @throws android.app.RecoverableSecurityException if permission is required on Android 10/11+
+     * @throws SecurityException if write permission is denied
+     * @return true if write succeeded, false otherwise
+     */
+    fun writeTempFileToContentUri(
+        contentResolver: ContentResolver,
+        targetUri: Uri,
+        tempFile: File
+    ): Boolean {
+        if (!tempFile.exists() || tempFile.length() == 0L) {
+            Log.e(TAG, "writeTempFileToContentUri: Temp file is invalid: ${tempFile.absolutePath}")
+            return false
+        }
+
+        val expectedSize = tempFile.length()
+
+        for (mode in arrayOf("rwt", "wt", "w")) {
+            var pfd: ParcelFileDescriptor? = null
+            try {
+                pfd = contentResolver.openFileDescriptor(targetUri, mode)
+                if (pfd != null) {
+                    FileOutputStream(pfd.fileDescriptor).use { fos ->
+                        val channel = fos.channel
+                        try {
+                            channel.position(0)
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Channel position(0) warning: ${e.message}")
+                        }
+                        tempFile.inputStream().use { fis ->
+                            fis.copyTo(fos)
+                        }
+                        try {
+                            channel.truncate(expectedSize)
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Channel truncate warning: ${e.message}")
+                        }
+                        fos.flush()
+                        try {
+                            pfd.fileDescriptor.sync()
+                        } catch (e: Exception) {
+                            Log.w(TAG, "FileDescriptor sync warning: ${e.message}")
+                        }
+                    }
+                    try {
+                        pfd.close()
+                    } catch (e: Exception) {
+                    }
+                    pfd = null
+                    AudioCacheManager.evict(targetUri)
+                    Log.d(TAG, "writeTempFileToContentUri: Wrote $expectedSize bytes using mode '$mode'")
+                    return true
+                }
+            } catch (e: SecurityException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed writing temp file via openFileDescriptor with mode '$mode': ${e.message}")
+            } finally {
+                try {
+                    pfd?.close()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error closing pfd: ${e.message}")
+                }
+            }
+        }
+
+        for (mode in arrayOf("wt", "w")) {
+            try {
+                val outputStream = contentResolver.openOutputStream(targetUri, mode)
+                if (outputStream != null) {
+                    outputStream.use { os ->
+                        if (os is FileOutputStream) {
+                            val channel = os.channel
+                            try {
+                                channel.position(0)
+                            } catch (e: Exception) {
+                            }
+                            tempFile.inputStream().use { fis ->
+                                fis.copyTo(os)
+                            }
+                            try {
+                                channel.truncate(expectedSize)
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Channel truncate warning on openOutputStream: ${e.message}")
+                            }
+                            os.flush()
+                            try {
+                                os.fd.sync()
+                            } catch (e: Exception) {
+                            }
+                        } else {
+                            tempFile.inputStream().use { fis ->
+                                fis.copyTo(os)
+                            }
+                            os.flush()
+                        }
+                    }
+                    AudioCacheManager.evict(targetUri)
+                    Log.d(TAG, "writeTempFileToContentUri: Wrote $expectedSize bytes using openOutputStream with mode '$mode'")
+                    return true
+                }
+            } catch (e: SecurityException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed writing temp file via openOutputStream with mode '$mode': ${e.message}")
+            }
+        }
+
+        return false
+    }
+
+    /**
      * Embeds lyrics into the audio file's metadata tags using jaudiotagger.
      * Supports synced (LRC) and unsynced (plain) lyrics via FieldKey.LYRICS.
      * @param context The application context
@@ -996,11 +1397,7 @@ object MediaUtils {
                             throw Exception("Failed to embed lyrics in temp file")
                         }
                         // Write temp back via ContentResolver (WRITE_EXTERNAL_STORAGE covers API 29)
-                        val outputStream = contentResolver.openOutputStream(song.uri, "wt")
-                        if (outputStream != null) {
-                            outputStream.use { out ->
-                                tempFile.inputStream().use { input -> input.copyTo(out) }
-                            }
+                        if (writeTempFileToContentUri(contentResolver, song.uri, tempFile)) {
                             fileWriteSucceeded = true
                         } else {
                             // Fallback: write directly via file path
@@ -1190,14 +1587,9 @@ object MediaUtils {
                 tempFile = File(retryPath)
             }
 
-            val outputStream = contentResolver.openOutputStream(pendingRequest.song.uri, "w")
-            if (outputStream == null) {
-                Log.e(TAG, "Cannot open output stream after permission granted for lyrics")
+            if (!writeTempFileToContentUri(contentResolver, pendingRequest.song.uri, tempFile)) {
+                Log.e(TAG, "Cannot write temp file to URI after permission granted for lyrics")
                 return false
-            }
-
-            outputStream.use { outStream ->
-                tempFile.inputStream().use { input -> input.copyTo(outStream) }
             }
 
             // Trigger media scanner
@@ -1502,6 +1894,7 @@ object MediaUtils {
                             throw IOException("FLAC audio stream changed during metadata edit")
                         }
                         Log.d(TAG, "Metadata written to temp file successfully")
+                        sanitizeOggFile(tempFile)
 
                         // Step 3: Copy modified temp file back to original location
                         Log.d(TAG, "Step 3: Copying modified file back to original location...")
@@ -1536,14 +1929,14 @@ object MediaUtils {
                         } catch (e: SecurityException) {
                             Log.e(
                                 TAG,
-                                "SecurityException opening output stream - app may not have write permission for this file",
+                                "SecurityException writing temp file to URI - app may not have write permission for this file",
                                 e
                             )
                             false
                         } catch (e: Exception) {
                             Log.e(
                                 TAG,
-                                "Exception opening output stream: ${e.javaClass.simpleName} - ${e.message}",
+                                "Exception writing temp file to URI: ${e.javaClass.simpleName} - ${e.message}",
                                 e
                             )
                             false
@@ -1963,6 +2356,7 @@ object MediaUtils {
                 throw IOException("FLAC audio stream changed during metadata edit")
             }
 
+            sanitizeOggFile(tempFile)
             Log.d(TAG, "Temp file with modified metadata created: ${tempFile.absolutePath}")
             tempFile.absolutePath
 
@@ -2469,20 +2863,13 @@ object MediaUtils {
     }
 
     /**
-     * Extracts raw embedded artwork bytes on-demand without writing loose cache files.
-     * Tries TagLib -> MediaMetadataRetriever -> jaudiotagger -> folder cover.
+     * Resolves the underlying filesystem path for a song URI, or null if unresolvable.
      */
-    fun extractRawEmbeddedArtworkBytes(
-        context: Context,
-        songUri: Uri,
-        filePath: String? = null
-    ): ByteArray? {
-        var embeddedArt: ByteArray? = null
-
-        val resolvedFilePath = when {
-            filePath != null && filePath.isNotBlank() -> filePath
-            songUri.scheme == "file" -> songUri.path
-            songUri.scheme == "content" -> {
+    fun resolveFilePathFromUri(context: Context, songUri: Uri): String? {
+        if (songUri == Uri.EMPTY) return null
+        return when (songUri.scheme) {
+            "file" -> songUri.path
+            "content" -> {
                 try {
                     val projection = arrayOf(MediaStore.Audio.Media.DATA)
                     context.contentResolver.query(songUri, projection, null, null, null)?.use { cursor ->
@@ -2497,76 +2884,155 @@ object MediaUtils {
             }
             else -> null
         }
+    }
 
-        if (resolvedFilePath != null) {
-            try {
-                val file = File(resolvedFilePath)
-                if (file.exists() && file.canRead()) {
-                    ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
-                        val metadata = TagLib.getMetadata(fd.detachFd())
-                        val pictures = metadata?.pictures
-                        if (!pictures.isNullOrEmpty()) {
-                            val firstPic = pictures.firstOrNull { it.pictureType.equals("Front Cover", ignoreCase = true) } ?: pictures.first()
-                            if (firstPic.data.isNotEmpty()) {
-                                embeddedArt = firstPic.data
+    /**
+     * Extracts raw embedded artwork bytes on-demand without writing loose cache files.
+     * Tries TagLib -> MediaMetadataRetriever -> jaudiotagger -> folder cover.
+     */
+    fun extractRawEmbeddedArtworkBytes(
+        context: Context,
+        songUri: Uri,
+        filePath: String? = null
+    ): ByteArray? {
+        var embeddedArt: ByteArray? = null
+        var fromTag = false
+
+        val resolvedFilePath = if (!filePath.isNullOrBlank()) {
+            filePath
+        } else {
+            resolveFilePathFromUri(context, songUri)
+        }
+
+        val cacheKey = rawArtworkCacheKey(resolvedFilePath)
+        cacheKey?.let { key ->
+            val cached = synchronized(rawArtworkCacheLock) { rawArtworkCache[key] }
+            if (cached != null) {
+                return if (cached.isEmpty()) null else cached
+            }
+            readArtworkFromDiskCache(context.cacheDir, l2KeyForFile(key))?.let { disk ->
+                putRawArtwork(key, disk)
+                return disk
+            }
+        }
+
+        var myLatch: CountDownLatch? = null
+        if (cacheKey != null) {
+            while (true) {
+                val cached = synchronized(rawArtworkCacheLock) { rawArtworkCache[cacheKey] }
+                if (cached != null) {
+                    return if (cached.isEmpty()) null else cached
+                }
+                val candidate = CountDownLatch(1)
+                val existing = rawArtInFlight.putIfAbsent(cacheKey, candidate)
+                if (existing == null) {
+                    myLatch = candidate
+                    break
+                }
+                val completed = try {
+                    existing.await(10, TimeUnit.SECONDS)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    return null
+                }
+                if (!completed) {
+                    rawArtInFlight.remove(cacheKey, existing)
+                }
+            }
+        }
+
+        try {
+            if (resolvedFilePath != null) {
+                try {
+                    val file = File(resolvedFilePath)
+                    if (file.exists() && file.canRead()) {
+                        ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+                            val metadata = TagLib.getMetadata(fd.detachFd())
+                            val pictures = metadata?.pictures
+                            if (!pictures.isNullOrEmpty()) {
+                                val firstPic = pictures.firstOrNull { it.pictureType.equals("Front Cover", ignoreCase = true) } ?: pictures.first()
+                                if (firstPic.data.isNotEmpty()) {
+                                    embeddedArt = firstPic.data
+                                    fromTag = true
+                                }
                             }
                         }
                     }
+                } catch (_: Throwable) {
                 }
-            } catch (_: Throwable) {
-                // TagLib fallback
             }
-        }
 
-        if (embeddedArt == null || embeddedArt.isEmpty()) {
-            var retriever: MediaMetadataRetriever? = null
-            try {
-                retriever = MediaMetadataRetriever()
-                retriever.setDataSource(context, songUri)
-                val pic = retriever.embeddedPicture
-                if (pic != null && pic.isNotEmpty()) {
-                    embeddedArt = pic
-                }
-            } catch (_: Exception) {
-            } finally {
+            if (embeddedArt == null || embeddedArt.isEmpty()) {
+                var retriever: MediaMetadataRetriever? = null
                 try {
-                    retriever?.release()
-                } catch (_: Exception) {}
-            }
-        }
-
-        if ((embeddedArt == null || embeddedArt.isEmpty()) && resolvedFilePath != null) {
-            try {
-                val file = File(resolvedFilePath)
-                if (file.exists() && isSupportedByJaudiotagger(file.extension)) {
-                    val audioFile = org.jaudiotagger.audio.AudioFileIO.read(file)
-                    val tag = audioFile.tag
-                    val artwork = tag?.firstArtwork
-                    val artworkBytes = artwork?.binaryData
-                    if (artworkBytes != null && artworkBytes.isNotEmpty()) {
-                        embeddedArt = artworkBytes
+                    retriever = MediaMetadataRetriever()
+                    retriever.setDataSource(context, songUri)
+                    val pic = retriever.embeddedPicture
+                    if (pic != null && pic.isNotEmpty()) {
+                        embeddedArt = pic
+                        fromTag = true
                     }
+                } catch (_: Exception) {
+                } finally {
+                    try {
+                        retriever?.release()
+                    } catch (_: Exception) {}
                 }
-            } catch (_: Exception) {
             }
-        }
 
-        if ((embeddedArt == null || embeddedArt.isEmpty()) && resolvedFilePath != null) {
-            try {
-                val file = File(resolvedFilePath)
-                val parentFolder = file.parentFile
-                if (parentFolder != null && parentFolder.exists() && parentFolder.isDirectory) {
-                    val coverFile = folderCoverCache.getOrPut(parentFolder.absolutePath) {
-                        findBestCover(parentFolder)
-                    }
-                    if (coverFile != null && coverFile.exists()) {
-                        val coverBytes = coverFile.readBytes()
-                        if (coverBytes.isNotEmpty()) {
-                            embeddedArt = coverBytes
+            if ((embeddedArt == null || embeddedArt.isEmpty()) && resolvedFilePath != null) {
+                try {
+                    val file = File(resolvedFilePath)
+                    if (file.exists() && isSupportedByJaudiotagger(file.extension)) {
+                        val audioFile = org.jaudiotagger.audio.AudioFileIO.read(file)
+                        val tag = audioFile.tag
+                        val artwork = tag?.firstArtwork
+                        val artworkBytes = artwork?.binaryData
+                        if (artworkBytes != null && artworkBytes.isNotEmpty()) {
+                            embeddedArt = artworkBytes
+                            fromTag = true
                         }
                     }
+                } catch (_: Exception) {
                 }
-            } catch (_: Exception) {
+            }
+
+            if ((embeddedArt == null || embeddedArt.isEmpty()) && resolvedFilePath != null) {
+                try {
+                    val file = File(resolvedFilePath)
+                    val parentFolder = file.parentFile
+                    if (parentFolder != null && parentFolder.exists() && parentFolder.isDirectory) {
+                        val parentPath = parentFolder.absolutePath
+                        val coverFile = folderCoverCache.getOrPut(parentPath) {
+                            findBestCover(parentFolder) ?: NO_FOLDER_COVER_SENTINEL
+                        }
+                        if (coverFile !== NO_FOLDER_COVER_SENTINEL && coverFile.exists()) {
+                            val coverBytes = cachedFolderCoverBytes(coverFile)
+                                ?: coverFile.readBytes().also { cacheFolderCoverBytes(coverFile, it) }
+                            if (coverBytes.isNotEmpty()) {
+                                embeddedArt = coverBytes
+                            }
+                        }
+                    }
+                } catch (_: Exception) {
+                }
+            }
+
+            if (myLatch != null && cacheKey != null) {
+                val art = embeddedArt
+                if (art != null && art.isNotEmpty() && art.size <= RAW_ART_MAX_ENTRY_BYTES) {
+                    putRawArtwork(cacheKey, art)
+                    if (fromTag) {
+                        writeArtworkToDiskCache(context.cacheDir, l2KeyForFile(cacheKey), art)
+                    }
+                } else if (art == null) {
+                    putRawArtwork(cacheKey, NO_ARTWORK_SENTINEL)
+                }
+            }
+        } finally {
+            if (myLatch != null && cacheKey != null) {
+                rawArtInFlight.remove(cacheKey, myLatch)
+                myLatch.countDown()
             }
         }
 
@@ -2876,64 +3342,8 @@ object MediaUtils {
     }
 
     private fun maybePruneArtworkCache(cacheDir: File) {
-        val now = System.currentTimeMillis()
-        val shouldPrune = synchronized(this) {
-            if (now - lastEmbeddedArtworkCleanupMs < EMBEDDED_ART_CACHE_CLEANUP_INTERVAL_MS) {
-                false
-            } else {
-                lastEmbeddedArtworkCleanupMs = now
-                true
-            }
-        }
-
-        if (!shouldPrune) return
-
-        val artworkCacheDir = File(cacheDir, EMBEDDED_ARTWORK_CACHE_DIR)
-        val currentArtworkFiles = artworkCacheDir
-            .listFiles { file -> file.isFile }
-            ?.toMutableList()
-            ?: mutableListOf()
-
-        val legacyArtworkFiles = cacheDir
-            .listFiles { file ->
-                file.isFile &&
-                    (file.name.startsWith("embedded_art_") || file.name.startsWith("embedded_art_lossless_"))
-            }
-            ?.toList()
-            .orEmpty()
-
-        val allArtworkFiles = mutableListOf<File>().apply {
-            addAll(currentArtworkFiles)
-            addAll(legacyArtworkFiles)
-        }
-
-        if (allArtworkFiles.isEmpty()) return
-
-        var totalSize = allArtworkFiles.sumOf { it.length() }
-        var fileCount = allArtworkFiles.size
-
-        if (totalSize <= EMBEDDED_ART_CACHE_MAX_BYTES && fileCount <= EMBEDDED_ART_CACHE_MAX_FILES) {
-            return
-        }
-
-        allArtworkFiles.sortBy { it.lastModified() }
-
-        for (file in allArtworkFiles) {
-            if (totalSize <= EMBEDDED_ART_CACHE_MAX_BYTES && fileCount <= EMBEDDED_ART_CACHE_MAX_FILES) {
-                break
-            }
-
-            val fileSize = file.length()
-            if (file.delete()) {
-                totalSize -= fileSize
-                fileCount--
-            }
-        }
-
-        Log.d(
-            TAG,
-            "Pruned artwork cache to ${totalSize / (1024 * 1024)}MB across $fileCount files"
-        )
+        // No-op: On-demand decoding handles artwork via Coil and RhythmAlbumArtProvider.
+        // Files are no longer pruned arbitrarily by size to prevent breaking active URIs.
     }
 
     /*
@@ -2946,6 +3356,7 @@ object MediaUtils {
      */
     fun deleteCachedEmbeddedArtwork(cacheDir: File, songUri: Uri) {
         try {
+            clearRawArtworkCache()
             val songKey = buildArtworkCacheKey(songUri)
             val legacyHash = songUri.hashCode()
             val primaryPrefix = "embedded_art_lossless_$songKey"
@@ -2954,22 +3365,31 @@ object MediaUtils {
             val legacySecondaryPrefix = "embedded_art_$legacyHash"
 
             val prefixes = listOf(primaryPrefix, secondaryPrefix, legacyPrimaryPrefix, legacySecondaryPrefix)
-            val artworkCacheDir = File(cacheDir, EMBEDDED_ARTWORK_CACHE_DIR)
             
-            if (artworkCacheDir.exists() && artworkCacheDir.isDirectory) {
-                artworkCacheDir.listFiles()?.forEach { file ->
-                    if (prefixes.any { file.name.startsWith(it) }) {
-                        if (file.delete()) {
-                            Log.d(TAG, "Deleted cached embedded artwork: ${file.name}")
+            // Search both cacheDir and its sibling filesDir (or vice versa)
+            val dirsToCheck = mutableListOf(cacheDir)
+            cacheDir.parentFile?.let { parent ->
+                val altName = if (cacheDir.name == "cache") "files" else "cache"
+                dirsToCheck.add(File(parent, altName))
+            }
+
+            for (dir in dirsToCheck) {
+                val artworkCacheDir = File(dir, EMBEDDED_ARTWORK_CACHE_DIR)
+                if (artworkCacheDir.exists() && artworkCacheDir.isDirectory) {
+                    artworkCacheDir.listFiles()?.forEach { file ->
+                        if (prefixes.any { file.name.startsWith(it) }) {
+                            if (file.delete()) {
+                                Log.d(TAG, "Deleted cached embedded artwork: ${file.name}")
+                            }
                         }
                     }
                 }
-            }
 
-            cacheDir.listFiles()?.forEach { file ->
-                if (prefixes.any { file.name.startsWith(it) }) {
-                    if (file.delete()) {
-                        Log.d(TAG, "Deleted legacy cached embedded artwork: ${file.name}")
+                dir.listFiles()?.forEach { file ->
+                    if (prefixes.any { file.name.startsWith(it) }) {
+                        if (file.delete()) {
+                            Log.d(TAG, "Deleted legacy cached embedded artwork: ${file.name}")
+                        }
                     }
                 }
             }
@@ -3344,7 +3764,7 @@ object MediaUtils {
     }
 
     private fun embedLyricsInAudioFile(audioFile: File, lyrics: String): Boolean {
-        return try {
+        val success = try {
             val audioFileObj = AudioFileIO.read(audioFile)
             val tag: Tag = audioFileObj.tag ?: audioFileObj.createDefaultTag()
             tag.setField(FieldKey.LYRICS, lyrics)
@@ -3355,6 +3775,10 @@ object MediaUtils {
             Log.w(TAG, "JAudioTagger failed for lyrics embed, falling back to TagLib", e)
             embedLyricsWithTagLib(audioFile, lyrics)
         }
+        if (success) {
+            sanitizeOggFile(audioFile)
+        }
+        return success
     }
 
     fun readLyricsViaTagLib(filePath: String): String? {

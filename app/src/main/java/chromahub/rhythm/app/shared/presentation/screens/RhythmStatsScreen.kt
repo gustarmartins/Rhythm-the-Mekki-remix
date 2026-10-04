@@ -8,6 +8,7 @@ package chromahub.rhythm.app.shared.presentation.screens
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
+import android.widget.Toast
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
@@ -60,11 +61,14 @@ import chromahub.rhythm.app.shared.data.repository.PlaybackStatsRepository
 import chromahub.rhythm.app.shared.data.repository.StatsTimeRange
 import chromahub.rhythm.app.shared.presentation.components.Material3SettingsGroup
 import chromahub.rhythm.app.shared.presentation.components.Material3SettingsItem
+import chromahub.rhythm.app.shared.presentation.components.SettingsPalettes
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveCookieEmptyState
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeTarget
 import chromahub.rhythm.app.shared.presentation.components.common.CollapsibleHeaderScreen
 import chromahub.rhythm.app.shared.presentation.components.common.TabAnimation
 import chromahub.rhythm.app.shared.presentation.components.common.SmallTabAnimation
+import chromahub.rhythm.app.shared.presentation.components.common.M3CircularLoader
+import chromahub.rhythm.app.shared.presentation.components.common.horizontalEdgeBlend
 import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShapeFor
 import chromahub.rhythm.app.util.M3ImageUtils
 import chromahub.rhythm.app.util.HapticUtils
@@ -182,6 +186,26 @@ private fun StatsPageContent(
         isLoading = false
     }
 
+    val context = LocalContext.current
+    val songMap = remember(songs) { songs.associateBy { it.id } }
+    val onSaveTopSongsAsPlaylist: (() -> Unit)? = remember(statsSummary, songMap, range) {
+        val summary = statsSummary ?: return@remember null
+        val matchedSongs = summary.topSongs.mapNotNull { songMap[it.songId] }
+        if (matchedSongs.isEmpty()) null
+        else {
+            {
+                val rangeName = range.name.lowercase().replaceFirstChar { it.uppercase() }
+                val playlistName = "Top Songs ($rangeName)"
+                viewModel.createPlaylist(playlistName, matchedSongs)
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.settings_saved_top_songs_playlist, playlistName, matchedSongs.size),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
     val pageScrollState = rememberScrollState()
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -199,7 +223,7 @@ private fun StatsPageContent(
                         .padding(top = 100.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    M3CircularLoader(modifier = Modifier.size(48.dp), strokeWidth = 4f)
                 }
             } else if (statsSummary == null || statsSummary!!.totalPlayCount == 0) {
                 EmptyStatsView()
@@ -237,7 +261,8 @@ private fun StatsPageContent(
                             CategoryMetricsSection(
                                 stats = stats, 
                                 artists = artists,
-                                useHoursFormat = useHoursFormat
+                                useHoursFormat = useHoursFormat,
+                                onSaveTopSongsAsPlaylist = onSaveTopSongsAsPlaylist
                             )
                         }
                     }
@@ -258,7 +283,8 @@ private fun StatsPageContent(
                         CategoryMetricsSection(
                             stats = stats, 
                             artists = artists,
-                            useHoursFormat = useHoursFormat
+                            useHoursFormat = useHoursFormat,
+                            onSaveTopSongsAsPlaylist = onSaveTopSongsAsPlaylist
                         )
 
                         ListeningHabitsCard(
@@ -296,7 +322,8 @@ private fun RhythmTimeRangeTabs(
         state = tabRowState,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp)
+            .horizontalEdgeBlend(lazyListState = tabRowState, fadeWidth = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         contentPadding = PaddingValues(horizontal = 4.dp)
     ) {
@@ -405,9 +432,9 @@ private fun ListeningOverviewCard(
 
         if (timeline.isNotEmpty()) {
             val segmentColors = listOf(
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.20f),
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
+                MaterialTheme.colorScheme.primary,
+                MaterialTheme.colorScheme.tertiary,
+                MaterialTheme.colorScheme.secondary
             )
             val maxPlays = timeline.maxOf { it.playCount }.coerceAtLeast(1)
 
@@ -461,22 +488,25 @@ private fun ListeningOverviewCard(
 @Composable
 private fun TopSongsList(
     stats: PlaybackStatsRepository.PlaybackStatsSummary,
-    useHoursFormat: Boolean
+    useHoursFormat: Boolean,
+    onSaveAsPlaylist: (() -> Unit)? = null
 ) {
     if (stats.topSongs.isEmpty()) return
 
     val items = stats.topSongs.take(5).mapIndexed { index, song ->
+        val isTop = index == 0
         val songArtShape = rememberExpressiveShapeFor(
             ExpressiveShapeTarget.SONG_ART,
             fallbackShape = RoundedCornerShape(16.dp)
         )
 
         Material3SettingsItem(
+            isHighlighted = isTop,
             leadingContent = {
                 Surface(
                     shape = songArtShape,
-                    color = if (index == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary.copy(alpha = 0.3f),
-                    contentColor = if (index == 0) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.secondary
+                    color = if (isTop) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+                    contentColor = if (isTop) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
                 ) {
                     Box(
                         modifier = Modifier.size(40.dp),
@@ -529,7 +559,7 @@ private fun TopSongsList(
                         text = formatDuration(song.totalDurationMs, useHoursFormat),
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = if (isTop) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "${song.playCount} plays",
@@ -545,16 +575,39 @@ private fun TopSongsList(
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = stringResource(R.string.rhythmstatsscreen_top_songs),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(R.string.rhythmstatsscreen_top_songs),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (onSaveAsPlaylist != null) {
+                FilledTonalButton(
+                    onClick = onSaveAsPlaylist,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = RhythmIcons.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.settings_save_top_songs_as_playlist),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+        }
 
         Material3SettingsGroup(
             items = items,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
         )
     }
 }
@@ -583,8 +636,12 @@ private fun TopArtistsList(
             color = MaterialTheme.colorScheme.onSurface
         )
 
+        val topArtistsListState = rememberLazyListState()
         LazyRow(
-            modifier = Modifier.fillMaxWidth(),
+            state = topArtistsListState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalEdgeBlend(lazyListState = topArtistsListState, fadeWidth = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(horizontal = 0.dp)
         ) {
@@ -597,7 +654,7 @@ private fun TopArtistsList(
                 ) {
                     Surface(
                         shape = artistArtShape,
-                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
                         modifier = Modifier.size(84.dp)
                     ) {
                         M3ImageUtils.ArtistImage(
@@ -646,13 +703,18 @@ private data class CategoryMetricEntry(
 private fun CategoryMetricsSection(
     stats: PlaybackStatsRepository.PlaybackStatsSummary,
     artists: List<Artist>,
-    useHoursFormat: Boolean
+    useHoursFormat: Boolean,
+    onSaveTopSongsAsPlaylist: (() -> Unit)? = null
 ) {
     var selectedDimension by remember { mutableStateOf(CategoryDimension.SONG) }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        val categoryTabsListState = rememberLazyListState()
         LazyRow(
-            modifier = Modifier.fillMaxWidth(),
+            state = categoryTabsListState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalEdgeBlend(lazyListState = categoryTabsListState, fadeWidth = 16.dp),
             horizontalArrangement = Arrangement.Center,
             contentPadding = PaddingValues(horizontal = 16.dp)
         ) {
@@ -666,7 +728,7 @@ private fun CategoryMetricsSection(
                     title = title,
                     selectedColor = MaterialTheme.colorScheme.primary,
                     onSelectedColor = MaterialTheme.colorScheme.onPrimary,
-                    unselectedColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    unselectedColor = MaterialTheme.colorScheme.surfaceContainer,
                     onUnselectedColor = MaterialTheme.colorScheme.onSurface,
                     onClick = { selectedDimension = dimension },
                     modifier = Modifier.padding(all = 2.dp),
@@ -690,7 +752,11 @@ private fun CategoryMetricsSection(
             label = "categorySectionTransition"
         ) { targetDimension ->
             when (targetDimension) {
-                CategoryDimension.SONG -> TopSongsList(stats = stats, useHoursFormat = useHoursFormat)
+                CategoryDimension.SONG -> TopSongsList(
+                    stats = stats,
+                    useHoursFormat = useHoursFormat,
+                    onSaveAsPlaylist = onSaveTopSongsAsPlaylist
+                )
                 CategoryDimension.ARTIST -> TopArtistsList(stats = stats, artists = artists)
                 else -> {
                     val entries = when (targetDimension) {
@@ -730,17 +796,12 @@ private fun CategoryMetricsSection(
                                 val rawVal = if (entry.durationMs > 0) entry.durationMs.toFloat() else entry.plays.toFloat()
                                 val progress = (rawVal / maxVal).coerceIn(0f, 1f)
 
-                                val accentColor = if (isTop) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
-                                val accentOnColor = if (isTop) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondary
-
                                 Material3SettingsItem(
                                     isHighlighted = isTop,
                                     leadingContent = {
                                         CategoryRankBadge(
                                             rank = index + 1,
-                                            accentColor = accentColor,
-                                            accentOnColor = accentOnColor,
-                                            highlighted = isTop
+                                            isTop = isTop
                                         )
                                     },
                                     title = {
@@ -767,8 +828,8 @@ private fun CategoryMetricsSection(
                                                     .fillMaxWidth()
                                                     .height(6.dp)
                                                     .clip(CircleShape),
-                                                color = accentColor,
-                                                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                                                color = if (isTop) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                                                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
                                             )
                                         }
                                     },
@@ -779,7 +840,7 @@ private fun CategoryMetricsSection(
                                                     text = formatDuration(entry.durationMs, useHoursFormat),
                                                     style = MaterialTheme.typography.labelMedium,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = MaterialTheme.colorScheme.onSurface
+                                                    color = if (isTop) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                                 )
                                             }
                                             Text(
@@ -794,7 +855,7 @@ private fun CategoryMetricsSection(
 
                             Material3SettingsGroup(
                                 items = settingsItems,
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer
                             )
                         }
                     }
@@ -805,9 +866,9 @@ private fun CategoryMetricsSection(
 }
 
 @Composable
-private fun CategoryRankBadge(rank: Int, accentColor: Color, accentOnColor: Color, highlighted: Boolean) {
-    val containerColor = if (highlighted) accentColor else accentColor.copy(alpha = 0.2f)
-    val contentColor = if (highlighted) accentOnColor else accentColor
+private fun CategoryRankBadge(rank: Int, isTop: Boolean) {
+    val containerColor = if (isTop) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest
+    val contentColor = if (isTop) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
 
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -850,14 +911,13 @@ private fun ListeningHabitsCard(
         val items = buildList {
             add(
                 Material3SettingsItem(
-                    leadingContent = {
-                        Icon(MaterialSymbolIcon("event_available"), contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
-                    },
+                    icon = MaterialSymbolIcon("event_available"),
+                    palette = SettingsPalettes.Emerald,
                     title = {
                         Text(
                             text = stringResource(R.string.stats_active_days),
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     },
                     trailingContent = {
@@ -873,14 +933,13 @@ private fun ListeningHabitsCard(
 
             add(
                 Material3SettingsItem(
-                    leadingContent = {
-                        Icon(MaterialSymbolIcon("local_fire_department"), contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
-                    },
+                    icon = MaterialSymbolIcon("local_fire_department"),
+                    palette = SettingsPalettes.Coral,
                     title = {
                         Text(
                             text = stringResource(R.string.stats_longest_streak),
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     },
                     trailingContent = {
@@ -896,14 +955,13 @@ private fun ListeningHabitsCard(
 
             add(
                 Material3SettingsItem(
-                    leadingContent = {
-                        Icon(MaterialSymbolIcon("history"), contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
-                    },
+                    icon = MaterialSymbolIcon("history"),
+                    palette = SettingsPalettes.SkyBlue,
                     title = {
                         Text(
                             text = stringResource(R.string.stats_total_sessions),
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     },
                     trailingContent = {
@@ -919,14 +977,13 @@ private fun ListeningHabitsCard(
 
             add(
                 Material3SettingsItem(
-                    leadingContent = {
-                        Icon(MaterialSymbolIcon("hourglass_empty"), contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
-                    },
+                    icon = MaterialSymbolIcon("hourglass_empty"),
+                    palette = SettingsPalettes.Amber,
                     title = {
                         Text(
                             text = stringResource(R.string.stats_avg_session),
                             style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     },
                     trailingContent = {
@@ -943,15 +1000,14 @@ private fun ListeningHabitsCard(
             stats.peakDayOfWeek?.let { peakDay ->
                 add(
                     Material3SettingsItem(
+                        icon = MaterialSymbolIcon("whatshot"),
+                        palette = SettingsPalettes.Purple,
                         isHighlighted = true,
-                        leadingContent = {
-                            Icon(MaterialSymbolIcon("whatshot"), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        },
                         title = {
                             Text(
                                 text = stringResource(R.string.stats_peak_day),
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         },
                         trailingContent = {
@@ -959,7 +1015,7 @@ private fun ListeningHabitsCard(
                                 text = peakDay,
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     )
@@ -969,108 +1025,8 @@ private fun ListeningHabitsCard(
 
         Material3SettingsGroup(
             items = items,
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
         )
-    }
-}
-
-@Composable
-private fun HabitMetricRow(icon: MaterialSymbolIcon, label: String, value: String, isHighlight: Boolean = false) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(if (isHighlight) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (isHighlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
-
-@Composable
-private fun BeatTimelineCard(timeline: List<PlaybackStatsRepository.TimelineEntry>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f))
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.rhythmstatsscreen_listening_timeline),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-
-            val maxPlays = timeline.maxOfOrNull { it.playCount }?.coerceAtLeast(1) ?: 1
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(160.dp)
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.Bottom
-            ) {
-                timeline.takeLast(7).forEach { entry ->
-                    val progress = (entry.playCount.toFloat() / maxPlays).coerceIn(0f, 1f)
-
-                    Column(
-                        modifier = Modifier.width(56.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "${entry.playCount}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Box(
-                            modifier = Modifier
-                                .width(32.dp)
-                                .weight(1f)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)),
-                            contentAlignment = Alignment.BottomCenter
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .fillMaxHeight(progress)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary)
-                            )
-                        }
-                        Text(
-                            text = entry.label.take(3),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 

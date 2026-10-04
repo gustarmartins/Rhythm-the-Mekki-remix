@@ -25,9 +25,15 @@ import okio.buffer
 import okio.source
 import java.io.ByteArrayInputStream
 
+import android.content.ContentUris
+import androidx.core.net.toUri
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import chromahub.rhythm.app.infrastructure.provider.RhythmAlbumArtProvider
+
 /**
  * On-demand Coil Fetcher that decodes embedded album art and folder covers directly
- * from audio file URIs on background IO threads without requiring ahead-of-time batch extraction.
+ * from audio file URIs or virtual [RhythmAlbumArtProvider] URIs on background IO threads
+ * without requiring ahead-of-time batch extraction or loose file storage.
  */
 class AudioArtworkFetcher(
     private val context: Context,
@@ -36,6 +42,61 @@ class AudioArtworkFetcher(
 ) : Fetcher {
 
     override suspend fun fetch(): FetchResult? {
+        if (uri.authority == RhythmAlbumArtProvider.PROVIDER_AUTHORITY) {
+            val pathSegments = uri.pathSegments
+            val type = pathSegments.firstOrNull() ?: ""
+            val targetId = pathSegments.getOrNull(1) ?: ""
+            val songFilePath = uri.getQueryParameter("songFile")
+            val albumId = uri.getQueryParameter("albumId")
+
+            val songUri = if (type == "song") {
+                targetId.toLongOrNull()?.let { idLong ->
+                    ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, idLong)
+                } ?: Uri.EMPTY
+            } else {
+                Uri.EMPTY
+            }
+
+            val bytes = MediaUtils.extractRawEmbeddedArtworkBytes(context, songUri, songFilePath)
+            if (bytes != null && bytes.isNotEmpty()) {
+                val bufferedSource = ByteArrayInputStream(bytes).source().buffer()
+                val imageSource = ImageSource(source = bufferedSource, context = context)
+                return SourceResult(
+                    source = imageSource,
+                    mimeType = null,
+                    dataSource = DataSource.DISK
+                )
+            }
+
+            // Fallback to MediaStore album art if no embedded art is found
+            if (!albumId.isNullOrBlank()) {
+                val albumIdLong = albumId.toLongOrNull()
+                if (albumIdLong != null) {
+                    val mediaStoreAlbumArtUri = ContentUris.withAppendedId(
+                        "content://media/external/audio/albumart".toUri(),
+                        albumIdLong
+                    )
+                    try {
+                        context.contentResolver.openInputStream(mediaStoreAlbumArtUri)?.use { input ->
+                            val albumBytes = input.readBytes()
+                            if (albumBytes.isNotEmpty()) {
+                                val bufferedSource = ByteArrayInputStream(albumBytes).source().buffer()
+                                val imageSource = ImageSource(source = bufferedSource, context = context)
+                                return SourceResult(
+                                    source = imageSource,
+                                    mimeType = null,
+                                    dataSource = DataSource.DISK
+                                )
+                            }
+                        }
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+
+            return null
+        }
+
         val bytes = MediaUtils.extractRawEmbeddedArtworkBytes(context, uri) ?: return null
         val bufferedSource = ByteArrayInputStream(bytes).source().buffer()
         val imageSource = ImageSource(source = bufferedSource, context = context)
@@ -64,6 +125,9 @@ class AudioArtworkFetcher(
             val scheme = uri.scheme
             if (scheme == "content") {
                 val auth = uri.authority
+                if (auth == RhythmAlbumArtProvider.PROVIDER_AUTHORITY) {
+                    return true
+                }
                 if (auth == MediaStore.AUTHORITY) {
                     val path = uri.path.orEmpty()
                     return path.contains("/audio/media")
@@ -98,26 +162,42 @@ class AudioArtworkKeyer : Keyer<Uri> {
  */
 class StreamingArtworkKeyer : Keyer<Uri> {
     override fun key(data: Uri, options: Options): String? {
-        val scheme = data.scheme ?: return null
-        if (!scheme.equals("http", ignoreCase = true) && !scheme.equals("https", ignoreCase = true)) {
+        return keyFromUrlString(data.toString())
+    }
+
+    companion object {
+        fun keyFromUrlString(url: String): String? {
+            val httpUrl = url.toHttpUrlOrNull() ?: return null
+            val scheme = httpUrl.scheme
+            if (!scheme.equals("http", ignoreCase = true) && !scheme.equals("https", ignoreCase = true)) {
+                return null
+            }
+            val host = httpUrl.host
+            val path = httpUrl.encodedPath
+
+            // Subsonic cover art: /rest/getCoverArt or /rest/getCoverArt.view
+            if (path.contains("getCoverArt", ignoreCase = true)) {
+                val id = httpUrl.queryParameter("id") ?: return null
+                val size = httpUrl.queryParameter("size") ?: "500"
+                return "streaming_subsonic_${host}_${id}_${size}"
+            }
+
+            // Jellyfin Item Primary image: /Items/{id}/Images/...
+            if (path.contains("/Images/", ignoreCase = true)) {
+                val maxWidth = httpUrl.queryParameter("maxWidth") ?: "500"
+                return "streaming_jellyfin_${host}_${path}_${maxWidth}"
+            }
+
             return null
         }
-        val host = data.host ?: return null
-        val path = data.path ?: return null
+    }
+}
 
-        // Subsonic cover art: /rest/getCoverArt or /rest/getCoverArt.view
-        if (path.contains("getCoverArt", ignoreCase = true)) {
-            val id = data.getQueryParameter("id") ?: return null
-            val size = data.getQueryParameter("size") ?: "500"
-            return "streaming_subsonic_${host}_${id}_${size}"
-        }
-
-        // Jellyfin Item Primary image: /Items/{id}/Images/...
-        if (path.contains("/Images/", ignoreCase = true)) {
-            val maxWidth = data.getQueryParameter("maxWidth") ?: "500"
-            return "streaming_jellyfin_${host}_${path}_${maxWidth}"
-        }
-
-        return null
+/**
+ * Canonical keyer for streaming service artwork String URLs (Subsonic & Jellyfin).
+ */
+class StreamingArtworkStringKeyer : Keyer<String> {
+    override fun key(data: String, options: Options): String? {
+        return StreamingArtworkKeyer.keyFromUrlString(data)
     }
 }

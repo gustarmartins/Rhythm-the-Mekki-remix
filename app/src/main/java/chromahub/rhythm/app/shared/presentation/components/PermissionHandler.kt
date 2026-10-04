@@ -103,7 +103,7 @@ fun PermissionHandler(
     // - Android 13+ (API 33+): READ_MEDIA_AUDIO (granular media permissions)
     // - Android 12 (API 31-32): READ_EXTERNAL_STORAGE (legacy permission)
     // - Android 11 and below: READ_EXTERNAL_STORAGE
-    // Note: READ_MEDIA_IMAGES is optional for album art and NOT required
+    // Note: Custom image selection uses the system Android Photo Picker and requires no permissions
     val storagePermissions = when {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
             // Android 13, 14, 15, 16+ (API 33+) - granular media permissions
@@ -221,7 +221,11 @@ fun PermissionHandler(
                 // MusicViewModel owns service startup and serializes controller connection
                 // attempts. Starting another foreground-service intent here raced its init path
                 // and made every ordinary launch apply service settings twice.
-                musicViewModel.connectToMediaService()
+                try {
+                    musicViewModel.connectToMediaService()
+                } catch (e: Exception) {
+                    android.util.Log.w("PermissionHandler", "Failed to connect to media service", e)
+                }
                 onSetIsInitializingApp(false) // End app initialization
             }
             onSetIsLoading(false) // Always set loading to false after evaluation

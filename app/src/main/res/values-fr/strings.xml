@@ -288,7 +288,6 @@
     
     <!-- Settings - About -->
     <string name="settings_about_music_player">Lecteur de musique</string>
-    <string name="settings_about_project_details">Détails du projet</string>
     <string name="settings_about_version_label">Version</string>
     <string name="settings_about_build">Construire</string>
     <string name="settings_about_target_sdk">SDK cible</string>
@@ -297,7 +296,6 @@
     <string name="settings_about_credits">Développeur</string>
     <string name="settings_about_team_desc">Développeurs passionnés créant des expériences innovantes</string>
     <string name="settings_about_team_chromahub">Équipe ChromaHub</string>
-    <string name="settings_about_community">Communauté</string>
     <string name="about_community_group_maintainers">Responsables de paquets</string>
     <string name="about_community_group_collaborators">Collaborateurs et contributeurs</string>
     <string name="about_community_group_design_testing">Conception et tests</string>
@@ -330,30 +328,10 @@
     <string name="home_no_recently_added">Aucun album récemment ajouté</string>
     <string name="home_no_recently_added_desc">Les albums que vous ajoutez à votre bibliothèque apparaîtront ici</string>
     <!-- Time-based quotes (0:00-4:59 - Late night) -->
-    <string name="home_quote_late_night_1">Ambiances de fin de soirée pour les rêveurs 🌙</string>
-    <string name="home_quote_late_night_2">Moment idéal pour votre playlist de fin de soirée 🎧</string>
-    <string name="home_quote_late_night_3">La musique sonne mieux à minuit ✨</string>
-    <string name="home_quote_late_night_4">Laissez la musique de la nuit jouer 🌟</string>
     <!-- Time-based quotes (5:00-11:59 - Morning) -->
-    <string name="home_quote_morning_1">Commencez votre journée avec la bande-son parfaite ✨</string>
-    <string name="home_quote_morning_2">Laissez la musique dynamiser votre routine matinale 🎵</string>
-    <string name="home_quote_morning_3">Chaque matin est une nouvelle symphonie qui attend de commencer 🌅</string>
-    <string name="home_quote_morning_4">Café et musique : le mélange parfait du matin ☕</string>
     <!-- Time-based quotes (12:00-16:59 - Afternoon) -->
-    <string name="home_quote_afternoon_1">Passez à l\'action avec vos rythmes préférés 🚀</string>
-    <string name="home_quote_afternoon_2">La musique rend tout meilleur 💪</string>
-    <string name="home_quote_afternoon_3">Laissez le rythme guider votre journée 🎯</string>
-    <string name="home_quote_afternoon_4">Mettez le focus sur de superbes morceaux 🔥</string>
     <!-- Time-based quotes (17:00-20:59 - Evening) -->
-    <string name="home_quote_evening_1">C\'est l\'heure de se détendre avec des mélodies apaisantes 🌅</string>
-    <string name="home_quote_evening_2">Que la bande-son de la soirée commence 🎶</string>
-    <string name="home_quote_evening_3">Moment parfait pour votre playlist chill 😌</string>
-    <string name="home_quote_evening_4">Détendez-vous avec vos morceaux préférés 🌇</string>
     <!-- Time-based quotes (21:00-23:59 - Night) -->
-    <string name="home_quote_night_1">La nuit est l\'heure de la musique 🌙</string>
-    <string name="home_quote_night_2">Laissez la nuit vous faire une sérénade 🎵</string>
-    <string name="home_quote_night_3">Ambiance parfaite pour une nuit paisible 🌟</string>
-    <string name="home_quote_night_4">Embrassez le calme de la nuit 😴</string>
     <!-- Personalized messages -->
     
     <!-- Recommended Section -->
@@ -384,7 +362,6 @@
     <string name="update_now">Mettre à jour maintenant</string>
     <!-- LibraryScreen -->
     <string name="library_title">Bibliothèque</string>
-    <string name="library_your_music">Votre musique</string>
     <string name="library_your_playlists">Vos listes de lecture</string>
     <string name="library_your_albums">Vos albums</string>
     <string name="library_your_artists">Vos artistes</string>
@@ -399,7 +376,6 @@
     <string name="extracting_metadata">Extraction des détails de la piste…</string>
     <string name="processing_library">Optimisation de la bibliothèque…</string>
     <string name="library_no_songs">Pas encore de chansons</string>
-    <string name="library_no_artists">Aucun artiste trouvé</string>
     <string name="library_unknown_year">Année inconnue</string>
     <string name="library_start_collection">Commencez à constituer votre collection de musique</string>
     <string name="library_sort_artists">Trier les artistes par</string>
@@ -416,24 +392,10 @@
         <item quantity="other">Création d\'une playlist et ajout de %1$d chansons…</item>
     </plurals>
     <string name="library_playlist_name_empty">Le nom de la playlist ne peut pas être vide</string>
-    <string name="library_no_playlists">Aucune liste de lecture pour l\'instant</string>
-    <string name="library_no_albums">Aucun album pour l\'instant</string>
-    <plurals name="library_playlists_count">
-        <item quantity="one">%1$d listes de lecture</item>
-        <item quantity="many">%1$d listes de lecture</item>
-        <item quantity="other">%1$d listes de lecture</item>
-    </plurals>
-    <plurals name="library_albums_count">
-        <item quantity="one">%1$d albums</item>
-        <item quantity="many">%1$d albums</item>
-        <item quantity="other">%1$d albums</item>
-    </plurals>
     <!-- Sort Options -->
     <string name="sort_name">Nom</string>
     <string name="sort_date_created">Date de création</string>
     <string name="sort_song_count">Nombre de chansons</string>
-    <string name="sort_title">Titre</string>
-    <string name="sort_artist">Artiste</string>
     <!-- Storage Permission -->
     <string name="storage_permission_required">Autorisation de stockage requise</string>
     <string name="storage_permission_desc">Pour parcourir vos fichiers musicaux et explorer le stockage de votre appareil, Rhythm a besoin d\'une autorisation pour accéder à vos fichiers et médias.</string>
@@ -456,8 +418,6 @@
     <string name="common_library">Bibliothèque</string>
     <!-- Splash/Loading -->
     <string name="splash_tagline">Votre musique, votre Rhythm</string>
-    <string name="splash_loading">Préparer votre bibliothèque musicale…</string>
-    <string name="splash_loading_streaming">Préparation de votre configuration de streaming…</string>
     <string name="splash_ready">Prêt à groover !</string>
     <!-- Audio Quality -->
     
@@ -482,8 +442,6 @@
     <string name="updates_cancel_download">Annuler le téléchargement</string>
     <string name="cancel_download">Annuler le téléchargement</string>
     <string name="download_update">Télécharger la mise à jour</string>
-    <string name="updates_smart_polling">Interrogation intelligente active</string>
-    <string name="updates_smart_polling_desc">Utilisation de vérifications HTTP efficaces pour détecter les mises à jour tout en minimisant les appels GitHub API. Vous recevrez des notifications instantanées lorsque de nouvelles versions seront publiées.</string>
     <string name="updates_channel_desc">Choisissez le canal de mise à jour à suivre :</string>
     <!-- Onboarding -->
     <string name="onboarding_welcome_to">Bienvenue à</string>
@@ -496,12 +454,10 @@
     <string name="onboarding_backup_desc">Protégez vos listes de lecture, paramètres et préférences grâce aux sauvegardes automatiques. Restaurez tout lorsque vous changez d\'appareil ou après une réinstallation - ne perdez jamais votre collection musicale.</string>
     <string name="onboarding_auto_backup">Sauvegarde automatique</string>
     <string name="onboarding_auto_backup_desc">Sauvegardez automatiquement vos paramètres chaque semaine</string>
-    <string name="onboarding_backup_center">Centre de sauvegarde et de restauration</string>
     <string name="onboarding_manual_backup_info">Vous pouvez créer manuellement des sauvegardes à tout moment dans Paramètres &gt; Sauvegarde et restauration</string>
     <string name="onboarding_what_backed_up">Qu\'est-ce qui est sauvegardé ?</string>
     <string name="onboarding_backed_up_1">Tous les paramètres, listes de lecture, thèmes et personnalisation de la bibliothèque</string>
     <string name="onboarding_backed_up_2">Restaurer à partir de fichiers ou du presse-papiers en un seul clic</string>
-    <string name="onboarding_backed_up_3">Sauvegardes stockées localement sur votre appareil pour des raisons de confidentialité</string>
     <string name="onboarding_audio_title">Expérience audio et de lecture</string>
     <string name="onboarding_audio_desc">Personnalisez votre expérience audio avec le retour haptique, l\'écran par défaut, les commandes de volume, le comportement de la file d\'attente, les paramètres de lecture aléatoire, l\'affichage des paroles et les paramètres de l\'égaliseur.</string>
     <string name="onboarding_lyrics_sources">API : paroles en ligne • Intégré : paroles de métadonnées • Local : fichiers .lrc</string>
@@ -510,34 +466,23 @@
     <string name="onboarding_sleep_timer_desc">Minuterie de mise en veille : arrêt automatique de la lecture après une durée définie (accès depuis l\'écran Lecture en cours)</string>
     <string name="onboarding_library_title">Organisez votre bibliothèque musicale</string>
     <string name="onboarding_library_desc">Personnalisez la façon dont vos albums, artistes et chansons sont affichés. Choisissez votre mise en page, votre ordre de tri et votre disposition des onglets préférés.</string>
-    <string name="onboarding_library_album_grid">Vue en grille de l\'album</string>
-    <string name="onboarding_library_album_grid_desc">Afficher les albums sous forme de grille pour une meilleure navigation visuelle</string>
-    <string name="onboarding_library_artist_grid">Vue Grille d\'artistes</string>
-    <string name="onboarding_library_artist_grid_desc">Afficher les artistes sous forme de grille avec des photos de profil</string>
-    <string name="onboarding_library_show_lyrics">Afficher les paroles</string>
-    <string name="onboarding_library_show_lyrics_desc">Afficher les paroles synchronisées sur l\'écran du lecteur</string>
     <string name="onboarding_library_how_works">Comment fonctionne l\'organisation de la bibliothèque</string>
     <string name="onboarding_library_1">Personnalisez l\'ordre des onglets dans la bibliothèque pour un accès rapide à vos favoris</string>
     <string name="onboarding_library_2">Créez et gérez des listes de lecture directement depuis l\'écran Bibliothèque</string>
-    <string name="onboarding_library_3">Options avancées d\'affichage et de tri disponibles dans Paramètres &gt; Paramètres de la bibliothèque</string>
-    <string name="onboarding_library_4">Les listes de lecture par défaut (récemment ajoutées, les plus jouées) peuvent être basculées dans Paramètres &gt; Listes de lecture</string>
     <string name="onboarding_theme_title">Faites vôtre Rhythm</string>
     <string name="onboarding_theme_desc">Personnalisez l\'apparence de Rhythm pour l\'adapter à votre style. Choisissez d\'où proviennent les couleurs, sélectionnez une palette de couleurs ou modifiez la police.</string>
     <string name="onboarding_more_tuner">Plus de personnalisation dans les paramètres</string>
     <string name="onboarding_tuner_1">Schémas de couleurs personnalisés et extraction des couleurs des pochettes d\'album</string>
     <string name="onboarding_tuner_2">Paramètres de personnalisation des polices et de typographie</string>
-    <string name="onboarding_tuner_3">Options de thème avancées disponibles dans Paramètres &gt; Personnalisation du thème</string>
     <string name="onboarding_rhythm_guard_title">Protégez votre audition</string>
     <string name="onboarding_rhythm_guard_desc">Configurez Rhythm Guard pour assurer une écoute plus sûre grâce à des paramètres par défaut tenant compte de l\'âge et des commandes de protection manuelles.</string>
     <string name="onboarding_rhythm_guard_mode_title">Rhythm Mode Garde</string>
     <string name="onboarding_rhythm_guard_age_hint">Le profil d\'âge aide Rhythm Guard à recommander des limites d\'écoute plus sûres.</string>
     <string name="onboarding_rhythm_guard_tip_1">Le mode automatique applique des valeurs par défaut plus sûres avec une configuration minimale.</string>
-    <string name="onboarding_rhythm_guard_tip_2">Vous pouvez régler les alertes et les rappels de pause plus tard dans Paramètres.</string>
     <string name="onboarding_rhythm_guard_tip_3">Le mode manuel vous donne un contrôle total sur les avertissements et les seuils.</string>
     <string name="onboarding_full_tour_prompt_title">Continuer la visite guidée complète de la configuration ?</string>
     <string name="onboarding_full_tour_prompt_desc">La configuration principale est terminée. Continuez pour une personnalisation avancée, ou terminez maintenant et explorez le reste plus tard à partir des paramètres.</string>
     <string name="onboarding_full_tour_prompt_tip_1">La visite complète comprend les options de lecture, de thème, de geste et d\'analyse multimédia.</string>
-    <string name="onboarding_full_tour_prompt_tip_2">Vous pouvez rouvrir la visite Rhythm à tout moment depuis À propos.</string>
     <string name="onboarding_full_tour_prompt_tip_3">Rien ici n’est permanent. Tous les choix peuvent être modifiés ultérieurement.</string>
     <string name="onboarding_continue_full_tour">Continuer la visite complète</string>
     <string name="onboarding_finish_now">Terminer la configuration maintenant</string>
@@ -547,21 +492,18 @@
     <string name="onboarding_media_scan_current_mode">Choisissez le mode Liste noire ou Liste blanche</string>
     <string name="onboarding_media_scan_blacklist">Mode liste noire : masquer des chansons et des dossiers spécifiques (sonneries, notifications)</string>
     <string name="onboarding_media_scan_whitelist">Mode liste blanche : afficher uniquement les chansons des dossiers sélectionnés</string>
-    <string name="onboarding_media_scan_configure_in_tuner">Configurer la numérisation dans Paramètres &gt; Analyse des médias</string>
     <string name="onboarding_complete_title">Vous êtes prêt !</string>
     <string name="onboarding_complete_desc">Rhythm est prêt à jouer ! Votre bibliothèque musicale est analysée en arrière-plan. Voici ce qui est configuré :</string>
     <string name="onboarding_whats_next">Quelle est la prochaine étape ?</string>
     <string name="onboarding_next_browse">Parcourez vos chansons, albums et artistes</string>
     <string name="onboarding_next_create">Créez votre première playlist</string>
     <string name="onboarding_next_finetune">Affinez l\'audio avec l\'égaliseur</string>
-    <string name="onboarding_next_explore">Explorez plus de paramètres à tout moment</string>
     <string name="onboarding_settings_change">Tous les paramètres peuvent être modifiés à tout moment dans Paramètres</string>
     <!-- Onboarding Navigation -->
     <string name="onboarding_back">Retour</string>
     <string name="onboarding_next">Suivant</string>
     <string name="onboarding_checking">Vérification…</string>
     <string name="onboarding_lets_go">Allons-y !</string>
-    <string name="onboarding_finish_setup">Terminer la configuration</string>
     <string name="onboarding_continue">Continuer</string>
     <string name="onboarding_open_settings">Ouvrir les paramètres</string>
     <string name="onboarding_grant_access">Accorder l\'accès</string>
@@ -584,7 +526,6 @@
     <string name="onboarding_permission_tips">Conseils d\'autorisation</string>
     <string name="onboarding_permission_tip_1">Accordez toutes les autorisations pour la meilleure expérience</string>
     <string name="onboarding_permission_tip_2">Vous pouvez modifier les autorisations ultérieurement dans Paramètres</string>
-    <string name="onboarding_permission_tip_3">Rhythm respecte votre vie privée et vos données</string>
     <!-- Onboarding Audio &amp; Playback -->
     <string name="onboarding_default_screen_title">Écran d\'accueil par défaut</string>
     <string name="onboarding_default_screen_desc">Choisissez quel écran s\'ouvre lorsque vous lancez Rhythm</string>
@@ -615,8 +556,6 @@
     <string name="onboarding_periodic_check_desc">Recherchez automatiquement les mises à jour du dépôt GitHub de Rhythm</string>
     <string name="onboarding_update_notifications_title">Notifications de mise à jour</string>
     <string name="onboarding_update_notifications_desc">Soyez averti lorsque de nouvelles versions sont disponibles</string>
-    <string name="onboarding_smart_polling_title">Sondage intelligent</string>
-    <string name="onboarding_smart_polling_desc">Utilisez des vérifications efficaces pour enregistrer les appels GitHub API</string>
     <string name="onboarding_check_interval_desc">À quelle fréquence vérifier les mises à jour</string>
     <string name="onboarding_update_channel_title">Mettre à jour la chaîne</string>
     <string name="onboarding_update_channel_desc">Versions stables ou bêta.</string>
@@ -640,12 +579,6 @@
     <string name="onboarding_dismiss">Rejeter</string>
     <string name="onboarding_retry">Réessayer</string>
     <!-- Onboarding: Notifications Step -->
-    <string name="onboarding_notifications_title">Notifications de lecture</string>
-    <string name="onboarding_notifications_desc">Contrôlez la manière dont Rhythm affiche la lecture de musique dans votre volet de notification. Choisissez entre des notifications de style personnalisé ou les commandes multimédias du système standard.</string>
-    <string name="onboarding_notifications_info_title">Fonctionnalités de notification</string>
-    <string name="onboarding_notification_tip_1">Voir les informations sur la piste actuelle en un coup d\'œil</string>
-    <string name="onboarding_notification_tip_2">Contrôler la lecture avec des actions rapides</string>
-    <string name="onboarding_notification_tip_3">Le style personnalisé correspond à votre thème</string>
     <!-- Onboarding: Gestures Step -->
     <string name="onboarding_gestures_title">Gestes tactiles</string>
     <string name="onboarding_gestures_desc">Naviguez plus rapidement dans votre bibliothèque musicale grâce à des gestes intuitifs de glissement et de frappe. Personnalisez les gestes pour les écrans du mini-lecteur et du lecteur complet.</string>
@@ -661,7 +594,6 @@
     <string name="onboarding_gesture_doubletap_desc">Appuyez deux fois sur la pochette de l\'album pour aimer la chanson actuelle</string>
     <string name="onboarding_gestures_tips_title">Conseils gestuels</string>
     <string name="onboarding_gesture_tip_1">Les gestes de balayage fonctionnent dans les deux sens</string>
-    <string name="onboarding_gesture_tip_2">Les balayages rapides répondent plus rapidement que les balayages lents</string>
     <!-- Onboarding: Widgets Step -->
     <string name="onboarding_widgets_title">Widgets de lancement</string>
     <string name="onboarding_widgets_desc">Ajoutez les widgets « Rhythm Cookie » et « Stats » à votre lanceur pour contrôler votre musique d\'un seul coup d\'œil. Choisissez la fonction associée à chaque coin du « Rhythm Cookie » et les statistiques que le widget affiche.</string>
@@ -687,8 +619,6 @@
     <string name="onboarding_stats_features_title">Fonctionnalités de statistiques</string>
     <string name="onboarding_stats_feature_1">Suivez la durée totale d\'écoute par jour, semaine ou mois</string>
     <string name="onboarding_stats_feature_2">Voir vos chansons les plus jouées</string>
-    <string name="onboarding_stats_feature_3">Découvrez vos meilleurs artistes</string>
-    <string name="onboarding_stats_feature_4">Explorez les modèles d\'écoute d\'albums</string>
     <!-- MiniPlayer Swipe Hints -->
     <string name="miniplayer_swipe_up_hint">↑ Joueur complet</string>
     <string name="miniplayer_swipe_down_hint">↓ Rejeter</string>
@@ -697,10 +627,6 @@
     <string name="miniplayer_no_song">Aucune chanson en cours de lecture</string>
     <string name="badge_live">EN DIRECT</string>
     <!-- Festive Greetings -->
-    <string name="festive_greeting_christmas">🎄Joyeux Noël ! 🎅</string>
-    <string name="festive_greeting_new_year">🎆 Bonne année ! 🎉</string>
-    <string name="festive_greeting_halloween">🎃 Joyeux Halloween ! 👻</string>
-    <string name="festive_greeting_valentines">💝Joyeuse Saint-Valentin ! 💕</string>
     <!-- Settings -->
     <string name="settings_tip_theme">Personnalisez votre thème avec des couleurs, des polices et des effets festifs</string>
     <string name="settings_tip_gestures">Contrôlez la lecture plus rapidement avec des glissements et des tapotements intuitifs, aucun menu supplémentaire n\'est nécessaire.</string>
@@ -776,7 +702,6 @@
     <string name="playback_lyrics_priority_desc">Sources des paroles, comportement et options d\'affichage</string>
     <string name="playback_settings">Paramètres de lecture</string>
     <!-- Components: Lyrics Editor -->
-    <string name="lyrics_placeholder">Entrez les paroles ici…\n\nVous pouvez utiliser le format LRC :\n[00:12.00] Première ligne\n[00:17.00] Deuxième ligne</string>
     <string name="lyrics_editor_title">Éditeur de paroles</string>
     <!-- Components: Song Info -->
     <string name="song_info_title">Informations sur la chanson</string>
@@ -794,7 +719,6 @@
     <string name="backup_all_settings_placeholder">Tous les paramètres, listes de lecture, thèmes et personnalisation de la bibliothèque</string>
     <string name="backup_restore_tap_placeholder">Restaurer à partir de fichiers ou du presse-papiers en un seul clic</string>
     <string name="backup_local_storage_placeholder">Sauvegardes stockées localement sur votre appareil pour des raisons de confidentialité</string>
-    <string name="library_reorder_tabs">Réorganiser les onglets pour personnaliser votre expérience de bibliothèque</string>
     <string name="external_services_desc">Choisissez les services en ligne utilisés par Rhythm pour les paroles, les photos d\'artistes et les pochettes d\'album animées. Désactivez ceux dont vous n\'avez pas besoin afin de réduire la consommation de données.</string>
     <string name="lyrics_source_priority_title">Priorité à la source des paroles</string>
     <string name="queue_action_title">Action de conflit de file d\'attente</string>
@@ -841,7 +765,6 @@
     <string name="virtualizer_desc">Élargir la scène sonore stéréo</string>
     <string name="strength">Force</string>
     <string name="open_equalizer_settings">Ouvrir les paramètres de l\'égaliseur</string>
-    <string name="system_equalizer">Égaliseur système</string>
     <string name="no_equalizer">Aucun égaliseur système trouvé</string>
     <string name="no_audio_ID">Aucun identifiant de session audio disponible</string>
     <!-- Sleep Timer -->
@@ -936,9 +859,6 @@
     <string name="settings_section_advanced">Avancé</string>
     <string name="settings_crash_log_history">Historique du journal des accidents</string>
     <string name="settings_crash_log_history_desc">Consulter, exporter et partager les rapports d\'erreur</string>
-    <string name="settings_experimental_features">Caractéristiques expérimentales</string>
-    <string name="settings_experimental_features_desc">Fonctionnalités de pointe</string>
-    <string name="settings_select_option">Paramètres Rhythm</string>
     <!-- Playlist Actions -->
     <string name="playlist_no_songs_available">Aucune chanson disponible</string>
     <string name="playlist_all_in_playlist">Toutes les chansons sont déjà dans cette playlist.</string>
@@ -998,7 +918,6 @@
     <string name="cd_export_playlists">Exporter des listes de lecture</string>
     <string name="cd_import_playlist">Importer une liste de lecture</string>
     <string name="cd_create_playlist">Créer une liste de lecture</string>
-    <string name="cd_current_location">Localisation actuelle</string>
     <string name="cd_song_info">Informations sur la chanson</string>
     <string name="cd_no_song_playing">Aucune chanson en cours de lecture</string>
     <string name="cd_show_actions">Afficher les actions</string>
@@ -1015,7 +934,6 @@
     <string name="cd_show_options">Afficher les options</string>
     <string name="cd_app_updates">Mises à jour de l\'application</string>
     <string name="cd_completed">Terminé</string>
-    <string name="cd_language">Langue</string>
     <string name="cd_add_selected_songs">Ajouter les chansons sélectionnées</string>
     <string name="cd_toggle_multi_select">Basculer la sélection multiple</string>
     <string name="cd_add_song">Ajouter une chanson</string>
@@ -1047,7 +965,6 @@
     <string name="bottomsheet_playback">Lecture</string>
     <string name="bottomsheet_no_device">Aucun appareil connecté</string>
     <!-- Bottom Sheet: Album -->
-    <string name="bottomsheet_sort_by">Trier par</string>
     <string name="bottomsheet_all_discs">Tous les disques</string>
     <string name="bottomsheet_disc_option">Disque %1$d</string>
     <!-- Bottom Sheet: Home Section Order -->
@@ -1093,13 +1010,6 @@
     <string name="service_rhythm_pulse_desc">Rappels d\'écoute amicaux et conseils de Rhythm</string>
     <string name="service_rhythm_guard_alerts_desc">Alertes de sécurité de Rhythm Guard</string>
     <string name="service_rhythm_guard_timers_desc">Rhythm Rappels de bris de garde et de délai d\'attente</string>
-    <string name="service_starting">Rhythm démarre.</string>
-    <string name="service_loading_settings">Rhythm charge vos paramètres.</string>
-    <string name="service_setup_components">Rhythm prépare les composants de base.</string>
-    <string name="service_initializing_player">Rhythm prépare la lecture.</string>
-    <string name="service_creating_controls">Rhythm crée des commandes de lecture.</string>
-    <string name="service_setup_media_session">Rhythm prépare la séance média.</string>
-    <string name="service_initializing_controller">Rhythm connecte le contrôleur multimédia.</string>
     <string name="service_ready">Rhythm est prêt.</string>
     <string name="service_init_failed">Rhythm n\'a pas pu démarrer. Veuillez rouvrir l\'application.</string>
     <!-- Crash Activity -->
@@ -1128,7 +1038,6 @@
     <string name="settings_ignore_mediastore_covers_desc">Préférez les illustrations intégrées à chaque fichier audio (anciennement Ignorer les couvertures MediaStore)</string>
     <string name="settings_lossless_artwork">Illustration sans perte</string>
     <string name="settings_lossless_artwork_desc">Afficher les illustrations de chansons intégrées en pleine résolution sans compression</string>
-    <string name="settings_song_artwork_restart_required">Le mode illustration a été modifié. Redémarrez l\'application pour vider les caches et exécuter une nouvelle analyse complète des médias avec les sources d\'illustrations mises à jour.</string>
     <string name="settings_artwork_cache_size">Taille du cache des illustrations</string>
     <string name="settings_artist_parsing">Artistes</string>
     <string name="settings_artist_parsing_desc">Comment les noms d\'artistes sont séparés et affichés</string>
@@ -1251,8 +1160,6 @@
     <!-- Gestures Settings -->
     
     <!-- Playlist Settings Toggle -->
-    <string name="playlist_ask_each_time">Demandez à chaque fois</string>
-    <string name="playlist_ask_each_time_desc">Demander à chaque fois qu\'un morceau est lu</string>
     <!-- About Multi-Artist Parsing -->
     
     <!-- Home Screen Greetings -->
@@ -1295,8 +1202,6 @@
     <!-- Additional UI strings -->
     
     <!-- Sort Orders -->
-    <string name="sort_duration_short_first">Durée (courte première)</string>
-    <string name="sort_duration_long_first">Durée (d\'abord longue)</string>
     <!-- Context Menu Actions -->
     <string name="action_play_next">Jouer ensuite</string>
     <string name="action_add_to_queue">Ajouter à la file d\'attente</string>
@@ -1324,10 +1229,7 @@
     <string name="home_section_new_releases">Nouveautés</string>
     <string name="home_section_one_visible">Au moins une section doit être visible</string>
     <!-- Library Tabs -->
-    <string name="library_tab_songs">Chansons</string>
     <string name="library_tab_playlists">Listes de lecture</string>
-    <string name="library_tab_albums">Albums</string>
-    <string name="library_tab_artists">Artistes</string>
     <string name="library_tab_one_visible">Au moins un onglet doit être visible</string>
     <string name="library_tab_order_reset">Ordre des onglets et visibilité réinitialisés par défaut</string>
     <string name="library_tab_order_saved">Ordre des onglets et visibilité enregistrés</string>
@@ -1388,7 +1290,6 @@
     <string name="settings_no_crash_logs">Aucun journal d\'erreur n\'a été trouvé. Bravo !</string>
     <string name="settings_player_controls">Contrôles du joueur</string>
     <string name="settings_player_screen">Écran du joueur</string>
-    <string name="settings_presets">Préréglages</string>
     <string name="settings_progress_display">Affichage de la progression</string>
     <string name="settings_progress_hidden">Progression masquée</string>
     <string name="settings_reorder_toggle_sections">Réorganiser et basculer les sections</string>
@@ -1434,7 +1335,6 @@
     <string name="settings_intensity">Intensité</string>
     <string name="settings_more_festivals">Plus de festivals seront ajoutés dans les futures mises à jour</string>
     <string name="settings_select_festival">Sélectionner un festival</string>
-    <string name="settings_select_artist_separators">Sélectionnez les séparateurs d\'artistes</string>
     <string name="settings_snowflake_display_area">Zone d\'affichage du flocon de neige</string>
     <string name="settings_snowflake_size">Taille du flocon de neige</string>
     <string name="settings_toggle_decoration_elements">Basculer les éléments de décoration individuels par position</string>
@@ -1575,7 +1475,6 @@
     <string name="streaming_selected">Sélectionné</string>
     <string name="streaming_connect">Connectez-vous</string>
     <string name="streaming_manage">Gérer</string>
-    <string name="streaming_manage_service">Gérer le service sélectionné</string>
     <string name="streaming_service_setup_server_url">URL du serveur</string>
     <string name="streaming_service_setup_server_url_hint">https://votre-serveur.exemple.com</string>
     <string name="streaming_service_setup_server_url_supporting">Obligatoire pour les fournisseurs qui ont besoin d\'une adresse de serveur.</string>
@@ -1593,20 +1492,11 @@
     <string name="streaming_service_setup_connected_as">Connecté en tant que %1$s</string>
     <string name="streaming_home_selected_service_unavailable">Le service sélectionné n\'est pas connecté</string>
     <string name="streaming_home_connect_selected_service">Connectez %1$s pour charger Accueil et Recherche.</string>
-    <string name="streaming_home_widget_recommended_empty">Rien à découvrir pour l\'instant</string>
-    <string name="streaming_home_widget_new_releases_title">Nouveautés</string>
     <string name="streaming_home_widget_new_releases_subtitle">Albums récemment ajoutés de %1$s</string>
-    <string name="streaming_home_widget_new_releases_empty">Aucune nouvelle version disponible</string>
     <string name="streaming_home_widget_empty_hint">Cela peut prendre un moment après la connexion ou l\'actualisation.</string>
     <string name="streaming_library_syncing">Chargement de votre flux de streaming…</string>
-    <string name="streaming_library_empty">Aucun contenu de bibliothèque pour l\'instant</string>
     <string name="streaming_home_no_content_title">Pas encore de contenu d\'accueil</string>
     <string name="streaming_home_no_content_hint">Essayez d\'actualiser une fois la synchronisation de votre service terminée.</string>
-    <plurals name="streaming_home_widget_playlist_track_count">
-        <item quantity="one">%1$d pistes</item>
-        <item quantity="many">%1$d pistes</item>
-        <item quantity="other">%1$d pistes</item>
-    </plurals>
     <string name="streaming_home_guard_break_active">Pause active : %1$s restant</string>
     <string name="streaming_home_guard_exposure">Aujourd\'hui : %1$d / %2$d min</string>
     <string name="streaming_not_selected">Non sélectionné</string>
@@ -1630,10 +1520,6 @@
     <string name="settings_tab_artists">Artistes</string>
     <string name="settings_tab_dates">Dates</string>
     <string name="settings_tab_explorer">Explorateur</string>
-    <string name="settings_tab_order_reset">Ordre de tabulation réinitialisé par défaut</string>
-    <string name="settings_tab_order_saved">Ordre de tabulation enregistré</string>
-    <string name="settings_move_up">Monter</string>
-    <string name="settings_move_down">Descendre</string>
     <!-- Gestures Settings -->
     <string name="settings_swipe_gestures">Gestes de balayage</string>
     <string name="settings_swipe_gestures_desc">Faites glisser votre doigt vers le haut/bas pour ouvrir/fermer, gauche/droite pour sauter des pistes</string>
@@ -1709,7 +1595,6 @@
     <string name="settings_festival_christmas">Noël</string>
     <string name="settings_festival_new_year">Nouvel An</string>
     <string name="settings_area_full">Plein</string>
-    <string name="settings_area_sides">Côtés</string>
     <string name="settings_area_top_third">⅓ supérieur</string>
     <string name="settings_snowfall">Chutes de neige</string>
     <string name="settings_snowfall_desc">Flocons de neige animés qui tombent</string>
@@ -1755,10 +1640,6 @@
     <string name="settings_gesture_double_tap">Illustration en appuyant deux fois</string>
     <string name="settings_gesture_double_tap_desc">Appuyez deux fois sur lecture/pause</string>
     <!-- Queue & Playback Search Strings -->
-    <string name="settings_queue_auto_add">File d\'attente contextuelle</string>
-    <string name="settings_queue_auto_add_desc">Créer une file d\'attente associée lors de la lecture</string>
-    <string name="settings_queue_clear_on_new">Remplacer la file d\'attente lors de la lecture</string>
-    <string name="settings_queue_clear_on_new_desc">Remplacer la file d\'attente pour la lecture directe</string>
     <string name="settings_show_played_queue_songs">Afficher les pistes écoutées</string>
     <string name="settings_show_played_queue_songs_desc">Garder les pistes écoutées visibles dans la file d\'attente</string>
     <string name="settings_queue_action_dialog_desc">Politique de conflit de file d\'attente à piste unique</string>
@@ -1772,9 +1653,6 @@
     <string name="settings_sleep_timer_search_desc">Arrêt automatique de la lecture</string>
     <string name="settings_queue_hours_format">Utiliser les heures au format heure</string>
     <string name="settings_queue_hours_format_desc">Heures au format heure</string>
-    <string name="settings_queue_persistence">Persister la file d\'attente</string>
-    <string name="settings_queue_persistence_desc">Restaurer la file d\'attente au démarrage</string>
-    <string name="settings_list_queue_action_dialog_desc">Comportement des actions de lecture de liste lorsque la file d\'attente est active</string>
     <!-- Experimental Features Search Strings -->
     <string name="settings_exp_festive_theme">Thème festif</string>
     <string name="settings_exp_festive_theme_desc">Décorations festives</string>
@@ -1786,8 +1664,6 @@
     <string name="settings_exp_codec_monitoring_desc">Enregistrer les informations relatives au codec et au format audio à des fins de débogage</string>
     <string name="settings_exp_audio_device_logging">Journalisation des périphériques audio</string>
     <string name="settings_exp_audio_device_logging_desc">Enregistrer les changements de périphérique audio (Bluetooth, écouteurs, etc.)</string>
-    <string name="settings_exp_launch_onboarding">Lancer la visite Rhythm</string>
-    <string name="settings_exp_launch_onboarding_desc">Réinitialiser et relancer l\'expérience Rhythm Tour</string>
     <string name="settings_exp_test_crash">Test de crash</string>
     <string name="settings_exp_test_crash_desc">Provoquer un plantage de l\'application pour tester la gestion des plantages et la génération de rapports</string>
     <string name="settings_broadcast_status_enabled">Activer la diffusion d\'état</string>
@@ -1909,13 +1785,10 @@
     <string name="exp_codec_monitoring">Surveillance des codecs</string>
     <string name="exp_codec_monitoring_desc">Enregistrer les informations sur le codec audio et le format pour le débogage</string>
     <string name="exp_developer_debugging">Développeur et débogage</string>
-    <string name="exp_launch_onboarding">Lancer la visite Rhythm</string>
-    <string name="exp_launch_onboarding_desc">Réinitialiser et relancer l\'expérience Rhythm Tour</string>
     <string name="exp_test_crash">Test de crash</string>
     <string name="exp_test_crash_desc">Forcer le crash de l\'application pour tester la gestion et le reporting des crashs</string>
     <string name="exp_force_player_compact_mode">Mode compact du joueur forcé</string>
     <string name="exp_force_player_compact_mode_desc">Forcer l\'écran du lecteur à utiliser le mode compact</string>
-    <string name="exp_third_party_integrations">Intégrations tierces</string>
     <string name="settings_backup_created">Sauvegarde créée avec succès</string>
     <string name="settings_backup_settings">Paramètres</string>
     <string name="settings_center_aligned">Aligné au centre</string>
@@ -1923,12 +1796,10 @@
     <string name="settings_create_backup_desc">Exporter la sauvegarde complète vers un fichier JSON</string>
     <string name="settings_backup_action_short">Sauvegarde</string>
     <string name="settings_restore_action_short">Restaurer</string>
-    <string name="settings_experimental">Caractéristiques expérimentales</string>
     <string name="settings_left_aligned">Aligné à gauche</string>
     <string name="settings_player">Joueur</string>
     <string name="settings_restore_completed">Restauration terminée avec succès</string>
     <string name="settings_right_aligned">Aligné à droite</string>
-    <string name="settings_tab_order">Ordre des onglets de la bibliothèque</string>
     <!-- Theme, CrashLog, Home, Lyrics, Shapes, API Strings -->
     <string name="settings_crash_log">Historique du journal des accidents</string>
     <string name="settings_expressive_shapes">Formes expressives</string>
@@ -1977,8 +1848,6 @@
     <string name="deviceconfigurationbottomsheet_brand_optional">Marque (facultatif)</string>
     <string name="deviceconfigurationbottomsheet_eg_sony">par exemple, Sony</string>
     <string name="deviceconfigurationbottomsheet_select_autoeq_profile">Sélectionnez le profil AutoEQ</string>
-    <string name="deviceconfigurationbottomsheet_find_a_profile_for">Rechercher un profil pour cet appareil…</string>
-    <string name="deviceconfigurationbottomsheet_no_matching_profiles_found">Aucun profil correspondant trouvé</string>
     <string name="multiselectionbottomsheet_go_to_album">Aller à l\'album</string>
     <string name="multiselectionbottomsheet_go_to_artist">Aller à l\'artiste</string>
     <string name="multiselectionbottomsheet_edit_tags">Modifier les balises</string>
@@ -1996,11 +1865,7 @@
     <string name="localnavigation_stats">Statistiques</string>
     <string name="addtoplaylistscreen_pick_a_tune_to">Choisissez une mélodie à ajouter…</string>
     <string name="addtoplaylistscreen_tap_songs_to_select">Appuyez sur des chansons pour en sélectionner plusieurs, puis ajoutez-les toutes en même temps</string>
-    <string name="equalizerscreen_reset_to_flat">Réinitialisation à plat</string>
     <string name="equalizerscreen_autoeq_profiles">Profils d\'égalisation automatique</string>
-    <string name="equalizerscreen_apply_headphonespecific_equalization">Appliquer une égalisation spécifique au casque</string>
-    <string name="equalizerscreen_import_export_and_organize">Importer, exporter et organiser des profils</string>
-    <string name="equalizerscreen_access_androids_builtin_settings">Accédez aux paramètres intégrés de Android</string>
     <string name="explorertabcontent_browse_storage">Parcourir le stockage</string>
     <string name="explorertabcontent_folder_icon">Icône de dossier</string>
     <string name="explorertabcontent_play_folder_as_playlist">Lire le dossier (comme liste de lecture)</string>
@@ -2014,22 +1879,12 @@
     <string name="onboardingscreen_tap_the_remove_action">Appuyez sur l\'action de suppression pour mettre à jour l\'accès au dossier</string>
     <string name="onboardingscreen_interaction">Interactions</string>
     <string name="onboardingscreen_choose_your_playback_mode">Choisissez votre mode de lecture</string>
-    <string name="onboardingscreen_local_offline_player">Lecteur local hors ligne</string>
-    <string name="onboardingscreen_play_audio_files_stored">Lisez des fichiers audio stockés directement sur votre appareil. Prend en charge l\'analyse avancée du répertoire local, les statistiques et la correspondance de thèmes.</string>
-    <string name="onboardingscreen_rhythm_go_streaming">Rhythm GO ! (Diffusion en continu)</string>
-    <string name="onboardingscreen_connect_to_jellyfin_subsonic">Connectez-vous aux serveurs Jellyfin, Subsonic ou Navidrome pour diffuser l\'intégralité de votre bibliothèque en déplacement, avec prise en charge de la mise en cache pour une écoute hors ligne.</string>
     <string name="onboardingscreen_playback_mode_tips">Conseils sur le mode de lecture</string>
-    <string name="onboardingscreen_switch_easily_anytime_in">Basculez facilement à tout moment dans Paramètres &gt; Intégration.</string>
     <string name="onboardingscreen_local_mode_scans_and">Le mode local analyse et catalogue les fichiers audio sur votre appareil.</string>
     <string name="onboardingscreen_go_streaming_connects_via">GO Streaming se connecte via le serveur subsonic/jellyfin API.</string>
-    <string name="onboardingscreen_connect_your_streaming_service">Connectez votre service de streaming</string>
-    <string name="onboardingscreen_connect_your_subsonicnavidrome_or">Connectez votre serveur Subsonic/Navidrome ou Jellyfin pour démarrer la diffusion.</string>
     <string name="onboardingscreen_streaming_setup_tips">Conseils de configuration du streaming</string>
-    <string name="onboardingscreen_supports_navidrome_gonic_and">Prend en charge Navidrome, gonic et toutes les API subsoniques.</string>
-    <string name="onboardingscreen_enable_caching_in_settings">Activez la mise en cache dans les paramètres pour une lecture hors ligne ultérieure.</string>
     <string name="onboardingscreen_connection_test_ensures_server">Le test de connexion garantit que les informations d\'identification du serveur sont correctes.</string>
     <string name="onboardingscreen_subsonic_navidrome">Subsonic/Navidrome</string>
-    <string name="onboardingscreen_jellyfin_server">Serveur Jellyfin</string>
     <string name="onboardingscreen_httpsyourservercom">https://votre-serveur.com</string>
     <string name="onboardingscreen_remember_to_include_http">N\'oubliez pas d\'inclure http:// ou https://</string>
     <string name="onboardingscreen_username">Nom d\'utilisateur</string>
@@ -2047,11 +1902,7 @@
     <string name="gosettingsscreen_network">Réseau</string>
     <string name="gosettingsscreen_enable_streaming_over_mobile">Activer le streaming sur les données mobiles</string>
     <string name="gosettingsscreen_connection_is_healthy">La connexion est saine</string>
-    <string name="streamingcontenthomescreen_your_connected_streaming_service">Vos playlists de services de streaming connectés</string>
-    <string name="streamingcontenthomescreen_no_playlists_found">Aucune liste de lecture trouvée</string>
-    <string name="streamingcontenthomescreen_create_playlists_on_your">Créez des playlists sur votre serveur pour les voir ici.</string>
     <string name="streaminghomescreen_leave_go_mode">Quitter le mode « Go »</string>
-    <string name="streaminglibraryscreen_no_albums">Aucun album</string>
     <string name="streamingsettingsscreen_streaming_restricted">Diffusion restreinte</string>
     <string name="streamingmusicviewmodel_failed_to_play_next">Échec de la lecture suivante : impossible de résoudre l\'URL</string>
     <string name="streamingmusicviewmodel_failed_to_add_to">Échec de l\'ajout à la file d\'attente : impossible de résoudre l\'URL</string>
@@ -2075,18 +1926,13 @@
     <string name="songinfobottomsheet_song_artwork">Illustration de la chanson</string>
     <string name="songinfobottomsheet_details">Détails</string>
     <string name="songinfobottomsheet_change_artwork">Changer l\'illustration</string>
-    <string name="songinfobottomsheet_remove_artwork">Supprimer l\'illustration</string>
     <string name="songinfobottomsheet_artwork_fetched_successfully_click">Oeuvre récupérée avec succès ! Cliquez sur Enregistrer pour intégrer.</string>
     <string name="songinfobottomsheet_failed_to_download_artwork_1">Échec du téléchargement de l\'illustration à partir de l\'URL</string>
     <string name="songinfobottomsheet_no_artwork_found_for">Aucune illustration trouvée pour cette chanson en ligne</string>
-    <string name="songinfobottomsheet_online_search_failed">Échec de la recherche en ligne</string>
     <string name="songinfobottomsheet_online_api_service_unavailable">Service en ligne API indisponible</string>
     <string name="songinfobottomsheet_fetching">Récupération…</string>
     <string name="songinfobottomsheet_fetch_online_art">Récupérer des œuvres d\'art en ligne</string>
     <string name="songinfobottomsheet_update_artwork_and_tags">Mettre à jour les illustrations et les balises</string>
-    <string name="songinfobottomsheet_fetching_artwork">Récupération des illustrations…</string>
-    <string name="updatebottomsheet_install">Installer</string>
-    <string name="updatebottomsheet_update">Mise à jour</string>
     <string name="collapsibleheader_app_icon">Icône de l\'application</string>
     <string name="expressivecomponents_seek_back">Rechercher en arrière</string>
     <string name="expressivecomponents_seek_forward">Rechercher en avant</string>
@@ -2123,7 +1969,6 @@
     <string name="rhythmnavigation_stream">Flux</string>
     <string name="rhythmstatsscreen_top_songs">Meilleures chansons</string>
     <string name="rhythmstatsscreen_listening_habits">Habitudes d\'écoute</string>
-    <string name="rhythmstatsscreen_listening_timeline">Chronologie d\'écoute</string>
     <string name="rhythmstatsscreen_no_stats_available_yet">Aucune statistique disponible pour l\'instant</string>
     <string name="rhythmstatsscreen_keep_listening_to_build">Continuez à écouter pour construire votre voyage musical !</string>
     <string name="universalsearchscreen_remove_search">Supprimer la recherche</string>
@@ -2136,7 +1981,6 @@
     <string name="universalsearchscreen_artist_not_found">Artiste introuvable</string>
     <string name="expressiveplayerscreen_more">Plus</string>
     <string name="expressiveplayerscreen_device">Appareil</string>
-    <string name="expressiveplayerscreen_load">Charger</string>
     <string name="materialplayerscreen_permission_denied_could_not">Autorisation refusée. Impossible d\'intégrer les paroles.</string>
     <string name="materialplayerscreen_unable_to_share_file">Impossible de partager le fichier</string>
     <string name="playerscreen_select_artist">Sélectionner un artiste</string>
@@ -2248,7 +2092,6 @@
     <string name="lyrics_settings">Paramètres des paroles</string>
     <string name="error_loading_lyrics">Erreur lors du chargement des paroles : %1$s</string>
     <string name="error_saving_lyrics">Erreur lors de l\'enregistrement des paroles : %1$s</string>
-    <string name="song_metadata_details">%1$s\nArtiste : %2$s\nAlbum : %3$s</string>
     <string name="crash_log_title">Crashé le : %1$s</string>
     <string name="widget_settings_radius_desc">%1$ddp (Glance widgets uniquement)</string>
     <string name="equalizer_open_error">Impossible d\'ouvrir l\'égaliseur : %1$s</string>
@@ -2320,8 +2163,6 @@
     <string name="lyrics_source_embedded_first_desc">Essayez les métadonnées des fichiers audio → API en ligne → fichiers .lrc</string>
     <string name="lyrics_source_api_first">API Premier</string>
     <string name="lyrics_source_api_first_desc">Essayez les services en ligne → Métadonnées audio → Fichiers .lrc</string>
-    <string name="lyrics_source_local_first">.lrc local en premier</string>
-    <string name="lyrics_source_local_first_desc">Essayez les fichiers .lrc → Métadonnées audio → API en ligne</string>
     <!-- Font / Color Customization Dialogs -->
     <string name="theme_font_source_changed_restart">La source de la police a été modifiée. Redémarrez l\'application pour appliquer la nouvelle police.</string>
     <string name="color_source_album_art">Pochette d\'album</string>
@@ -2409,11 +2250,6 @@
     <string name="autoeqpresetpickerbottomsheet_disable">Aucun / Désactiver AutoEQ</string>
     <string name="autoeqpresetpickerbottomsheet_disable_desc">Effacer le profil du casque, utiliser les préréglages d\'égalisation standard</string>
     <!-- Device Configuration additions -->
-    <plurals name="device_configuration_devices_configured">
-        <item quantity="one">%1$d appareils configurés</item>
-        <item quantity="many">%1$d appareils configurés</item>
-        <item quantity="other">%1$d appareils configurés</item>
-    </plurals>
     <string name="device_configuration_device_recognized">Appareil reconnu</string>
     <string name="device_configuration_new_device_detected">Nouveau périphérique détecté</string>
     <string name="device_configuration_configured_with">%1$s est configuré avec %2$s</string>
@@ -2433,14 +2269,8 @@
     <string name="device_configuration_save">Enregistrer</string>
     <string name="device_configuration_add">Ajouter</string>
     <string name="device_configuration_for_device">Pour %1$s</string>
-    <plurals name="device_configuration_profiles_available">
-        <item quantity="one">%1$d profils disponibles</item>
-        <item quantity="many">%1$d profils disponibles</item>
-        <item quantity="other">%1$d profils disponibles</item>
-    </plurals>
     <string name="device_configuration_disable_compensation">Désactiver la compensation du casque</string>
     <!-- Common UI element strings -->
-    <string name="common_none">Aucun</string>
     <string name="common_back">Retour</string>
     <string name="common_active">Actif</string>
     <string name="common_disabled">Désactivé</string>
@@ -2462,8 +2292,6 @@
     <string name="blacklist_add_folder_desc">Toutes les chansons de ce dossier seront masquées et exclues de la lecture.</string>
     <string name="blacklist_folder_removed_msg">Dossier supprimé de la liste noire</string>
     <string name="blacklist_folder_added_msg">Dossier ajouté à la liste noire</string>
-    <string name="blacklist_disc_label">Disque %1$d</string>
-    <string name="blacklist_track_label">Piste %1$d</string>
     <!-- Library & Playlist Dialog additions -->
     <string name="dialog_add_song_to_playlist">Ajoutez \"%1$s\" à cette liste de lecture</string>
     <plurals name="dialog_songs_in_queue">
@@ -2508,7 +2336,6 @@
     <string name="eq_preset_v_shape">Forme en V</string>
     <string name="eq_preset_harman">Harman</string>
     <string name="eq_preset_custom">Personnalisé</string>
-    <string name="eq_manage_device">Gérer l\'appareil</string>
     <string name="eq_system_equalizer">Égaliseur système</string>
     <string name="eq_enhance_lows">Améliorer les basses</string>
     <string name="eq_widen_sound">Élargir le son</string>
@@ -2524,7 +2351,6 @@
     <string name="library_scan_songs">Balayage des chansons…</string>
     <string name="library_scan_media">Numérisation des médias…</string>
     <string name="library_category_all">Tous</string>
-    <string name="library_category_favorites">❤️ Favoris</string>
     <string name="library_category_short">Court (&lt; 3 min)</string>
     <string name="library_category_medium">Moyen (3–5 minutes)</string>
     <string name="library_category_long">Longue (&gt; 5 min)</string>
@@ -2745,7 +2571,6 @@
     <string name="lyrics_source_attribution">Paroles de %1$s</string>
     <string name="lyrics_currently_no_lyrics">Actuellement, aucune parole n\'est disponible pour cette chanson.\n</string>
     <string name="lyrics_no_lyrics">Aucune parole disponible pour cette chanson.</string>
-    <string name="artist_options">Options d\'artiste</string>
     <string name="edit_album_title_label">Titre de l\'album</string>
     <string name="edit_album_artist_label">Artiste de l\'album</string>
     <plurals name="autoeq_profiles_available">
@@ -2765,8 +2590,6 @@
     <string name="updates_channel_stable_desc">Ne recevez que les versions stables officielles.</string>
     <string name="updates_channel_beta_desc">Recevez les versions préliminaires et les versions candidates.</string>
     <string name="updates_channel_nightly_desc">Recevez les versions « nightly » à la pointe de la technologie, compilées à partir de la branche principale.</string>
-    <string name="lyrically_sources_title">Sources des paroles</string>
-    <string name="lyrically_sources_desc">Configurez et hiérarchisez les sources de paroles dans Lyrically. Les sources « mot à mot » seront essayées en premier, puis on passera aux sources synchronisées ou simples.</string>
     <string name="error_no_document_app">Aucun sélecteur de documents système n\'a été trouvé pour sélectionner un dossier.</string>
     <string name="settings_rhythm_guard_first_break_dialog_title">À propos des pauses d\'écoute</string>
     <string name="settings_rhythm_guard_first_break_dialog_message">Rhythm Guard programme des pauses d\'écoute pour protéger votre audition lorsque les limites d\'exposition quotidiennes sont atteintes. Une pause interrompt la lecture et verrouille les commandes afin de garantir à vos oreilles un repos adéquat.\n\nPour cette première pause, vous pouvez choisir de désactiver Rhythm Guard. Cependant, lors des pauses suivantes, vous ne pourrez pas désactiver Rhythm Guard avant la fin de la pause. Vous pouvez à tout moment le désactiver ou modifier ses paramètres en dehors des pauses actives.</string>
@@ -2805,7 +2628,6 @@
     <string name="settings_thumb_rotate_desc">Faites tourner lentement votre pouce pendant que la musique joue</string>
     <string name="about_copy_system_info">Copier les informations système</string>
     <string name="about_copy_system_info_desc">Copier toutes les informations relatives à la version et au matériel dans le presse-papiers</string>
-    <string name="cd_copy">Copier</string>
     <string name="widget_tip_cookie_corners">Choisissez l\'action associée aux coins inférieurs du widget « cookie » : passer, lire en aléatoire, répéter, ajouter aux favoris ou les masquer</string>
     <string name="widget_tip_stats_widget">Choisissez la période et le badge en bas d\'écran affichés par le widget de statistiques</string>
     <string name="widget_tip_resize_settings">Appuyez longuement sur un widget pour le redimensionner ou ouvrir ses paramètres</string>
@@ -2819,10 +2641,7 @@
     <string name="settings_allowed_formats">Formats autorisés</string>
     <string name="settings_allowed_formats_desc">%1$d formats sur %2$d sont activés</string>
     <string name="settings_allowed_formats_open_desc">Sélectionnez les types de fichiers audio à analyser pour les ajouter à votre bibliothèque. Les modifications entraînent une nouvelle analyse complète lors du prochain démarrage.</string>
-    <string name="settings_formats_select_all">Tout sélectionner</string>
-    <string name="settings_formats_select_none">Sélectionner « Aucun »</string>
     <string name="settings_formats_at_least_one">Au moins un format doit rester activé</string>
-    <string name="settings_formats_restore_defaults">Rétablir les paramètres par défaut</string>
     <string name="settings_formats_video_note">Les formats MP4 et MKV sont désactivés par défaut ; activez-les pour inclure les pistes audio des fichiers vidéo.</string>
     <string name="settings_formats_group_common">Courant</string>
     <string name="settings_formats_group_lossless">Sans perte &amp; Haute résolution</string>
@@ -2833,7 +2652,6 @@
     <string name="default_playback_speed_desc">Vitesse personnalisée à appliquer automatiquement aux nouveaux titres</string>
     <string name="use_default_playback_speed">Utiliser la vitesse par défaut pour les nouveaux titres</string>
     <string name="use_default_playback_speed_desc">Toujours lancer les nouveaux morceaux à la vitesse de lecture par défaut, au lieu de conserver la dernière vitesse utilisée</string>
-    <string name="set_as_default_speed">Définir comme vitesse par défaut</string>
     <string name="onboarding_integration_betterlyrics">De meilleures paroles</string>
     <string name="playlist_no_songs_yet_desc">Commencez à créer votre playlist en ajoutant quelques morceaux</string>
     <string name="playlist_search_no_matches_desc">Essayez une autre requête de recherche</string>
@@ -2928,10 +2746,8 @@
     <string name="player_ambient_intensity_desc">Gère la transparence des cartes</string>
     <string name="player_ambient_intensity_requires_ambient">Activez d\'abord l\'arrière-plan ambiant</string>
     <string name="status_enabled">Activé</string>
-    <string name="action_unfavorite">Retirer des favoris</string>
     <string name="action_edit_lyrics">Modifier les paroles</string>
     <string name="action_add_lyrics">Ajouter les paroles</string>
-    <string name="extrasheet_saved">Enregistré</string>
     <string name="extrasheet_has_lyrics">Contient les paroles</string>
     <string name="extrasheet_share_file">Partager un fichier</string>
     <string name="content_desc_edit_image">Modifier l\'image</string>
@@ -2960,8 +2776,6 @@
     <string name="licenses_desc_media3_exoplayer">Bibliothèque moderne de lecture multimédia pour Android</string>
     <string name="licenses_desc_kotlin_coroutines">Framework de programmation asynchrone pour Kotlin</string>
     <string name="licenses_desc_coil">Bibliothèque de chargement d\'images pour Android s\'appuyant sur les coroutines Kotlin</string>
-    <string name="settings_use_exact_artwork_colors">Utilisez les couleurs exactes des illustrations</string>
-    <string name="settings_use_exact_artwork_colors_desc">Utiliser les couleurs exactes de l\'arrière-plan et du texte telles qu\'elles apparaissent dans le visuel</string>
     <string name="settings_player_thumb_style_desc">Choisissez la forme du curseur de la barre de recherche (cercle, carré, pilule, losange, fleur, cœur…)</string>
     <string name="settings_gesture_disable_unused_desc">Désactivez les gestes que vous n\'utilisez jamais</string>
     <string name="player_ambient_motion_zoom_desc">Effectuer un zoom progressif et animer en continu les illustrations d\'ambiance</string>
