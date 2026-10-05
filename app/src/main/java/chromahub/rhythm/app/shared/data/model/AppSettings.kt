@@ -519,6 +519,7 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_SYNC_SPEED_AND_PITCH = "sync_speed_and_pitch"
         private const val KEY_USE_HOURS_IN_TIME_FORMAT = "use_hours_in_time_format"
         private const val KEY_SHOW_REMAINING_TIME = "show_remaining_time"
+        private const val KEY_USE_EXACT_ARTWORK_COLORS = "use_exact_artwork_colors"
         private const val KEY_EXPRESSIVE_COLORS = "expressive_colors"
         private const val KEY_THEME_INTENSITY = "theme_intensity"
         private const val KEY_STOP_PLAYBACK_ON_APP_CLOSE = "stop_playback_on_app_close"

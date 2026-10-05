@@ -343,7 +343,11 @@ fun LabsSettingsScreen(
                             context.getString(R.string.bluetooth_lyrics_tuning_title),
                             context.getString(
                                 R.string.bluetooth_lyrics_tuning_summary,
-                                formatBluetoothLyricsOffsetValue(bluetoothLyricsOffsetMs),
+                                formatBluetoothLyricsOffsetValue(
+                                    currentBtDisplayDevice?.let {
+                                        chromahub.rhythm.app.util.bluetoothDisplayProfileValue(it, offsetProfiles, bluetoothLyricsOffsetMs)
+                                    } ?: 0
+                                ),
                                 bluetoothLyricsMaxChunkChars,
                                 bluetoothLyricsScrollCharsPerSecond,
                                 bluetoothLyricsMetadataUpdateIntervalMs

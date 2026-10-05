@@ -2075,10 +2075,9 @@ fun UniversalAllSongsPage(
     }
 }
 
-@Composable
-private fun UniversalGenreBrowseSection(
-    genres: List<String>,
-    genreSongCounts: Map<String, Int>,
+private fun LazyListScope.universalGenreBrowseItems(
+    genreSummaries: List<GenreUtils.Summary>,
+    columnsCount: Int,
     isGenreDetectionComplete: Boolean,
     onGenreClick: (String) -> Unit
 ) {

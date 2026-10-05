@@ -3168,4 +3168,6 @@
     <string name="settings_continue_with_device_library_desc">Quando as músicas selecionadas terminarem, continue com músicas deste dispositivo. As opções de repetição e ordem aleatória são respeitadas. Desativar mantém as músicas já enfileiradas.</string>
     <string name="queue_library_continuation">Continuação da biblioteca do dispositivo</string>
     <string name="bluetooth_display_connect_to_configure">Conecte um dispositivo Bluetooth para configurar a compatibilidade do visor.</string>
+    <string name="service_starting">Rhythm está começando.</string>
+    <string name="exp_third_party_integrations">Integrações de terceiros</string>
     </resources>

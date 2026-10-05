@@ -201,6 +201,10 @@ fun LibrarySettingsScreen(onBackClick: () -> Unit) {
         }
     }
 
+    var showRestartDialog by remember { mutableStateOf(false) }
+    var restartRequiresArtworkRescan by remember { mutableStateOf(false) }
+    var restartDialogMessage by remember { mutableStateOf(context.getString(R.string.settings_song_artwork_restart_required)) }
+
     var showLibraryTabOrderBottomSheet by remember { mutableStateOf(false) }
     var showArtistArtworkSourceBottomSheet by remember { mutableStateOf(false) }
 

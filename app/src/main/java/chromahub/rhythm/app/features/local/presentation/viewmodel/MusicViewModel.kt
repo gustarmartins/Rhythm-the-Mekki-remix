@@ -71,6 +71,7 @@ import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.ColorExtractor
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -2002,7 +2003,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 val currentPosition = controller?.currentPosition ?: 0L
                 appSettings.setSavedPlaybackPosition(currentPosition)
 
-                Log.d(TAG, "Saved queue: ${songIds.size} songs, index: $savedIndex (nativeShuffleActive=$isNativeShuffleActive), position: ${currentPosition}ms")
+                Log.d(TAG, "Saved queue: ${songIds.size} songs, index: $savedIndex (nativeShuffleActive=${controller?.shuffleModeEnabled == true}), position: ${currentPosition}ms")
             } else {
                 // Clear saved queue if current queue is empty
                 appSettings.clearSavedQueue()

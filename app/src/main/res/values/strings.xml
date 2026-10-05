@@ -2952,4 +2952,6 @@
     <string name="settings_continue_with_device_library_desc">When the selected songs finish, continue with music from this device. Repeat and shuffle choices are respected. Turning this off keeps songs already queued.</string>
     <string name="queue_library_continuation">Device library continuation</string>
     <string name="bluetooth_display_connect_to_configure">Connect a Bluetooth device to configure its display compatibility.</string>
+    <string name="service_starting">Rhythm is starting.</string>
+    <string name="exp_third_party_integrations">Third-Party Integrations</string>
     </resources>
