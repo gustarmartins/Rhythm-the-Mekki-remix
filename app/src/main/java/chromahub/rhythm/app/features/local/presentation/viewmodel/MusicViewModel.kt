@@ -1983,7 +1983,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      * Save the current queue to persistence
      */
     private fun saveQueueToPersistence() {
-        if (mediaController?.mediaItemCount == 1 && isBluetoothLyricsLegacyCarModeActive()) return
+        // The route can change before the one-item compatibility timeline is restored.
+        // Defer to the service while its logical queue marker is still present.
+        if (mediaController?.mediaItemCount == 1 &&
+            (isBluetoothLyricsLegacyCarModeActive() || mediaController?.currentMediaItem
+                ?.mediaMetadata?.extras?.containsKey(PlayNextCommand.CURRENT_INDEX) == true)) return
         try {
             // Check if queue persistence is enabled or if queue is actively being restored
             if (!appSettings.queuePersistenceEnabled.value || isRestoringQueue) {

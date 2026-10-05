@@ -116,7 +116,7 @@ interface RhythmLyricsApiService {
         @Query("v") version: Int = 2
     ): JsonElement
 
-    // Current Apple endpoint uses its typed response without the legacy version parameter.
+    // Keep supplemental translation/romanization metadata from the current endpoint.
     @GET("apple-music/lyrics")
-    suspend fun getAppleMusicLyricsTyped(@Query("id") id: String): RhythmLyricsResponse
+    suspend fun getAppleMusicLyricsCurrent(@Query("id") id: String): JsonElement
 }

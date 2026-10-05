@@ -5188,9 +5188,9 @@ class MusicRepository(context: Context) {
 
                 bestTrack?.let { track ->
                     try {
-                        val response = apiService.getAppleMusicLyricsTyped(track.trackId.toString())
+                        val response = apiService.getAppleMusicLyricsCurrent(track.trackId.toString())
                         LyricallyApiParser.parseLyricsResponse(
-                            Gson().toJsonTree(response),
+                            response,
                             "Lyrically (Apple Music)",
                             translationLanguage
                         )
@@ -5239,7 +5239,7 @@ class MusicRepository(context: Context) {
                     bestTrack?.let { track ->
                         val response = apiService.getNeteaseLyrics(track.id.toString(), preferWordByWord)
                         LyricallyApiParser.parseLyricsResponse(
-                            Gson().toJsonTree(response),
+                            response,
                             "Lyrically (NetEase)",
                             translationLanguage
                         )
