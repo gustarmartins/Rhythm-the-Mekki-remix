@@ -2954,4 +2954,5 @@
     <string name="bluetooth_display_connect_to_configure">Connect a Bluetooth device to configure its display compatibility.</string>
     <string name="service_starting">Rhythm is starting.</string>
     <string name="exp_third_party_integrations">Third-Party Integrations</string>
+    <string name="settings_song_artwork_restart_required">Artwork mode changed. Restart the app to clear caches and run a full media rescan with updated artwork sources.</string>
     </resources>

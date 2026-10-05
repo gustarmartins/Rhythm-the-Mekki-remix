@@ -3170,4 +3170,5 @@
     <string name="bluetooth_display_connect_to_configure">Conecte um dispositivo Bluetooth para configurar a compatibilidade do visor.</string>
     <string name="service_starting">Rhythm está começando.</string>
     <string name="exp_third_party_integrations">Integrações de terceiros</string>
+    <string name="settings_song_artwork_restart_required">Modo de arte alterado. Reinicie o aplicativo para limpar os caches e executar uma nova verificação completa da mídia com fontes de arte atualizadas.</string>
     </resources>
