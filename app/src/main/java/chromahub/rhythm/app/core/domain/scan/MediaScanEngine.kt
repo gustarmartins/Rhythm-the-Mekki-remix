@@ -51,6 +51,10 @@ class MediaScanEngine(
         private const val TAG = "MediaScanEngine"
         private const val BATCH_SIZE = 100
 
+        // Identical duplicate-path selection for scanning and change detection.
+        fun mediaScanSortOrder(): String =
+            "${MediaStore.Audio.Media.DATE_ADDED} DESC, ${MediaStore.Audio.Media._ID} ASC"
+
         fun mediaScanSelection(minimumDuration: Long = 0L): String {
             val baseSelection = "(${MediaStore.Audio.Media.IS_MUSIC} = 1 OR ${MediaStore.Audio.Media.MIME_TYPE} LIKE 'audio/%' OR ${MediaStore.Audio.Media.MIME_TYPE} = 'video/mp4' OR ${MediaStore.Audio.Media.MIME_TYPE} = 'video/x-matroska' OR ${MediaStore.Audio.Media.MIME_TYPE} = 'application/x-matroska')"
             return if (minimumDuration > 0L) {
@@ -103,9 +107,10 @@ class MediaScanEngine(
         if (scanScope.emptyWhitelist) {
             Log.d(TAG, "Whitelist mode active with no whitelisted folders or songs; skipping MediaStore scan")
             database.withTransaction {
-                if (forceRefresh) {
-                    database.songDao().replaceAll(emptyList())
-                }
+                // Empty whitelist is an intentional empty library, not a failed query.
+                database.songDao().replaceAll(emptyList())
+                database.artistDao().deleteAll()
+                database.songArtistDao().deleteAll()
             }
             appSettings.setLastScanTimestamp(System.currentTimeMillis())
             context.getSharedPreferences("library_scan_metadata", Context.MODE_PRIVATE).edit {
@@ -145,7 +150,7 @@ class MediaScanEngine(
         }.toTypedArray()
 
         val selection = mediaScanSelection(minimumDuration)
-        val sortOrder = "${MediaStore.Audio.Media.DATE_ADDED} DESC"
+        val sortOrder = mediaScanSortOrder()
 
         val scannedSongs = mutableListOf<SongEntity>()
         val seenIds = mutableSetOf<String>()

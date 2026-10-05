@@ -2356,6 +2356,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 }
                 if (!appSettings.continueWithDeviceLibrary.value || player.currentMediaItem
                         ?.mediaMetadata?.extras?.getString(PlayNextCommand.ENTRY_TOKEN) != currentToken) return@launch
+                val currentRepeat = if (btVirtualOriginalQueue != null) btVirtualOriginalRepeatMode else player.repeatMode
+                if (currentRepeat != Player.REPEAT_MODE_OFF) return@launch
                 val source = btVirtualOriginalQueue ?: List(player.mediaItemCount) { player.getMediaItemAt(it) }
                 val plan = planLibraryContinuation(rows.map { it.id }, source.map { it.mediaId }, player.currentMediaItem?.mediaId)
                 if (plan.songIds.isEmpty()) return@launch

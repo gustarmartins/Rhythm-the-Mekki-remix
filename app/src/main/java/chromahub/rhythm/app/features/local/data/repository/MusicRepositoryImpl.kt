@@ -6750,7 +6750,7 @@ class MusicRepository(context: Context) {
                     MediaStore.Audio.Media.DURATION, MediaStore.Audio.Media.TITLE,
                     MediaStore.Audio.Media.ARTIST, MediaStore.Audio.Media.ALBUM)
                 val cursor = context.contentResolver.query(collection, columns,
-                    MediaScanEngine.mediaScanSelection(scope.minimumDuration), null, null)
+                    MediaScanEngine.mediaScanSelection(scope.minimumDuration), null, MediaScanEngine.mediaScanSortOrder())
                     ?: return false.also { Log.w(TAG, "Library change check unavailable; keeping cache") }
                 val seenIds = mutableSetOf<String>()
                 val seenPaths = mutableSetOf<String>()
