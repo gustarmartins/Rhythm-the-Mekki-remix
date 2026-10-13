@@ -2279,6 +2279,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     private var libraryContinuationJob: kotlinx.coroutines.Job? = null
     private var libraryContinuationActive = false
     private var queueClearedByUser = false
+    private var restoringSavedQueue = false
     private var queueSnapshotRevision = 0L
     private var queueSnapshotSignature: List<String> = emptyList()
     private data class PlaybackQueueSnapshot(val items: List<MediaItem>, val currentIndex: Int, val revision: Long)
@@ -2321,9 +2322,13 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     }
 
     private fun persistServiceQueue() {
-        if (!::player.isInitialized || !appSettings.queuePersistenceEnabled.value || isMutatingBtVirtualQueue) return
-        val items = btVirtualOriginalQueue ?: List(player.mediaItemCount) { player.getMediaItemAt(it) }
-        val index = if (btVirtualOriginalQueue != null) btVirtualCurrentOriginalIndex else player.currentMediaItemIndex
+        if (!::player.isInitialized || !appSettings.queuePersistenceEnabled.value ||
+            isMutatingBtVirtualQueue || restoringSavedQueue) return
+        // Match the UI's persisted format: played + current + upcoming, not physical
+        // playlist indexes. Native shuffle and the legacy one-item view both reorder it.
+        val snapshot = playbackQueueSnapshot()
+        val items = snapshot.items
+        val index = snapshot.currentIndex
         if (items.isEmpty() || index !in items.indices) return
         appSettings.setSavedQueue(items.map { it.mediaId })
         appSettings.setSavedQueueIndex(index)
@@ -2589,6 +2594,12 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                         audio.mode != AudioManager.MODE_NORMAL || audio.isMusicActive ||
                         (appSettings.stopPlaybackOnZeroVolume.value && appSettings.useSystemVolume.value &&
                             audio.getStreamVolume(AudioManager.STREAM_MUSIC) == 0)) return@collectLatest
+                    player.shuffleModeEnabled = appSettings.shuffleUsesExoplayer.value && appSettings.savedShuffleState.value
+                    player.repeatMode = when (appSettings.savedRepeatMode.value) {
+                        1 -> Player.REPEAT_MODE_ALL
+                        2 -> Player.REPEAT_MODE_ONE
+                        else -> Player.REPEAT_MODE_OFF
+                    }
                     player.setMediaItems(saved.mediaItems, saved.startIndex, saved.startPositionMs)
                 }
                 if (player.playbackState == Player.STATE_IDLE) player.prepare()
@@ -2608,10 +2619,12 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         val songs = withContext(Dispatchers.IO) { serviceMusicRepository.getSongsByIds(ids) }
         val restored = restorePlaybackOccurrences(ids, index, position, songs.associateBy { it.id }) ?: return null
         return MediaSession.MediaItemsWithStartPosition(
-            restored.items.map { song -> tokenizedQueueItem(MediaItem.Builder()
+            restored.items.mapIndexed { index, song -> tokenizedQueueItem(MediaItem.Builder()
                 .setMediaId(song.id).setUri(song.uri)
                 .setMediaMetadata(MediaMetadata.Builder().setTitle(song.title).setArtist(song.artist)
-                    .setAlbumTitle(song.album).setArtworkUri(song.artworkUri).setDurationMs(song.duration).build())
+                    .setAlbumTitle(song.album).setArtworkUri(song.artworkUri).setDurationMs(song.duration)
+                    .setExtras(Bundle().apply { if (index == 0) putBoolean(PlayNextCommand.RESTORED_TRAVERSAL, true) })
+                    .build())
                 .build()) }, restored.index, restored.positionMs)
     }
 
@@ -2745,6 +2758,38 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             }
         }
 
+        private inline fun replaceQueueWithSavedTraversal(
+            mediaItems: List<MediaItem>, replace: (List<MediaItem>) -> Unit
+        ) {
+            val restored = mediaItems.firstOrNull()?.mediaMetadata?.extras
+                ?.getBoolean(PlayNextCommand.RESTORED_TRAVERSAL) == true
+            val items = mediaItems.mapIndexed { index, item ->
+                val clean = if (restored && index == 0) {
+                    val extras = Bundle(item.mediaMetadata.extras ?: Bundle.EMPTY).apply {
+                        remove(PlayNextCommand.RESTORED_TRAVERSAL)
+                    }
+                    item.buildUpon().setMediaMetadata(item.mediaMetadata.buildUpon().setExtras(extras).build()).build()
+                } else item
+                tokenizedQueueItem(clean)
+            }
+            if (!restored) {
+                replace(items)
+                return
+            }
+            restoringSavedQueue = true
+            try {
+                replace(items)
+                // ExoPlayer creates a fresh random order when a playlist is replaced.
+                // Restore the persisted traversal while retaining the user's shuffle mode.
+                (rhythmPlayerEngine.masterPlayer as? ExoPlayer)?.setShuffleOrder(
+                    chromahub.rhythm.app.infrastructure.service.player.RhythmShuffleOrder
+                        .forRestoredTraversal(items.size))
+            } finally {
+                restoringSavedQueue = false
+            }
+            persistServiceQueue()
+        }
+
         override fun setMediaItems(mediaItems: List<MediaItem>) {
             if (!isMutatingBtVirtualQueue) {
                 pendingPlayNextTokens.clear()
@@ -2753,7 +2798,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 libraryContinuationJob?.cancel()
             }
             restoreBeforeExternalQueueMutation()
-            super.setMediaItems(mediaItems.map(::tokenizedQueueItem))
+            replaceQueueWithSavedTraversal(mediaItems) { super.setMediaItems(it) }
         }
 
         override fun setMediaItems(mediaItems: List<MediaItem>, resetPosition: Boolean) {
@@ -2764,7 +2809,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 libraryContinuationJob?.cancel()
             }
             restoreBeforeExternalQueueMutation()
-            super.setMediaItems(mediaItems.map(::tokenizedQueueItem), resetPosition)
+            replaceQueueWithSavedTraversal(mediaItems) { super.setMediaItems(it, resetPosition) }
         }
 
         override fun setMediaItems(mediaItems: List<MediaItem>, startIndex: Int, startPositionMs: Long) {
@@ -2775,7 +2820,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 libraryContinuationJob?.cancel()
             }
             restoreBeforeExternalQueueMutation()
-            super.setMediaItems(mediaItems.map(::tokenizedQueueItem), startIndex, startPositionMs)
+            replaceQueueWithSavedTraversal(mediaItems) { super.setMediaItems(it, startIndex, startPositionMs) }
         }
 
         override fun setMediaItem(mediaItem: MediaItem) {

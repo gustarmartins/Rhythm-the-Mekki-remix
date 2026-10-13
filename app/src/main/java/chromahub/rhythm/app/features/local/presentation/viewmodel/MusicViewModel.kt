@@ -66,6 +66,7 @@ import chromahub.rhythm.app.util.MediaUtils
 import chromahub.rhythm.app.util.PlaylistImportExportUtils
 import chromahub.rhythm.app.util.RhythmBackupDetectedException
 import chromahub.rhythm.app.util.PlaybackCommandSerializer
+import chromahub.rhythm.app.util.restorePlaybackOccurrences
 import chromahub.rhythm.app.util.RhythmLyricsParser
 import chromahub.rhythm.app.util.ImageUtils
 import chromahub.rhythm.app.util.ColorExtractor
@@ -1848,9 +1849,12 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 
                 if (restoredSongs.isNotEmpty()) {
-                    // Validate the saved index
-                    val validIndex = savedIndex.coerceIn(0, restoredSongs.size - 1)
-                    val savedPosition = appSettings.savedPlaybackPosition.value
+                    val restored = restorePlaybackOccurrences(songIds, savedIndex,
+                        appSettings.savedPlaybackPosition.value, restoredSongs.associateBy { it.id })
+                        ?: return@launch
+                    restoredSongs = restored.items
+                    val validIndex = restored.index
+                    val savedPosition = restored.positionMs
                     val restoredSongIds = restoredSongs.map { it.id }
 
                     Log.d(TAG, "Successfully restored queue with ${restoredSongs.size} songs at index $validIndex, position: ${savedPosition}ms")
@@ -1874,7 +1878,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                                     controller.shuffleModeEnabled = targetControllerShuffle
                                 }
 
-                                val mediaItems = restoredSongs.map { song -> song.toMediaItem() }
+                                val mediaItems = restoredSongs.mapIndexed { index, song ->
+                                    val item = song.toMediaItem()
+                                    if (index != 0) item else item.buildUpon().setMediaMetadata(
+                                        item.mediaMetadata.buildUpon().setExtras(
+                                            Bundle(item.mediaMetadata.extras ?: Bundle.EMPTY).apply {
+                                                putBoolean(PlayNextCommand.RESTORED_TRAVERSAL, true)
+                                            }).build()).build()
+                                }
                                 controller.setMediaItems(mediaItems, validIndex, savedPosition)
                                 controller.prepare()
                                 

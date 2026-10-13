@@ -79,3 +79,10 @@ not establish Rhythm CPU usage or reproduce the reported 1% unplugged stutter. A
 before/after capture during real playback is still needed for quantitative CPU/battery claims.
 These changes target confirmed source-level work; streaming catalog synchronization, DSP
 cost and the device's thermal/low-battery clock policy are not measured improvements here.
+# Saved queue restoration
+
+The service and UI persist the same playback traversal: played entries, the current
+occurrence, then upcoming entries. This includes native shuffle and the legacy car
+queue. Restore keeps this traversal with an explicit shuffle order instead of
+randomizing it again, while preserving the user's shuffle setting. UI restoration
+also remaps the current occurrence when earlier files are missing.
