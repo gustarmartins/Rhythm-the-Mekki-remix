@@ -6849,9 +6849,12 @@ class MusicRepository(context: Context) {
      */
     suspend fun getSongsByIds(songIds: List<String>): List<Song> = withContext(Dispatchers.IO) {
         if (songIds.isEmpty()) return@withContext emptyList()
-        val entities = songDao.getSongsByIds(songIds)
-        val entitiesById = entities.associateBy { it.id }
-        songIds.mapNotNull { id -> entitiesById[id]?.toSong()?.let(::withSafeArtwork) }
+        // Older platform SQLite builds cap bind parameters at 999. A saved car queue
+        // can contain thousands of occurrences, including duplicates of the same ID.
+        val songsById = songIds.distinct().chunked(900)
+            .flatMap { ids -> songDao.getSongsByIds(ids) }
+            .associate { entity -> entity.id to withSafeArtwork(entity.toSong()) }
+        songIds.mapNotNull(songsById::get)
     }
     
     /**
