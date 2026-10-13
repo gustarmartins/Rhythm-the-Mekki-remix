@@ -51,6 +51,23 @@ class RhythmApplication : Application(), ImageLoaderFactory {
     }
     
     private var anrWatchdog: ANRWatchdog? = null
+    private val maintenanceScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
+    private var cacheTrimJob: kotlinx.coroutines.Job? = null
+
+    private fun scheduleCacheTrim() {
+        if (cacheTrimJob?.isActive == true) return
+        val prefs = getSharedPreferences("cache_trim", android.content.Context.MODE_PRIVATE)
+        if (System.currentTimeMillis() - prefs.getLong("last_startup_trim_ms", 0L) < 86_400_000L) return
+        cacheTrimJob = maintenanceScope.launch {
+            try {
+                chromahub.rhythm.app.util.OptionalWorkController.run(chromahub.rhythm.app.util.OptionalWork.LIBRARY) {
+                    CacheManager.autoTrimCache(applicationContext, currentMaxCacheSize())
+                    prefs.edit { putLong("last_startup_trim_ms", System.currentTimeMillis()) }
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+              catch (e: Exception) { Log.w(TAG, "Cache maintenance deferred", e) }
+        }
+    }
     
     override fun onCreate() {
         super.onCreate()
@@ -65,6 +82,7 @@ class RhythmApplication : Application(), ImageLoaderFactory {
         
         // Initialize AppSettings early (singleton, uses application context)
         val settings = AppSettings.getInstance(applicationContext)
+        chromahub.rhythm.app.util.OptionalWorkController.initialize(this, settings)
         Log.d(TAG, "✓ AppSettings initialized")
 
         // Apply the user's theme preference to the system configuration so the
@@ -102,19 +120,7 @@ class RhythmApplication : Application(), ImageLoaderFactory {
         // even if the app was force-stopped (onDestroy trim never ran). Gated to
         // at most once per day so low-end devices don't walk the cache directories
         // on every single launch.
-        val trimPrefs = getSharedPreferences("cache_trim", android.content.Context.MODE_PRIVATE)
-        val lastTrimMs = trimPrefs.getLong("last_startup_trim_ms", 0L)
-        val dayMs = 24L * 60 * 60 * 1000
-        if (System.currentTimeMillis() - lastTrimMs >= dayMs) {
-            trimPrefs.edit { putLong("last_startup_trim_ms", System.currentTimeMillis()) }
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    CacheManager.autoTrimCache(applicationContext, currentMaxCacheSize())
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error during startup cache trim", e)
-                }
-            }
-        }
+        scheduleCacheTrim()
     }
 
     /**
@@ -226,11 +232,10 @@ class RhythmApplication : Application(), ImageLoaderFactory {
         
         Log.w(TAG, "onTrimMemory: $levelName")
         
-        // Trim levels are inverted: lower numbers mean MORE pressure (5 = critical,
-        // 10 = low, 15 = moderate). Release image caches whenever the app is under
-        // real pressure OR fully backgrounded — this is the main OOM fix when many
-        // apps are open.
-        val isBackgroundOrCritical = level >= ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
+        // Keep useful cover caches across ordinary background transitions. Clearing them
+        // there forced the next lockscreen/widget request to decode the same audio again.
+        val isBackgroundOrCritical = level == ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ||
+            level >= ComponentCallbacks2.TRIM_MEMORY_MODERATE
         if (isBackgroundOrCritical) {
             CoroutineScope(Dispatchers.Main).launch {
                 try {
@@ -245,16 +250,6 @@ class RhythmApplication : Application(), ImageLoaderFactory {
             }
         }
         
-        // Light cleanup when the app moves to the background
-        if (level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN || level == ComponentCallbacks2.TRIM_MEMORY_BACKGROUND) {
-            Log.d(TAG, "App backgrounded - trimming caches")
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    CacheManager.autoTrimCache(applicationContext, currentMaxCacheSize())
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error during background cache trim", e)
-                }
-            }
-        }
+        if (level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) scheduleCacheTrim()
     }
 }

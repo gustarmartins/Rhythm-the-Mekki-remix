@@ -165,249 +165,74 @@ import chromahub.rhythm.app.shared.presentation.screens.settings.SettingGroup
 @Composable
 fun PerformanceSettingsScreen(onBackClick: () -> Unit) {
     val context = LocalContext.current
-    val appSettings = remember { AppSettings.getInstance(context) }
+    val settings = remember { AppSettings.getInstance(context) }
     val haptic = LocalHapticFeedback.current
-
-    // Collect settings states
-    val batterySaverEnabled by appSettings.batterySaverEnabled.collectAsState()
-    val batterySaverMode by appSettings.batterySaverMode.collectAsState()
-    
-    val batterySaverDisableHaptics by appSettings.batterySaverDisableHaptics.collectAsState()
-    val batterySaverEnableOffload by appSettings.batterySaverEnableOffload.collectAsState()
-    val batterySaverDisableMarquee by appSettings.batterySaverDisableMarquee.collectAsState()
-    val batterySaverDisableLosslessArtwork by appSettings.batterySaverDisableLosslessArtwork.collectAsState()
-    val batterySaverDisableAutoFetchArtwork by appSettings.batterySaverDisableAutoFetchArtwork.collectAsState()
+    val manual by settings.batterySaverEnabled.collectAsState()
+    val active by settings.batterySaverActive.collectAsState()
+    val automatic by settings.batterySaverAutoEnabled.collectAsState()
+    val threshold by settings.batterySaverThreshold.collectAsState()
+    val haptics by settings.batterySaverDisableHaptics.collectAsState()
+    val offload by settings.batterySaverEnableOffload.collectAsState()
+    val marquee by settings.batterySaverDisableMarquee.collectAsState()
+    val lossless by settings.batterySaverDisableLosslessArtwork.collectAsState()
+    val artwork by settings.batterySaverDisableAutoFetchArtwork.collectAsState()
+    val lyrics by settings.batterySaverDisableLyricsFetch.collectAsState()
+    val library by settings.batterySaverDisableLibraryWork.collectAsState()
+    val canvas by settings.batterySaverDisableCanvas.collectAsState()
+    var slider by remember(threshold) { mutableStateOf(threshold.toFloat()) }
 
     CollapsibleHeaderScreen(
         title = stringResource(R.string.performancesettingsscreen_performance),
         showBackButton = true,
-        onBackClick = onBackClick,
-        headerContent = {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (batterySaverEnabled)
-                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
-                    else
-                        MaterialTheme.colorScheme.surfaceContainer
-                ),
-                shape = RoundedCornerShape(28.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 8.dp)
-            ) {
-                Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = MaterialSymbolIcon("speed"),
-                            contentDescription = null,
-                            tint = if (batterySaverEnabled) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                            modifier = Modifier.size(35.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(if (batterySaverEnabled) R.string.status_active else R.string.status_disabled),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = if (batterySaverEnabled) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                        TunerAnimatedSwitch(
-                            checked = batterySaverEnabled,
-                            onCheckedChange = { enabled ->
-                                appSettings.setBatterySaverEnabled(enabled)
-                            }
-                        )
-                    }
-
-                    AnimatedVisibility(
-                        visible = batterySaverEnabled,
-                        enter = fadeIn() + expandVertically(spring(stiffness = Spring.StiffnessMediumLow)),
-                        exit = fadeOut() + shrinkVertically(spring(stiffness = Spring.StiffnessMediumLow))
-                    ) {
-                        Column {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            ExpressiveButtonGroup(
-                                items = listOf("Auto", "Manual"),
-                                selectedIndex = if (batterySaverMode == "auto") 0 else 1,
-                                onItemClick = { index ->
-                                    HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
-                                    appSettings.setBatterySaverMode(if (index == 0) "auto" else "manual")
-                                },
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        onBackClick = onBackClick
     ) { modifier ->
         LazyColumn(
+            modifier = modifier.fillMaxSize().padding(horizontal = 24.dp),
             contentPadding = PaddingValues(bottom = 24.dp + LocalMiniPlayerPadding.current.calculateBottomPadding()),
-            modifier = modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item(key = "options_section") {
-                AnimatedVisibility(
-                    visible = batterySaverEnabled,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
-                ) {
-                    Column {
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Text(
-                            text = if (batterySaverMode == "auto") "Auto Overrides (Enforced)" else "Manual Overrides",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
-                        )
-                        
-                        if (batterySaverMode == "auto") {
-                            Material3SettingsGroup(
-                                items = listOf(
-                                    toMaterial3SettingsItem(
-                                        context = context,
-                                        hapticFeedback = haptic,
-                                        item = SettingItem(
-                                            icon = MaterialSymbolIcon("touch_app"),
-                                            title = stringResource(R.string.performancesettingsscreen_disable_haptics),
-                                            description = context.getString(R.string.performancesettingsscreen_haptics_detail),
-                                            toggleState = true,
-                                            onToggleChange = {},
-                                            enabled = false
-                                        )
-                                    ),
-                                    toMaterial3SettingsItem(
-                                        context = context,
-                                        hapticFeedback = haptic,
-                                        item = SettingItem(
-                                            icon = MaterialSymbolIcon("bolt"),
-                                            title = stringResource(R.string.performancesettingsscreen_enable_audio_offload),
-                                            description = context.getString(R.string.performancesettingsscreen_offload_detail),
-                                            toggleState = true,
-                                            onToggleChange = {},
-                                            enabled = false
-                                        )
-                                    ),
-                                    toMaterial3SettingsItem(
-                                        context = context,
-                                        hapticFeedback = haptic,
-                                        item = SettingItem(
-                                            icon = MaterialSymbolIcon("slideshow"),
-                                            title = stringResource(R.string.performancesettingsscreen_disable_text_marquee),
-                                            description = context.getString(R.string.performancesettingsscreen_marquee_detail),
-                                            toggleState = true,
-                                            onToggleChange = {},
-                                            enabled = false
-                                        )
-                                    ),
-                                    toMaterial3SettingsItem(
-                                        context = context,
-                                        hapticFeedback = haptic,
-                                        item = SettingItem(
-                                            icon = RhythmIcons.Image,
-                                            title = stringResource(R.string.performancesettingsscreen_disable_lossless_artwork),
-                                            description = context.getString(R.string.performancesettingsscreen_lossless_detail),
-                                            toggleState = true,
-                                            onToggleChange = {},
-                                            enabled = false
-                                        )
-                                    ),
-                                    toMaterial3SettingsItem(
-                                        context = context,
-                                        hapticFeedback = haptic,
-                                        item = SettingItem(
-                                            icon = MaterialSymbolIcon("cloud_off"),
-                                            title = stringResource(R.string.performancesettingsscreen_disable_auto_fetch_artwork),
-                                            description = context.getString(R.string.performancesettingsscreen_autofetch_detail),
-                                            toggleState = true,
-                                            onToggleChange = {},
-                                            enabled = false
-                                        )
-                                    )
-                                ),
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer
-                            )
-                        } else {
-                            // Manual mode: switch controls
-                            Material3SettingsGroup(
-                                items = listOf(
-                                    toMaterial3SettingsItem(
-                                        context = context,
-                                        hapticFeedback = haptic,
-                                        item = SettingItem(
-                                            icon = MaterialSymbolIcon("touch_app"),
-                                            title = stringResource(R.string.performancesettingsscreen_disable_haptics),
-                                            description = context.getString(R.string.performancesettingsscreen_disable_haptics_desc),
-                                            toggleState = batterySaverDisableHaptics,
-                                            onToggleChange = { appSettings.setBatterySaverDisableHaptics(it) }
-                                        )
-                                    ),
-                                    toMaterial3SettingsItem(
-                                        context = context,
-                                        hapticFeedback = haptic,
-                                        item = SettingItem(
-                                            icon = MaterialSymbolIcon("bolt"),
-                                            title = stringResource(R.string.performancesettingsscreen_enable_audio_offload),
-                                            description = context.getString(R.string.performancesettingsscreen_enable_audio_offload_desc),
-                                            toggleState = batterySaverEnableOffload,
-                                            onToggleChange = { appSettings.setBatterySaverEnableOffload(it) }
-                                        )
-                                    ),
-                                    toMaterial3SettingsItem(
-                                        context = context,
-                                        hapticFeedback = haptic,
-                                        item = SettingItem(
-                                            icon = MaterialSymbolIcon("slideshow"),
-                                            title = stringResource(R.string.performancesettingsscreen_disable_text_marquee),
-                                            description = context.getString(R.string.performancesettingsscreen_disable_text_marquee_desc),
-                                            toggleState = batterySaverDisableMarquee,
-                                            onToggleChange = { appSettings.setBatterySaverDisableMarquee(it) }
-                                        )
-                                    ),
-                                    toMaterial3SettingsItem(
-                                        context = context,
-                                        hapticFeedback = haptic,
-                                        item = SettingItem(
-                                            icon = RhythmIcons.Image,
-                                            title = stringResource(R.string.performancesettingsscreen_disable_lossless_artwork),
-                                            description = context.getString(R.string.performancesettingsscreen_disable_lossless_artwork_desc),
-                                            toggleState = batterySaverDisableLosslessArtwork,
-                                            onToggleChange = { appSettings.setBatterySaverDisableLosslessArtwork(it) }
-                                        )
-                                    ),
-                                    toMaterial3SettingsItem(
-                                        context = context,
-                                        hapticFeedback = haptic,
-                                        item = SettingItem(
-                                            icon = MaterialSymbolIcon("cloud_off"),
-                                            title = stringResource(R.string.performancesettingsscreen_disable_auto_fetch_artwork),
-                                            description = context.getString(R.string.performancesettingsscreen_disable_auto_fetch_artwork_desc),
-                                            toggleState = batterySaverDisableAutoFetchArtwork,
-                                            onToggleChange = { appSettings.setBatterySaverDisableAutoFetchArtwork(it) }
-                                        )
-                                    )
-                                ),
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer
-                            )
-                        }
-                    }
+            item {
+                Text(stringResource(if (active) R.string.battery_saver_active else R.string.battery_saver_inactive),
+                    style = MaterialTheme.typography.titleLarge)
+                Material3SettingsGroup(items = listOf(
+                    toMaterial3SettingsItem(context = context, hapticFeedback = haptic, item = SettingItem(
+                        icon = MaterialSymbolIcon("battery_saver"),
+                        title = stringResource(R.string.battery_saver_manual),
+                        description = stringResource(R.string.battery_saver_manual_desc),
+                        toggleState = manual, onToggleChange = settings::setBatterySaverEnabled)),
+                    toMaterial3SettingsItem(context = context, hapticFeedback = haptic, item = SettingItem(
+                        icon = MaterialSymbolIcon("battery_alert"),
+                        title = stringResource(R.string.battery_saver_auto),
+                        description = stringResource(R.string.battery_saver_auto_desc),
+                        toggleState = automatic, onToggleChange = settings::setBatterySaverAutoEnabled))
+                ))
+                if (automatic) {
+                    Text(stringResource(R.string.battery_saver_threshold, slider.toInt()), modifier = Modifier.padding(top = 16.dp))
+                    Slider(value = slider, onValueChange = { slider = it }, valueRange = 1f..100f,
+                        steps = 98, onValueChangeFinished = { settings.setBatterySaverThreshold(slider.toInt()) })
                 }
             }
-            
-            // Padding item
             item {
-                Spacer(modifier = Modifier.height(40.dp))
+                Text(stringResource(R.string.battery_saver_features), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.battery_saver_features_desc), style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(vertical = 8.dp))
+                val options = listOf(
+                    Triple(R.string.performancesettingsscreen_disable_haptics, haptics, settings::setBatterySaverDisableHaptics),
+                    Triple(R.string.performancesettingsscreen_enable_audio_offload, offload, settings::setBatterySaverEnableOffload),
+                    Triple(R.string.performancesettingsscreen_disable_text_marquee, marquee, settings::setBatterySaverDisableMarquee),
+                    Triple(R.string.performancesettingsscreen_disable_lossless_artwork, lossless, settings::setBatterySaverDisableLosslessArtwork),
+                    Triple(R.string.performancesettingsscreen_disable_auto_fetch_artwork, artwork, settings::setBatterySaverDisableAutoFetchArtwork),
+                    Triple(R.string.battery_saver_pause_lyrics, lyrics, settings::setBatterySaverDisableLyricsFetch),
+                    Triple(R.string.battery_saver_pause_library, library, settings::setBatterySaverDisableLibraryWork),
+                    Triple(R.string.battery_saver_pause_canvas, canvas, settings::setBatterySaverDisableCanvas)
+                )
+                Material3SettingsGroup(items = options.map { (title, checked, change) ->
+                    toMaterial3SettingsItem(context = context, hapticFeedback = haptic, item = SettingItem(
+                        icon = MaterialSymbolIcon("tune"), title = stringResource(title),
+                        description = if (title == R.string.performancesettingsscreen_enable_audio_offload)
+                            stringResource(R.string.battery_saver_offload_desc) else "",
+                        toggleState = checked, onToggleChange = change))
+                })
             }
         }
     }

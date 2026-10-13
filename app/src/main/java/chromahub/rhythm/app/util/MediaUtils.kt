@@ -257,7 +257,7 @@ object MediaUtils {
         return digest.joinToString(separator = "") { byte -> "%02x".format(byte.toInt() and 0xFF) }
     }
 
-    private fun l2KeyForFile(cacheKey: String): String = sha256Hex("rhythm_art_l2|$cacheKey")
+    private fun l2KeyForFile(cacheKey: String): String = sha256Hex("rhythm_art_l2_v2|$cacheKey")
 
     private fun readArtworkFromDiskCache(baseCacheDir: File, l2Key: String): ByteArray? {
         return try {
@@ -458,10 +458,8 @@ object MediaUtils {
                             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
                             id
                         )
-                        val albumArtUri = ContentUris.withAppendedId(
-                            ("content://media/external/audio/albumart").toUri(),
-                            cursor.getLong(albumIdIndex)
-                        )
+                        val albumArtUri = chromahub.rhythm.app.infrastructure.provider.RhythmAlbumArtProvider.buildSongUri(
+                            id.toString(), filePath, cursor.getLong(albumIdIndex).toString())
 
                         val rawArtist = cursor.getString(artistIndex) ?: "Unknown Artist"
                         val rawTitle = cursor.getString(titleIndex)
@@ -3453,40 +3451,7 @@ object MediaUtils {
         return digest.digest()
     }
 
-    fun findBestCover(songFolder: File): File? {
-        val allowedExt = listOf("jpg", "png", "jpeg", "bmp", "tiff", "tif", "webp")
-        var bestScore = 0
-        var bestFile: File? = null
-        try {
-            val files = songFolder.listFiles() ?: return null
-            for (file in files) {
-                if (file.extension.lowercase() !in allowedExt)
-                    continue
-                var score = 1
-                when (file.extension.lowercase()) {
-                    "jpg" -> score += 3
-                    "png" -> score += 2
-                    "jpeg" -> score += 1
-                }
-                if (file.nameWithoutExtension.contentEquals("albumart", true)) score += 24
-                else if (file.nameWithoutExtension.contentEquals("cover", true)) score += 20
-                else if (file.nameWithoutExtension.startsWith("albumart", true)) score += 16
-                else if (file.nameWithoutExtension.startsWith("cover", true)) score += 12
-                else if (file.nameWithoutExtension.contains("albumart", true)) score += 8
-                else if (file.nameWithoutExtension.contains("cover", true)) score += 4
-                if (bestScore < score) {
-                    bestScore = score
-                    bestFile = file
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error listing files for best cover", e)
-        }
-        if (bestScore >= 3) {
-            return bestFile
-        }
-        return null
-    }
+    fun findBestCover(songFolder: File): File? = ArtworkSourcePolicy.findFolderCover(songFolder)
 
     private fun adjustTempFileExtension(tempFile: File): File {
         val container = detectContainerFormat(tempFile.absolutePath)

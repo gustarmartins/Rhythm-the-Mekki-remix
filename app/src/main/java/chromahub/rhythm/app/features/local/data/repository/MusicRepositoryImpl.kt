@@ -40,6 +40,7 @@ import chromahub.rhythm.app.network.YTMusicClient
 import chromahub.rhythm.app.network.YTMusicBrowseRequest
 import chromahub.rhythm.app.network.extractArtistImageUrl
 import chromahub.rhythm.app.network.extractAlbumImageUrl
+import chromahub.rhythm.app.network.extractVerifiedArtwork
 import chromahub.rhythm.app.network.extractArtistBrowseId
 import chromahub.rhythm.app.network.extractAlbumBrowseId
 import chromahub.rhythm.app.util.MediaUtils
@@ -61,6 +62,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import chromahub.rhythm.app.util.OptionalWork
+import chromahub.rhythm.app.util.OptionalWorkController
 import kotlinx.coroutines.CoroutineScope
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
@@ -217,12 +220,26 @@ class MusicRepository(context: Context) {
         API("Online API")
     }
 
+    private fun withSafeArtwork(song: Song): Song {
+        if (song.uri.scheme in setOf("http", "https", "streaming")) return song
+        val explicit = artworkPrefs.getString("uri_${song.id}", null)
+        val verified = artworkPrefs.getString("verified_uri_v2_${song.id}", null)
+        val art = when {
+            artworkPrefs.getBoolean("removed_${song.id}", false) -> null
+            explicit != null -> explicit.toUri()
+            verified != null && verified == song.artworkUri?.toString() -> song.artworkUri
+            else -> RhythmAlbumArtProvider.buildSongUri(song.id, song.path, song.albumId,
+                appSettings.isLosslessArtworkActive.value)
+        }
+        return song.copy(artworkUri = art)
+    }
+
     fun getPaginatedSongs(): kotlinx.coroutines.flow.Flow<PagingData<Song>> {
         return Pager(
             config = PagingConfig(pageSize = 50, enablePlaceholders = true),
             pagingSourceFactory = { songDao.getSongsPagingSource() }
         ).flow.map { pagingData ->
-            pagingData.map { entity -> entity.toSong() }
+            pagingData.map { entity -> withSafeArtwork(entity.toSong()) }
         }
     }
 
@@ -234,7 +251,7 @@ class MusicRepository(context: Context) {
                 else songDao.getSongsPagingSourceSearch(query)
             }
         ).flow.map { pagingData ->
-            pagingData.map { entity -> entity.toSong() }
+            pagingData.map { entity -> withSafeArtwork(entity.toSong()) }
         }
     }
 
@@ -514,29 +531,9 @@ class MusicRepository(context: Context) {
                     val artworkRemovedOverride = removedOverrides[entity.id] ?: false
                     val artworkUriOverride = uriOverrides[entity.id]
 
-                    val fallbackAlbumArt = entity.albumId.toLongOrNull()?.let { albumId ->
-                        ContentUris.withAppendedId(
-                            "content://media/external/audio/albumart".toUri(),
-                            albumId
-                        )
-                    }
-
-                    var entityArtUri = entity.artworkUri?.let { it.toUri() }
-
-                    val effectiveArtUri = if (useEmbeddedArt) {
-                        if (entityArtUri != null && !isEmbeddedArtworkCacheUri(entityArtUri) && !entityArtUri.toString().contains("albumart")) {
-                            entityArtUri
-                        } else {
-                            RhythmAlbumArtProvider.buildSongUri(
-                                id = entity.id,
-                                path = entity.path,
-                                albumId = entity.albumId,
-                                lossless = losslessArtwork
-                            )
-                        }
-                    } else {
-                        fallbackAlbumArt
-                    }
+                    val verified = artworkPrefs.getString("verified_uri_v2_${entity.id}", null)
+                    val effectiveArtUri = if (verified != null && verified == entity.artworkUri) verified.toUri()
+                        else RhythmAlbumArtProvider.buildSongUri(entity.id, entity.path, entity.albumId, losslessArtwork)
 
                     val resolvedArtworkUri = when {
                         artworkRemovedOverride -> null
@@ -1516,29 +1513,11 @@ class MusicRepository(context: Context) {
                 id
             )
 
-            // Use MediaStore album art URI by default.
-            // When preferSongArtwork is enabled, use previously cached embedded art so
-            // songs can show unique per-track artwork instead of shared album art.
-            val albumArtUri = ContentUris.withAppendedId(
-                "content://media/external/audio/albumart".toUri(),
-                albumId
-            )
             val artworkRemovedOverride = artworkPrefs.getBoolean("removed_${id}", false)
             val artworkUriOverride = artworkPrefs.getString("uri_${id}", null)
                 ?.let { runCatching { it.toUri() }.getOrNull() }
-
-            val useEmbeddedArt = appSettings.preferSongArtwork.value
-            val effectiveArtUri = if (useEmbeddedArt) {
-                val lossless = appSettings.isLosslessArtworkActive.value
-                RhythmAlbumArtProvider.buildSongUri(
-                    id = id.toString(),
-                    path = filePath,
-                    albumId = albumId.toString(),
-                    lossless = lossless
-                )
-            } else {
-                albumArtUri
-            }
+            val effectiveArtUri = RhythmAlbumArtProvider.buildSongUri(id.toString(), filePath,
+                albumId.toString(), appSettings.isLosslessArtworkActive.value)
 
             val finalArtworkUri = when {
                 artworkRemovedOverride -> null
@@ -2587,7 +2566,10 @@ class MusicRepository(context: Context) {
             val updatedArtists = mutableListOf<Artist>()
             val placeholderArtists = mutableSetOf<String>()
 
-            val allSongsForLocalLookup = runCatching { loadSongs() }.getOrDefault(emptyList())
+            val allSongsForLocalLookup = OptionalWorkController.run(OptionalWork.ARTWORK) {
+                try { loadSongs() } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { emptyList() }
+            }
             val appSettings = AppSettings.getInstance(context)
             val groupByAlbumArtist = appSettings.groupByAlbumArtist.value
             val preloadedCharDelimiters: List<String> = if (appSettings.artistSeparatorEnabled.value) {
@@ -2604,6 +2586,7 @@ class MusicRepository(context: Context) {
             }
 
             for (artist in artists) {
+            OptionalWorkController.run(OptionalWork.ARTWORK) {
                 try {
                     Log.d(TAG, "Processing artist: ${artist.name}")
 
@@ -2613,7 +2596,7 @@ class MusicRepository(context: Context) {
                             "Artist ${artist.name} already has artwork: ${artist.artworkUri}"
                         )
                         updatedArtists.add(artist)
-                        continue
+                        return@run
                     }
 
                     // Check cache first
@@ -2621,7 +2604,7 @@ class MusicRepository(context: Context) {
                     if (cachedUri != null) {
                         Log.d(TAG, "Using cached image for artist: ${artist.name}")
                         updatedArtists.add(artist.copy(artworkUri = cachedUri))
-                        continue
+                        return@run
                     }
 
                     if (artistArtworkSource != chromahub.rhythm.app.shared.data.model.ArtistArtworkSource.API_ONLY) {
@@ -2631,7 +2614,7 @@ class MusicRepository(context: Context) {
                             Log.d(TAG, "Using local image for artist: ${artist.name}")
                             artistImageCache[artist.name] = localImage
                             updatedArtists.add(artist.copy(artworkUri = localImage))
-                            continue
+                            return@run
                         }
 
                         // Check music-library folders for artist.jpg / band.jpg style images.
@@ -2645,13 +2628,13 @@ class MusicRepository(context: Context) {
                             Log.d(TAG, "Using folder image for artist: ${artist.name} -> $localFolderImage")
                             artistImageCache[artist.name] = localFolderImage
                             updatedArtists.add(artist.copy(artworkUri = localFolderImage))
-                            continue
+                            return@run
                         }
                     }
 
                     if (artistArtworkSource == chromahub.rhythm.app.shared.data.model.ArtistArtworkSource.LOCAL_ONLY) {
                         updatedArtists.add(artist)
-                        continue
+                        return@run
                     }
 
                     // Skip artists with empty or "Unknown" names
@@ -2670,7 +2653,14 @@ class MusicRepository(context: Context) {
                         artistImageCache[artist.name] = placeholderUri
                         placeholderArtists.add(artist.id)
                         updatedArtists.add(artist.copy(artworkUri = placeholderUri))
-                        continue
+                        return@run
+                    }
+
+                    val artistAttemptKey = "artist_attempt_v2_${artist.name.hashCode()}"
+                    val attemptAge = System.currentTimeMillis() - artworkPrefs.getLong(artistAttemptKey, 0L)
+                    if (attemptAge in 0 until 6 * 60 * 60 * 1000L) {
+                        updatedArtists.add(artist)
+                        return@run
                     }
 
                     // Only try online fetch if network is available and Deezer API is enabled
@@ -2736,12 +2726,13 @@ class MusicRepository(context: Context) {
                                     artistImageCache[artist.name] = imageUri
                                     saveLocalArtistImage(artist.name, imageUrl)
                                     updatedArtists.add(artist.copy(artworkUri = imageUri))
-                                    continue
+                                    return@run
                                 }
                             } else {
                                 Log.d(TAG, "No Deezer artist found for: ${artist.name}")
                             }
                         } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                             Log.w(TAG, "Deezer lookup failed for ${artist.name}: ${e.message}")
                         }
                     } else {
@@ -2772,7 +2763,7 @@ class MusicRepository(context: Context) {
                                 saveLocalArtistImage(artist.name, imageUrl)
                                 updatedArtists.add(artist.copy(artworkUri = imageUri))
                                 Log.d(TAG, "Found YTMusic image for ${artist.name}: $imageUrl")
-                                continue
+                                return@run
                             }
 
                             // If search result has browseId, try to get detailed artist info for better quality image
@@ -2791,16 +2782,20 @@ class MusicRepository(context: Context) {
                                         saveLocalArtistImage(artist.name, detailedImageUrl)
                                         updatedArtists.add(artist.copy(artworkUri = imageUri))
                                         Log.d(TAG, "Found detailed YTMusic image for ${artist.name}: $detailedImageUrl")
-                                        continue
+                                        return@run
                                     }
                                 }
                             }
                         }
                         } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                             Log.w(TAG, "YTMusic fallback failed for ${artist.name}: ${e.message}")
                         }
                     }
 
+                    if (isNetworkAvailable()) artworkPrefs.edit {
+                        putLong(artistAttemptKey, System.currentTimeMillis())
+                    }
                     // If we get here, generate a placeholder image
                     Log.d(TAG, "Generating placeholder for artist: ${artist.name}")
                     val placeholderUri =
@@ -2814,6 +2809,7 @@ class MusicRepository(context: Context) {
                     updatedArtists.add(artist.copy(artworkUri = placeholderUri))
 
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     Log.e(TAG, "Error fetching artist image for ${artist.name}", e)
                     try {
                         val placeholderUri =
@@ -2829,7 +2825,9 @@ class MusicRepository(context: Context) {
                         updatedArtists.add(artist)
                     }
                 }
+
             }
+        }
 
             // Persist the updated artists to the Room database cache
             try {
@@ -4617,7 +4615,9 @@ class MusicRepository(context: Context) {
             if (isStreaming) {
                 try {
                     val streamingRepo = chromahub.rhythm.app.features.streaming.di.StreamingMusicModule.provideStreamingMusicRepository(context)
-                    val streamingLyrics = streamingRepo.getLyrics(songId.orEmpty(), artist, title)
+                    val streamingLyrics = OptionalWorkController.run(OptionalWork.LYRICS) {
+                        streamingRepo.getLyrics(songId.orEmpty(), artist, title)
+                    }
                     if (streamingLyrics != null && streamingLyrics.hasLyrics()) {
                         Log.d(TAG, "Found lyrics from streaming provider for: $artist - $title (source=${streamingLyrics.source})")
                         embeddedLyrics = streamingLyrics
@@ -4660,13 +4660,15 @@ class MusicRepository(context: Context) {
             }
             fetchedApiRequirements += requirements
             if (isNetworkAvailable()) {
-                val result = withTimeoutOrNull(LYRICS_LOOKUP_TIMEOUT_MS) {
+                val result = OptionalWorkController.run(OptionalWork.LYRICS) {
+                  withTimeoutOrNull(LYRICS_LOOKUP_TIMEOUT_MS) {
                     fetchLyricsFromAPIs(
                         artist = artist,
                         title = title,
                         requireRomanization = wantRomanization,
                         requireTranslation = wantTranslation
                     )
+                  }
                 }
                 if (result == null) {
                     Log.d(
@@ -4694,6 +4696,13 @@ class MusicRepository(context: Context) {
                 if (lyrics.source.isNullOrBlank()) lyrics.copy(source = origin.label) else lyrics
             }
 
+        // Saver must not make an online-first preference hide already saved lyrics.
+        if (appSettings.batterySaverActive.value && appSettings.batterySaverDisableLyricsFetch.value) {
+            fetchFromLocal()?.takeIf { it.hasLyrics() }?.let { return@withContext it }
+            if (songUri?.scheme in listOf("file", "content")) {
+                fetchFromEmbedded()?.takeIf { it.hasLyrics() }?.let { return@withContext it }
+            }
+        }
         val baseOrder = when (sourcePreference) {
             LyricsSourcePreference.API_FIRST -> listOf(
                 LyricsOrigin.API,
@@ -6078,34 +6087,12 @@ class MusicRepository(context: Context) {
         val updatedAlbums = mutableListOf<Album>()
 
         for (album in albums) {
-            // Check if the album has a content:// URI and if it actually exists
-            if (album.artworkUri != null) {
-                if (album.artworkUri.toString()
-                        .startsWith("content://media/external/audio/albumart")
-                ) {
-                    // Try to open the input stream to check if the artwork exists
-                    var artworkExists = false
-                    try {
-                        context.contentResolver.openInputStream(album.artworkUri)?.use {
-                            artworkExists = true
-                        }
-                    } catch (e: Exception) {
-                        Log.d(
-                            TAG,
-                            "Album artwork URI exists but can't be accessed for ${album.title}: ${album.artworkUri}",
-                            e
-                        )
-                        artworkExists = false
-                    }
-
-                    if (artworkExists) {
-                        updatedAlbums.add(album)
-                        continue
-                    }
-                } else {
-                    updatedAlbums.add(album)
-                    continue
-                }
+            OptionalWorkController.run(OptionalWork.ARTWORK) {
+            val existingArt = album.artworkUri
+            if (existingArt != null && !(existingArt.authority == MediaStore.AUTHORITY &&
+                    existingArt.path.orEmpty().contains("/albumart"))) {
+                updatedAlbums.add(album)
+                return@run
             }
 
             // Check cache first
@@ -6113,7 +6100,7 @@ class MusicRepository(context: Context) {
             val cachedUri = albumImageCache[cacheKey]
             if (cachedUri != null) {
                 updatedAlbums.add(album.copy(artworkUri = cachedUri))
-                continue
+                return@run
             }
 
             try {
@@ -6123,7 +6110,7 @@ class MusicRepository(context: Context) {
                     album.title.equals("Unknown", ignoreCase = true)
                 ) {
                     updatedAlbums.add(album)
-                    continue
+                    return@run
                 }
 
                 // Generate a custom placeholder image based on album name
@@ -6170,12 +6157,13 @@ class MusicRepository(context: Context) {
                                 albumImageCache[cacheKey] = imageUri
                                 updatedAlbums.add(album.copy(artworkUri = imageUri))
                                 Log.d(TAG, "Found Deezer album artwork for: ${album.title}, URL: $imageUrl")
-                                continue
+                                return@run
                             }
                         } else {
                             Log.d(TAG, "No Deezer album found for: ${album.title} by ${album.artist}")
                         }
                     } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                         Log.w(TAG, "Deezer album search failed for ${album.title}: ${e.message}")
                     }
                 }
@@ -6197,36 +6185,17 @@ class MusicRepository(context: Context) {
 
                     val searchResponse = ytmusicApiService.search(request = searchRequest)
                     if (searchResponse.isSuccessful) {
-                        val imageUrl = searchResponse.body()?.extractAlbumImageUrl()
+                        val imageUrl = searchResponse.body()?.extractVerifiedArtwork(album.title, album.artist)
                         if (!imageUrl.isNullOrEmpty()) {
                             val imageUri = imageUrl.toUri()
                             albumImageCache[cacheKey] = imageUri
                             updatedAlbums.add(album.copy(artworkUri = imageUri))
                             Log.d(TAG, "Found YTMusic album art for ${album.title}: $imageUrl")
                             foundAlbumArt = true
-                        } else {
-                            // Try to get detailed album info for better quality cover art
-                            val browseId = searchResponse.body()?.extractAlbumBrowseId()
-                            if (!browseId.isNullOrEmpty()) {
-                                val browseRequest = YTMusicBrowseRequest(
-                                    context = YTMusicContext(YTMusicClient()),
-                                    browseId = browseId
-                                )
-                                val albumResponse = ytmusicApiService.getAlbum(request = browseRequest)
-                                if (albumResponse.isSuccessful) {
-                                    val detailedImageUrl = albumResponse.body()?.extractAlbumCover()
-                                    if (!detailedImageUrl.isNullOrEmpty()) {
-                                        val imageUri = detailedImageUrl.toUri()
-                                        albumImageCache[cacheKey] = imageUri
-                                        updatedAlbums.add(album.copy(artworkUri = imageUri))
-                                        Log.d(TAG, "Found detailed YTMusic album art for ${album.title}: $detailedImageUrl")
-                                        foundAlbumArt = true
-                                    }
-                                }
-                            }
                         }
                     }
                     } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                         Log.w(TAG, "YTMusic fallback failed for album ${album.title}: ${e.message}")
                     }
 
@@ -6250,6 +6219,7 @@ class MusicRepository(context: Context) {
                 }
 
             } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                 Log.e(TAG, "Error fetching album artwork for ${album.title}", e)
                 // Try to use a generated placeholder
                 try {
@@ -6264,6 +6234,8 @@ class MusicRepository(context: Context) {
                     // If even placeholder generation fails, keep the original album without changes
                     updatedAlbums.add(album)
                 }
+            }
+
             }
         }
 
@@ -6299,18 +6271,34 @@ class MusicRepository(context: Context) {
      * Fetches track/song images from YTMusic API for songs without artwork.
      * This is used as a fallback when local album art is absent and other APIs fail.
      */
-    suspend fun fetchTrackArtwork(songs: List<Song>): List<Song> = withContext(Dispatchers.IO) {
+    suspend fun fetchTrackArtwork(songs: List<Song>, forceRefresh: Boolean = false): List<Song> = withContext(Dispatchers.IO) {
         val updatedSongs = mutableListOf<Song>()
 
         for (song in songs) {
+            OptionalWorkController.run(OptionalWork.ARTWORK) {
             val cacheKey = "${song.artist}:${song.title}"
 
             // Skip songs with empty or "Unknown" title
             if (song.title.isBlank() || song.title.equals("Unknown", ignoreCase = true)) {
                 updatedSongs.add(song)
-                continue
+                return@run
             }
 
+            val saved = artworkPrefs.getString("verified_uri_v2_${song.id}", null)
+            val attemptedKey = "attempted_v2_${song.id}_${cacheKey.hashCode()}"
+            if (!forceRefresh) {
+                val cached = saved?.toUri() ?: albumImageCache[cacheKey]
+                if (cached != null) {
+                    updatedSongs.add(song.copy(artworkUri = cached))
+                    return@run
+                }
+                val age = System.currentTimeMillis() - artworkPrefs.getLong(attemptedKey, 0L)
+                if (age in 0 until 6 * 60 * 60 * 1000L) {
+                    updatedSongs.add(song)
+                    return@run
+                }
+            }
+            if (!isNetworkAvailable()) { updatedSongs.add(song); return@run }
             var fetchedUri: Uri? = null
 
             // 1. Try Deezer search first (Deezer returns high resolution album/track artwork)
@@ -6321,12 +6309,13 @@ class MusicRepository(context: Context) {
                     } else song.title
                     val response = deezerApiService.searchAlbums(query)
                     val bestMatch = findBestAlbumMatch(response.data, song.album.ifBlank { song.title }, song.artist)
-                    val imgUrl = bestMatch?.coverXl ?: bestMatch?.coverBig ?: bestMatch?.coverMedium ?: response.data.firstOrNull()?.coverXl ?: response.data.firstOrNull()?.coverBig
+                    val imgUrl = bestMatch?.coverXl ?: bestMatch?.coverBig ?: bestMatch?.coverMedium
                     if (!imgUrl.isNullOrEmpty() && imgUrl.startsWith("http")) {
                         fetchedUri = imgUrl.toUri()
                         Log.d(TAG, "Found Deezer artwork for track: ${song.title}, URL: $imgUrl")
                     }
                 } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     Log.w(TAG, "Deezer track search failed for ${song.title}: ${e.message}")
                 }
                 }
@@ -6342,22 +6331,27 @@ class MusicRepository(context: Context) {
                 )
                 val searchResponse = ytmusicApiService.search(request = searchRequest)
                 if (searchResponse.isSuccessful) {
-                        val imageUrl = searchResponse.body()?.extractAlbumImageUrl()
+                        val imageUrl = searchResponse.body()?.extractVerifiedArtwork(song.title, song.artist)
                     if (!imageUrl.isNullOrEmpty()) {
                             fetchedUri = imageUrl.toUri()
                         Log.d(TAG, "Found YTMusic track image for ${song.title}: $imageUrl")
                     }
                 }
             } catch (e: Exception) {
+                    if (e is CancellationException) throw e
                     Log.w(TAG, "YTMusic track search failed for ${song.title}: ${e.message}")
             }
         }
 
+            artworkPrefs.edit { putLong(attemptedKey, System.currentTimeMillis()) }
             if (fetchedUri != null) {
                 albumImageCache[cacheKey] = fetchedUri
+                artworkPrefs.edit { putString("verified_uri_v2_${song.id}", fetchedUri.toString()) }
                 updatedSongs.add(song.copy(artworkUri = fetchedUri))
             } else {
                 updatedSongs.add(song)
+            }
+
             }
         }
         updatedSongs
@@ -6859,7 +6853,7 @@ class MusicRepository(context: Context) {
         if (songIds.isEmpty()) return@withContext emptyList()
         val entities = songDao.getSongsByIds(songIds)
         val entitiesById = entities.associateBy { it.id }
-        songIds.mapNotNull { id -> entitiesById[id]?.toSong() }
+        songIds.mapNotNull { id -> entitiesById[id]?.toSong()?.let(::withSafeArtwork) }
     }
     
     /**
@@ -7007,85 +7001,15 @@ class MusicRepository(context: Context) {
     /**
      * Finds the best matching Deezer artist from search results using fuzzy matching
      */
-    private fun findBestMatch(artists: List<DeezerArtist>, originalName: String): DeezerArtist? {
-        if (artists.isEmpty()) return null
-
-        val lowerOriginal = originalName.lowercase().trim()
-
-        // First, try exact match (case insensitive)
-        artists.find { it.name.lowercase().trim() == lowerOriginal }?.let { return it }
-
-        // Second, try starts with match
-        artists.find { it.name.lowercase().trim().startsWith(lowerOriginal) }?.let { return it }
-
-        // Third, try contains match
-        artists.find { it.name.lowercase().contains(lowerOriginal) }?.let { return it }
-
-        // Fourth, try reversed contains (original contains artist name)
-        artists.find { lowerOriginal.contains(it.name.lowercase().trim()) }?.let { return it }
-
-        // Fifth, try word-by-word matching
-        val originalWords = lowerOriginal.split(Regex("\\s+")).filter { it.isNotEmpty() }
-        if (originalWords.isNotEmpty()) {
-            artists.find { artist ->
-                val artistWords = artist.name.lowercase().split(Regex("\\s+"))
-                originalWords.any { originalWord ->
-                    artistWords.any { artistWord ->
-                        originalWord == artistWord ||
-                        originalWord.startsWith(artistWord) ||
-                        artistWord.startsWith(originalWord)
-                    }
-                }
-            }?.let { return it }
-        }
-
-        // Finally, return the first result with the most fans (most popular)
-        return artists.maxByOrNull { it.nbFan }
-    }
+    private fun findBestMatch(artists: List<DeezerArtist>, originalName: String): DeezerArtist? =
+        artists.firstOrNull { chromahub.rhythm.app.util.ArtworkSourcePolicy.matches("artist", originalName, "artist", it.name) }
 
     /**
      * Finds the best matching Deezer album from search results using fuzzy matching
      */
-    private fun findBestAlbumMatch(albums: List<DeezerAlbum>, originalTitle: String, originalArtist: String): DeezerAlbum? {
-        if (albums.isEmpty()) return null
-
-        val lowerTitle = originalTitle.lowercase().trim()
-        val lowerArtist = originalArtist.lowercase().trim()
-
-        // First, try exact match (case insensitive) for both title and artist
-        albums.find { album ->
-            album.title.lowercase().trim() == lowerTitle &&
-            (album.artist?.name?.lowercase()?.trim() == lowerArtist || lowerArtist.contains(album.artist?.name?.lowercase()?.trim() ?: ""))
-        }?.let { return it }
-
-        // Second, try exact title match with fuzzy artist match
-        albums.find { album ->
-            album.title.lowercase().trim() == lowerTitle
-        }?.let { return it }
-
-        // Third, try contains match for title
-        albums.find { album ->
-            album.title.lowercase().contains(lowerTitle) || lowerTitle.contains(album.title.lowercase())
-        }?.let { return it }
-
-        // Fourth, try word-by-word matching for title
-        val titleWords = lowerTitle.split(Regex("\\s+")).filter { it.isNotEmpty() }
-        if (titleWords.isNotEmpty()) {
-            albums.find { album ->
-                val albumWords = album.title.lowercase().split(Regex("\\s+"))
-                titleWords.any { titleWord ->
-                    albumWords.any { albumWord ->
-                        titleWord == albumWord ||
-                        titleWord.startsWith(albumWord) ||
-                        albumWord.startsWith(titleWord)
-                    }
-                }
-            }?.let { return it }
-        }
-
-        // Finally, return the first result with the most tracks (most complete album)
-        return albums.maxByOrNull { it.nbTracks }
-    }
+    private fun findBestAlbumMatch(albums: List<DeezerAlbum>, originalTitle: String, originalArtist: String): DeezerAlbum? =
+        albums.firstOrNull { chromahub.rhythm.app.util.ArtworkSourcePolicy.matches(
+            originalTitle, originalArtist, it.title, it.artist?.name) }
 
     /**
      * Detects genres for songs in background after initial app load
@@ -7130,7 +7054,9 @@ class MusicRepository(context: Context) {
                         }
 
                         val contentUri = song.uri
-                        val genre = getGenreForSong(context, contentUri, songId.toInt())
+                        val genre = OptionalWorkController.run(OptionalWork.LIBRARY) {
+                            getGenreForSong(context, contentUri, songId.toInt())
+                        }
 
                         val cacheKey = "genre_$songId"
                         val existingCachedGenre = try {
@@ -7142,6 +7068,7 @@ class MusicRepository(context: Context) {
                                         it != "-"
                                 }
                         } catch (e: Exception) {
+                        if (e is CancellationException) throw e
                             Log.e(TAG, "Failed to read existing genre cache for song ID $songId", e)
                             null
                         }
@@ -7159,6 +7086,7 @@ class MusicRepository(context: Context) {
                                 genrePrefs.edit { putString(cacheKey, genre) }
                                 Log.d(TAG, "Detected and cached genre '$genre' for song ID $songId: ${song.title}")
                             } catch (e: Exception) {
+                        if (e is CancellationException) throw e
                                 Log.e(TAG, "Failed to cache genre for song ID $songId", e)
                             }
                         } else {
@@ -7169,6 +7097,7 @@ class MusicRepository(context: Context) {
                             try {
                                 genrePrefs.edit { putString(cacheKey, "-") }
                             } catch (e: Exception) {
+                        if (e is CancellationException) throw e
                                 Log.e(TAG, "Failed to cache negative genre sentinel", e)
                             }
                         }
@@ -7177,6 +7106,7 @@ class MusicRepository(context: Context) {
                         onProgress?.invoke(processedCount, songsWithoutGenres.size)
 
                     } catch (e: Exception) {
+                        if (e is CancellationException) throw e
                         Log.w(TAG, "Error detecting genre for song ${song.title}", e)
                         updatedSongs.add(song) // Keep original song on error
                         processedCount++
@@ -7209,6 +7139,7 @@ class MusicRepository(context: Context) {
             onComplete?.invoke(finalSongs)
 
         } catch (e: Exception) {
+                        if (e is CancellationException) throw e
             Log.e(TAG, "Critical error during genre detection", e)
             // Always invoke onComplete to prevent hanging UI
             onComplete?.invoke(songs)
@@ -7244,7 +7175,9 @@ class MusicRepository(context: Context) {
 
             val batchResults = batch.map { song ->
                 try {
-                    val formatInfo = AudioFormatDetector.detectFormat(context, song.uri, song)
+                    val formatInfo = OptionalWorkController.run(OptionalWork.LIBRARY) {
+                        AudioFormatDetector.detectFormat(context, song.uri, song)
+                    }
                     song.copy(
                         bitrate = if (formatInfo.bitrateKbps > 0) formatInfo.bitrateKbps * 1000 else -1,
                         sampleRate = if (formatInfo.sampleRateHz > 0) formatInfo.sampleRateHz else -1,
@@ -7252,6 +7185,7 @@ class MusicRepository(context: Context) {
                         codec = if (formatInfo.codec != "Unknown") formatInfo.codec else "-"
                     )
                 } catch (e: Exception) {
+                        if (e is CancellationException) throw e
                     Log.w(TAG, "Error extracting audio metadata for song ${song.title}", e)
                     // Save sentinels so failed songs are not retried on every startup.
                     song.copy(bitrate = -1, sampleRate = -1, channels = -1, codec = "-")
@@ -7383,37 +7317,7 @@ class MusicRepository(context: Context) {
 
     private val allowedCoverExtensions = setOf("jpg", "jpeg", "png", "webp", "bmp", "gif")
 
-    fun findBestCover(songFolder: File): File? {
-        var bestScore = 0
-        var bestFile: File? = null
-        try {
-            val files = songFolder.listFiles() ?: return null
-            for (file in files) {
-                if (file.extension.lowercase() !in allowedCoverExtensions) continue
-                var score = 1
-                when (file.extension.lowercase()) {
-                    "jpg" -> score += 3
-                    "png" -> score += 2
-                    "jpeg" -> score += 1
-                }
-                val nameLower = file.nameWithoutExtension.lowercase()
-                if (nameLower == "albumart") score += 24
-                else if (nameLower == "cover") score += 20
-                else if (nameLower.startsWith("albumart")) score += 16
-                else if (nameLower.startsWith("cover")) score += 12
-                else if (nameLower.contains("albumart")) score += 8
-                else if (nameLower.contains("cover")) score += 4
-                if (bestScore < score) {
-                    bestScore = score
-                    bestFile = file
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error scanning for cover art", e)
-        }
-        if (bestScore >= 3) return bestFile
-        return null
-    }
+    fun findBestCover(songFolder: File): File? = chromahub.rhythm.app.util.ArtworkSourcePolicy.findFolderCover(songFolder)
 
     suspend fun buildFolderTree(songs: List<Song>): FolderNode = withContext(Dispatchers.IO) {
         val rootMap = mutableMapOf<String, FolderTreeBuilderNode>()

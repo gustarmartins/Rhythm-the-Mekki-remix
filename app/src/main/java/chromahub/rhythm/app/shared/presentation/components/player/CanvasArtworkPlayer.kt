@@ -12,6 +12,7 @@ import androidx.annotation.OptIn
 import androidx.core.view.isEmpty
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -47,6 +48,11 @@ fun CanvasArtworkPlayer(
     alwaysPlay: Boolean = false
 ) {
     val context = LocalContext.current
+    val foreground by chromahub.rhythm.app.util.OptionalWorkController.foreground.collectAsState()
+    val settings = remember { chromahub.rhythm.app.shared.data.model.AppSettings.getInstance(context) }
+    val saver by settings.batterySaverActive.collectAsState()
+    val pauseCanvas by settings.batterySaverDisableCanvas.collectAsState()
+    if (!foreground || (saver && pauseCanvas)) return
     val primary = primaryUrl?.takeIf { it.isNotBlank() }
     val fallback = fallbackUrl?.takeIf { it.isNotBlank() }
     val initial = primary ?: fallback ?: return

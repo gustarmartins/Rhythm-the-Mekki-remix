@@ -2278,6 +2278,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     
     private var libraryContinuationJob: kotlinx.coroutines.Job? = null
     private var libraryContinuationActive = false
+    private var queueClearedByUser = false
     private var queueSnapshotRevision = 0L
     private var queueSnapshotSignature: List<String> = emptyList()
     private data class PlaybackQueueSnapshot(val items: List<MediaItem>, val currentIndex: Int, val revision: Long)
@@ -2340,7 +2341,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     }
 
     private fun maybeContinueWithDeviceLibrary() {
-        if (!::player.isInitialized || !appSettings.continueWithDeviceLibrary.value ||
+        if (!::player.isInitialized || queueClearedByUser || !appSettings.continueWithDeviceLibrary.value ||
             libraryContinuationJob?.isActive == true || isMutatingBtVirtualQueue) return
         val currentItem = player.currentMediaItem ?: return
         val virtual = btVirtualOriginalQueue != null
@@ -2526,6 +2527,33 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
     }
 
+    /** Clear the service-owned queue in one command, without rebuilding its AVRCP view. */
+    private fun clearQueueExceptCurrent() {
+        val keep = player.currentMediaItem ?: return
+        queueClearedByUser = true
+        libraryContinuationJob?.cancel()
+        libraryContinuationActive = false
+        pendingPlayNextTokens.clear()
+        isMutatingBtVirtualQueue = true
+        try {
+            if (btVirtualOriginalQueue != null) {
+                btVirtualOriginalQueue = listOf(keep)
+                btVirtualCurrentOriginalIndex = 0
+                btVirtualHistory.clear()
+                btVirtualUpcoming.clear()
+                lastBtVirtualQueueMoveMs = 0L
+            }
+            for (range in chromahub.rhythm.app.util.clearQueueRemovalRanges(
+                    player.mediaItemCount, player.currentMediaItemIndex)) {
+                player.removeMediaItems(range.first, range.last + 1)
+            }
+        } finally { isMutatingBtVirtualQueue = false }
+        publishVirtualQueueState()
+        persistServiceQueue()
+        notifyBtVirtualCommands()
+        Log.i("RhythmPlayback", "Queue cleared; current occurrence, position and play state retained")
+    }
+
     private var transportGeneration = 0L
 
     private fun observeDeviceResume() {
@@ -2542,7 +2570,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 if (route != routes.value || generation != transportGeneration ||
                     !appSettings.resumeOnDeviceReconnect.value || player.playWhenReady ||
                     appSettings.rhythmGuardTimeoutUntilMs.value > System.currentTimeMillis() ||
-                    audio.mode != AudioManager.MODE_NORMAL ||
+                    audio.mode != AudioManager.MODE_NORMAL || audio.isMusicActive ||
                     (appSettings.stopPlaybackOnZeroVolume.value && appSettings.useSystemVolume.value &&
                         audio.getStreamVolume(AudioManager.STREAM_MUSIC) == 0)) {
                     Log.i("RhythmPlayback", "Device resume skipped: playback, command, route or playback guard changed")
@@ -2556,7 +2584,11 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                         null
                     } ?: return@collectLatest
                     if (route != routes.value || generation != transportGeneration ||
-                        !appSettings.resumeOnDeviceReconnect.value || player.mediaItemCount != 0) return@collectLatest
+                        !appSettings.resumeOnDeviceReconnect.value || player.mediaItemCount != 0 ||
+                        appSettings.rhythmGuardTimeoutUntilMs.value > System.currentTimeMillis() ||
+                        audio.mode != AudioManager.MODE_NORMAL || audio.isMusicActive ||
+                        (appSettings.stopPlaybackOnZeroVolume.value && appSettings.useSystemVolume.value &&
+                            audio.getStreamVolume(AudioManager.STREAM_MUSIC) == 0)) return@collectLatest
                     player.setMediaItems(saved.mediaItems, saved.startIndex, saved.startPositionMs)
                 }
                 if (player.playbackState == Player.STATE_IDLE) player.prepare()
@@ -2717,6 +2749,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             if (!isMutatingBtVirtualQueue) {
                 pendingPlayNextTokens.clear()
                 libraryContinuationActive = false
+                queueClearedByUser = false
                 libraryContinuationJob?.cancel()
             }
             restoreBeforeExternalQueueMutation()
@@ -2727,6 +2760,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             if (!isMutatingBtVirtualQueue) {
                 pendingPlayNextTokens.clear()
                 libraryContinuationActive = false
+                queueClearedByUser = false
                 libraryContinuationJob?.cancel()
             }
             restoreBeforeExternalQueueMutation()
@@ -2737,6 +2771,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             if (!isMutatingBtVirtualQueue) {
                 pendingPlayNextTokens.clear()
                 libraryContinuationActive = false
+                queueClearedByUser = false
                 libraryContinuationJob?.cancel()
             }
             restoreBeforeExternalQueueMutation()
@@ -2747,6 +2782,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             if (!isMutatingBtVirtualQueue) {
                 pendingPlayNextTokens.clear()
                 libraryContinuationActive = false
+                queueClearedByUser = false
                 libraryContinuationJob?.cancel()
             }
             restoreBeforeExternalQueueMutation()
@@ -2757,6 +2793,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             if (!isMutatingBtVirtualQueue) {
                 pendingPlayNextTokens.clear()
                 libraryContinuationActive = false
+                queueClearedByUser = false
                 libraryContinuationJob?.cancel()
             }
             restoreBeforeExternalQueueMutation()
@@ -2767,6 +2804,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             if (!isMutatingBtVirtualQueue) {
                 pendingPlayNextTokens.clear()
                 libraryContinuationActive = false
+                queueClearedByUser = false
                 libraryContinuationJob?.cancel()
             }
             restoreBeforeExternalQueueMutation()
@@ -2845,6 +2883,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             if (!isMutatingBtVirtualQueue) {
                 pendingPlayNextTokens.clear()
                 libraryContinuationActive = false
+                queueClearedByUser = false
                 libraryContinuationJob?.cancel()
             }
             restoreBeforeExternalQueueMutation()
@@ -3292,6 +3331,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             if (controller.packageName == packageName) {
                 availableCommands.add(SessionCommand(PlayNextCommand.ACTION, Bundle.EMPTY))
                 availableCommands.add(SessionCommand(PlayNextCommand.GET_QUEUE, Bundle.EMPTY))
+                availableCommands.add(SessionCommand(PlayNextCommand.CLEAR_EXCEPT_CURRENT, Bundle.EMPTY))
             }
             availableCommands.add(SessionCommand("UPDATE_ACTIVE_LYRIC", Bundle.EMPTY))
             availableCommands.add(SessionCommand("UPDATE_LYRICS_DATA", Bundle.EMPTY))
@@ -3312,6 +3352,13 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             customCommand: SessionCommand,
             args: Bundle
         ): ListenableFuture<SessionResult> {
+            if (customCommand.customAction == PlayNextCommand.CLEAR_EXCEPT_CURRENT) {
+                if (controller.packageName != packageName || !::player.isInitialized) {
+                    return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
+                }
+                clearQueueExceptCurrent()
+                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+            }
             if (customCommand.customAction == PlayNextCommand.GET_QUEUE) {
                 if (controller.packageName != packageName || !::player.isInitialized) {
                     return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))

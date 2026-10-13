@@ -294,6 +294,26 @@ fun YTMusicSearchResponse.extractArtistImageUrl(): String? {
 /**
  * Extract album cover art URL from search response
  */
+/** Require a matching title and artist before automatic artwork selection. */
+fun YTMusicSearchResponse.extractVerifiedArtwork(expectedTitle: String, expectedArtist: String): String? {
+    val items = contents?.tabbedSearchResultsRenderer?.tabs.orEmpty().flatMap { tab ->
+        tab.tabRenderer?.content?.sectionListRenderer?.contents.orEmpty().flatMap { section ->
+            section.musicShelfRenderer?.contents.orEmpty().mapNotNull { it.musicResponsiveListItemRenderer }
+        }
+    }
+    val match = items.firstOrNull { item ->
+        val columns = item.flexColumns.orEmpty().map { column ->
+            column.musicResponsiveListItemFlexColumnRenderer?.text?.runs.orEmpty().mapNotNull { it.text }
+        }
+        val title = columns.firstOrNull()?.joinToString("").orEmpty()
+        columns.drop(1).flatten().any { artist ->
+            chromahub.rhythm.app.util.ArtworkSourcePolicy.matches(expectedTitle, expectedArtist, title, artist)
+        }
+    } ?: return null
+    return match.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails.orEmpty()
+        .filter { !it.url.isNullOrBlank() }.maxByOrNull { it.width ?: 0 }?.url
+}
+
 fun YTMusicSearchResponse.extractAlbumImageUrl(): String? {
     val thumbnails = contents?.tabbedSearchResultsRenderer?.tabs
         ?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.contents

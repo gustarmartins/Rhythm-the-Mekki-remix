@@ -343,10 +343,10 @@ fun EqualizerScreen(
     val audioRoutingMode by appSettings.audioRoutingMode.collectAsState()
     val isBitPerfectActive = audioRoutingMode == "app"
     val isAudioOffloadActive by appSettings.isAudioOffloadActive.collectAsState()
-    val batterySaverEnabled by appSettings.batterySaverEnabled.collectAsState()
+    val batterySaverEnabled by appSettings.batterySaverActive.collectAsState()
     val batterySaverMode by appSettings.batterySaverMode.collectAsState()
     val batterySaverEnableOffload by appSettings.batterySaverEnableOffload.collectAsState()
-    val isOffloadEnforced = batterySaverEnabled && (batterySaverMode == "auto" || (batterySaverMode == "manual" && batterySaverEnableOffload))
+    val isOffloadEnforced = batterySaverEnabled && batterySaverEnableOffload
 
     // Update spatialization and bass boost availability when screen is shown
     LaunchedEffect(Unit) {

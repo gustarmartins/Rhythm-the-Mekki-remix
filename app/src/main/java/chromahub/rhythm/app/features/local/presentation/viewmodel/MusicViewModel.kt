@@ -2074,7 +2074,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 val shouldFetchArtists = hasMissingArtists &&
                     artistSource1 != chromahub.rhythm.app.shared.data.model.ArtistArtworkSource.DISABLED &&
                     (artistSource1 != chromahub.rhythm.app.shared.data.model.ArtistArtworkSource.API_ONLY || appSettings.deezerApiEnabled.value)
-                val shouldFetchAlbumsAndSongs = (hasMissingAlbums || hasMissingSongs) && appSettings.isAutoFetchArtworkActive.value && (appSettings.ytMusicApiEnabled.value || appSettings.deezerApiEnabled.value)
+                val shouldFetchAlbumsAndSongs = (hasMissingAlbums || hasMissingSongs) && appSettings.autoFetchArtwork.value && (appSettings.ytMusicApiEnabled.value || appSettings.deezerApiEnabled.value)
 
                 if (shouldFetchArtists || shouldFetchAlbumsAndSongs) {
                     _isFetchingArtwork.value = true
@@ -2245,7 +2245,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 val shouldFetchArtists = hasMissingArtists &&
                     artistSource2 != chromahub.rhythm.app.shared.data.model.ArtistArtworkSource.DISABLED &&
                     (artistSource2 != chromahub.rhythm.app.shared.data.model.ArtistArtworkSource.API_ONLY || appSettings.deezerApiEnabled.value)
-                val shouldFetchAlbumsAndSongs = (hasMissingAlbums || hasMissingSongs) && appSettings.isAutoFetchArtworkActive.value && (appSettings.ytMusicApiEnabled.value || appSettings.deezerApiEnabled.value)
+                val shouldFetchAlbumsAndSongs = (hasMissingAlbums || hasMissingSongs) && appSettings.autoFetchArtwork.value && (appSettings.ytMusicApiEnabled.value || appSettings.deezerApiEnabled.value)
 
                 if (shouldFetchArtists || shouldFetchAlbumsAndSongs) {
                     _isFetchingArtwork.value = true
@@ -2504,6 +2504,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     // When not playing, collectLatest suspends until next change — no polling needed
                 }
             } catch (e: Exception) {
+            if (e is CancellationException) throw e
                 Log.e(TAG, "Error in listening time tracking", e)
             }
         }
@@ -2595,7 +2596,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         val shouldFetchArtists = hasMissingArtists &&
                             artistSource3 != chromahub.rhythm.app.shared.data.model.ArtistArtworkSource.DISABLED &&
                             (artistSource3 != chromahub.rhythm.app.shared.data.model.ArtistArtworkSource.API_ONLY || appSettings.deezerApiEnabled.value)
-                        val shouldFetchAlbumsAndSongs = (hasMissingAlbums || hasMissingSongs) && appSettings.isAutoFetchArtworkActive.value && (appSettings.ytMusicApiEnabled.value || appSettings.deezerApiEnabled.value)
+                        val shouldFetchAlbumsAndSongs = (hasMissingAlbums || hasMissingSongs) && appSettings.autoFetchArtwork.value && (appSettings.ytMusicApiEnabled.value || appSettings.deezerApiEnabled.value)
 
                         if (shouldFetchArtists || shouldFetchAlbumsAndSongs) {
                             _isFetchingArtwork.value = true
@@ -3910,12 +3911,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Fetches artist images and album artwork from the internet for items that don't have them
      */
+    private var artworkProbeCursor = 0
+
     private suspend fun fetchArtworkFromInternet(
         fetchArtists: Boolean = true,
         fetchAlbumsAndSongs: Boolean = true
     ) = withContext(Dispatchers.IO) {
         val artistSource = appSettings.artistArtworkSource.value
-        val isAutoFetchActive = appSettings.isAutoFetchArtworkActive.value
+        val isAutoFetchActive = appSettings.autoFetchArtwork.value
         if (!isAutoFetchActive && artistSource == chromahub.rhythm.app.shared.data.model.ArtistArtworkSource.DISABLED) {
             Log.d(TAG, "isAutoFetchArtworkActive and artist artwork are disabled, skipping internet artwork fetch")
             return@withContext
@@ -3958,22 +3961,27 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     Log.d(TAG, "No albums found that need artwork")
                 }
 
-                val songsToUpdate = _songs.value.filter { song ->
-                    val uri = song.artworkUri
-                    if (uri == null || uri == Uri.EMPTY) true
-                    else {
-                        val str = uri.toString().trim()
-                        if (str.isEmpty() || str == "null" || str == "content://media/external/audio/albumart/0") true
-                        else if (str.startsWith("http://") || str.startsWith("https://")) false
-                        else {
-                            try {
-                                context.contentResolver.openInputStream(uri)?.use { stream ->
-                                    stream.available() <= 0 && stream.read() == -1
-                                } ?: true
-                            } catch (_: Exception) { true }
+                val library = _songs.value
+                val songsToUpdate = mutableListOf<Song>()
+                val probeBudget = minOf(library.size, 120)
+                repeat(probeBudget) {
+                    if (songsToUpdate.size >= 40 || library.isEmpty()) return@repeat
+                    val song = library[artworkProbeCursor.mod(library.size)]
+                    artworkProbeCursor = (artworkProbeCursor + 1).mod(library.size)
+                    val missing = chromahub.rhythm.app.util.OptionalWorkController.run(
+                        chromahub.rhythm.app.util.OptionalWork.ARTWORK
+                    ) {
+                        val uri = song.artworkUri
+                        when {
+                            uri == null || uri == Uri.EMPTY -> true
+                            uri.scheme == "http" || uri.scheme == "https" -> false
+                            else -> try {
+                                context.contentResolver.openInputStream(uri)?.use { it.read() == -1 } ?: true
+                            } catch (_: java.io.IOException) { true }
                         }
                     }
-                }.take(40)
+                    if (missing) songsToUpdate.add(song)
+                }
                 if (songsToUpdate.isNotEmpty()) {
                     val updatedSongs = repository.fetchTrackArtwork(songsToUpdate)
                     val songMap: Map<String, Song> = updatedSongs.associateBy { song: Song -> song.id }
@@ -4001,7 +4009,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 _isFetchingArtwork.value = true
-                val updated = repository.fetchTrackArtwork(listOf(song))
+                val updated = repository.fetchTrackArtwork(listOf(song), forceRefresh = true)
                 val resultSong = updated.firstOrNull()
                 if (resultSong?.artworkUri != null && resultSong.artworkUri != song.artworkUri) {
                     val currentList = _songs.value.toMutableList()
@@ -4648,7 +4656,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 if (playing) {
                     while (isActive) {
                         updateProgress()
-                        delay(100) // Update every 100ms for smooth progress
+                        delay(if (chromahub.rhythm.app.util.OptionalWorkController.foreground.value) 100 else 1_000)
+                        // Background UI observers do not need ten updates per second.
                     }
                 } else {
                     // Update one last time when paused/stopped
@@ -9358,72 +9367,35 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Clear the entire queue except the currently playing song
      */
+    private var clearQueueJob: Job? = null
+
     fun clearQueue() {
-        Log.d(TAG, "Clearing queue")
-
-        // Clear any previous error
+        if (clearQueueJob?.isActive == true) return
         _queueOperationError.value = null
-
-        mediaController?.let { controller ->
+        clearQueueJob = viewModelScope.launch {
+            val controller = mediaController ?: return@launch
             try {
-                val currentQueue = _currentQueue.value
-
-                if (currentQueue.songs.isEmpty()) {
-                    Log.d(TAG, "Queue is already empty")
-                    return
+                val result = suspendCancellableCoroutine<SessionResult> { continuation ->
+                    val future = controller.sendCustomCommand(
+                        SessionCommand(PlayNextCommand.CLEAR_EXCEPT_CURRENT, Bundle.EMPTY), Bundle.EMPTY)
+                    future.addListener({
+                        if (continuation.isActive) {
+                            try { continuation.resume(future.get()) }
+                            catch (_: Exception) { continuation.resume(SessionResult(androidx.media3.session.SessionError.ERROR_UNKNOWN)) }
+                        }
+                    }, androidx.core.content.ContextCompat.getMainExecutor(getApplication()))
+                    continuation.invokeOnCancellation { future.cancel(false) }
                 }
-
-                val controllerCurrentIndex = controller.currentMediaItemIndex
-                val fallbackIndexFromSong = _currentSong.value
-                    ?.let { current -> currentQueue.songs.indexOfFirst { it.id == current.id } }
-                    ?.takeIf { it >= 0 }
-
-                val keepIndex = when {
-                    controllerCurrentIndex in currentQueue.songs.indices -> controllerCurrentIndex
-                    fallbackIndexFromSong != null -> fallbackIndexFromSong
-                    else -> 0
-                }
-
-                if (currentQueue.songs.size == 1) {
-                    Log.d(TAG, "Queue has only one song, nothing to clear")
-                    return
-                }
-
-                // Remove all items except the currently playing one
-                // Remove in reverse order to maintain indices
-                for (i in (controller.mediaItemCount - 1) downTo 0) {
-                    if (i != keepIndex) {
-                        controller.removeMediaItem(i)
-                    }
-                }
-
-                // Update the queue in our state to contain only the current song
-                val currentSong = if (keepIndex in currentQueue.songs.indices) {
-                    currentQueue.songs[keepIndex]
-                } else {
-                    _currentSong.value
-                }
-
-                val newQueue = if (currentSong != null) {
-                    listOf(currentSong)
-                } else {
-                    emptyList()
-                }
-
-                _currentQueue.value = Queue(newQueue, if (newQueue.isNotEmpty()) 0 else -1)
-
-                // Save queue to persistence
-                saveQueueToPersistence()
-
-                Log.d(TAG, "Successfully cleared queue. Kept current song: ${currentSong?.title}")
-            } catch (e: Exception) {
+                check(result.resultCode == SessionResult.RESULT_SUCCESS) { "Playback service rejected queue clear" }
+                queueStateHolder.clearOriginalQueue()
+                serviceQueueSyncJob?.cancel()
+                serviceQueueSyncJob = null
+                syncServiceOwnedQueue(controller)
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (e: Exception) {
                 Log.e(TAG, "Error clearing queue", e)
                 _queueOperationError.value = "Failed to clear queue: ${e.message}"
             }
-        } ?: run {
-            val errorMsg = "Cannot clear queue - media controller is null"
-            Log.e(TAG, errorMsg)
-            _queueOperationError.value = errorMsg
         }
     }
 

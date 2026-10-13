@@ -3,6 +3,23 @@
 
 package chromahub.rhythm.app.util
 
+/** One pass: stable keys for duplicate occurrences without rescanning every preceding row. */
+internal fun queueOccurrenceKeys(ids: List<String>): List<String> {
+    val counts = HashMap<String, Int>()
+    return ids.map { id ->
+        val occurrence = (counts[id] ?: 0) + 1
+        counts[id] = occurrence
+        "$id@$occurrence"
+    }
+}
+
+/** Remove the suffix first so the original current index remains valid for prefix removal. */
+internal fun clearQueueRemovalRanges(size: Int, currentIndex: Int): List<IntRange> = buildList {
+    if (currentIndex !in 0 until size) return@buildList
+    if (currentIndex + 1 < size) add(currentIndex + 1 until size)
+    if (currentIndex > 0) add(0 until currentIndex)
+}
+
 /** Restore future order by occurrence, retaining additions and duplicate tracks. */
 internal fun <T> restoreQueueOccurrences(current: List<T>, currentIndex: Int, original: List<T>, id: (T) -> String): List<T> {
     if (current.isEmpty()) return emptyList()

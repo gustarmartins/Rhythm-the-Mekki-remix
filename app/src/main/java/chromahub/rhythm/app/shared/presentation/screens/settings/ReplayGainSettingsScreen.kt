@@ -59,10 +59,10 @@ fun ReplayGainSettingsScreen(
     val replayGainPreamp by appSettings.replayGainPreamp.collectAsState()
     val replayGainPreampUntagged by appSettings.replayGainPreampUntagged.collectAsState()
     val isAudioOffloadActive by appSettings.isAudioOffloadActive.collectAsState()
-    val batterySaverEnabled by appSettings.batterySaverEnabled.collectAsState()
+    val batterySaverEnabled by appSettings.batterySaverActive.collectAsState()
     val batterySaverMode by appSettings.batterySaverMode.collectAsState()
     val batterySaverEnableOffload by appSettings.batterySaverEnableOffload.collectAsState()
-    val isOffloadEnforced = batterySaverEnabled && (batterySaverMode == "auto" || (batterySaverMode == "manual" && batterySaverEnableOffload))
+    val isOffloadEnforced = batterySaverEnabled && batterySaverEnableOffload
 
     CollapsibleHeaderScreen(
         title = context.getString(R.string.replay_gain),

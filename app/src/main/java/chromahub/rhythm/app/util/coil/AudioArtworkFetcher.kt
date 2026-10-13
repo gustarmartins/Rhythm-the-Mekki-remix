@@ -68,32 +68,6 @@ class AudioArtworkFetcher(
                 )
             }
 
-            // Fallback to MediaStore album art if no embedded art is found
-            if (!albumId.isNullOrBlank()) {
-                val albumIdLong = albumId.toLongOrNull()
-                if (albumIdLong != null) {
-                    val mediaStoreAlbumArtUri = ContentUris.withAppendedId(
-                        "content://media/external/audio/albumart".toUri(),
-                        albumIdLong
-                    )
-                    try {
-                        context.contentResolver.openInputStream(mediaStoreAlbumArtUri)?.use { input ->
-                            val albumBytes = input.readBytes()
-                            if (albumBytes.isNotEmpty()) {
-                                val bufferedSource = ByteArrayInputStream(albumBytes).source().buffer()
-                                val imageSource = ImageSource(source = bufferedSource, context = context)
-                                return SourceResult(
-                                    source = imageSource,
-                                    mimeType = null,
-                                    dataSource = DataSource.DISK
-                                )
-                            }
-                        }
-                    } catch (_: Exception) {
-                    }
-                }
-            }
-
             return null
         }
 
@@ -149,7 +123,7 @@ class AudioArtworkFetcher(
 class AudioArtworkKeyer : Keyer<Uri> {
     override fun key(data: Uri, options: Options): String? {
         if (AudioArtworkFetcher.isSupportedAudioUri(data)) {
-            return "audio_artwork_${data}"
+            return "audio_artwork_v2_${data}"
         }
         return null
     }

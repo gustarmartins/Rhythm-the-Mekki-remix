@@ -62,6 +62,7 @@ class RhythmAlbumArtProvider : ContentProvider() {
             return Uri.Builder()
                 .scheme(ContentResolver.SCHEME_CONTENT)
                 .authority(PROVIDER_AUTHORITY)
+                .appendQueryParameter("artPolicy", "2")
                 .appendPath("song")
                 .appendPath(id)
                 .apply {
@@ -83,6 +84,7 @@ class RhythmAlbumArtProvider : ContentProvider() {
             return Uri.Builder()
                 .scheme(ContentResolver.SCHEME_CONTENT)
                 .authority(PROVIDER_AUTHORITY)
+                .appendQueryParameter("artPolicy", "2")
                 .appendPath("album")
                 .appendPath(albumId)
                 .apply {
@@ -178,25 +180,6 @@ class RhythmAlbumArtProvider : ContentProvider() {
                 }
             }
             return createAssetFileDescriptorFromBytes(bytes)
-        }
-
-        // Fallback to MediaStore album art if embedded art is absent and albumId is present
-        if (!albumId.isNullOrBlank()) {
-            val albumIdLong = albumId.toLongOrNull()
-            if (albumIdLong != null) {
-                val mediaStoreAlbumArtUri = ContentUris.withAppendedId(
-                    "content://media/external/audio/albumart".toUri(),
-                    albumIdLong
-                )
-                try {
-                    val fallbackAfd = appContext.contentResolver.openAssetFileDescriptor(mediaStoreAlbumArtUri, "r", signal)
-                    if (fallbackAfd != null) {
-                        return fallbackAfd
-                    }
-                } catch (_: Exception) {
-                    // Fallback to not found
-                }
-            }
         }
 
         throw FileNotFoundException("No artwork found for $uri")

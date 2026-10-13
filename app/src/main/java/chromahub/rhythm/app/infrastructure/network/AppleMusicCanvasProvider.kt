@@ -10,6 +10,8 @@ import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import chromahub.rhythm.app.util.OptionalWork
+import chromahub.rhythm.app.util.OptionalWorkController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -153,6 +155,7 @@ object AppleMusicCanvasProvider {
                                     }
                                 }
                             } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
                                 // Ignore decoding exceptions for invalid matches
                             }
                         }
@@ -169,6 +172,7 @@ object AppleMusicCanvasProvider {
                 }
             } ?: APPLE_MUSIC_TOKEN
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             AppleCanvasLogger.e("Error occurred during dynamic token fetch. Using fallback token.", e)
             APPLE_MUSIC_TOKEN
         }
@@ -179,14 +183,14 @@ object AppleMusicCanvasProvider {
         artist: String,
         album: String? = null,
         storefront: String = "us",
-    ): CanvasArtwork? = withContext(Dispatchers.IO) {
+    ): CanvasArtwork? = OptionalWorkController.run(OptionalWork.CANVAS) {
         val key = cacheKey("song", song, artist, album ?: "", storefront)
-        cache[key]?.takeIf { it.expiresAtMs > System.currentTimeMillis() }?.let { return@withContext it.value }
+        cache[key]?.takeIf { it.expiresAtMs > System.currentTimeMillis() }?.let { return@run it.value }
 
         val result = searchAndFetchMotion(song, artist, album, storefront, "songs")
         if (result != null) {
             cache[key] = CacheEntry(result, System.currentTimeMillis() + CACHE_TTL_MS)
-            return@withContext result
+            return@run result
         }
 
         // Fallback: if song search returned null, try searching for the album of the song
@@ -196,33 +200,34 @@ object AppleMusicCanvasProvider {
             if (albumResult != null) {
                 val songResult = albumResult.copy(name = song)
                 cache[key] = CacheEntry(songResult, System.currentTimeMillis() + CACHE_TTL_MS)
-                return@withContext songResult
+                return@run songResult
             }
         }
 
-        return@withContext null
+        if (cache.size >= 256) cache.clear()
+        cache[key] = CacheEntry(null, System.currentTimeMillis() + CACHE_TTL_MS)
+        return@run null
     }
 
     suspend fun getByAlbumArtist(
         album: String,
         artist: String,
         storefront: String = "us",
-    ): CanvasArtwork? = withContext(Dispatchers.IO) {
+    ): CanvasArtwork? = OptionalWorkController.run(OptionalWork.CANVAS) {
         val key = cacheKey("album", album, artist, storefront)
-        cache[key]?.takeIf { it.expiresAtMs > System.currentTimeMillis() }?.let { return@withContext it.value }
+        cache[key]?.takeIf { it.expiresAtMs > System.currentTimeMillis() }?.let { return@run it.value }
 
         val result = searchAndFetchMotion(term = album, artist = artist, album = null, storefront = storefront, type = "albums")
-        if (result != null) {
-            cache[key] = CacheEntry(result, System.currentTimeMillis() + CACHE_TTL_MS)
-        }
-        return@withContext result
+        if (cache.size >= 256) cache.clear()
+        cache[key] = CacheEntry(result, System.currentTimeMillis() + CACHE_TTL_MS)
+        return@run result
     }
 
     suspend fun getAlbumDescription(
         album: String,
         artist: String,
         storefront: String = "us",
-    ): String? = withContext(Dispatchers.IO) {
+    ): String? = OptionalWorkController.run(OptionalWork.CANVAS) {
         try {
             val query = if (album.contains(artist, ignoreCase = true)) album else "$artist $album"
             val token = getOrFetchToken()
@@ -272,6 +277,7 @@ object AppleMusicCanvasProvider {
                 null
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             AppleCanvasLogger.e("Error fetching album description", e)
             null
         }
@@ -463,6 +469,7 @@ object AppleMusicCanvasProvider {
                 null
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             AppleCanvasLogger.e("Error searching and fetching motion", e)
             null
         }
@@ -537,6 +544,7 @@ object AppleMusicCanvasProvider {
                 null
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             AppleCanvasLogger.e("error in fetchMotionArtwork for $albumId", e)
             null
         }

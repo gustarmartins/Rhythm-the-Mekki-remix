@@ -167,10 +167,10 @@ fun PlaybackBottomSheet(
     val virtualizerEnabled by appSettings.virtualizerEnabled.collectAsState()
     val virtualizerStrength by appSettings.virtualizerStrength.collectAsState()
     val isAudioOffloadActive by appSettings.isAudioOffloadActive.collectAsState()
-    val batterySaverEnabled by appSettings.batterySaverEnabled.collectAsState()
+    val batterySaverEnabled by appSettings.batterySaverActive.collectAsState()
     val batterySaverMode by appSettings.batterySaverMode.collectAsState()
     val batterySaverEnableOffload by appSettings.batterySaverEnableOffload.collectAsState()
-    val isOffloadEnforced = batterySaverEnabled && (batterySaverMode == "auto" || (batterySaverMode == "manual" && batterySaverEnableOffload))
+    val isOffloadEnforced = batterySaverEnabled && batterySaverEnableOffload
     
     var showSpeedPitchSheet by remember { mutableStateOf(false) }
 

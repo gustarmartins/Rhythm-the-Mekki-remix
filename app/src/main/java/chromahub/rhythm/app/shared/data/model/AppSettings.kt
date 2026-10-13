@@ -2196,7 +2196,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
     private val _batterySaverDisableHaptics = MutableStateFlow(prefs.getBoolean(KEY_BATTERY_SAVER_DISABLE_HAPTICS, true))
     val batterySaverDisableHaptics: StateFlow<Boolean> = _batterySaverDisableHaptics.asStateFlow()
 
-    private val _batterySaverEnableOffload = MutableStateFlow(prefs.getBoolean(KEY_BATTERY_SAVER_ENABLE_OFFLOAD, true))
+    private val _batterySaverEnableOffload = MutableStateFlow(prefs.getBoolean(KEY_BATTERY_SAVER_ENABLE_OFFLOAD, false))
     val batterySaverEnableOffload: StateFlow<Boolean> = _batterySaverEnableOffload.asStateFlow()
 
     private val _batterySaverDisableMarquee = MutableStateFlow(prefs.getBoolean(KEY_BATTERY_SAVER_DISABLE_MARQUEE, true))
@@ -2207,6 +2207,27 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
 
     private val _batterySaverDisableAutoFetchArtwork = MutableStateFlow(prefs.getBoolean(KEY_BATTERY_SAVER_DISABLE_AUTO_FETCH_ARTWORK, true))
     val batterySaverDisableAutoFetchArtwork: StateFlow<Boolean> = _batterySaverDisableAutoFetchArtwork.asStateFlow()
+
+    private var batteryPercent: Int? = null
+    private var batteryCharging = false
+    private var automaticSaverActive = false
+    private val _batterySaverActive = MutableStateFlow(_batterySaverEnabled.value)
+    val batterySaverActive: StateFlow<Boolean> = _batterySaverActive.asStateFlow()
+
+    private val _batterySaverAutoEnabled = MutableStateFlow(prefs.getBoolean("battery_saver_auto_enabled", true))
+    val batterySaverAutoEnabled: StateFlow<Boolean> = _batterySaverAutoEnabled.asStateFlow()
+
+    private val _batterySaverThreshold = MutableStateFlow(prefs.getInt("battery_saver_threshold", 15))
+    val batterySaverThreshold: StateFlow<Int> = _batterySaverThreshold.asStateFlow()
+
+    private val _batterySaverDisableLyricsFetch = MutableStateFlow(prefs.getBoolean("battery_saver_disable_lyrics_fetch", true))
+    val batterySaverDisableLyricsFetch: StateFlow<Boolean> = _batterySaverDisableLyricsFetch.asStateFlow()
+
+    private val _batterySaverDisableLibraryWork = MutableStateFlow(prefs.getBoolean("battery_saver_disable_library_work", true))
+    val batterySaverDisableLibraryWork: StateFlow<Boolean> = _batterySaverDisableLibraryWork.asStateFlow()
+
+    private val _batterySaverDisableCanvas = MutableStateFlow(prefs.getBoolean("battery_saver_disable_canvas", true))
+    val batterySaverDisableCanvas: StateFlow<Boolean> = _batterySaverDisableCanvas.asStateFlow()
 
     private val _globalMarqueeEnabled = MutableStateFlow(prefs.getBoolean(KEY_GLOBAL_MARQUEE_ENABLED, true))
     val globalMarqueeEnabled: StateFlow<Boolean> = _globalMarqueeEnabled.asStateFlow()
@@ -2228,56 +2249,57 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
     val isAutoFetchArtworkActive: StateFlow<Boolean> = _isAutoFetchArtworkActive.asStateFlow()
 
     private fun calculateIsHapticEnabled(): Boolean {
-        val masterEnabled = _batterySaverEnabled.value
-        val mode = _batterySaverMode.value
+        val masterEnabled = _batterySaverActive.value
         val disableHapticsInManual = _batterySaverDisableHaptics.value
         val baseHaptics = _hapticFeedbackEnabled.value
 
-        return baseHaptics && !(masterEnabled && (mode == "auto" || disableHapticsInManual))
+        return baseHaptics && !(masterEnabled && disableHapticsInManual)
     }
 
     private fun calculateIsAudioOffloadActive(): Boolean {
-        val masterEnabled = _batterySaverEnabled.value
-        val mode = _batterySaverMode.value
+        val masterEnabled = _batterySaverActive.value
         val enableOffloadInManual = _batterySaverEnableOffload.value
         val baseOffload = _audioOffloadEnabled.value
 
-        return baseOffload || (masterEnabled && (mode == "auto" || enableOffloadInManual))
+        return baseOffload || (masterEnabled && enableOffloadInManual)
     }
 
     private fun calculateIsMarqueeActive(): Boolean {
-        val masterEnabled = _batterySaverEnabled.value
-        val mode = _batterySaverMode.value
+        val masterEnabled = _batterySaverActive.value
         val disableMarqueeInManual = _batterySaverDisableMarquee.value
         val baseMarquee = _globalMarqueeEnabled.value
 
-        return baseMarquee && !(masterEnabled && (mode == "auto" || disableMarqueeInManual))
+        return baseMarquee && !(masterEnabled && disableMarqueeInManual)
     }
 
     private fun calculateIsLosslessArtworkActive(): Boolean {
-        val masterEnabled = _batterySaverEnabled.value
-        val mode = _batterySaverMode.value
+        val masterEnabled = _batterySaverActive.value
         val disableLosslessInManual = _batterySaverDisableLosslessArtwork.value
         val baseLossless = _losslessArtwork.value
 
-        return baseLossless && !(masterEnabled && (mode == "auto" || disableLosslessInManual))
+        return baseLossless && !(masterEnabled && disableLosslessInManual)
     }
 
     private fun calculateIsAutoFetchArtworkActive(): Boolean {
-        val masterEnabled = _batterySaverEnabled.value
-        val mode = _batterySaverMode.value
+        val masterEnabled = _batterySaverActive.value
         val disableAutoFetchInManual = _batterySaverDisableAutoFetchArtwork.value
         val baseAutoFetch = _autoFetchArtwork.value
 
-        return baseAutoFetch && !(masterEnabled && (mode == "auto" || disableAutoFetchInManual))
+        return baseAutoFetch && !(masterEnabled && disableAutoFetchInManual)
     }
 
     fun updateDerivedSettings() {
+        automaticSaverActive = chromahub.rhythm.app.util.automaticBatterySaver(
+            _batterySaverAutoEnabled.value, batteryPercent, batteryCharging,
+            _batterySaverThreshold.value, automaticSaverActive
+        )
+        _batterySaverActive.value = _batterySaverEnabled.value || automaticSaverActive
         _isHapticEnabled.value = calculateIsHapticEnabled()
         _isAudioOffloadActive.value = calculateIsAudioOffloadActive()
         _isMarqueeActive.value = calculateIsMarqueeActive()
         _isLosslessArtworkActive.value = calculateIsLosslessArtworkActive()
         _isAutoFetchArtworkActive.value = calculateIsAutoFetchArtworkActive()
+        chromahub.rhythm.app.util.OptionalWorkController.update(this)
     }
 
     // Festive Decoration Position Settings
@@ -2456,6 +2478,43 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
     }
 
     // Battery Saver Methods
+    fun updateBatteryState(percent: Int?, charging: Boolean) {
+        batteryPercent = percent
+        batteryCharging = charging
+        updateDerivedSettings()
+    }
+
+    fun setBatterySaverAutoEnabled(value: Boolean) {
+        prefs.edit { putBoolean("battery_saver_auto_enabled", value) }
+        _batterySaverAutoEnabled.value = value
+        updateDerivedSettings()
+    }
+
+    fun setBatterySaverThreshold(value: Int) {
+        require(value in 1..100)
+        prefs.edit { putInt("battery_saver_threshold", value) }
+        _batterySaverThreshold.value = value
+        updateDerivedSettings()
+    }
+
+    fun setBatterySaverDisableLyricsFetch(value: Boolean) {
+        prefs.edit { putBoolean("battery_saver_disable_lyrics_fetch", value) }
+        _batterySaverDisableLyricsFetch.value = value
+        updateDerivedSettings()
+    }
+
+    fun setBatterySaverDisableLibraryWork(value: Boolean) {
+        prefs.edit { putBoolean("battery_saver_disable_library_work", value) }
+        _batterySaverDisableLibraryWork.value = value
+        updateDerivedSettings()
+    }
+
+    fun setBatterySaverDisableCanvas(value: Boolean) {
+        prefs.edit { putBoolean("battery_saver_disable_canvas", value) }
+        _batterySaverDisableCanvas.value = value
+        updateDerivedSettings()
+    }
+
     fun setBatterySaverEnabled(enabled: Boolean) {
         prefs.edit { putBoolean(KEY_BATTERY_SAVER_ENABLED, enabled) }
         _batterySaverEnabled.value = enabled
@@ -5706,10 +5765,15 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         _replayGainPreampUntagged.value = prefs.getFloat(KEY_REPLAY_GAIN_PREAMP_UNTAGGED, 0f)
         _audioOffloadEnabled.value = prefs.getBoolean(KEY_AUDIO_OFFLOAD_ENABLED, false)
         _skipSilenceEnabled.value = prefs.getBoolean(KEY_SKIP_SILENCE, false)
+        _batterySaverAutoEnabled.value = prefs.getBoolean("battery_saver_auto_enabled", true)
+        _batterySaverThreshold.value = prefs.getInt("battery_saver_threshold", 15)
+        _batterySaverDisableLyricsFetch.value = prefs.getBoolean("battery_saver_disable_lyrics_fetch", true)
+        _batterySaverDisableLibraryWork.value = prefs.getBoolean("battery_saver_disable_library_work", true)
+        _batterySaverDisableCanvas.value = prefs.getBoolean("battery_saver_disable_canvas", true)
         _batterySaverEnabled.value = prefs.getBoolean(KEY_BATTERY_SAVER_ENABLED, false)
         _batterySaverMode.value = prefs.getString(KEY_BATTERY_SAVER_MODE, "auto") ?: "auto"
         _batterySaverDisableHaptics.value = prefs.getBoolean(KEY_BATTERY_SAVER_DISABLE_HAPTICS, true)
-        _batterySaverEnableOffload.value = prefs.getBoolean(KEY_BATTERY_SAVER_ENABLE_OFFLOAD, true)
+        _batterySaverEnableOffload.value = prefs.getBoolean(KEY_BATTERY_SAVER_ENABLE_OFFLOAD, false)
         _batterySaverDisableMarquee.value = prefs.getBoolean(KEY_BATTERY_SAVER_DISABLE_MARQUEE, true)
         _batterySaverDisableLosslessArtwork.value = prefs.getBoolean(KEY_BATTERY_SAVER_DISABLE_LOSSLESS_ARTWORK, true)
         _batterySaverDisableAutoFetchArtwork.value = prefs.getBoolean(KEY_BATTERY_SAVER_DISABLE_AUTO_FETCH_ARTWORK, true)

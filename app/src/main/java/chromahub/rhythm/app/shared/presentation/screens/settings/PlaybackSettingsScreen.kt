@@ -74,10 +74,10 @@ fun PlaybackSettingsScreen(
     val resumeOnDeviceReconnect by appSettings.resumeOnDeviceReconnect.collectAsState()
     val audioOffloadEnabled by appSettings.audioOffloadEnabled.collectAsState()
     val isAudioOffloadActive by appSettings.isAudioOffloadActive.collectAsState()
-    val batterySaverEnabled by appSettings.batterySaverEnabled.collectAsState()
+    val batterySaverEnabled by appSettings.batterySaverActive.collectAsState()
     val batterySaverMode by appSettings.batterySaverMode.collectAsState()
     val batterySaverEnableOffload by appSettings.batterySaverEnableOffload.collectAsState()
-    val isOffloadEnforced = batterySaverEnabled && (batterySaverMode == "auto" || (batterySaverMode == "manual" && batterySaverEnableOffload))
+    val isOffloadEnforced = batterySaverEnabled && batterySaverEnableOffload
 
     val defaultPlaybackSpeed by appSettings.defaultPlaybackSpeed.collectAsState()
     val useDefaultPlaybackSpeed by appSettings.useDefaultPlaybackSpeed.collectAsState()

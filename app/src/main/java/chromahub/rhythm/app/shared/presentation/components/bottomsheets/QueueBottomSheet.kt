@@ -21,6 +21,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -156,15 +157,6 @@ private sealed interface QueueListRow {
     data class Song(val row: QueueSongRow) : QueueListRow
 }
 
-private fun queueEntryKey(queue: List<Song>, position: Int): String {
-    val song = queue[position]
-    var ordinal = 0
-    for (i in 0..position) {
-        if (queue[i].id == song.id) ordinal++
-    }
-    return "${song.id}@$ordinal"
-}
-
 private fun queueListRowKey(row: QueueListRow): String = when (row) {
     is QueueListRow.Section -> "section_${row.label}"
     is QueueListRow.Song -> row.row.stableKey
@@ -176,6 +168,7 @@ private fun buildQueueListRows(
     currentSongIndex: Int,
     showPlayedSongs: Boolean
 ): List<QueueListRow> = buildList {
+    val occurrenceKeys = chromahub.rhythm.app.util.queueOccurrenceKeys(queue.map { it.id })
     val played = visibleQueue.filter { it.first < currentSongIndex }
     val upcoming = visibleQueue.filter { it.first > currentSongIndex }
 
@@ -184,7 +177,7 @@ private fun buildQueueListRows(
         played.forEachIndexed { index, (position, song) ->
             add(
                 QueueListRow.Song(
-                    QueueSongRow(position, 0, song, true, groupedQueueItemCorners(index, played.size), queueEntryKey(queue, position))
+                    QueueSongRow(position, 0, song, true, groupedQueueItemCorners(index, played.size), occurrenceKeys[position])
                 )
             )
         }
@@ -194,7 +187,7 @@ private fun buildQueueListRows(
         upcoming.forEachIndexed { index, (position, song) ->
             add(
                 QueueListRow.Song(
-                    QueueSongRow(position, index + 1, song, false, groupedQueueItemCorners(index, upcoming.size), queueEntryKey(queue, position))
+                    QueueSongRow(position, index + 1, song, false, groupedQueueItemCorners(index, upcoming.size), occurrenceKeys[position])
                 )
             )
         }
@@ -228,6 +221,7 @@ fun QueueBottomSheet(
 
     var queueEpoch by remember { mutableIntStateOf(0) }
     var clearRequested by remember { mutableStateOf(false) }
+    var confirmClear by remember { mutableStateOf(false) }
     val clearFadeAlpha by animateFloatAsState(
         targetValue = if (clearRequested) 0f else 1f,
         animationSpec = tween(durationMillis = 240),
@@ -273,9 +267,6 @@ fun QueueBottomSheet(
 
     LaunchedEffect(clearRequested) {
         if (clearRequested) {
-            for (i in displayQueue.indices) {
-                removingQueueKeys[queueEntryKey(displayQueue, i)] = true
-            }
             if (displayQueue.isNotEmpty()) {
                 delay(280)
             }
@@ -283,6 +274,22 @@ fun QueueBottomSheet(
             onClearQueue()
             clearRequested = false
         }
+    }
+
+    if (confirmClear) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text(stringResource(R.string.queue_clear_confirm_title)) },
+            text = { Text(stringResource(R.string.queue_clear_confirm_message)) },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = {
+                confirmClear = false
+                queueEpoch++
+                clearRequested = true
+            }) { Text(stringResource(R.string.content_desc_clear_queue)) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmClear = false }) {
+                Text(stringResource(R.string.dialog_cancel))
+            } }
+        )
     }
 
     val lazyListState = rememberLazyListState()
@@ -316,8 +323,7 @@ fun QueueBottomSheet(
                 onAddSongsClick = onAddSongsClick,
                 onClearQueue = if (displayQueue.isNotEmpty()) {
                     {
-                        queueEpoch++
-                        clearRequested = true
+                        if (!clearRequested) confirmClear = true
                     }
                 } else null,
                 onToggleShuffle = onToggleShuffle,
@@ -327,7 +333,7 @@ fun QueueBottomSheet(
             Spacer(modifier = Modifier.height(16.dp))
             
             // Queue settings info and warnings
-            if (displayQueue.isNotEmpty() && hidePlayedQueueSongs) {
+            if (displayQueue.isNotEmpty()) {
                 Column(
                     modifier = Modifier.graphicsLayer { alpha = clearFadeAlpha }
                 ) {
@@ -335,7 +341,8 @@ fun QueueBottomSheet(
                         isShuffleEnabled = isShuffleEnabled,
                         repeatMode = repeatMode,
                         hidePlayedSongs = hidePlayedQueueSongs,
-                        queueSize = displayQueue.size
+                        queueSize = displayQueue.size,
+                        onShowPlayedChanged = { appSettings.setHidePlayedQueueSongs(!it) }
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
@@ -364,17 +371,15 @@ fun QueueBottomSheet(
                 }.coerceIn(0, displayQueue.lastIndex.coerceAtLeast(0))
                 val shouldHidePlayedSongs = !showAlreadyPlayedSongsInQueue
                 // Build visible queue according to current playback behavior.
-                val visibleQueue = displayQueue.mapIndexedNotNull { index, song ->
-                    if (shouldHidePlayedSongs && index < currentSongIndexInQueue) return@mapIndexedNotNull null
-                    if (index == currentSongIndexInQueue) null else index to song
+                val visibleQueue = remember(displayQueue, shouldHidePlayedSongs, currentSongIndexInQueue) {
+                    displayQueue.mapIndexedNotNull { index, song ->
+                        if (shouldHidePlayedSongs && index < currentSongIndexInQueue) return@mapIndexedNotNull null
+                        if (index == currentSongIndexInQueue) null else index to song
+                    }
                 }
-
-                val queueListRows = buildQueueListRows(
-                    visibleQueue,
-                    displayQueue,
-                    currentSongIndexInQueue,
-                    showAlreadyPlayedSongsInQueue
-                )
+                val queueListRows = remember(visibleQueue, displayQueue, currentSongIndexInQueue, showAlreadyPlayedSongsInQueue) {
+                    buildQueueListRows(visibleQueue, displayQueue, currentSongIndexInQueue, showAlreadyPlayedSongsInQueue)
+                }
                 val hasPlayedSection = queueListRows.any {
                     it is QueueListRow.Section && it.label == QueueSectionLabel.PLAYED
                 }
@@ -1185,6 +1190,7 @@ private fun QueueSettingsInfo(
     repeatMode: Int,
     hidePlayedSongs: Boolean,
     queueSize: Int,
+    onShowPlayedChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -1193,30 +1199,30 @@ private fun QueueSettingsInfo(
             .padding(horizontal = 24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Hide played songs info
-        if (hidePlayedSongs && queueSize > 0) {
+        if (queueSize > 0) {
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.tertiaryContainer,
                 modifier = Modifier.fillMaxWidth()
+                    .toggleable(value = !hidePlayedSongs, role = androidx.compose.ui.semantics.Role.Switch,
+                        onValueChange = onShowPlayedChanged)
             ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
+                Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = RhythmIcons.Warning,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = stringResource(R.string.queuebottomsheet_played_songs_are_hidden),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.settings_show_played_queue_songs),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onTertiaryContainer,
-                        modifier = Modifier.weight(1f)
-                    )
+                        modifier = Modifier.weight(1f))
+                    // Compact visual switch: the full row supplies the accessible touch target.
+                    Box(Modifier.size(width = 30.dp, height = 18.dp)
+                        .background(if (!hidePlayedSongs) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.35f),
+                            androidx.compose.foundation.shape.CircleShape)) {
+                        Box(Modifier.padding(3.dp).size(12.dp)
+                            .align(if (!hidePlayedSongs) Alignment.CenterEnd else Alignment.CenterStart)
+                            .background(MaterialTheme.colorScheme.surface, androidx.compose.foundation.shape.CircleShape))
+                    }
                 }
             }
         }

@@ -2957,4 +2957,19 @@
     <string name="settings_song_artwork_restart_required">Artwork mode changed. Restart the app to clear caches and run a full media rescan with updated artwork sources.</string>
         <string name="bluetooth_lyrics_profile_device">All display settings saved for: %1$s</string>
     <string name="bluetooth_lyrics_profile_default">No Bluetooth output selected — editing display defaults</string>
+    <string name="queue_clear_confirm_title">Clear the queue?</string>
+    <string name="queue_clear_confirm_message">Remove the other songs and keep the current track at its current position? This cannot be undone.</string>
+    <string name="battery_saver_active">Battery saver is active</string>
+    <string name="battery_saver_inactive">Battery saver is inactive</string>
+    <string name="battery_saver_manual">Enable now</string>
+    <string name="battery_saver_manual_desc">Keep saver on regardless of battery level. Automatic activation works separately.</string>
+    <string name="battery_saver_auto">Enable at low battery</string>
+    <string name="battery_saver_auto_desc">Activate while unplugged. Turn off when charging or after recovering more than 2%% above the threshold.</string>
+    <string name="battery_saver_threshold">Activate at %1$d%% battery</string>
+    <string name="battery_saver_features">While battery saver is active</string>
+    <string name="battery_saver_features_desc">Choose what to pause. Playback, controls and saved lyrics remain available. Pending enrichment resumes when allowed.</string>
+    <string name="battery_saver_pause_lyrics">Pause online lyrics and translations</string>
+    <string name="battery_saver_pause_library">Pause library enrichment and cache maintenance</string>
+    <string name="battery_saver_pause_canvas">Pause animated artwork</string>
+    <string name="battery_saver_offload_desc">Optional hardware playback, when compatible with your playback settings. Leave off when using an external DSP.</string>
 </resources>

@@ -4,6 +4,7 @@ package chromahub.rhythm.app.infrastructure.service
 object PlayNextCommand {
     const val ACTION = "chromahub.rhythm.app.ENQUEUE_PLAY_NEXT"
     const val GET_QUEUE = "chromahub.rhythm.app.GET_PLAYBACK_QUEUE"
+    const val CLEAR_EXCEPT_CURRENT = "chromahub.rhythm.app.CLEAR_QUEUE_EXCEPT_CURRENT"
     const val OFFSET = "queue_offset"
     const val LIMIT = "queue_limit"
     const val TOTAL = "queue_total"

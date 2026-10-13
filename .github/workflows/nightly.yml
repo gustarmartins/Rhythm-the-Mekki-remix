@@ -104,7 +104,7 @@ jobs:
               "See the commit history for changes; SHA256SUMS and nightly.json describe these exact APKs.\n")
           NOTES
           gh release create "$NIGHTLY_TAG" nightly-dist/* --target "$GITHUB_SHA" \
-            --title "$NIGHTLY_NAME - Rhythm Bluetooth Lyrics" --notes-file nightly-notes.md \
+            --title "$NIGHTLY_NAME - Rhythm Nightly" --notes-file nightly-notes.md \
             --draft --prerelease
           gh release edit "$NIGHTLY_TAG" --draft=false --latest=false
       - name: Remove signing material
