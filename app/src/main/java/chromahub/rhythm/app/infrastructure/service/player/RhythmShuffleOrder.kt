@@ -190,8 +190,8 @@ class RhythmShuffleOrder : ShuffleOrder {
 
     companion object {
         /** Saved items already encode the shuffle traversal; do not randomize them again. */
-        fun forRestoredTraversal(length: Int): RhythmShuffleOrder =
-            RhythmShuffleOrder(IntArray(length) { it })
+        fun forRestoredTraversal(length: Int, shuffleEnabled: Boolean): RhythmShuffleOrder? =
+            if (shuffleEnabled) RhythmShuffleOrder(IntArray(length) { it }) else null
 
         private fun createShuffledList(length: Int, random: Random): IntArray {
             val shuffled = IntArray(length)

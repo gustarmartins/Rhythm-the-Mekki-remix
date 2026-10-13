@@ -2781,9 +2781,12 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 replace(items)
                 // ExoPlayer creates a fresh random order when a playlist is replaced.
                 // Restore the persisted traversal while retaining the user's shuffle mode.
-                (rhythmPlayerEngine.masterPlayer as? ExoPlayer)?.setShuffleOrder(
-                    chromahub.rhythm.app.infrastructure.service.player.RhythmShuffleOrder
-                        .forRestoredTraversal(items.size))
+                chromahub.rhythm.app.infrastructure.service.player.RhythmShuffleOrder
+                    .forRestoredTraversal(items.size, shuffleModeEnabled)?.let { order ->
+                        (rhythmPlayerEngine.masterPlayer as? ExoPlayer)?.setShuffleOrder(order)
+                    }
+                // With shuffle off, retain ExoPlayer's latent random order so enabling
+                // shuffle later still changes traversal instead of leaving a sorted queue.
             } finally {
                 restoringSavedQueue = false
             }

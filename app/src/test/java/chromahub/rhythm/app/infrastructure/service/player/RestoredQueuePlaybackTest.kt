@@ -21,7 +21,7 @@ class RestoredQueuePlaybackTest {
     @Test fun largeSavedShuffleRetainsPlayedSegmentAndUpcomingOrder() {
         val ids = List(2257) { "song-${(it * 37) % 2257}" }
         val restored = restorePlaybackOccurrences(ids, 574, 130382L, ids.associateWith { it })!!
-        val order = RhythmShuffleOrder.forRestoredTraversal(restored.items.size)
+        val order = RhythmShuffleOrder.forRestoredTraversal(restored.items.size, true)!!
         assertEquals(ids, traversal(order).map { restored.items[it] })
         assertEquals(ids[574], restored.items[restored.index])
         assertEquals(573, order.getPreviousIndex(restored.index))
@@ -36,7 +36,7 @@ class RestoredQueuePlaybackTest {
         val ids = listOf("b", "missing", "a", "b", "d", "c")
         val restored = restorePlaybackOccurrences(ids, 3, 500L,
             listOf("a", "b", "c", "d").associateWith { it })!!
-        val order = RhythmShuffleOrder.forRestoredTraversal(restored.items.size)
+        val order = RhythmShuffleOrder.forRestoredTraversal(restored.items.size, true)!!
         assertEquals(listOf("b", "a", "b", "d", "c"), traversal(order).map { restored.items[it] })
         assertEquals(2, restored.index)
         assertEquals("d", restored.items[order.getNextIndex(restored.index)])
@@ -44,12 +44,16 @@ class RestoredQueuePlaybackTest {
     }
 
     @Test fun playNextAndAppendAfterRestoreRetainExistingUpcomingOrder() {
-        val order = RhythmShuffleOrder.forRestoredTraversal(6)
+        val order = RhythmShuffleOrder.forRestoredTraversal(6, true)!!
         val inserted = order.cloneAndInsert(3, 2)
         assertEquals((0 until 8).toList(), traversal(inserted))
         assertEquals(3, inserted.getNextIndex(2))
         assertEquals(5, inserted.getNextIndex(4))
         val appended = inserted.cloneAndInsert(8, 3)
         assertEquals((0 until 11).toList(), traversal(appended))
+    }
+
+    @Test fun restoringWithoutShuffleRetainsThePlayersLatentRandomOrder() {
+        assertNull(RhythmShuffleOrder.forRestoredTraversal(2257, false))
     }
 }
