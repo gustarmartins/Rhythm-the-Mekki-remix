@@ -32,8 +32,8 @@ android {
         
         val overrideVersionCode = project.findProperty("versionCodeOverride")?.toString()?.toIntOrNull()
         val overrideVersionName = project.findProperty("versionNameOverride")?.toString()
-        versionCode = overrideVersionCode ?: 554941293
-        versionName = overrideVersionName ?: "5.5.494.1293-upstream-sync"
+        versionCode = overrideVersionCode ?: 554941300
+        versionName = overrideVersionName ?: "5.5.494.1300-bt-profiles"
 
         val overrideReleaseDate = project.findProperty("releaseDateOverride")?.toString()
         buildConfigField("String", "RELEASE_DATE", "\"${overrideReleaseDate ?: "2026-10-04"}\"")
@@ -109,6 +109,9 @@ android {
     }
 
     val signingProperties = getProperties(".config/keystore.properties")
+    check(project.findProperty("nightly")?.toString() != "true" || signingProperties != null) {
+        "Nightly publication requires release signing; debug signing is not allowed"
+    }
     val releaseSigning = if (signingProperties != null) {
         signingConfigs.create("release") {
             keyAlias = signingProperties.property("key_alias")

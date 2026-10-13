@@ -206,6 +206,13 @@ fun LabsSettingsScreen(
     val bluetoothLyricsMinChunkHoldMs by appSettings.bluetoothLyricsMinChunkHoldMs.collectAsState()
     val bluetoothLyricsMetadataUpdateIntervalMs by
         appSettings.bluetoothLyricsMetadataUpdateIntervalMs.collectAsState()
+    val lyricProfiles by appSettings.bluetoothLyricsProfiles.collectAsState()
+    val activeLyricProfile = chromahub.rhythm.app.util.resolveBluetoothLyricsProfile(
+        currentBtDisplayDevice, lyricProfiles,
+        chromahub.rhythm.app.util.BluetoothLyricsProfile(bluetoothLyricsOffsetMs,
+            bluetoothLyricsMaxChunkChars, bluetoothLyricsScrollCharsPerSecond,
+            bluetoothLyricsMinChunkHoldMs, bluetoothLyricsMetadataUpdateIntervalMs, bluetoothLyricsTextMode),
+        offsetProfiles)
     val forcePlayerCompactMode by appSettings.forcePlayerCompactMode.collectAsState()
     
     val updaterViewModel: AppUpdaterViewModel = viewModel()
@@ -334,7 +341,7 @@ fun LabsSettingsScreen(
                         SettingItem(
                             MaterialSymbolIcon("language"),
                             context.getString(R.string.bluetooth_lyrics_text_mode),
-                            bluetoothLyricsTextModeSummary(context, bluetoothLyricsTextMode),
+                            bluetoothLyricsTextModeSummary(context, activeLyricProfile.textMode),
                             enabled = bluetoothLyricsEnabled,
                             onClick = { showBluetoothLyricsTextModeDialog = true }
                         ),
@@ -344,13 +351,11 @@ fun LabsSettingsScreen(
                             context.getString(
                                 R.string.bluetooth_lyrics_tuning_summary,
                                 formatBluetoothLyricsOffsetValue(
-                                    currentBtDisplayDevice?.let {
-                                        chromahub.rhythm.app.util.bluetoothDisplayProfileValue(it, offsetProfiles, bluetoothLyricsOffsetMs)
-                                    } ?: 0
+                                    activeLyricProfile.offsetMs
                                 ),
-                                bluetoothLyricsMaxChunkChars,
-                                bluetoothLyricsScrollCharsPerSecond,
-                                bluetoothLyricsMetadataUpdateIntervalMs
+                                activeLyricProfile.maxChunkChars,
+                                activeLyricProfile.scrollCharsPerSecond,
+                                activeLyricProfile.metadataUpdateIntervalMs
                             ),
                             enabled = bluetoothLyricsEnabled,
                             onClick = { showBluetoothLyricsTuningDialog = true }
@@ -438,29 +443,34 @@ fun LabsSettingsScreen(
 
     if (showBluetoothLyricsTuningDialog) {
         val deviceForThisDialog = remember { currentBtDisplayDevice }
+        val initialProfile = remember {
+            if (deviceForThisDialog == null) appSettings.defaultBluetoothLyricsProfile()
+            else appSettings.effectiveBluetoothLyricsProfile(deviceForThisDialog)
+        }
         BluetoothLyricsTuningDialog(
-            currentOffsetMs = deviceForThisDialog?.let(appSettings::effectiveBluetoothDisplayOffsetMs) ?: bluetoothLyricsOffsetMs,
+            currentOffsetMs = initialProfile.offsetMs,
             deviceLabel = deviceForThisDialog?.name,
-            currentMaxChunkChars = bluetoothLyricsMaxChunkChars,
-            currentScrollCharsPerSecond = bluetoothLyricsScrollCharsPerSecond,
-            currentMinChunkHoldMs = bluetoothLyricsMinChunkHoldMs,
-            currentMetadataUpdateIntervalMs = bluetoothLyricsMetadataUpdateIntervalMs,
-            onApply = { offsetMs, maxChunkChars, scrollCharsPerSecond, minChunkHoldMs,
-                metadataUpdateIntervalMs ->
-                appSettings.setBluetoothDisplayOffset(deviceForThisDialog, offsetMs)
-                appSettings.setBluetoothLyricsMaxChunkChars(maxChunkChars)
-                appSettings.setBluetoothLyricsScrollCharsPerSecond(scrollCharsPerSecond)
-                appSettings.setBluetoothLyricsMinChunkHoldMs(minChunkHoldMs)
-                appSettings.setBluetoothLyricsMetadataUpdateIntervalMs(metadataUpdateIntervalMs)
+            currentMaxChunkChars = initialProfile.maxChunkChars,
+            currentScrollCharsPerSecond = initialProfile.scrollCharsPerSecond,
+            currentMinChunkHoldMs = initialProfile.minChunkHoldMs,
+            currentMetadataUpdateIntervalMs = initialProfile.metadataUpdateIntervalMs,
+            onApply = { offsetMs, maxChunkChars, scrollCharsPerSecond, minChunkHoldMs, metadataUpdateIntervalMs ->
+                val latest = if (deviceForThisDialog == null) appSettings.defaultBluetoothLyricsProfile()
+                    else appSettings.effectiveBluetoothLyricsProfile(deviceForThisDialog)
+                appSettings.setBluetoothLyricsProfile(deviceForThisDialog, latest.copy(
+                    offsetMs = offsetMs, maxChunkChars = maxChunkChars,
+                    scrollCharsPerSecond = scrollCharsPerSecond, minChunkHoldMs = minChunkHoldMs,
+                    metadataUpdateIntervalMs = metadataUpdateIntervalMs))
             },
             onDismiss = { showBluetoothLyricsTuningDialog = false }
         )
     }
 
     if (showBluetoothLyricsTextModeDialog) {
+        val deviceForThisDialog = remember { currentBtDisplayDevice }
         BluetoothLyricsTextModeDialog(
-            currentMode = bluetoothLyricsTextMode,
-            onSelect = appSettings::setBluetoothLyricsTextMode,
+            currentMode = appSettings.effectiveBluetoothLyricsProfile(deviceForThisDialog).textMode,
+            onSelect = { appSettings.setBluetoothDisplayTextMode(deviceForThisDialog, it) },
             onDismiss = { showBluetoothLyricsTextModeDialog = false }
         )
     }
@@ -651,13 +661,13 @@ private fun BluetoothLyricsTuningDialog(
 
                 if (deviceLabel != null) {
                     Text(
-                        text = stringResource(R.string.bluetooth_lyrics_offset_device, deviceLabel),
+                        text = stringResource(R.string.bluetooth_lyrics_profile_device, deviceLabel),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.primary
                     )
                 } else {
                     Text(
-                        text = stringResource(R.string.bluetooth_lyrics_offset_device_none),
+                        text = stringResource(R.string.bluetooth_lyrics_profile_default),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

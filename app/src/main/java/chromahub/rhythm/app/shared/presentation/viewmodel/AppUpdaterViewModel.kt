@@ -388,55 +388,19 @@ class AppUpdaterViewModel(
                 var candidate: AppVersion? = null
 
                 if (currentChannel == "nightly") {
-                    // 1. Fetch nightly workflow runs
-                    var nightlyCandidate: AppVersion? = null
-                    val runsResponse = gitHubApiService.getWorkflowRuns(githubOwner, githubRepo, "nightly.yml")
-                    if (runsResponse.isSuccessful) {
-                        val latestRun = runsResponse.body()?.workflow_runs?.firstOrNull {
-                            it.status == "completed" && it.conclusion == "success"
-                        }
-                        if (latestRun != null) {
-                        var apkSize: Long = 0
-                        try {
-                                val artifactsResponse = gitHubApiService.getRunArtifacts(githubOwner, githubRepo, latestRun.id)
-                            if (artifactsResponse.isSuccessful) {
-                                    apkSize = artifactsResponse.body()?.artifacts?.firstOrNull {
-                                    it.name == "Rhythm-Nightly-Artifacts"
-                                    }?.size_in_bytes ?: 0
-                            }
-                        } catch (e: Exception) {
-                                Log.e(tag, "Error fetching nightly artifact size", e)
-                        }
-                            nightlyCandidate = convertWorkflowRunToAppVersion(latestRun, apkSize)
-                    }
-                }
-
-                    // 2. Also fetch releases (to compare against any equal/higher Stable or Beta releases)
-                    var releaseCandidate: AppVersion? = null
+                    // Only advertise immutable, published APK assets; a workflow run is not a release.
                     val releasesResponse = gitHubApiService.getReleases(githubOwner, githubRepo)
-                if (releasesResponse.isSuccessful) {
-                    val allReleases = releasesResponse.body()
-                        if (!allReleases.isNullOrEmpty()) {
-                            val bestRelease = findLatestSuitableRelease(allReleases, "beta")
-                            if (bestRelease != null) {
-                                releaseCandidate = convertReleaseToAppVersion(bestRelease)
-                            }
-                        }
-                    }
-                    
-                    // 3. Rank across all tiers using VersionComparator (Higher Version Number >> Stable > Beta > Nightly)
-                    val candidates = listOfNotNull(nightlyCandidate, releaseCandidate)
-                    candidate = candidates.maxWithOrNull { c1, c2 ->
-                        VersionComparator.compare(
-                            c1.versionName,
-                            c2.versionName,
-                            isPreRelease1 = c1.isPreRelease,
-                            isPreRelease2 = c2.isPreRelease,
-                        )
+                    if (releasesResponse.isSuccessful) {
+                        candidate = releasesResponse.body().orEmpty()
+                            .filter { !it.draft && selectReleaseApkAsset(it) != null }
+                            .map(::convertReleaseToAppVersion)
+                            .filter { it.versionCode == 0 || it.versionCode >= BuildConfig.VERSION_CODE }
+                            .maxWithOrNull { a, b -> VersionComparator.compare(a.versionName, b.versionName,
+                                isPreRelease1 = a.isPreRelease, isPreRelease2 = b.isPreRelease) }
                     }
 
                     if (candidate == null) {
-                        _error.value = "No builds or releases found on GitHub"
+                        _error.value = "No published APKs found on GitHub"
                         _isCheckingForUpdates.value = false
                         return@launch
                     }
@@ -490,7 +454,7 @@ class AppUpdaterViewModel(
             tag,
             "Version comparison: current=${_currentVersion.value.versionName} (code=${BuildConfig.VERSION_CODE}) vs latest=${candidate.versionName} (code=${candidate.versionCode}) -> isNewer=$isNewer, isDowngrade=$hasVersionCodeDowngrade"
         )
-        _updateAvailable.value = isNewer
+        _updateAvailable.value = isNewer && !hasVersionCodeDowngrade
     }
 
     private fun extractBuildNumber(
@@ -520,6 +484,7 @@ class AppUpdaterViewModel(
     }
 
     private fun calculateVersionCode(versionString: String): Int {
+        VersionComparator.explicitVersionCode(versionString)?.let { return it }
         val cleaned = versionString.trim().removePrefix("v").removePrefix("V")
         val versionBase = cleaned.split(" ")[0].split("-")[0].split("_")[0]
         val versionParts = versionBase.split(".")

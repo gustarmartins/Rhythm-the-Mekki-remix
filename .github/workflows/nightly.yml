@@ -1,414 +1,112 @@
-name: Build Nightly Artifacts
+name: Build and Publish Nightly
 
 on:
   push:
-    branches: [ "main" ]
-    paths:
-      - "app/build.gradle.kts"
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: rhythm-nightly-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
+    if: github.repository == 'gustarmartins/Rhythm-the-Mekki-remix' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # Fetch all history for proper versioning and commit count
-
-      - name: Check if version changed
-        id: check_version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "Manually triggered via workflow_dispatch. Proceeding with build."
-            echo "should_run=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          BEFORE_SHA="${{ github.event.before }}"
-          if [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
-            BEFORE_SHA="HEAD~1"
-          fi
-
-          if git rev-parse "$BEFORE_SHA" >/dev/null 2>&1; then
-            OLD_NAME=$(git show "$BEFORE_SHA":app/build.gradle.kts 2>/dev/null | grep -E 'versionName\s*=' | grep -oE '"[^"]+"' | sed 's/"//g' || true)
-            OLD_CODE=$(git show "$BEFORE_SHA":app/build.gradle.kts 2>/dev/null | grep -E 'versionCode\s*=' | grep -oE '[0-9]+' | head -n 1 || true)
-
-            CURR_NAME=$(grep -E 'versionName\s*=' app/build.gradle.kts | grep -oE '"[^"]+"' | sed 's/"//g' || true)
-            CURR_CODE=$(grep -E 'versionCode\s*=' app/build.gradle.kts | grep -oE '[0-9]+' | head -n 1 || true)
-
-            echo "Previous version: name='$OLD_NAME', code='$OLD_CODE'"
-            echo "Current version:  name='$CURR_NAME', code='$CURR_CODE'"
-
-            if [ -n "$OLD_NAME" ] && [ -n "$CURR_NAME" ] && [ "$OLD_NAME" = "$CURR_NAME" ] && [ "$OLD_CODE" = "$CURR_CODE" ]; then
-              echo "::notice::Version in app/build.gradle.kts has not changed. Skipping nightly build."
-              echo "should_run=false" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-          fi
-
-          echo "Version changed or check skipped. Proceeding with nightly build."
-          echo "should_run=true" >> $GITHUB_OUTPUT
-
-      - name: set up JDK 17
-        if: steps.check_version.outputs.should_run == 'true'
-        uses: actions/setup-java@v6
+          fetch-depth: 0
+      - uses: actions/setup-java@v6
         with:
           java-version: '17'
-          distribution: 'zulu'
+          distribution: zulu
           cache: gradle
-
-      - name: Setup Android-SDK
-        if: steps.check_version.outputs.should_run == 'true'
-        uses: android-actions/setup-android@v4
+      - uses: android-actions/setup-android@v4
         with:
           packages: ''
-
-      - name: Create files for signing
-        if: steps.check_version.outputs.should_run == 'true'
+      - name: Test Nightly version policy
+        run: python3 -m unittest discover -s scripts -p test_nightly_version.py
+      - name: Allocate Nightly version
+        id: version
+        run: python3 scripts/nightly_version.py
+      - name: Restore release signing
         env:
           SIGNING_KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}
           SIGNING_PROPERTIES: ${{ secrets.SIGNING_PROPERTIES }}
           PRIVATE_PROPERTIES: ${{ secrets.PRIVATE_PROPERTIES }}
         run: |
-          mkdir -p config/signing
-          mkdir -p .config
-          # Decode keystore and signing property files if secrets are available
-          if [ -n "$SIGNING_KEYSTORE" ]; then
-            printf '%s' "$SIGNING_KEYSTORE" | base64 -di > ./config/signing/rhythm_keystore.jks
-          fi
-          if [ -n "$SIGNING_PROPERTIES" ]; then
-            printf '%s' "$SIGNING_PROPERTIES" | base64 -di > ./.config/keystore.properties
-          fi
+          set -euo pipefail
+          test -n "$SIGNING_KEYSTORE" && test -n "$SIGNING_PROPERTIES"
+          umask 077
+          mkdir -p config/signing .config
+          printf '%s' "$SIGNING_KEYSTORE" | base64 --decode > config/signing/rhythm_keystore.jks
+          printf '%s' "$SIGNING_PROPERTIES" | base64 --decode > .config/keystore.properties
           if [ -n "$PRIVATE_PROPERTIES" ]; then
-            printf '%s' "$PRIVATE_PROPERTIES" | base64 -di > ./config/signing/private.properties
+            printf '%s' "$PRIVATE_PROPERTIES" | base64 --decode > config/signing/private.properties
           else
-            touch ./config/signing/private.properties
+            touch config/signing/private.properties
           fi
-
-      - name: Make Gradle executable
-        if: steps.check_version.outputs.should_run == 'true'
-        run: chmod +x ./gradlew
-
-      - name: Compute dynamic version info
-        if: steps.check_version.outputs.should_run == 'true'
-        id: version_info
-        run: |
-          # Parse current versionName & versionCode from build.gradle.kts
-          VERSION_NAME=$(grep -E 'versionName\s*=' app/build.gradle.kts | grep -oE '"[^"]+"' | sed 's/"//g')
-          VERSION_CODE=$(grep -E 'versionCode\s*=' app/build.gradle.kts | grep -oE '[0-9]+' | head -n 1)
-          
-          if [ -z "$VERSION_CODE" ]; then
-            VERSION_CODE=524211101
-          fi
-          if [ -z "$VERSION_NAME" ]; then
-            VERSION_NAME="5.2.421.1101 Beta"
-          fi
-          
-          # Use base versionCode from build.gradle.kts to prevent inflating beyond future release builds
-          COMMIT_COUNT=$(git rev-list --count HEAD)
-          NEW_VERSION_CODE=$VERSION_CODE
-          
-          # Extract short commit hash
-          SHORT_SHA=$(git rev-parse --short HEAD)
-          
-          # Clean version name (remove " Beta" if present)
-          VERSION_NAME_CLEANED=$(echo "$VERSION_NAME" | sed 's/ Beta//')
-          
-          # Construct version name: e.g., 5.2.421.1101-nightly-r42-a1b2c3d
-          NEW_VERSION_NAME="${VERSION_NAME_CLEANED}-nightly-r${{ github.run_number }}-${SHORT_SHA}"
-          
-          echo "code=$NEW_VERSION_CODE" >> $GITHUB_OUTPUT
-          echo "name=$NEW_VERSION_NAME" >> $GITHUB_OUTPUT
-          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
-          echo "commit_count=$COMMIT_COUNT" >> $GITHUB_OUTPUT
-          echo "Computed Version Code: $NEW_VERSION_CODE"
-          echo "Computed Version Name: $NEW_VERSION_NAME"
-
-      - name: Compute recent commits for notifications
-        if: steps.check_version.outputs.should_run == 'true'
-        id: notif_changelog
-        run: |
-          # 1. Find previous nightly/release commit (starts with "Release ")
-          BASE_COMMIT=""
-          if git log -n 1 --format="%s" | grep -qE '^Release '; then
-            BASE_COMMIT=$(git log HEAD~1 --grep="^Release " -n 1 --format="%H" 2>/dev/null || true)
-          else
-            BASE_COMMIT=$(git log HEAD --grep="^Release " -n 1 --format="%H" 2>/dev/null || true)
-          fi
-
-          # 2. Fallback: previous commit modifying build.gradle.kts
-          if [ -z "$BASE_COMMIT" ]; then
-            BASE_COMMIT=$(git log HEAD~1 -n 1 --format="%H" -- app/build.gradle.kts 2>/dev/null || true)
-          fi
-
-          # 3. Fallback: most recent git tag
-          if [ -z "$BASE_COMMIT" ]; then
-            BASE_COMMIT=$(git describe --tags --abbrev=0 2>/dev/null || true)
-          fi
-
-          echo "Calculated base commit for changelog: $BASE_COMMIT"
-
-          if [ -n "$BASE_COMMIT" ] && git rev-parse "$BASE_COMMIT" >/dev/null 2>&1; then
-            CHANGES=$(git log "$BASE_COMMIT"..HEAD --oneline --no-merges 2>/dev/null | sed -E 's/^[0-9a-f]+ //' | grep -viE '^Release |translation|l10n|localiz|^Minor |^Fix (warnings?|lint)|weblate|\.github|^bump ' | head -n 15)
-          else
-            CHANGES=$(git log HEAD --oneline -12 --no-merges 2>/dev/null | sed -E 's/^[0-9a-f]+ //')
-          fi
-          if [ -z "$CHANGES" ]; then
-            CHANGES="Minor bug fixes and performance improvements"
-          fi
-          # HTML-escape for Telegram rendering
-          CHANGES_HTML=$(printf '%s' "$CHANGES" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
-          # JSON-escape for the Discord embed field
-          CHANGES_JSON=$(printf '%s' "$CHANGES" | sed 's/\\/\\\\/g; s/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
-          # Short single-line version for the APK caption (1024-char limit)
-          CHANGES_SHORT=$(printf '%s' "$CHANGES" | head -n 5 | tr '\n' ' ' | cut -c1-200)
-          # Materialize to files; consumers read via $(cat ...) so commit-message
-          # content ($, backticks, quotes) can never break shell quoting
-          printf '%s\n' "$CHANGES_HTML" > /tmp/rhythm_changes_html.txt
-          printf '%s\n' "$CHANGES_JSON" > /tmp/rhythm_changes_json.txt
-          printf '%s\n' "$CHANGES_SHORT" > /tmp/rhythm_changes_short.txt
-
-      - name: Send start notification to Telegram
-        if: steps.check_version.outputs.should_run == 'true'
+      - name: Test and build signed release APKs
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
-            echo "⚠️ Telegram secrets not set — skipping."
-            exit 0
-          fi
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          MESSAGE="⚙️ <b>Rhythm Nightly Build Started</b>"
-          MESSAGE+=$'\n\n'
-          MESSAGE+="📦 <b>Version:</b> <code>${{ steps.version_info.outputs.name }}</code>"
-          MESSAGE+=$'\n'
-          MESSAGE+="🔗 <b>Commit:</b> <code>${{ steps.version_info.outputs.short_sha }}</code>"
-          MESSAGE+=$'\n\n'
-          MESSAGE+="⏳ Build in progress... We will upload the APK upon completion."
-          MESSAGE+=$'\n\n'
-          MESSAGE+="📝 <b>Recent changes:</b>"
-          MESSAGE+=$'\n'
-          MESSAGE+="$(cat /tmp/rhythm_changes_html.txt)"
-          MESSAGE+=$'\n\n'
-          MESSAGE+="<a href=\"${RUN_URL}\">🔍 View Actions Run</a>"
-          
-          curl -s -o /dev/null -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-            --form-string "chat_id=${TELEGRAM_CHAT_ID}" \
-            --form-string "text=${MESSAGE}" \
-            --form-string "parse_mode=HTML" \
-            --form-string "disable_web_page_preview=true"
-
-      - name: Build with Gradle (GitHub and F-Droid release variants)
-        if: steps.check_version.outputs.should_run == 'true'
-        env:
-          APPLE_MUSIC_FALLBACK_TOKEN: ${{ secrets.APPLE_MUSIC_FALLBACK_TOKEN }}
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
+          NIGHTLY_CODE: ${{ steps.version.outputs.code }}
+          NIGHTLY_NAME: ${{ steps.version.outputs.name }}
         run: |
-          ./gradlew assembleGithubRelease assembleFdroidRelease \
-            -PversionCodeOverride=${{ steps.version_info.outputs.code }} \
-            -PversionNameOverride="${{ steps.version_info.outputs.name }}" \
-            -PreleaseDateOverride=$(date +%Y-%m-%d) \
-            -Pnightly=true \
-            --stacktrace
-
-      - name: Upload Nightly APKs
-        if: steps.check_version.outputs.should_run == 'true'
+          chmod +x gradlew
+          ./gradlew --no-daemon --max-workers=2 \
+            -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
+            -Pkotlin.daemon.jvmargs=-Xmx4500m \
+            -PversionCodeOverride="$NIGHTLY_CODE" -PversionNameOverride="$NIGHTLY_NAME" \
+            -PreleaseDateOverride="$(date -u +%F)" -Pnightly=true \
+            :app:testGithubDebugUnitTest :app:assembleGithubRelease :app:assembleFdroidRelease
+      - name: Verify signer, package, versions and checksums
+        env:
+          NIGHTLY_CODE: ${{ steps.version.outputs.code }}
+          NIGHTLY_NAME: ${{ steps.version.outputs.name }}
+        run: python3 scripts/verify_nightly_apks.py
+      - name: Preserve test and build reports
+        if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: Rhythm-Nightly-Artifacts
+          name: Nightly-validation-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            app/build/outputs/apk/github/release/Rhythm-*-githubRelease*.apk
-            app/build/outputs/apk/fdroid/release/Rhythm-*-fdroidRelease*.apk
-          retention-days: 30
-
-      - name: Publish Nightly GitHub Release
-        if: success() && steps.check_version.outputs.should_run == 'true'
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: nightly-${{ steps.version_info.outputs.name }}
-          name: nightly-${{ steps.version_info.outputs.name }} - Rhythm Bluetooth Lyrics
-          prerelease: true
-          generate_release_notes: false
-          body: |
-            Automated nightly build from `${{ steps.version_info.outputs.short_sha }}`.
-            Download the APK directly below. This build is for testing.
-          files: |
-            app/build/outputs/apk/github/release/Rhythm-*-githubRelease*.apk
-            app/build/outputs/apk/fdroid/release/Rhythm-*-fdroidRelease*.apk
-
-      # ── Notifications ────────────────────────────────────────────────────────
-
-      - name: Locate universal Nightly APK
-        if: success() && steps.check_version.outputs.should_run == 'true'
-        id: find_apk
-        run: |
-          APK_PATH=$(find app/build/outputs/apk/github/release -name "Rhythm-*-githubRelease.apk" ! -name "*-arm64-v8a.apk" ! -name "*-armeabi-v7a.apk" ! -name "*-x86_64.apk" ! -name "*-x86.apk" | head -n 1)
-          if [ -z "$APK_PATH" ]; then
-            echo "No APK found — skipping notifications."
-            echo "path=" >> $GITHUB_OUTPUT
-          else
-            cp "$APK_PATH" /tmp/rhythm-nightly.apk
-            echo "path=/tmp/rhythm-nightly.apk" >> $GITHUB_OUTPUT
-            echo "Found APK: $APK_PATH"
-          fi
-
-      - name: Send Nightly APK to Telegram
-        if: >
-          success() &&
-          steps.check_version.outputs.should_run == 'true' &&
-          steps.find_apk.outputs.path != ''
+            app/build/reports/tests/
+            app/build/test-results/
+            app/build/reports/lint-results*.html
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Publish complete Nightly release
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN: ${{ github.token }}
+          NIGHTLY_TAG: ${{ steps.version.outputs.tag }}
+          NIGHTLY_NAME: ${{ steps.version.outputs.name }}
+          NIGHTLY_CODE: ${{ steps.version.outputs.code }}
         run: |
-          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
-            echo "⚠️ Telegram secrets not set — skipping."
-            exit 0
-          fi
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          CAPTION="🎵 <b>Rhythm Nightly Build</b>"
-          CAPTION+=$'\n\n'
-          CAPTION+="📦 <b>Version:</b> <code>${{ steps.version_info.outputs.name }}</code>"
-          CAPTION+=$'\n'
-          CAPTION+="🔢 <b>Build #:</b> <code>${{ steps.version_info.outputs.commit_count }}</code>"
-          CAPTION+=$'\n'
-          CAPTION+="🔗 <b>Commit:</b> <code>${{ steps.version_info.outputs.short_sha }}</code>"
-          CAPTION+=$'\n'
-          CAPTION+="📅 <b>Date:</b> <code>$(date +%Y-%m-%d)</code>"
-          CAPTION+=$'\n\n'
-          CAPTION+="⚠️ <i>This is a nightly build. Report issues on GitHub.</i>"
-          CAPTION+=$'\n\n'
-          CAPTION+="📝 <b>Recent changes:</b>"
-          CAPTION+=$'\n'
-          CAPTION+="$(cat /tmp/rhythm_changes_short.txt)"
-          CAPTION+=$'\n\n'
-          CAPTION+="<a href=\"${RUN_URL}\">🔍 View Actions Run</a>"
-          if [ ! -f "${{ steps.find_apk.outputs.path }}" ]; then
-            echo "❌ APK file not found at ${{ steps.find_apk.outputs.path }}"
-            exit 1
-          fi
-          HTTP_CODE=$(curl -s -o /tmp/tg_response.json -w "%{http_code}" \
-            --connect-timeout 15 --max-time 60 \
-            -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" \
-            --form-string "chat_id=${TELEGRAM_CHAT_ID}" \
-            -F "document=@${{ steps.find_apk.outputs.path }}" \
-            --form-string "caption=${CAPTION}" \
-            --form-string "parse_mode=HTML")
-          echo "HTTP $HTTP_CODE"
-          if [ "$HTTP_CODE" = "200" ] && grep -q '"ok":true' /tmp/tg_response.json 2>/dev/null; then
-            echo "✅ Telegram notification sent."
-          else
-            echo "❌ Telegram notification failed:"
-            cat /tmp/tg_response.json 2>/dev/null || echo "(empty response)"
-            exit 1
-          fi
-
-      - name: Send Nightly notification to Discord
-        if: success() && steps.check_version.outputs.should_run == 'true'
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: |
-          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
-            echo "⚠️ Discord webhook URL not set — skipping."
-            exit 0
-          fi
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          BUILD_DATE="$(date +%Y-%m-%d)"
-
-          cat > /tmp/discord_payload.json <<EOF
-          {
-            "username": "Rhythm CI",
-            "avatar_url": "https://github.com/cromaguy/Rhythm/raw/main/assets/icon.png",
-            "embeds": [
-              {
-                "title": "🎵 Rhythm Nightly Build Available",
-                "description": "A new nightly build has been compiled and is ready for testing.",
-                "url": "${RUN_URL}",
-                "color": 7340031,
-                "fields": [
-                  {
-                    "name": "📦 Version",
-                    "value": "\`${{ steps.version_info.outputs.name }}\`",
-                    "inline": false
-                  },
-                  {
-                    "name": "🔢 Build #",
-                    "value": "\`${{ steps.version_info.outputs.commit_count }}\`",
-                    "inline": true
-                  },
-                  {
-                    "name": "🔗 Commit",
-                    "value": "\`${{ steps.version_info.outputs.short_sha }}\`",
-                    "inline": true
-                  },
-                  {
-                    "name": "📅 Date",
-                    "value": "${BUILD_DATE}",
-                    "inline": true
-                  },
-                  {
-                    "name": "📥 Download APK",
-                    "value": "[Open Actions Run](${RUN_URL}) → Download from the Artifacts section",
-                    "inline": false
-                  },
-                  {
-                    "name": "📝 Recent changes",
-                    "value": "$(cat /tmp/rhythm_changes_json.txt)",
-                    "inline": false
-                  },
-                  {
-                    "name": "⚠️ Note",
-                    "value": "This is a **nightly build**. Please report any issues on [GitHub Issues](https://github.com/${{ github.repository }}/issues).",
-                    "inline": false
-                  }
-                ],
-                "footer": {
-                  "text": "Rhythm CI • Nightly Channel"
-                },
-                "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-              }
-            ]
-          }
-          EOF
-
-          curl -s -X POST "${DISCORD_WEBHOOK_URL}" \
-            -H "Content-Type: application/json" \
-            -d @/tmp/discord_payload.json \
-            | tee /tmp/discord_response.json \
-            && echo "✅ Discord notification sent." \
-            || { echo "❌ Discord notification failed:"; cat /tmp/discord_response.json; exit 1; }
-
-      - name: Send failure notification to Telegram
-        if: failure() && steps.check_version.outputs.should_run == 'true'
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
-            echo "⚠️ Telegram secrets not set — skipping."
-            exit 0
-          fi
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          MESSAGE="❌ <b>Rhythm Nightly Build Failed</b>"
-          MESSAGE+=$'\n\n'
-          MESSAGE+="📦 <b>Version:</b> <code>${{ steps.version_info.outputs.name }}</code>"
-          MESSAGE+=$'\n'
-          MESSAGE+="🔗 <b>Commit:</b> <code>${{ steps.version_info.outputs.short_sha }}</code>"
-          MESSAGE+=$'\n\n'
-          MESSAGE+="🔴 The compilation or packaging step failed. Please check the logs."
-          MESSAGE+=$'\n\n'
-          MESSAGE+="<a href=\"${RUN_URL}\">🔍 View Actions Run</a>"
-          
-          curl -s -o /dev/null -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-            --form-string "chat_id=${TELEGRAM_CHAT_ID}" \
-            --form-string "text=${MESSAGE}" \
-            --form-string "parse_mode=HTML" \
-            --form-string "disable_web_page_preview=true"
+          set -euo pipefail
+          python3 - <<'NOTES'
+          import os
+          from pathlib import Path
+          Path('nightly-notes.md').write_text(
+              f"Nightly from `{os.environ['GITHUB_SHA']}`. Android version code: {os.environ['NIGHTLY_CODE']}.\n\n"
+              "Use Settings → Updates → Nightly in Rhythm to download the signed APK. "
+              "Android may ask you to confirm installation.\n\n"
+              "Both distribution flavors and universal/ABI APKs use the existing fork signing key. "
+              "Unit tests, release compilation and APK verification passed before publication.\n\n"
+              "See the commit history for changes; SHA256SUMS and nightly.json describe these exact APKs.\n")
+          NOTES
+          gh release create "$NIGHTLY_TAG" nightly-dist/* --target "$GITHUB_SHA" \
+            --title "$NIGHTLY_NAME - Rhythm Bluetooth Lyrics" --notes-file nightly-notes.md \
+            --draft --prerelease
+          gh release edit "$NIGHTLY_TAG" --draft=false --latest=false
+      - name: Remove signing material
+        if: always()
+        run: rm -f config/signing/rhythm_keystore.jks .config/keystore.properties config/signing/private.properties

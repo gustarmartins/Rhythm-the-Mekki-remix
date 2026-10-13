@@ -258,7 +258,13 @@ fun LyricsSettingsScreen(onBackClick: () -> Unit) {
     val translationAutoWord by appSettings.translationAutoWord.collectAsState()
     val showLyricsTranslation by appSettings.showLyricsTranslation.collectAsState()
     val showLyricsRomanization by appSettings.showLyricsRomanization.collectAsState()
-    val bluetoothLyricsTextMode by appSettings.bluetoothLyricsTextMode.collectAsState()
+    val defaultBtTextMode by appSettings.bluetoothLyricsTextMode.collectAsState()
+    val btLyricProfiles by appSettings.bluetoothLyricsProfiles.collectAsState()
+    val currentBtDisplayDevice by appSettings.currentBluetoothDisplayDevice.collectAsState()
+    val bluetoothLyricsTextMode = currentBtDisplayDevice?.let { device ->
+        chromahub.rhythm.app.util.bluetoothDisplayProfileValue(device, btLyricProfiles,
+            chromahub.rhythm.app.util.BluetoothLyricsProfile(textMode = defaultBtTextMode)).textMode
+    } ?: defaultBtTextMode
     val lyricsTranslationLanguage by appSettings.lyricsTranslationLanguage.collectAsState()
     val lyricsFolderTreeUris by appSettings.lyricsFolderTreeUris.collectAsState()
 
@@ -958,9 +964,10 @@ fun LyricsSettingsScreen(onBackClick: () -> Unit) {
     }
 
     if (showBluetoothLyricsTextModeDialog) {
+        val deviceForThisDialog = remember { currentBtDisplayDevice }
         BluetoothLyricsTextModeDialog(
-            currentMode = bluetoothLyricsTextMode,
-            onSelect = appSettings::setBluetoothLyricsTextMode,
+            currentMode = appSettings.effectiveBluetoothLyricsProfile(deviceForThisDialog).textMode,
+            onSelect = { appSettings.setBluetoothDisplayTextMode(deviceForThisDialog, it) },
             onDismiss = { showBluetoothLyricsTextModeDialog = false }
         )
     }

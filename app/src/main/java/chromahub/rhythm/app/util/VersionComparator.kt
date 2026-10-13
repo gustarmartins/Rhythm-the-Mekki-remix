@@ -86,6 +86,11 @@ data class SemanticVersion(
  * Higher Version Number >> Channel Tier: Stable > Beta > Nightly
  */
 object VersionComparator {
+    /** Exact APK code embedded in Nightly tags, independent of semantic-version formatting. */
+    fun explicitVersionCode(version: String?): Int? = version?.let {
+        Regex("(?:^|-)vc([0-9]+)(?:-|$)").find(it)?.groupValues?.get(1)?.toIntOrNull()
+    }
+
     private const val TAG = "VersionComparator"
 
     private val BUILD_REGEX = Regex("(?:b|build|r)-?(\\d+)", RegexOption.IGNORE_CASE)

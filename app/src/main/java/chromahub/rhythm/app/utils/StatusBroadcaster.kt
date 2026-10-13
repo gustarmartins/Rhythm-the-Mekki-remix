@@ -68,17 +68,10 @@ class StatusBroadcaster(private val context: Context) {
         currentLyricLine: String? = null
     ) {
         try {
-            val mergedTitleArtist = listOf(song.title, song.artist)
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-                .joinToString(" - ")
-                .ifBlank { song.title }
-            val artistMetadata = if (bluetoothLyricsMode) mergedTitleArtist else song.artist
-            val trackMetadata = if (bluetoothLyricsMode) {
-                currentLyricLine?.takeIf { it.isNotBlank() } ?: song.title
-            } else {
-                song.title
-            }
+            // Standard integration fields always identify the song. AVRCP display lyrics are
+            // handled by the media session; automation clients can opt into the separate lyric.
+            val artistMetadata = song.artist
+            val trackMetadata = song.title
 
             val intent = Intent(ACTION_META_CHANGED).apply {
                 // Standard metadata
@@ -88,6 +81,7 @@ class StatusBroadcaster(private val context: Context) {
                 putExtra(EXTRA_TRACK, trackMetadata)
                 putExtra(EXTRA_DURATION, song.duration)
                 putExtra(EXTRA_POSITION, position)
+                if (bluetoothLyricsMode) putExtra("chromahub.rhythm.app.extra.lyric_line", currentLyricLine)
                 
                 // Queue information for apps that support it
                 if (queueSize > 0) {

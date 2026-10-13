@@ -151,6 +151,14 @@
                 android:resource="@xml/rhythm_stats_widget_info" />
         </receiver>
         
+        <!-- Media3 validates media-button events and targets this app's media service. -->
+        <receiver android:name="androidx.media3.session.MediaButtonReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+
         <!-- MediaPlaybackService is exported so Android Auto, the system
              media controller and other apps can connect to the media session
              and MediaBrowserService. A permission would block those clients. -->

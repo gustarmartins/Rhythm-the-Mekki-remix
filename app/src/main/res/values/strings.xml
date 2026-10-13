@@ -80,7 +80,7 @@
     <string name="device_mono_audio_title">Single Earpiece (Mono Audio)</string>
     <string name="device_mono_audio_desc">Force mono downmix when this audio device is active.</string>
     <string name="settings_resume_on_device_reconnect">Auto Resume</string>
-    <string name="settings_resume_on_device_reconnect_desc">Auto-resume when audio devices reconnect</string>
+    <string name="settings_resume_on_device_reconnect_desc">Resume when headphones or a car connect or become the selected output</string>
     <string name="settings_gapless_playback">Gapless Playback</string>
     <string name="settings_gapless_playback_desc">Switch tracks without silence.</string>
     <string name="settings_crossfade">Track Crossfade</string>
@@ -2955,4 +2955,6 @@
     <string name="service_starting">Rhythm is starting.</string>
     <string name="exp_third_party_integrations">Third-Party Integrations</string>
     <string name="settings_song_artwork_restart_required">Artwork mode changed. Restart the app to clear caches and run a full media rescan with updated artwork sources.</string>
-    </resources>
+        <string name="bluetooth_lyrics_profile_device">All display settings saved for: %1$s</string>
+    <string name="bluetooth_lyrics_profile_default">No Bluetooth output selected — editing display defaults</string>
+</resources>

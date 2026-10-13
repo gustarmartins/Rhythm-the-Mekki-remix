@@ -59,6 +59,10 @@ import com.google.common.util.concurrent.ListenableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.Locale
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collectLatest
+import chromahub.rhythm.app.util.DeviceResumePolicy
+import chromahub.rhythm.app.util.restorePlaybackOccurrences
+import com.google.common.util.concurrent.SettableFuture
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
@@ -681,6 +685,7 @@ btProxy = chromahub.rhythm.app.util.BtCodecInfo.getCodec(this) { info ->
 
             // Create the media session (required synchronously)
             mediaSession = createMediaSession()
+            observeDeviceResume()
 
             // Initialize controller asynchronously to avoid blocking
             createController()
@@ -1064,6 +1069,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                Log.i("RhythmPlayback", "playWhenReady=$playWhenReady reason=$reason state=${player.playbackState}")
                 if (playWhenReady) {
                     val now = System.currentTimeMillis()
                     if (appSettings.rhythmGuardTimeoutUntilMs.value > now) {
@@ -1098,6 +1104,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 
+                publishCanonicalSessionIdentity(player.currentMediaItem?.let(::convertMediaItemToSong))
                 // Broadcast status for Tasker/KWGT/automation apps
                 if (appSettings.broadcastStatusEnabled.value) {
                     statusBroadcaster.broadcastPlaystateChanged(isPlaying, player.currentPosition)
@@ -1158,6 +1165,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
 
 
                 
+                publishCanonicalSessionIdentity(mediaItem?.let(::convertMediaItemToSong))
                 // Broadcast status for Tasker/KWGT/automation apps
                 if (appSettings.broadcastStatusEnabled.value && mediaItem != null) {
                     try {
@@ -1301,8 +1309,10 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
 
         // Car text mode is independent from the phone lyric display.
         serviceScope.launch {
-            var previous = appSettings.bluetoothLyricsTextMode.value
-            appSettings.bluetoothLyricsTextMode.collect { mode ->
+            var previous = appSettings.effectiveBluetoothLyricsProfile().textMode
+            kotlinx.coroutines.flow.combine(appSettings.bluetoothLyricsTextMode,
+                appSettings.bluetoothLyricsProfiles, appSettings.currentBluetoothDisplayDevice
+            ) { _, _, _ -> appSettings.effectiveBluetoothLyricsProfile().textMode }.collect { mode ->
                 if (mode == previous) return@collect
                 previous = mode
                 lastServiceBtLyricLine = null
@@ -2516,6 +2526,63 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
     }
 
+    private var transportGeneration = 0L
+
+    private fun observeDeviceResume() {
+        val routes = appSettings.currentExternalAudioRoute
+        val policy = DeviceResumePolicy(routes.value)
+        serviceScope.launch {
+            routes.collectLatest { route ->
+                if (!policy.routeChanged(route)) return@collectLatest
+                val generation = transportGeneration
+                Log.i("RhythmPlayback", "Selected external output changed; autoResume=${appSettings.resumeOnDeviceReconnect.value}")
+                if (!appSettings.resumeOnDeviceReconnect.value) return@collectLatest
+                delay(750) // Let the audio route and any car transport command settle first.
+                val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                if (route != routes.value || generation != transportGeneration ||
+                    !appSettings.resumeOnDeviceReconnect.value || player.playWhenReady ||
+                    appSettings.rhythmGuardTimeoutUntilMs.value > System.currentTimeMillis() ||
+                    audio.mode != AudioManager.MODE_NORMAL ||
+                    (appSettings.stopPlaybackOnZeroVolume.value && appSettings.useSystemVolume.value &&
+                        audio.getStreamVolume(AudioManager.STREAM_MUSIC) == 0)) {
+                    Log.i("RhythmPlayback", "Device resume skipped: playback, command, route or playback guard changed")
+                    return@collectLatest
+                }
+                if (player.mediaItemCount == 0) {
+                    val saved = try { savedPlaybackForResumption() } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.w("RhythmPlayback", "Saved queue unavailable for device resume", e)
+                        null
+                    } ?: return@collectLatest
+                    if (route != routes.value || generation != transportGeneration ||
+                        !appSettings.resumeOnDeviceReconnect.value || player.mediaItemCount != 0) return@collectLatest
+                    player.setMediaItems(saved.mediaItems, saved.startIndex, saved.startPositionMs)
+                }
+                if (player.playbackState == Player.STATE_IDLE) player.prepare()
+                if (player.playbackState == Player.STATE_ENDED) player.seekToDefaultPosition()
+                Log.i("RhythmPlayback", "Device resume: play requested")
+                player.play()
+            }
+        }
+    }
+
+    private suspend fun savedPlaybackForResumption(): MediaSession.MediaItemsWithStartPosition? {
+        if (!appSettings.queuePersistenceEnabled.value) return null
+        val ids = appSettings.savedQueue.value.toList()
+        val index = appSettings.savedQueueIndex.value
+        val position = appSettings.savedPlaybackPosition.value
+        if (ids.isEmpty() || index !in ids.indices) return null
+        val songs = withContext(Dispatchers.IO) { serviceMusicRepository.getSongsByIds(ids) }
+        val restored = restorePlaybackOccurrences(ids, index, position, songs.associateBy { it.id }) ?: return null
+        return MediaSession.MediaItemsWithStartPosition(
+            restored.items.map { song -> tokenizedQueueItem(MediaItem.Builder()
+                .setMediaId(song.id).setUri(song.uri)
+                .setMediaMetadata(MediaMetadata.Builder().setTitle(song.title).setArtist(song.artist)
+                    .setAlbumTitle(song.album).setArtworkUri(song.artworkUri).setDurationMs(song.duration).build())
+                .build()) }, restored.index, restored.positionMs)
+    }
+
     private fun wrapPlayer(rawPlayer: Player): Player = RhythmForwardingPlayer(rawPlayer)
 
     private inner class RhythmForwardingPlayer(rawPlayer: Player) : ForwardingPlayer(rawPlayer) {
@@ -2533,12 +2600,36 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             super.removeListener(listener)
         }
 
+        override fun play() {
+            transportGeneration++
+            Log.i("RhythmPlayback", "PLAY from ${mediaSession?.controllerForCurrentRequest?.packageName ?: "service"}; autoResume=${appSettings.resumeOnDeviceReconnect.value}")
+            super.play()
+        }
+
+        override fun pause() {
+            transportGeneration++
+            Log.i("RhythmPlayback", "PAUSE from ${mediaSession?.controllerForCurrentRequest?.packageName ?: "service"}")
+            super.pause()
+        }
+
+        override fun setPlayWhenReady(playWhenReady: Boolean) {
+            if (!isMutatingBtVirtualQueue) transportGeneration++
+            super.setPlayWhenReady(playWhenReady)
+        }
+
+        override fun stop() {
+            transportGeneration++
+            super.stop()
+        }
+
         override fun getMediaMetadata(): androidx.media3.common.MediaMetadata {
             val base = super.getMediaMetadata()
             val title = injectedTitle ?: return base
             return base.buildUpon()
                 .setTitle(title)
                 .setArtist(injectedArtist ?: base.artist)
+                .setExtras(serviceBtCanonicalSong?.takeIf { it.id == super.getCurrentMediaItem()?.mediaId }
+                    ?.let { buildServiceBtCanonicalMetadataExtras(it, base.extras) } ?: base.extras)
                 .build()
         }
 
@@ -3127,6 +3218,44 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     }
 
     private inner class MediaSessionCallback : MediaLibrarySession.Callback {
+        override fun onMediaButtonEvent(session: MediaSession, controllerInfo: MediaSession.ControllerInfo,
+            intent: Intent): Boolean {
+            val key = runCatching { androidx.core.content.IntentCompat.getParcelableExtra(
+                intent, Intent.EXTRA_KEY_EVENT, android.view.KeyEvent::class.java) }.getOrNull()
+            Log.i("RhythmPlayback", "Media key from ${controllerInfo.packageName}: code=${key?.keyCode} action=${key?.action} repeat=${key?.repeatCount}")
+            return false // Media3 handles PLAY and PAUSE regardless of the Auto Resume preference.
+        }
+
+        override fun onPlaybackResumption(session: MediaSession, controller: MediaSession.ControllerInfo,
+            isForPlayback: Boolean): ListenableFuture<MediaSession.MediaItemsWithStartPosition> {
+            val result = SettableFuture.create<MediaSession.MediaItemsWithStartPosition>()
+            if (isForPlayback) transportGeneration++
+            val generation = transportGeneration
+            val job = serviceScope.launch {
+                try {
+                    check(!isForPlayback || appSettings.rhythmGuardTimeoutUntilMs.value <= System.currentTimeMillis())
+                    val saved = savedPlaybackForResumption() ?: error("No saved playback to resume")
+                    check(!isForPlayback || (generation == transportGeneration && player.mediaItemCount == 0)) {
+                        "Playback changed while restoring"
+                    }
+                    if (isForPlayback) {
+                        player.shuffleModeEnabled = appSettings.shuffleUsesExoplayer.value && appSettings.savedShuffleState.value
+                        player.repeatMode = when (appSettings.savedRepeatMode.value) {
+                            1 -> Player.REPEAT_MODE_ALL
+                            2 -> Player.REPEAT_MODE_ONE
+                            else -> Player.REPEAT_MODE_OFF
+                        }
+                    }
+                    Log.i("RhythmPlayback", "Saved playback requested by ${controller.packageName}; play=$isForPlayback items=${saved.mediaItems.size}")
+                    result.set(saved)
+                } catch (e: Exception) {
+                    result.setException(e)
+                }
+            }
+            job.invokeOnCompletion { if (!result.isDone) result.cancel(false) }
+            return result
+        }
+
         @OptIn(UnstableApi::class)
         override fun onConnect(
             session: MediaSession,
@@ -3263,11 +3392,11 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                         val currentHasRomanization = currentLyricsHaveUsableRomanization()
                         val currentHasTranslation = currentLyricsHaveUsableTranslation()
                         if (
-                            (appSettings.bluetoothLyricsTextMode.value ==
+                            (appSettings.effectiveBluetoothLyricsProfile().textMode ==
                                 BluetoothLyricsTextMode.ROMANIZATION &&
                                 currentHasRomanization &&
                                 !incomingHasRomanization) ||
-                            (appSettings.bluetoothLyricsTextMode.value ==
+                            (appSettings.effectiveBluetoothLyricsProfile().textMode ==
                                 BluetoothLyricsTextMode.TRANSLATION &&
                                 currentHasTranslation &&
                                 !incomingHasTranslation)
@@ -3915,7 +4044,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 } catch (e: Exception) {
                     Log.w(TAG, "Bluetooth lyrics tick failed", e)
                 }
-                val configuredIntervalMs = appSettings.bluetoothLyricsMetadataUpdateIntervalMs.value
+                val configuredIntervalMs = appSettings.effectiveBluetoothLyricsProfile().metadataUpdateIntervalMs
                 delay(
                     configuredIntervalMs
                         .coerceIn(
@@ -3939,12 +4068,12 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         val needsBaseLyrics = serviceLyricsLoadedSongId != song.id && !hasLyrics
         val now = SystemClock.elapsedRealtime()
         val needsRomanization =
-            appSettings.bluetoothLyricsTextMode.value == BluetoothLyricsTextMode.ROMANIZATION &&
+            appSettings.effectiveBluetoothLyricsProfile().textMode == BluetoothLyricsTextMode.ROMANIZATION &&
                     serviceRomanizationLoadedSongId != song.id &&
                     !currentLyricsHaveUsableRomanization() &&
                     now >= serviceRomanizationNextRetryAtMs
         val needsTranslation =
-            appSettings.bluetoothLyricsTextMode.value == BluetoothLyricsTextMode.TRANSLATION &&
+            appSettings.effectiveBluetoothLyricsProfile().textMode == BluetoothLyricsTextMode.TRANSLATION &&
                 serviceTranslationLoadedSongId != song.id &&
                 !currentLyricsHaveUsableTranslation() &&
                 now >= serviceTranslationNextRetryAtMs
@@ -3976,7 +4105,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 }
 
                 if (
-                    appSettings.bluetoothLyricsTextMode.value == BluetoothLyricsTextMode.ROMANIZATION &&
+                    appSettings.effectiveBluetoothLyricsProfile().textMode == BluetoothLyricsTextMode.ROMANIZATION &&
                     serviceRomanizationLoadedSongId != song.id &&
                     !currentLyricsHaveUsableRomanization() &&
                     SystemClock.elapsedRealtime() >= serviceRomanizationNextRetryAtMs
@@ -4017,7 +4146,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 }
 
                 if (
-                    appSettings.bluetoothLyricsTextMode.value ==
+                    appSettings.effectiveBluetoothLyricsProfile().textMode ==
                         BluetoothLyricsTextMode.TRANSLATION &&
                     serviceTranslationLoadedSongId != song.id &&
                     !currentLyricsHaveUsableTranslation() &&
@@ -4073,7 +4202,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 throw e
             } catch (e: Exception) {
                 if (
-                    appSettings.bluetoothLyricsTextMode.value == BluetoothLyricsTextMode.ROMANIZATION &&
+                    appSettings.effectiveBluetoothLyricsProfile().textMode == BluetoothLyricsTextMode.ROMANIZATION &&
                     !currentLyricsHaveUsableRomanization()
                 ) {
                     val retryDelay = serviceEnrichmentRetryDelaysMs[
@@ -4084,7 +4213,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                     serviceRomanizationNextRetryAtMs = SystemClock.elapsedRealtime() + retryDelay
                 }
                 if (
-                    appSettings.bluetoothLyricsTextMode.value ==
+                    appSettings.effectiveBluetoothLyricsProfile().textMode ==
                         BluetoothLyricsTextMode.TRANSLATION &&
                     !currentLyricsHaveUsableTranslation()
                 ) {
@@ -4156,6 +4285,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             ?.takeIf { it.id == observedSong.id }
             ?: observedSong.also { serviceBtCanonicalSong = it }
         val enabled = appSettings.bluetoothLyricsEnabled.value
+        publishCanonicalSessionIdentity(song)
         if (!enabled) {
             if (lastServiceBtAppliedSongId != null) restoreServiceBtMetadata(song)
             lastServiceBtLyricLine = null
@@ -4173,7 +4303,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 songId = song.id,
                 line = line,
                 nowMs = SystemClock.elapsedRealtime(),
-                minimumIntervalMs = appSettings.bluetoothLyricsMetadataUpdateIntervalMs.value.toLong()
+                minimumIntervalMs = appSettings.effectiveBluetoothLyricsProfile().metadataUpdateIntervalMs.toLong()
             )
         ) {
             return
@@ -4182,8 +4312,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             TAG,
                 "Bluetooth lyric publish: mediaId=${song.id}, positionMs=$playbackPositionMs, " +
                 "offsetMs=$offsetMs, source=$currentLyricsSource, " +
-                "mode=${appSettings.bluetoothLyricsTextMode.value}, " +
-                "intervalMs=${appSettings.bluetoothLyricsMetadataUpdateIntervalMs.value}, " +
+                "mode=${appSettings.effectiveBluetoothLyricsProfile().textMode}, " +
+                "intervalMs=${appSettings.effectiveBluetoothLyricsProfile().metadataUpdateIntervalMs}, " +
                 "line=${line.orEmpty()}"
         )
         if (appSettings.broadcastStatusEnabled.value) {
@@ -4212,7 +4342,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
         if (idx < 0) return null
         val effectiveTexts = BluetoothLyricsFormatter.selectTexts(
-            mode = appSettings.bluetoothLyricsTextMode.value,
+            mode = appSettings.effectiveBluetoothLyricsProfile().textMode,
             original = currentLyricTexts,
             translations = currentLyricTranslations,
             romanizations = currentLyricRomanizations
@@ -4222,9 +4352,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             timestamps = ts,
             texts = effectiveTexts,
             tuning = BluetoothLyricsFormatter.Tuning(
-                maxChunkChars = appSettings.bluetoothLyricsMaxChunkChars.value,
-                scrollCharsPerSecond = appSettings.bluetoothLyricsScrollCharsPerSecond.value,
-                minChunkHoldMs = appSettings.bluetoothLyricsMinChunkHoldMs.value
+                maxChunkChars = appSettings.effectiveBluetoothLyricsProfile().maxChunkChars,
+                scrollCharsPerSecond = appSettings.effectiveBluetoothLyricsProfile().scrollCharsPerSecond,
+                minChunkHoldMs = appSettings.effectiveBluetoothLyricsProfile().minChunkHoldMs
             )
         ) ?: return null
         if (updateCurrentIndex) currentLyricIndex = resolved.sourceLineIndex
@@ -4300,6 +4430,27 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         } finally {
             lastServiceBtAppliedSongId = null
         }
+    }
+
+    private var lastCanonicalSessionIdentity: List<String>? = null
+
+    /** Stable identity for media-session observers, separate from changing display lyrics. */
+    private fun publishCanonicalSessionIdentity(song: Song?) {
+        val session = mediaSession ?: return
+        val lyrics = ::appSettings.isInitialized && appSettings.bluetoothLyricsEnabled.value
+        val identity = listOf(song?.id.orEmpty(), song?.title.orEmpty(), song?.artist.orEmpty(),
+            song?.album.orEmpty(), lyrics.toString())
+        if (identity == lastCanonicalSessionIdentity) return
+        val extras = Bundle(session.sessionExtras).apply {
+            putInt("chromahub.rhythm.app.extra.identity_version", 1)
+            putString("chromahub.rhythm.app.extra.original_media_id", song?.id.orEmpty())
+            putString(METADATA_EXTRA_ORIGINAL_TITLE, song?.title.orEmpty())
+            putString(METADATA_EXTRA_ORIGINAL_ARTIST, song?.artist.orEmpty())
+            putString(METADATA_EXTRA_ORIGINAL_ALBUM, song?.album.orEmpty())
+            putBoolean("chromahub.rhythm.app.extra.lyrics_active", lyrics)
+        }
+        session.setSessionExtras(extras)
+        lastCanonicalSessionIdentity = identity
     }
 
     private fun buildServiceBtCanonicalMetadataExtras(

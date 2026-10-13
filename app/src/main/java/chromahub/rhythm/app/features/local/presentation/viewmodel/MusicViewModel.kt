@@ -1498,25 +1498,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             addAction(MediaPlaybackService.BROADCAST_SLEEP_TIMER_STATUS)
         }
 
-        // Resume playback on audio device reconnection (e.g., Bluetooth headphones reconnected)
-        viewModelScope.launch {
-            audioDeviceManager.deviceReconnected.collect { deviceName ->
-                if (
-                    appSettings.resumeOnDeviceReconnect.value &&
-                    !_isPlaying.value &&
-                    _currentSong.value != null &&
-                    !isRhythmGuardTimeoutActive()
-                ) {
-                    Log.d(TAG, "Audio device reconnected ($deviceName), resuming playback")
-                    mediaController?.let { controller ->
-                        if (!canStartPlayback("deviceReconnected.resume")) return@let
-                        controller.play()
-                        _isPlaying.value = true
-                        startProgressUpdates()
-                    }
-                }
-            }
-        }
+        // Device resume is owned by MediaPlaybackService, including when this UI is absent.
 
         autoEQManager.setCustomProfiles(appSettings.customAutoEQProfiles.value)
         viewModelScope.launch {

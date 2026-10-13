@@ -201,39 +201,20 @@ class UpdateNotificationWorker(
             Log.d(TAG, "Consecutive 304 responses: $consecutiveNotModified")
             
             if (channel == "nightly") {
-                var nightlyVersionTag: String? = null
-                val runsResponse = gitHubApiService.getWorkflowRuns(BuildConfig.GITHUB_OWNER, BuildConfig.GITHUB_REPO, "nightly.yml")
-                if (runsResponse.isSuccessful && runsResponse.body() != null) {
-                    val latestRun = runsResponse.body()?.workflow_runs?.firstOrNull {
-                        it.status == "completed" && it.conclusion == "success"
-                    }
-                    if (latestRun != null) {
-                        val shortSha = latestRun.head_sha.take(7)
-                        val cleanedBaseName = BuildConfig.VERSION_NAME
-                            .replace(" Beta", "")
-                            .replace(Regex("-nightly-r\\d+-[0-9a-f]+", RegexOption.IGNORE_CASE), "")
-                        nightlyVersionTag = "$cleanedBaseName-nightly-r${latestRun.run_number}-$shortSha"
-                    }
-                }
-                        
-                // Also check releases for any equal/higher Stable or Beta releases
-                var releaseVersionTag: String? = null
                 val releasesResponse = gitHubApiService.getReleases(BuildConfig.GITHUB_OWNER, BuildConfig.GITHUB_REPO)
-                if (releasesResponse.isSuccessful && releasesResponse.body() != null) {
-                    val allReleases = releasesResponse.body()
-                    val bestRelease = allReleases?.filter { !it.draft }?.maxWithOrNull { r1, r2 ->
-                        val v1 = r1.tag_name.ifEmpty { r1.name }
-                        val v2 = r2.tag_name.ifEmpty { r2.name }
-                        VersionComparator.compare(v1, v2, isPreRelease1 = r1.prerelease, isPreRelease2 = r2.prerelease)
-                    }
-                    if (bestRelease != null) {
-                        releaseVersionTag = bestRelease.tag_name.ifEmpty { bestRelease.name }
-                    }
+                val flavor = when (appSettings.updateSource.value.lowercase()) {
+                    "github" -> "github"
+                    "fdroid" -> "fdroid"
+                    else -> BuildConfig.FLAVOR
                 }
-
-                val bestCandidateTag = listOfNotNull(nightlyVersionTag, releaseVersionTag).maxWithOrNull { t1, t2 ->
-                    VersionComparator.compare(t1, t2)
-                }
+                val bestCandidateTag = releasesResponse.body().orEmpty()
+                    .filter { release -> !release.draft && release.assets.any { asset ->
+                        asset.state == "uploaded" && asset.name.endsWith(".apk", ignoreCase = true) &&
+                            asset.name.contains("${flavor}Release", ignoreCase = true)
+                    } }
+                    .map { it.tag_name }
+                    .filter { (VersionComparator.explicitVersionCode(it) ?: Int.MAX_VALUE) >= BuildConfig.VERSION_CODE }
+                    .maxWithOrNull { a, b -> VersionComparator.compare(a, b) }
 
                 if (bestCandidateTag != null) {
                     val isNewer = VersionComparator.isNewer(

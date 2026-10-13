@@ -27,6 +27,8 @@ import chromahub.rhythm.app.worker.UpdateNotificationWorker
 import chromahub.rhythm.app.BuildConfig
 import chromahub.rhythm.app.util.BluetoothLyricsFormatter
 import chromahub.rhythm.app.util.BluetoothDisplayDevice
+import chromahub.rhythm.app.util.BluetoothLyricsProfile
+import chromahub.rhythm.app.util.resolveBluetoothLyricsProfile
 import chromahub.rhythm.app.util.BluetoothDisplayDeviceMonitor
 import chromahub.rhythm.app.util.bluetoothDisplayProfileValue
 import chromahub.rhythm.app.util.bluetoothDisplayCompatibilityEnabled
@@ -1779,6 +1781,8 @@ class AppSettings private constructor(context: Context) {
         get() = bluetoothDisplayDeviceMonitor.usbConnected
     val currentBluetoothDisplayDevice: StateFlow<BluetoothDisplayDevice?>
         get() = bluetoothDisplayDeviceMonitor.device
+    val currentExternalAudioRoute: StateFlow<String?>
+        get() = bluetoothDisplayDeviceMonitor.externalRoute
     fun refreshBluetoothDisplayDevice() = bluetoothDisplayDeviceMonitor.refresh()
 
     private val _bluetoothDisplayCompatibilityProfiles = MutableStateFlow(loadBluetoothDisplayCompatibilityProfiles())
@@ -1803,11 +1807,11 @@ class AppSettings private constructor(context: Context) {
     }
 
     fun effectiveBluetoothDisplayOffsetMs(device: BluetoothDisplayDevice?): Int =
-        if (device == null) 0 else bluetoothDisplayProfileValue(device,
-            _bluetoothLyricsOffsetPresets.value, _bluetoothLyricsOffsetMs.value)
+        effectiveBluetoothLyricsProfile(device).offsetMs
 
     fun setBluetoothDisplayOffset(device: BluetoothDisplayDevice?, offsetMs: Int) {
-        setBluetoothLyricsOffsetForDevice(device?.key, offsetMs)
+        val current = if (device == null) defaultBluetoothLyricsProfile() else effectiveBluetoothLyricsProfile(device)
+        setBluetoothLyricsProfile(device, current.copy(offsetMs = offsetMs))
     }
 
     private val _bluetoothLyricsLegacyCarModeEnabled = MutableStateFlow(
@@ -1885,6 +1889,50 @@ class AppSettings private constructor(context: Context) {
     )
     val bluetoothLyricsMetadataUpdateIntervalMs: StateFlow<Int> =
         _bluetoothLyricsMetadataUpdateIntervalMs.asStateFlow()
+
+    private val _bluetoothLyricsProfiles = MutableStateFlow(loadBluetoothLyricsProfiles())
+    val bluetoothLyricsProfiles: StateFlow<Map<String, BluetoothLyricsProfile>> =
+        _bluetoothLyricsProfiles.asStateFlow()
+
+    private fun loadBluetoothLyricsProfiles(): Map<String, BluetoothLyricsProfile> = try {
+        val type = object : TypeToken<Map<String, BluetoothLyricsProfile>>() {}.type
+        Gson().fromJson<Map<String, BluetoothLyricsProfile>>(
+            prefs.getString("bluetooth_lyrics_profiles_v1", null), type) ?: emptyMap()
+    } catch (_: Exception) { emptyMap() }
+
+    fun defaultBluetoothLyricsProfile() = BluetoothLyricsProfile(
+        offsetMs = _bluetoothLyricsOffsetMs.value,
+        maxChunkChars = _bluetoothLyricsMaxChunkChars.value,
+        scrollCharsPerSecond = _bluetoothLyricsScrollCharsPerSecond.value,
+        minChunkHoldMs = _bluetoothLyricsMinChunkHoldMs.value,
+        metadataUpdateIntervalMs = _bluetoothLyricsMetadataUpdateIntervalMs.value,
+        textMode = _bluetoothLyricsTextMode.value
+    )
+
+    fun effectiveBluetoothLyricsProfile(device: BluetoothDisplayDevice? = currentBluetoothDisplayDevice.value) =
+        resolveBluetoothLyricsProfile(device, _bluetoothLyricsProfiles.value,
+            defaultBluetoothLyricsProfile(), _bluetoothLyricsOffsetPresets.value)
+
+    /** The editor captures device identity on opening, not when Apply is tapped. */
+    fun setBluetoothLyricsProfile(device: BluetoothDisplayDevice?, profile: BluetoothLyricsProfile) {
+        if (device == null) {
+            setBluetoothLyricsOffsetMs(profile.offsetMs)
+            setBluetoothLyricsMaxChunkChars(profile.maxChunkChars)
+            setBluetoothLyricsScrollCharsPerSecond(profile.scrollCharsPerSecond)
+            setBluetoothLyricsMinChunkHoldMs(profile.minChunkHoldMs)
+            setBluetoothLyricsMetadataUpdateIntervalMs(profile.metadataUpdateIntervalMs)
+            setBluetoothLyricsTextMode(profile.textMode)
+            return
+        }
+        val updated = _bluetoothLyricsProfiles.value + (device.key to profile)
+        prefs.edit { putString("bluetooth_lyrics_profiles_v1", Gson().toJson(updated)) }
+        _bluetoothLyricsProfiles.value = updated
+    }
+
+    fun setBluetoothDisplayTextMode(device: BluetoothDisplayDevice?, mode: BluetoothLyricsTextMode) {
+        val current = if (device == null) defaultBluetoothLyricsProfile() else effectiveBluetoothLyricsProfile(device)
+        setBluetoothLyricsProfile(device, current.copy(textMode = mode))
+    }
 
     // Enhanced User Preferences
     private val _favoriteGenres = MutableStateFlow<Map<String, Int>>(
@@ -1986,7 +2034,7 @@ class AppSettings private constructor(context: Context) {
 private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CHECK_FOR_UPDATES, BuildConfig.FLAVOR != "fdroid"))
     val autoCheckForUpdates: StateFlow<Boolean> = _autoCheckForUpdates.asStateFlow()
 
-    private val _updateChannel = MutableStateFlow(prefs.getString(KEY_UPDATE_CHANNEL, "stable") ?: "stable")
+    private val _updateChannel = MutableStateFlow(prefs.getString(KEY_UPDATE_CHANNEL, if (BuildConfig.IS_NIGHTLY) "nightly" else "stable") ?: "stable")
     val updateChannel: StateFlow<String> = _updateChannel.asStateFlow()
 
     private val _updateSource = MutableStateFlow(prefs.getString(KEY_UPDATE_SOURCE, "installed") ?: "installed")
@@ -5853,6 +5901,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         )
         _bluetoothLyricsPreferRomanization.value =
             _bluetoothLyricsTextMode.value == BluetoothLyricsTextMode.ROMANIZATION
+        _bluetoothLyricsProfiles.value = loadBluetoothLyricsProfiles()
         _bluetoothLyricsOffsetMs.value = prefs.getInt(KEY_BLUETOOTH_LYRICS_OFFSET_MS, 0)
             .coerceIn(BLUETOOTH_LYRICS_OFFSET_MIN_MS, BLUETOOTH_LYRICS_OFFSET_MAX_MS)
         _bluetoothLyricsMaxChunkChars.value = BluetoothLyricsFormatter.coerceMaxChunkChars(
@@ -5883,7 +5932,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
 
         // App Updates
         _autoCheckForUpdates.value = prefs.getBoolean(KEY_AUTO_CHECK_FOR_UPDATES, BuildConfig.FLAVOR != "fdroid")
-        _updateChannel.value = prefs.getString(KEY_UPDATE_CHANNEL, "stable") ?: "stable"
+        _updateChannel.value = prefs.getString(KEY_UPDATE_CHANNEL, if (BuildConfig.IS_NIGHTLY) "nightly" else "stable") ?: "stable"
         _updateSource.value = prefs.getString(KEY_UPDATE_SOURCE, "installed") ?: "installed"
         _updatesEnabled.value = prefs.getBoolean(KEY_UPDATES_ENABLED, BuildConfig.FLAVOR != "fdroid")
         _updateNotificationsEnabled.value = prefs.getBoolean(KEY_UPDATE_NOTIFICATIONS_ENABLED, BuildConfig.FLAVOR != "fdroid")
