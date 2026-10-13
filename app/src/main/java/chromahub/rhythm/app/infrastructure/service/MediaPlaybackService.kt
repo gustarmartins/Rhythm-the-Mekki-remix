@@ -2583,6 +2583,19 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 .build()) }, restored.index, restored.positionMs)
     }
 
+    private fun promoteBeforePlayback() {
+        if (player.playWhenReady || player.mediaItemCount == 0 ||
+            appSettings.rhythmGuardTimeoutUntilMs.value > System.currentTimeMillis()) return
+        // The engine owns audio focus and requests it synchronously on playWhenReady.
+        // Android 15+ requires a foreground service before that request when the UI is hidden.
+        // Do this only for playback starts, never for Media3's lyric/notification wakeups.
+        val item = player.currentMediaItem
+        startForegroundWithNotification(
+            serviceBtCanonicalSong?.title ?: item?.mediaMetadata?.title?.toString()
+                ?: getString(chromahub.rhythm.app.R.string.service_rhythm_music),
+            serviceBtCanonicalSong?.artist ?: item?.mediaMetadata?.artist?.toString().orEmpty())
+    }
+
     private fun wrapPlayer(rawPlayer: Player): Player = RhythmForwardingPlayer(rawPlayer)
 
     private inner class RhythmForwardingPlayer(rawPlayer: Player) : ForwardingPlayer(rawPlayer) {
@@ -2603,6 +2616,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         override fun play() {
             transportGeneration++
             Log.i("RhythmPlayback", "PLAY from ${mediaSession?.controllerForCurrentRequest?.packageName ?: "service"}; autoResume=${appSettings.resumeOnDeviceReconnect.value}")
+            promoteBeforePlayback()
             super.play()
         }
 
@@ -2613,7 +2627,10 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
 
         override fun setPlayWhenReady(playWhenReady: Boolean) {
-            if (!isMutatingBtVirtualQueue) transportGeneration++
+            if (!isMutatingBtVirtualQueue) {
+                transportGeneration++
+                if (playWhenReady) promoteBeforePlayback()
+            }
             super.setPlayWhenReady(playWhenReady)
         }
 
