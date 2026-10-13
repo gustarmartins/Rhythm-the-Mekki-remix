@@ -23,6 +23,12 @@ class ArtworkSourcePolicyTest {
         folder.resolve("cover.jpg").writeText("image")
         assertNull(ArtworkSourcePolicy.findFolderCover(folder))
     }
+    @Test fun metadataEditsInvalidateAutomaticCoverIdentity() {
+        assertNotEquals(ArtworkSourcePolicy.identity("Track", "Artist", "Studio"),
+            ArtworkSourcePolicy.identity("Track", "Artist", "Live"))
+        assertNotEquals(ArtworkSourcePolicy.identity("Track", "Artist", "Studio"),
+            ArtworkSourcePolicy.identity("Other Track", "Artist", "Studio"))
+    }
     @Test fun mismatchedAndAmbiguousApiResultsAreRejected() {
         assertFalse(ArtworkSourcePolicy.matches("Nightcore Mix Compilation", "Various Artists", "Prism", "Katy Perry"))
         assertFalse(ArtworkSourcePolicy.matches("Prism", "Other Artist", "Prism", "Katy Perry"))

@@ -114,7 +114,7 @@ data class PendingDeleteRequest(
  */
 object MediaUtils {
     private const val TAG = "MediaUtils"
-    private const val EMBEDDED_ARTWORK_CACHE_DIR = "embedded_artwork"
+    private const val EMBEDDED_ARTWORK_CACHE_DIR = "embedded_artwork_v2"
     private const val EMBEDDED_ART_CACHE_MAX_BYTES = 96L * 1024 * 1024
     private const val EMBEDDED_ART_CACHE_MAX_FILES = 600
     private const val EMBEDDED_ART_CACHE_CLEANUP_INTERVAL_MS = 10 * 60 * 1000L
@@ -3071,27 +3071,8 @@ object MediaUtils {
             }
         }
 
-        val legacyHash = songUri.hashCode()
-        val primaryLegacyPrefix = if (lossless) {
-            "embedded_art_lossless_$legacyHash"
-        } else {
-            "embedded_art_$legacyHash"
-        }
-        val fallbackLegacyPrefix = if (lossless) {
-            "embedded_art_$legacyHash"
-        } else {
-            "embedded_art_lossless_$legacyHash"
-        }
-        val searchLegacyPrefixes = if (exactMatchOnly) listOf(primaryLegacyPrefix) else listOf(primaryLegacyPrefix, fallbackLegacyPrefix)
-
-        val legacyCandidate = findFirstExistingArtworkFile(
-            directory = cacheDir,
-            prefixes = searchLegacyPrefixes,
-            extensions = extensions
-        )
-        if (legacyCandidate != null) {
-            return legacyCandidate.toUri()
-        }
+        // Pre-policy cache files may contain a formerly guessed personal/folder image.
+        // Re-extract instead of importing them into the new namespace.
 
         return null
     }

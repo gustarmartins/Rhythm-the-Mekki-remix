@@ -15,7 +15,10 @@ remain outside this gate.
 Covered work: artist/album/song artwork lookup, missing-cover probing, online lyrics and
 translation (including streaming-provider lyrics), per-file genre and format probing,
 Canvas lookup, and cache maintenance. Background UI progress updates run once per second
-instead of ten times. Invisible Canvas players are disposed. Queue preloading was already
+instead of ten times. Actual image downloads also drop from four concurrent requests to
+one in background/saver; saver blocks uncached remote images when artwork is paused.
+Cached and embedded images remain available, with at most two decoders on owned threads.
+Invisible Canvas players are disposed. Queue preloading was already
 disabled in PreloadController and is not enabled by this change.
 
 Artwork discovery now probes at most 120 songs and finds at most 40 missing covers per
@@ -48,8 +51,9 @@ adjacent images and Android's shared MediaStore album-ID fallback are rejected. 
 covers stay missing or use a generated placeholder. Online matching is deliberately strict;
 ambiguous Various Artists compilations do not receive a guessed celebrity cover.
 
-Read paths replace old unverified automatic database art with the safe per-song provider.
+Library, recent-song and playlist read paths replace old unverified automatic database art with the safe per-song provider.
 Provider URIs and decode cache namespaces change so old automatic covers are not reused.
+Verified remote covers are bound to the song metadata so tag edits invalidate the proof.
 Explicitly chosen artwork is retained, and no personal image/audio file is removed.
 
 ## Queue behavior
@@ -66,6 +70,9 @@ Regression tests cover cover-source admission, strict metadata matches, duplicat
 10,000-item range clearing, saver threshold/hysteresis, per-feature exceptions, background
 concurrency transitions and cancellation. The cloud workflow runs the full unit suite and
 builds signed release APKs before publishing a Nightly.
+
+A saved October 13 ANR places the main thread in Media3 collection rebuilding from the
+queue-clear UI action, supporting the repeated-removal diagnosis.
 
 A passive October 13 device trace did not contain a usable Rhythm process interval. It does
 not establish Rhythm CPU usage or reproduce the reported 1% unplugged stutter. A matched

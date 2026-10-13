@@ -2964,7 +2964,7 @@
     <string name="battery_saver_manual">Enable now</string>
     <string name="battery_saver_manual_desc">Keep saver on regardless of battery level. Automatic activation works separately.</string>
     <string name="battery_saver_auto">Enable at low battery</string>
-    <string name="battery_saver_auto_desc">Activate while unplugged. Turn off when charging or after recovering more than 2%% above the threshold.</string>
+    <string name="battery_saver_auto_desc" formatted="false">Activate while unplugged. Turn off when charging or after recovering more than 2% above the threshold.</string>
     <string name="battery_saver_threshold">Activate at %1$d%% battery</string>
     <string name="battery_saver_features">While battery saver is active</string>
     <string name="battery_saver_features_desc">Choose what to pause. Playback, controls and saved lyrics remain available. Pending enrichment resumes when allowed.</string>

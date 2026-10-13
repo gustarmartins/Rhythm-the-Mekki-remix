@@ -542,7 +542,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     val allSongsMap = _songs.value.associateBy { it.id }
                     val newSongs = newFavoriteIds.mapNotNull { favoriteId ->
                         allSongsMap[favoriteId] ?: run {
-                            repository.songDao.getSongById(favoriteId)?.toSong()
+                            repository.getSongsByIds(listOf(favoriteId)).firstOrNull()
                         }
                     }
 
@@ -3636,7 +3636,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                                     songStableKeyMedMap,
                                     songStableKeyLightMap,
                                     songStableKeyBasicMap
-                                ) ?: dbSong
+                                ) ?: chromahub.rhythm.app.util.SongArtworkPolicy.resolve(getApplication(), dbSong)
                             } else {
                                 // Stub song to preserve unresolved entries temporarily (e.g. unmounted SD card)
                                 Song(
@@ -3975,6 +3975,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         when {
                             uri == null || uri == Uri.EMPTY -> true
                             uri.scheme == "http" || uri.scheme == "https" -> false
+                            uri.authority == chromahub.rhythm.app.infrastructure.provider.RhythmAlbumArtProvider.PROVIDER_AUTHORITY ->
+                                chromahub.rhythm.app.util.MediaUtils.extractRawEmbeddedArtworkBytes(context, song.uri, song.path) == null
                             else -> try {
                                 context.contentResolver.openInputStream(uri)?.use { it.read() == -1 } ?: true
                             } catch (_: java.io.IOException) { true }

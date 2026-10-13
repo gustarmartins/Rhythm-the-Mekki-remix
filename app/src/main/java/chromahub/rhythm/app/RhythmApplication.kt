@@ -144,14 +144,30 @@ class RhythmApplication : Application(), ImageLoaderFactory {
         val imageOkHttpClient = chromahub.rhythm.app.features.streaming.data.provider.UserTrustManager
             .buildUserTrustingHttpClientBuilder()
             .dispatcher(Dispatcher().apply {
-                maxRequests = 16
-                maxRequestsPerHost = 4
+                chromahub.rhythm.app.util.OptionalWorkController.registerImageDispatcher(this)
             })
+            .addInterceptor { chain ->
+                // Check again when a queued request actually starts, after lifecycle changes.
+                if (!chromahub.rhythm.app.util.OptionalWorkController.imageNetworkAllowed()) {
+                    throw java.io.IOException("Image download paused by battery saver")
+                }
+                chain.proceed(chain.request())
+            }
             .build()
 
         return ImageLoader.Builder(this)
             .okHttpClient(imageOkHttpClient)
+            .fetcherDispatcher(chromahub.rhythm.app.util.OptionalWorkController.imageDecodeDispatcher)
+            .decoderDispatcher(chromahub.rhythm.app.util.OptionalWorkController.imageDecodeDispatcher)
+            .bitmapFactoryMaxParallelism(2)
             .components {
+                add(object : coil.intercept.Interceptor {
+                    override suspend fun intercept(chain: coil.intercept.Interceptor.Chain): coil.request.ImageResult {
+                        val request = if (chromahub.rhythm.app.util.OptionalWorkController.imageNetworkAllowed()) chain.request
+                            else chain.request.newBuilder().networkCachePolicy(coil.request.CachePolicy.DISABLED).build()
+                        return chain.proceed(request)
+                    }
+                })
                 add(chromahub.rhythm.app.util.coil.AudioArtworkKeyer())
                 add(chromahub.rhythm.app.util.coil.StreamingArtworkKeyer())
                 add(chromahub.rhythm.app.util.coil.StreamingArtworkStringKeyer())

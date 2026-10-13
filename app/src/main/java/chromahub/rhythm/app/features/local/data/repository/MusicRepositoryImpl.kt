@@ -220,19 +220,14 @@ class MusicRepository(context: Context) {
         API("Online API")
     }
 
-    private fun withSafeArtwork(song: Song): Song {
-        if (song.uri.scheme in setOf("http", "https", "streaming")) return song
-        val explicit = artworkPrefs.getString("uri_${song.id}", null)
-        val verified = artworkPrefs.getString("verified_uri_v2_${song.id}", null)
-        val art = when {
-            artworkPrefs.getBoolean("removed_${song.id}", false) -> null
-            explicit != null -> explicit.toUri()
-            verified != null && verified == song.artworkUri?.toString() -> song.artworkUri
-            else -> RhythmAlbumArtProvider.buildSongUri(song.id, song.path, song.albumId,
-                appSettings.isLosslessArtworkActive.value)
-        }
-        return song.copy(artworkUri = art)
+    private fun verifiedArtwork(id: String, title: String, artist: String, album: String): String? {
+        val identity = chromahub.rhythm.app.util.ArtworkSourcePolicy.identity(title, artist, album)
+        if (artworkPrefs.getString("verified_identity_v2_$id", null) != identity) return null
+        return artworkPrefs.getString("verified_uri_v2_$id", null)
     }
+
+    private fun withSafeArtwork(song: Song): Song =
+        chromahub.rhythm.app.util.SongArtworkPolicy.resolve(context, song, appSettings.isLosslessArtworkActive.value)
 
     fun getPaginatedSongs(): kotlinx.coroutines.flow.Flow<PagingData<Song>> {
         return Pager(
@@ -531,7 +526,7 @@ class MusicRepository(context: Context) {
                     val artworkRemovedOverride = removedOverrides[entity.id] ?: false
                     val artworkUriOverride = uriOverrides[entity.id]
 
-                    val verified = artworkPrefs.getString("verified_uri_v2_${entity.id}", null)
+                    val verified = verifiedArtwork(entity.id, entity.title, entity.artist, entity.album)
                     val effectiveArtUri = if (verified != null && verified == entity.artworkUri) verified.toUri()
                         else RhythmAlbumArtProvider.buildSongUri(entity.id, entity.path, entity.albumId, losslessArtwork)
 
@@ -6276,7 +6271,7 @@ class MusicRepository(context: Context) {
 
         for (song in songs) {
             OptionalWorkController.run(OptionalWork.ARTWORK) {
-            val cacheKey = "${song.artist}:${song.title}"
+            val cacheKey = chromahub.rhythm.app.util.ArtworkSourcePolicy.identity(song.title, song.artist, song.album)
 
             // Skip songs with empty or "Unknown" title
             if (song.title.isBlank() || song.title.equals("Unknown", ignoreCase = true)) {
@@ -6284,7 +6279,7 @@ class MusicRepository(context: Context) {
                 return@run
             }
 
-            val saved = artworkPrefs.getString("verified_uri_v2_${song.id}", null)
+            val saved = verifiedArtwork(song.id, song.title, song.artist, song.album)
             val attemptedKey = "attempted_v2_${song.id}_${cacheKey.hashCode()}"
             if (!forceRefresh) {
                 val cached = saved?.toUri() ?: albumImageCache[cacheKey]
@@ -6346,7 +6341,10 @@ class MusicRepository(context: Context) {
             artworkPrefs.edit { putLong(attemptedKey, System.currentTimeMillis()) }
             if (fetchedUri != null) {
                 albumImageCache[cacheKey] = fetchedUri
-                artworkPrefs.edit { putString("verified_uri_v2_${song.id}", fetchedUri.toString()) }
+                artworkPrefs.edit {
+                    putString("verified_uri_v2_${song.id}", fetchedUri.toString())
+                    putString("verified_identity_v2_${song.id}", cacheKey)
+                }
                 updatedSongs.add(song.copy(artworkUri = fetchedUri))
             } else {
                 updatedSongs.add(song)

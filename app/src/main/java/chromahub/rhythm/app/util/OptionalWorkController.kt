@@ -30,6 +30,21 @@ object OptionalWorkController {
             try { runnable.run() } finally { workerTids.remove(tid) }
         }, "Rhythm-enrichment").apply { isDaemon = true }
     }.asCoroutineDispatcher()
+    private val imageDispatchers = java.util.concurrent.CopyOnWriteArraySet<okhttp3.Dispatcher>()
+    internal val imageDecodeDispatcher = dispatcher.limitedParallelism(2)
+
+    fun imageNetworkAllowed(): Boolean = gate.policy.allows(OptionalWork.ARTWORK)
+
+    fun registerImageDispatcher(value: okhttp3.Dispatcher) {
+        imageDispatchers.add(value)
+        updateImageDispatchers()
+    }
+
+    private fun updateImageDispatchers() {
+        val limit = if (gate.policy.foreground && !gate.policy.saver) 4 else 1
+        imageDispatchers.forEach { it.maxRequests = limit; it.maxRequestsPerHost = limit }
+    }
+
     private val _foreground = MutableStateFlow(false)
     val foreground = _foreground.asStateFlow()
     private var initialized = false
@@ -64,6 +79,7 @@ object OptionalWorkController {
     private fun setForeground(value: Boolean) {
         _foreground.value = value
         gate.update(gate.policy.copy(foreground = value))
+        updateImageDispatchers()
         val priority = if (value) Process.THREAD_PRIORITY_DEFAULT else Process.THREAD_PRIORITY_BACKGROUND
         workerTids.forEach { tid -> runCatching { Process.setThreadPriority(tid, priority) } }
     }
@@ -75,6 +91,7 @@ object OptionalWorkController {
             if (settings.batterySaverDisableLibraryWork.value) add(OptionalWork.LIBRARY)
             if (settings.batterySaverDisableCanvas.value) add(OptionalWork.CANVAS)
         }))
+        updateImageDispatchers()
     }
 
     suspend fun <T> run(kind: OptionalWork, block: suspend () -> T): T =

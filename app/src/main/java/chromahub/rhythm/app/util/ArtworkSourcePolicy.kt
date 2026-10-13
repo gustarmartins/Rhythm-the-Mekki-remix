@@ -23,6 +23,9 @@ internal object ArtworkSourcePolicy {
         .replace(Regex("\\p{M}+"), "").lowercase(Locale.ROOT)
         .replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
 
+    fun identity(title: String, artist: String, album: String): String =
+        listOf(title, artist, album).joinToString(" | ") { normalized(it) }
+
     fun matches(expectedTitle: String, expectedArtist: String, title: String?, artist: String?): Boolean {
         val wantedArtist = normalized(expectedArtist)
         if (wantedArtist in setOf("", "unknown", "unknown artist", "various artists")) return false

@@ -122,6 +122,7 @@ enum class LyricsApiPriority(val displayName: String) {
     }
 }
 
+@androidx.annotation.Keep
 enum class BluetoothLyricsTextMode {
     ORIGINAL,
     TRANSLATION,
@@ -1671,7 +1672,7 @@ class AppSettings private constructor(context: Context) {
                 duration = duration,
                 uri = uri.toUri(),
                 artworkUri = artworkUri?.takeIf { it.isNotBlank() }?.let(Uri::parse)
-            )
+            ).let { chromahub.rhythm.app.util.SongArtworkPolicy.resolve(context, it) }
         }.getOrNull()
     }
 
