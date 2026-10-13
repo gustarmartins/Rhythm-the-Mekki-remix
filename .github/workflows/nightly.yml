@@ -73,6 +73,15 @@ jobs:
           NIGHTLY_CODE: ${{ steps.version.outputs.code }}
           NIGHTLY_NAME: ${{ steps.version.outputs.name }}
         run: python3 scripts/verify_nightly_apks.py
+      # Bootstrap already installed clients whose Nightly downloader still uses nightly.link.
+      # Only verified APKs enter this compatibility artifact; new clients use release assets.
+      - name: Preserve Nightly downloads for existing clients
+        uses: actions/upload-artifact@v7
+        with:
+          name: Rhythm-Nightly-Artifacts
+          path: nightly-dist/*.apk
+          if-no-files-found: error
+          retention-days: 14
       - name: Preserve test and build reports
         if: always()
         uses: actions/upload-artifact@v7

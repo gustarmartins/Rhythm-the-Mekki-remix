@@ -29,3 +29,7 @@ For requested changes: implement and review the scoped diff, add meaningful
 regressions, push, watch the cloud run, inspect test results and release assets,
 and provide the resulting release URL. Building or publishing does not prove
 physical Bluetooth-car behavior; keep that acceptance separate.
+
+Existing installed clients also receive the verified `Rhythm-Nightly-Artifacts` ZIP
+under the historical workflow/artifact name. This bootstraps the first update without
+requiring a manual sideload; updated clients use published release assets directly.
