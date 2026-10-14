@@ -192,7 +192,7 @@ fun GoSettingsScreen(
                     title = stringResource(R.string.music_assistant_name),
                     items = listOf(Material3SettingsItem(
                         icon = MaterialSymbolIcon("speaker_group"),
-                        title = { Text(stringResource(R.string.music_assistant_open)) },
+                        title = { Text(stringResource(R.string.ma_admin)) },
                         description = { Text(stringResource(R.string.music_assistant_description)) },
                         onClick = { chromahub.rhythm.app.features.musicassistant.MusicAssistantEntry.open(context) }
                     ))
@@ -248,6 +248,9 @@ fun GoSettingsScreen(
                 )
             }
 
+            if (selectedService == "MUSIC_ASSISTANT") {
+                item { chromahub.rhythm.app.features.musicassistant.MusicAssistantControls(Modifier.fillMaxWidth()) }
+            }
             item {
                 StreamingStatusCard(
                     selectedServiceName = selectedServiceLabel(selectedService, context),

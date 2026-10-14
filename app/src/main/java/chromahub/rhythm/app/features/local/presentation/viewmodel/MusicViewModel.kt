@@ -2909,7 +2909,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     val updatedSongs = playlist.songs.mapNotNull { playlistSong ->
                         val isStreaming = playlistSong.uri.toString().startsWith("http://") ||
                                           playlistSong.uri.toString().startsWith("https://") ||
-                                          playlistSong.uri.toString().startsWith("streaming://")
+                                          playlistSong.uri.toString().startsWith("streaming://") || playlistSong.uri.scheme == "musicassistant"
 
                         if (isStreaming) {
                             playlistSong
@@ -7374,7 +7374,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 val songsToAdd = songs.filter { song ->
                     val isStreaming = song.uri.toString().startsWith("http://") ||
                                       song.uri.toString().startsWith("https://") ||
-                                      song.uri.toString().startsWith("streaming://") ||
+                                      song.uri.toString().startsWith("streaming://") || song.uri.scheme == "musicassistant" ||
                                       _songs.value.none { it.id == song.id }
                     (isStreaming || filteredSongsSet.contains(song.id)) && !existingSongIds.contains(song.id)
                 }
@@ -7403,7 +7403,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         val filteredSongsSet: Set<String> = filteredSongs.value.map { song: Song -> song.id }.toSet()
         val isStreaming = song.uri.toString().startsWith("http://") ||
                           song.uri.toString().startsWith("https://") ||
-                          song.uri.toString().startsWith("streaming://") ||
+                          song.uri.toString().startsWith("streaming://") || song.uri.scheme == "musicassistant" ||
                           _songs.value.none { it.id == song.id }
         if (!isStreaming && !filteredSongsSet.contains(song.id)) {
             showSnackbar("Cannot add ${song.title} - song is filtered out")
@@ -7466,7 +7466,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 val songsToAdd = songs.filter { song ->
                     val isStreaming = song.uri.toString().startsWith("http://") ||
                                       song.uri.toString().startsWith("https://") ||
-                                      song.uri.toString().startsWith("streaming://") ||
+                                      song.uri.toString().startsWith("streaming://") || song.uri.scheme == "musicassistant" ||
                                       _songs.value.none { it.id == song.id }
                     (isStreaming || filteredSongsSet.contains(song.id)) && !existingSongIds.contains(song.id)
                 }

@@ -81,7 +81,7 @@ internal class MusicAssistantProviderClient(context: Context) {
     suspend fun getRelatedArtists(uri: String, limit: Int) = result { children("music/artists/similar_artists", uri).take(limit).map(::artist) }
     suspend fun getRelatedTracks(uri: String, limit: Int) = result { children("music/tracks/similar_tracks", uri).take(limit).map(::song) }
     suspend fun markFavorite(uri: String, enabled: Boolean) = result { api().favorite(uri, enabled) }
-    suspend fun getLyrics(uri: String, artist: String, title: String) = result {
+    suspend fun getLyrics(uri: String, artist: String?, title: String?) = result {
         api().track(uri).let { LyricsData(it.lyrics, it.syncedLyrics, source = "Music Assistant") }
     }
     suspend fun createPlaylist(name: String, songIds: List<String> = emptyList(), description: String? = null, isPublic: Boolean = true) = result {

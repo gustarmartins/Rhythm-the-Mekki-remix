@@ -65,6 +65,7 @@ internal class MusicAssistantPlayer(
     private var desiredPlaying = false
 
     init {
+        active.value = this
         scope.launch {
             receiver.state.collect { state ->
                 nativeStatus.value = when (state) {
@@ -154,7 +155,7 @@ internal class MusicAssistantPlayer(
         val playing = q?.state == "playing"
         val index = rows.indexOfFirst { it.occurrenceId == q?.currentOccurrenceId }.takeIf { it >= 0 } ?: 0
         val position = ((if (playing) q?.elapsedSeconds else q?.resumePositionSeconds?.takeIf { it > 0 } ?: q?.elapsedSeconds) ?: 0.0) * 1000
-        return State.Builder().setAvailableCommands(Commands.Builder().addAll(
+        return State.Builder().setAvailableCommands(Player.Commands.Builder().addAll(
             COMMAND_PLAY_PAUSE, COMMAND_PREPARE, COMMAND_STOP, COMMAND_RELEASE,
             COMMAND_SET_MEDIA_ITEM, COMMAND_CHANGE_MEDIA_ITEMS, COMMAND_GET_CURRENT_MEDIA_ITEM, COMMAND_GET_TIMELINE,
             COMMAND_GET_METADATA, COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM, COMMAND_SEEK_TO_MEDIA_ITEM,
@@ -268,14 +269,28 @@ internal class MusicAssistantPlayer(
         }
         return Futures.immediateFailedFuture<Void>(UnsupportedOperationException("Replace server songs with an explicit Play action"))
     }
+    fun selectedOutputId(): String? = targetId ?: (receiver.state.value as? PlayerState.Connected)?.playerId
+    fun selectOutput(id: String, transfer: Boolean) = submit {
+        val source = queueId()
+        val targetQueue = client.api().activeQueue(id)?.id ?: error("Output has no queue")
+        if (transfer && source != targetQueue) client.api().transfer(source, targetQueue)
+        targetId = id
+        pendingManual.clear()
+    }
+    fun setOutputVolume(id: String, volume: Int) = submit { client.api().volume(id, volume) }
+    fun setMember(id: String, enabled: Boolean) = submit {
+        client.api().groupMembers(target(), if (enabled) listOf(id) else emptyList(), if (enabled) emptyList() else listOf(id))
+    }
     override fun handleRelease(): ListenableFuture<*> {
         if (!released) {
             released = true; config.value = null
+            if (active.value === this) active.value = null
             scope.launch { delay(100); scope.cancel(); http.close(); dispatcher.close() }
         }
         return Futures.immediateVoidFuture()
     }
     companion object {
+        val active = MutableStateFlow<MusicAssistantPlayer?>(null)
         val nativeStatus = MutableStateFlow("Music Assistant stopped")
         fun isMusicAssistant(item: MediaItem) = item.mediaId.startsWith("MUSIC_ASSISTANT::") || item.localConfiguration?.uri?.scheme == "musicassistant"
         private fun uri(item: MediaItem): String = if (item.mediaId.startsWith("MUSIC_ASSISTANT::")) item.mediaId.removePrefix("MUSIC_ASSISTANT::")

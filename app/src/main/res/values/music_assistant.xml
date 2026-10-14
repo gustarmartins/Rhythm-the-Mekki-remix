@@ -30,4 +30,12 @@
     <string name="music_assistant_android8">On Android 8, Music Assistant opens in your browser. The in-app player requires Android 9 or later.</string>
     <string name="music_assistant_done">Done</string>
     <string name="music_assistant_cancel">Cancel</string>
+    <string name="ma_outputs">Music Assistant outputs</string>
+    <string name="ma_start_song">Play a Music Assistant song in Rhythm to connect this phone.</string>
+    <string name="ma_output_failed">The server could not complete this change. Refresh and check that the players support grouping.</string>
+    <string name="ma_transfer">Move playback here</string>
+    <string name="ma_group">Join group</string>
+    <string name="ma_ungroup">Leave group</string>
+    <string name="ma_refresh">Refresh</string>
+    <string name="ma_admin">Server administration</string>
 </resources>

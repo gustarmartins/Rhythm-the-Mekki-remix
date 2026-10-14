@@ -150,6 +150,7 @@ fun PlaybackBottomSheet(
     val playbackPitch by musicViewModel.playbackPitch.collectAsState()
     val streamingQuality by appSettings.streamingQuality.collectAsState()
     val appMode by appSettings.appMode.collectAsState()
+    val streamingService by appSettings.streamingService.collectAsState()
     val syncSpeedAndPitch by appSettings.syncSpeedAndPitch.collectAsState()
     val gaplessPlayback by appSettings.gaplessPlayback.collectAsState()
     val useSystemVolume by appSettings.useSystemVolume.collectAsState()
@@ -276,6 +277,9 @@ fun PlaybackBottomSheet(
                     contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp, end = endPadding),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
+                if (appMode == "STREAMING" && streamingService == "MUSIC_ASSISTANT") {
+                    item { chromahub.rhythm.app.features.musicassistant.MusicAssistantControls(Modifier.fillMaxWidth()) }
+                }
                 if (appMode == "STREAMING") {
                     item {
                         AnimateIn {
