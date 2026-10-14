@@ -54,4 +54,18 @@ class MusicAssistantServerTest {
         assertTrue(lifetime.shouldReleaseWhenHidden(changingConfigurations = false))
         assertFalse(MusicAssistantLifetime().backgroundEnabled) // No process-death/reboot auto-resume.
     }
+
+    @Test fun notificationStopStaysStoppedUntilExplicitOpen() {
+        val lifetime = MusicAssistantLifetime()
+        lifetime.openPlayer()
+        lifetime.enableBackground()
+        lifetime.stopPlayer()
+        assertFalse(lifetime.backgroundEnabled)
+        assertTrue(lifetime.explicitlyStopped)
+        lifetime.stop() // Activity hiding or releasing the service must not undo the user's stop.
+        assertTrue(lifetime.explicitlyStopped)
+        lifetime.openPlayer()
+        assertFalse(lifetime.explicitlyStopped)
+        assertFalse(lifetime.backgroundEnabled)
+    }
 }

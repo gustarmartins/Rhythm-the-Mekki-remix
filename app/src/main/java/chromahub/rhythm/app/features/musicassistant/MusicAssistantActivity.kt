@@ -60,7 +60,7 @@ class MusicAssistantConnection(application: Application) : AndroidViewModel(appl
             address = service!!.server
             savedAddress = address
             inSession = true
-        } else if (inSession && visible) service?.open(savedAddress)
+        } else if (inSession && visible) service?.resumeVisibleSession(savedAddress)
     }
     override fun onServiceDisconnected(name: ComponentName?) { service = null }
     override fun onBindingDied(name: ComponentName?) { service = null; bindFailed = true }
@@ -99,7 +99,7 @@ class MusicAssistantActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         connection.visible = true
-        if (connection.inSession) connection.service?.open(connection.savedAddress)
+        if (connection.inSession) connection.service?.resumeVisibleSession(connection.savedAddress)
     }
 
     override fun onStop() {

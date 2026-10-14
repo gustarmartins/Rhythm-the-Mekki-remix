@@ -72,6 +72,7 @@ class MusicAssistantService : Service() {
         val normalized = MusicAssistantServer.normalize(address) ?: return
         if (server == normalized && webView != null) return
         releasePlayer()
+        lifetime.openPlayer()
         server = normalized
         error = null
         loading = true
@@ -185,6 +186,10 @@ class MusicAssistantService : Service() {
         }
     }
 
+    fun resumeVisibleSession(address: String) {
+        if (!lifetime.explicitlyStopped) open(address)
+    }
+
     fun uiHidden(changingConfigurations: Boolean) {
         if (lifetime.shouldReleaseWhenHidden(changingConfigurations)) releasePlayer()
         else detach()
@@ -231,7 +236,10 @@ class MusicAssistantService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) releasePlayer()
+        if (intent?.action == ACTION_STOP) {
+            lifetime.stopPlayer()
+            releasePlayer()
+        }
         else if (intent?.action == ACTION_BACKGROUND && webView != null) {
             if (backgroundEnabled) return START_NOT_STICKY
             try {

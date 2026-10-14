@@ -41,6 +41,10 @@ object MusicAssistantServer {
 internal class MusicAssistantLifetime {
     var backgroundEnabled = false
         private set
+    var explicitlyStopped = false
+        private set
+    fun openPlayer() { explicitlyStopped = false }
+    fun stopPlayer() { explicitlyStopped = true; stop() }
     fun enableBackground() { backgroundEnabled = true }
     fun stop() { backgroundEnabled = false }
     fun shouldReleaseWhenHidden(changingConfigurations: Boolean) = !backgroundEnabled && !changingConfigurations
