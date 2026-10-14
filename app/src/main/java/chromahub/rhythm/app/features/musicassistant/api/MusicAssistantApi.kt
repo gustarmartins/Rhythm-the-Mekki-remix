@@ -16,6 +16,12 @@ import kotlinx.coroutines.sync.withLock
 internal class MusicAssistantApi(private val transport: MusicAssistantTransport) {
     private val mutations = Mutex()
 
+    suspend fun serverTime(): Double {
+        val result = transport.command("time", JsonObject())
+        if (!result.isJsonPrimitive || !result.asJsonPrimitive.isNumber) invalidResponse()
+        return result.asDouble.takeIf { it.isFinite() && it > 0 } ?: invalidResponse()
+    }
+
     suspend fun libraryTracks(offset: Int = 0, limit: Int = 200, search: String? = null): List<MusicAssistantTrack> {
         val args = page(offset, limit).apply { if (search != null) addProperty("search", search) }
         return transport.command("music/tracks/library_items", args).itemsOrFail().map(MusicAssistantTrack::fromJson)

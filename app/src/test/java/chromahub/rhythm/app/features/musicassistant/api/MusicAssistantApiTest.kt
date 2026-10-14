@@ -44,6 +44,12 @@ class MusicAssistantApiTest {
     private fun request() = requireNotNull(server.takeRequest(5, TimeUnit.SECONDS))
     private fun body() = JsonParser.parseString(request().body!!.utf8()).asJsonObject
 
+    @Test fun serverTimeUsesTheClockCommand() = runBlocking {
+        respond("1791960000.125")
+        assertEquals(1791960000.125, api.serverTime(), 0.001)
+        assertEquals("time", body().get("command").asString)
+    }
+
     @Test fun proxyPathBearerAndBareArrayAreUsed() = runBlocking {
         respond("[$TRACK]")
         val tracks = api.libraryTracks(offset = 200, limit = 100)

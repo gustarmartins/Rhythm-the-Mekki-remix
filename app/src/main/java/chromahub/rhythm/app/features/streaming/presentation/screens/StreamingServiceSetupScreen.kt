@@ -89,7 +89,7 @@ fun StreamingServiceSetupScreen(
 
     var serverUrl by rememberSaveable(serviceId) { mutableStateOf(session.serverUrl.ifBlank { if (serviceId == "MUSIC_ASSISTANT") context.getSharedPreferences("music_assistant", android.content.Context.MODE_PRIVATE).getString("server", "").orEmpty() else "" }) }
     var username by rememberSaveable(serviceId) { mutableStateOf(session.username) }
-    var password by rememberSaveable(serviceId) { mutableStateOf("") }
+    var password by remember(serviceId) { mutableStateOf("") }
     var showDiscoverySheet by remember { mutableStateOf(false) }
 
     val canSubmit = username.isNotBlank() && password.isNotBlank() && (!requiresServerUrl || serverUrl.isNotBlank())
@@ -259,30 +259,32 @@ fun StreamingServiceSetupScreen(
                                 enabled = !isBusy
                             )
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = stringResource(id = R.string.streaming_service_setup_remember_password),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Text(
-                                        text = stringResource(id = R.string.streaming_service_setup_remember_password_desc),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                            if (serviceId != "MUSIC_ASSISTANT") {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = stringResource(id = R.string.streaming_service_setup_remember_password),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = stringResource(id = R.string.streaming_service_setup_remember_password_desc),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+
+                                    TunerAnimatedSwitch(
+                                        checked = rememberStreamingPasswords,
+                                        onCheckedChange = { enabled -> appSettings.setRememberStreamingPasswords(enabled) },
+                                        enabled = !isBusy
                                     )
                                 }
-
-                                TunerAnimatedSwitch(
-                                    checked = rememberStreamingPasswords,
-                                    onCheckedChange = { enabled -> appSettings.setRememberStreamingPasswords(enabled) },
-                                    enabled = !isBusy
-                                )
                             }
                         }
                     }

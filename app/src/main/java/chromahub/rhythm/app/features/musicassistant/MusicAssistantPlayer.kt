@@ -61,7 +61,13 @@ internal class MusicAssistantPlayer(
     ), scope)
     private var queue: MusicAssistantQueue? = null
     private var rows = emptyList<MusicAssistantQueueItem>()
+    private var playlistData = emptyList<MediaItemData>()
+    private var lastQueueFetchAt = -60_000L
     private var lastPositionAt = SystemClock.elapsedRealtime()
+    private var serverClockAnchor: Pair<Double, Long>? = null
+    private var lastClockProbeAt = -60_000L
+    private var localAudioReady = false
+    private var localPlayerId: String? = null
     private var error: PlaybackException? = null
     private var released = false
     private var targetId: String? = null
@@ -79,11 +85,24 @@ internal class MusicAssistantPlayer(
                     is PlayerState.Connecting -> "Connecting to Music Assistant"
                     else -> "Music Assistant stopped"
                 }
-                if (state is PlayerState.Connected && state.audio.phase == AudioPhase.Playing && sessionId != 0) wakeLock.acquire(10 * 60 * 1000L)
+                if (state is PlayerState.Connected) localPlayerId = state.playerId
+                val audio = when (state) {
+                    is PlayerState.Connected -> state.audio
+                    is PlayerState.Reconnecting -> state.audio
+                    else -> null
+                }
+                val ready = audio?.phase == AudioPhase.Playing && !audio.starved
+                if (ready != localAudioReady) { localAudioReady = ready; invalidateState() }
                 if (state is PlayerState.Failed) {
                     error = PlaybackException(nativeStatus.value, null, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
                     invalidateState()
                 }
+            }
+        }
+        scope.launch {
+            while (isActive) {
+                delay(5 * 60 * 1000L)
+                if (sessionId != 0 && localAudioReady) wakeLock.acquire(10 * 60 * 1000L)
             }
         }
         scope.launch {
@@ -97,7 +116,7 @@ internal class MusicAssistantPlayer(
         scope.launch {
             while (isActive) {
                 if (targetId != null || receiver.state.value is PlayerState.Connected) {
-                    try { operations.withLock { refresh() } }
+                    try { operations.withLock { refresh(forceItems = false) } }
                     catch (cancelled: CancellationException) { throw cancelled }
                     catch (_: Exception) { nativeStatus.value = "Music Assistant unavailable; reconnecting" }
                 }
@@ -131,14 +150,43 @@ internal class MusicAssistantPlayer(
         }
         return result
     }
-    private suspend fun refresh() {
+    private suspend fun refreshClock() {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastClockProbeAt < 60_000) return
+        lastClockProbeAt = now
+        var bestRoundTrip = Long.MAX_VALUE
+        repeat(3) {
+            val sent = SystemClock.elapsedRealtime()
+            val epoch = try { withTimeout(2000) { client.api().serverTime() } }
+                catch (_: TimeoutCancellationException) { return@repeat }
+                catch (cancelled: CancellationException) { throw cancelled }
+                catch (_: Exception) { return@repeat }
+            val received = SystemClock.elapsedRealtime()
+            if (received - sent < bestRoundTrip) {
+                bestRoundTrip = received - sent
+                serverClockAnchor = epoch to (sent + bestRoundTrip / 2)
+            }
+        }
+    }
+    private fun serverNow(monotonicMs: Long) = serverClockAnchor?.let { (epoch, anchor) -> epoch + (monotonicMs - anchor) / 1000.0 }
+        ?: (System.currentTimeMillis() / 1000.0)
+    private suspend fun refresh(forceItems: Boolean = true) {
         val id = targetId ?: (receiver.state.value as? PlayerState.Connected)?.playerId ?: return
+        refreshClock()
         val current = client.api().activeQueue(id) ?: return
-        val items = readItems(current.id, current.itemCount)
-        // Do not publish a torn queue when another client changes it during pagination.
-        val verified = client.api().activeQueue(id) ?: return
-        if (verified.itemCount != items.size) return
-        queue = verified; rows = items; lastPositionAt = SystemClock.elapsedRealtime()
+        val now = SystemClock.elapsedRealtime()
+        val reload = forceItems || now - lastQueueFetchAt >= 60_000 || current.id != queue?.id ||
+            current.itemCount != rows.size || current.currentOccurrenceId != queue?.currentOccurrenceId ||
+            current.currentIndex != queue?.currentIndex || current.nextOccurrenceId != queue?.nextOccurrenceId
+        val items = if (reload) withContext(Dispatchers.IO) { readItems(current.id, current.itemCount) } else rows
+        // Read back after pagination; never publish a torn queue when another client edits it.
+        val verified = if (reload) client.api().activeQueue(id) ?: return else current
+        if (verified.id != current.id || verified.itemCount != items.size ||
+            (verified.currentOccurrenceId != null && items.none { it.occurrenceId == verified.currentOccurrenceId })) return
+        if (queue?.currentOccurrenceId != verified.currentOccurrenceId || queue?.state != verified.state ||
+            queue?.elapsedSeconds != verified.elapsedSeconds) lastPositionAt = now
+        queue = verified
+        if (reload) { rows = items; lastQueueFetchAt = now; rebuildPlaylist() }
         val currentIndex = items.indexOfFirst { it.occurrenceId == verified.currentOccurrenceId }
         val upcoming = items.drop((currentIndex + 1).coerceAtLeast(0)).map { it.occurrenceId }.toSet()
         pendingManual.retainAll(upcoming)
@@ -155,24 +203,29 @@ internal class MusicAssistantPlayer(
                 .setTitle(track?.title ?: row.name).setArtist(track?.artists?.joinToString(", ")).setAlbumTitle(track?.album)
                 .setDurationMs(track?.durationMs)).setExtras(extras).setIsPlayable(true).build()).build()
     }
+    private fun rebuildPlaylist() {
+        playlistData = rows.map { row -> MediaItemData.Builder(row.occurrenceId).setMediaItem(mediaItem(row))
+            .setDurationUs(row.track?.durationMs?.times(1000) ?: C.TIME_UNSET).setIsSeekable(true).build() }
+    }
     override fun getState(): State {
         val q = queue
         val playing = q?.state == "playing"
         val index = rows.indexOfFirst { it.occurrenceId == q?.currentOccurrenceId }.takeIf { it >= 0 } ?: 0
-        val sampledAt = lastPositionAt
-        val position = ((if (playing) q?.elapsedSeconds else q?.resumePositionSeconds?.takeIf { it > 0 } ?: q?.elapsedSeconds) ?: 0.0) * 1000
+        val sampledAt = SystemClock.elapsedRealtime()
+        val buffering = playing && (targetId == null || targetId == localPlayerId) && !localAudioReady
+        val legacyDelta = if (playing && q?.elapsedUpdatedEpochSeconds == null) (sampledAt - lastPositionAt) / 1000.0 else 0.0
+        val position = ((q?.positionSecondsAt(serverNow(sampledAt)) ?: 0.0) + legacyDelta) * 1000
         return State.Builder().setAvailableCommands(Player.Commands.Builder().addAll(
             COMMAND_PLAY_PAUSE, COMMAND_PREPARE, COMMAND_STOP, COMMAND_RELEASE,
             COMMAND_SET_MEDIA_ITEM, COMMAND_CHANGE_MEDIA_ITEMS, COMMAND_GET_CURRENT_MEDIA_ITEM, COMMAND_GET_TIMELINE,
-            COMMAND_GET_METADATA, COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM, COMMAND_SEEK_TO_MEDIA_ITEM,
+            COMMAND_GET_METADATA, COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM, COMMAND_SEEK_TO_MEDIA_ITEM, COMMAND_SEEK_BACK, COMMAND_SEEK_FORWARD,
             COMMAND_SEEK_TO_NEXT_MEDIA_ITEM, COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM, COMMAND_SEEK_TO_NEXT, COMMAND_SEEK_TO_PREVIOUS,
             COMMAND_SET_REPEAT_MODE, COMMAND_SET_SHUFFLE_MODE, COMMAND_GET_AUDIO_ATTRIBUTES, COMMAND_GET_VOLUME
-        ).build()).setPlaylist(rows.map { row -> MediaItemData.Builder(row.occurrenceId).setMediaItem(mediaItem(row))
-            .setDurationUs(row.track?.durationMs?.times(1000) ?: C.TIME_UNSET).setIsSeekable(true).build() })
+        ).build()).setPlaylist(playlistData)
             .setCurrentMediaItemIndex(if (rows.isEmpty()) C.INDEX_UNSET else index)
             .setPlayWhenReady(playing, PLAY_WHEN_READY_CHANGE_REASON_REMOTE)
-            .setPlaybackState(if (rows.isEmpty() || error != null) STATE_IDLE else STATE_READY)
-            .setContentPositionMs(PositionSupplier { position.toLong() + if (playing) SystemClock.elapsedRealtime() - sampledAt else 0 })
+            .setPlaybackState(if (rows.isEmpty() || error != null) STATE_IDLE else if (buffering) STATE_BUFFERING else STATE_READY)
+            .setContentPositionMs(PositionSupplier { position.toLong() + if (playing) ((SystemClock.elapsedRealtime() - sampledAt) * (q?.playbackSpeed ?: 1.0)).toLong() else 0 })
             .setRepeatMode(when (q?.repeat) { "one" -> REPEAT_MODE_ONE; "all" -> REPEAT_MODE_ALL; else -> REPEAT_MODE_OFF })
             .setShuffleModeEnabled(q?.shuffle ?: false).setAudioSessionId(sessionId).setPlayerError(error).build()
     }
@@ -285,7 +338,7 @@ internal class MusicAssistantPlayer(
     override fun handleReplaceMediaItems(fromIndex: Int, toIndex: Int, mediaItems: MutableList<MediaItem>): ListenableFuture<*> {
         // Lyric/title updates must not replace or restart a server occurrence.
         if (toIndex - fromIndex == mediaItems.size && rows.subList(fromIndex, toIndex).map { it.track?.uri } == mediaItems.map(::uri)) {
-            mediaItems.forEach { metadata[uri(it)] = it }; invalidateState(); return Futures.immediateVoidFuture()
+            mediaItems.forEach { metadata[uri(it)] = it }; rebuildPlaylist(); invalidateState(); return Futures.immediateVoidFuture()
         }
         return Futures.immediateFailedFuture<Void>(UnsupportedOperationException("Replace server songs with an explicit Play action"))
     }
@@ -313,6 +366,7 @@ internal class MusicAssistantPlayer(
     fun disconnectAccount() {
         queue = null
         rows = emptyList()
+        playlistData = emptyList()
         pendingManual.clear()
         error = null
         invalidateState()

@@ -63,7 +63,7 @@ internal class MusicAssistantHttpTransport(
         .build()
 
     override suspend fun command(command: String, args: JsonObject): JsonElement {
-        require(command.matches(Regex("[a-z_]+(?:/[a-z_]+)+"))) { "Invalid API command" }
+        require(command == "time" || command.matches(Regex("[a-z_]+(?:/[a-z_]+)+"))) { "Invalid API command" }
         val token = accessToken()
         if (token.isBlank() || token.any { it <= ' ' || it >= '\u007f' }) {
             throw MusicAssistantApiException(MusicAssistantFailure.AUTHENTICATION)

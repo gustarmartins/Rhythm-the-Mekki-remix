@@ -52,6 +52,7 @@ other MA administration. Normal Rhythm playback does not require its web player.
 | Offline downloads and embedded artwork/tag edits | Not exposed by this MA adapter; preview streams are never substituted for full originals |
 | WebRTC Remote ID | Not implemented; use a reachable direct URL, including Tailscale |
 | Crossfade, normalization and queue continuation | Server-owned; the phone's local dual-player engine does not rewrite shared queues |
+| Phone-side skip-silence, ReplayGain and speed/pitch | Not connected to Sendspin; server-side audio processing is separate |
 | USB bit-perfect playback | Not qualified; the current Sendspin receiver advertises 48 kHz, 16-bit stereo |
 | Legacy-car one-item queue view | Local playback retains its existing compatibility view; MA queue collapse is disabled to avoid rewriting a shared server queue |
 
@@ -59,6 +60,28 @@ Native audio requires Android 9 or newer and a server compatible with the
 bundled encrypted Sendspin protocol. The official mobile implementation requires
 API schema 45 or newer; the lab server is 2.10.6 Stable, schema 65. Older servers
 and WebRTC-only connections have not been qualified.
+
+## Spotify, YouTube Music and other services
+
+The native adapter consumes the music sources configured on the MA server; it
+does not need a separate Rhythm screen or decoder for each source. Account
+setup and provider availability remain server-specific. Only the filesystem
+provider has been exercised in this lab.
+
+- MA supports Spotify listing and playback with Premium. Its current
+  [Spotify documentation](https://www.music-assistant.io/music-providers/spotify/)
+  describes the available playback engines and their account requirements.
+- MA's [YouTube Music provider](https://www.music-assistant.io/music-providers/youtube-music/)
+  requires a paid account and cookie/token setup. It is an unofficial, best-effort
+  integration, so it cannot be promised the same reliability as local files.
+- For direct integrations, [Spotify App Remote](https://developer.spotify.com/documentation/android/tutorials/getting-started)
+  controls the installed Spotify app instead of supplying audio to Rhythm's
+  engine. [MusicKit for Android](https://developer.apple.com/musickit/) supports
+  in-app Apple Music playback through Apple's SDK. Either needs a separate
+  playback adapter and capability review; neither is implemented by this change.
+
+These are feasibility findings from October 14, 2026, not account or playback
+qualification for those services.
 
 ## Validation
 

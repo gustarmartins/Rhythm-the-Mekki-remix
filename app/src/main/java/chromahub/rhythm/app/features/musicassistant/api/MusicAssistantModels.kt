@@ -87,7 +87,16 @@ internal data class MusicAssistantQueue(
     val repeat: String,
     /** Stop-backed pause and a non-playing transfer keep their position here, not elapsed_time. */
     val resumePositionSeconds: Double,
+    val elapsedUpdatedEpochSeconds: Double? = null,
+    val playbackSpeed: Double = 1.0,
+    val nextOccurrenceId: String? = null,
 ) {
+    fun positionSecondsAt(serverEpochSeconds: Double): Double {
+        if (state != "playing") return if (state == "paused" && elapsedSeconds > 0) elapsedSeconds
+            else resumePositionSeconds.takeIf { it > 0 } ?: elapsedSeconds
+        val delta = elapsedUpdatedEpochSeconds?.let { (serverEpochSeconds - it).coerceAtLeast(0.0) } ?: 0.0
+        return elapsedSeconds + delta * playbackSpeed
+    }
     companion object {
         fun fromJson(value: JsonObject) = MusicAssistantQueue(
             id = value.requiredText("queue_id"), state = value.text("state") ?: "idle",
@@ -99,6 +108,9 @@ internal data class MusicAssistantQueue(
             shuffle = value.boolean("shuffle_enabled") ?: false,
             repeat = value.text("repeat_mode") ?: "off",
             resumePositionSeconds = value.number("resume_pos")?.coerceAtLeast(0.0) ?: 0.0,
+            elapsedUpdatedEpochSeconds = value.number("elapsed_time_last_updated")?.takeIf { it.isFinite() && it > 0 },
+            playbackSpeed = value.number("playback_speed")?.takeIf { it.isFinite() && it > 0 } ?: 1.0,
+            nextOccurrenceId = value.get("next_item")?.takeIf { it.isJsonObject }?.asJsonObject?.text("queue_item_id"),
         )
     }
 }

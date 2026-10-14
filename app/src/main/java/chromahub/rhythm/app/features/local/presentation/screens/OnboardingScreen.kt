@@ -9978,7 +9978,7 @@ fun EnhancedStreamingSetupContent(
 
     var serverUrl by rememberSaveable(selectedProvider) { mutableStateOf(currentSession.serverUrl.ifBlank { if (selectedProvider == "MUSIC_ASSISTANT") context.getSharedPreferences("music_assistant", android.content.Context.MODE_PRIVATE).getString("server", "").orEmpty() else "" }) }
     var username by rememberSaveable(selectedProvider) { mutableStateOf(currentSession.username) }
-    var password by rememberSaveable(selectedProvider) { mutableStateOf("") }
+    var password by remember(selectedProvider) { mutableStateOf("") }
     var showDiscoverySheet by remember { mutableStateOf(false) }
 
     val scanner = remember(selectedProvider) { NearbyServerScanner(context, selectedProvider, scope) }
@@ -10399,30 +10399,32 @@ private fun StreamingSetupSelectionAndForm(
                 enabled = !isLoading && !isConnected
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(id = R.string.streaming_service_setup_remember_password),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = stringResource(id = R.string.streaming_service_setup_remember_password_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+            if (selectedProvider != "MUSIC_ASSISTANT") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(id = R.string.streaming_service_setup_remember_password),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = stringResource(id = R.string.streaming_service_setup_remember_password_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    TunerAnimatedSwitch(
+                        checked = rememberStreamingPasswords,
+                        onCheckedChange = onRememberPasswordChange,
+                        enabled = !isLoading && !isConnected
                     )
                 }
-
-                TunerAnimatedSwitch(
-                    checked = rememberStreamingPasswords,
-                    onCheckedChange = onRememberPasswordChange,
-                    enabled = !isLoading && !isConnected
-                )
             }
 
             if (isConnected) {
