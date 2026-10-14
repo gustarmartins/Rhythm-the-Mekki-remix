@@ -1,0 +1,4 @@
+Sendspin implementation from Music Assistant mobile-app, Apache-2.0.
+Upstream commit d1f3c7fc0a9eb7d8d45beccbe45583d95bd0679e.
+Copyright Music Assistant contributors.
+Rhythm adaptations: Android-only module; direct X25519 backend; audio lifecycle callbacks.

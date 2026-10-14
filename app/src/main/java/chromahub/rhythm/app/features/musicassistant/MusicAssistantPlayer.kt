@@ -42,7 +42,7 @@ internal class MusicAssistantPlayer(
     private val clock = MonotonicClock { SystemClock.elapsedRealtimeNanos() / 1000 }
     @Volatile var sessionId: Int = 0
         private set
-    private val sink = AudioTrackSink(context, clock, onSessionOpened = {
+    private val sink = AudioTrackSink(context, clock, beforeOpen = foreground, onSessionOpened = {
         sessionId = it; audioSession(it, true)
     }, onSessionClosing = {
         if (sessionId == it) sessionId = 0; audioSession(it, false)
@@ -62,7 +62,6 @@ internal class MusicAssistantPlayer(
     private var targetId: String? = null
     private val pendingManual = mutableListOf<String>()
     private val metadata = mutableMapOf<String, MediaItem>()
-    private var desiredPlaying = false
 
     init {
         active.value = this
@@ -133,7 +132,6 @@ internal class MusicAssistantPlayer(
         val verified = client.api().activeQueue(id) ?: return
         if (verified.itemCount != items.size) return
         queue = verified; rows = items; lastPositionAt = SystemClock.elapsedRealtime()
-        desiredPlaying = verified.state == "playing"
         val currentIndex = items.indexOfFirst { it.occurrenceId == verified.currentOccurrenceId }
         val upcoming = items.drop((currentIndex + 1).coerceAtLeast(0)).map { it.occurrenceId }.toSet()
         pendingManual.retainAll(upcoming)
@@ -154,6 +152,7 @@ internal class MusicAssistantPlayer(
         val q = queue
         val playing = q?.state == "playing"
         val index = rows.indexOfFirst { it.occurrenceId == q?.currentOccurrenceId }.takeIf { it >= 0 } ?: 0
+        val sampledAt = lastPositionAt
         val position = ((if (playing) q?.elapsedSeconds else q?.resumePositionSeconds?.takeIf { it > 0 } ?: q?.elapsedSeconds) ?: 0.0) * 1000
         return State.Builder().setAvailableCommands(Player.Commands.Builder().addAll(
             COMMAND_PLAY_PAUSE, COMMAND_PREPARE, COMMAND_STOP, COMMAND_RELEASE,
@@ -166,7 +165,7 @@ internal class MusicAssistantPlayer(
             .setCurrentMediaItemIndex(if (rows.isEmpty()) C.INDEX_UNSET else index)
             .setPlayWhenReady(playing, PLAY_WHEN_READY_CHANGE_REASON_REMOTE)
             .setPlaybackState(if (rows.isEmpty()) STATE_IDLE else STATE_READY)
-            .setContentPositionMs(PositionSupplier { position.toLong() + if (playing) SystemClock.elapsedRealtime() - lastPositionAt else 0 })
+            .setContentPositionMs(PositionSupplier { position.toLong() + if (playing) SystemClock.elapsedRealtime() - sampledAt else 0 })
             .setRepeatMode(when (q?.repeat) { "one" -> REPEAT_MODE_ONE; "all" -> REPEAT_MODE_ALL; else -> REPEAT_MODE_OFF })
             .setShuffleModeEnabled(q?.shuffle ?: false).setAudioSessionId(sessionId).setPlayerError(error).build()
     }
@@ -202,7 +201,6 @@ internal class MusicAssistantPlayer(
         }
     }
     override fun handleSetPlayWhenReady(playWhenReady: Boolean) = submit {
-        desiredPlaying = playWhenReady
         if (playWhenReady) foreground()
         client.api().playerAction(target(), if (playWhenReady) MusicAssistantApi.PlayerAction.PLAY else MusicAssistantApi.PlayerAction.PAUSE)
     }

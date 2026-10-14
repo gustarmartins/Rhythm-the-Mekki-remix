@@ -27,7 +27,7 @@ jobs:
           ./gradlew --continue --no-daemon --max-workers=2 \
             -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
             -Pkotlin.daemon.jvmargs=-Xmx4500m \
-            :sendspin:testDebugUnitTest :app:testGithubDebugUnitTest :app:assembleGithubDebug
+            :sendspin:testDebugUnitTest :app:testGithubDebugUnitTest :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest
       - uses: actions/upload-artifact@v7
         if: always()
         with:
