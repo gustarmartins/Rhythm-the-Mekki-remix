@@ -71,6 +71,7 @@ fun StreamingServiceSetupScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val withLocalNetworkAccess = chromahub.rhythm.app.features.streaming.presentation.components.rememberLocalNetworkAccess()
     val appSettings = remember(context) { AppSettings.getInstance(context) }
     val sessions by viewModel.serviceSessions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -222,7 +223,7 @@ fun StreamingServiceSetupScreen(
                                     label = { Text(text = stringResource(id = R.string.streaming_service_setup_server_url)) },
                                     placeholder = { Text(text = stringResource(id = R.string.streaming_service_setup_server_url_hint)) },
                                     trailingIcon = {
-                                        IconButton(onClick = { showDiscoverySheet = true }, enabled = serviceId != "MUSIC_ASSISTANT") {
+                                        IconButton(onClick = { withLocalNetworkAccess { showDiscoverySheet = true } }, enabled = serviceId != "MUSIC_ASSISTANT") {
                                             Icon(
                                                 imageVector = MaterialSymbolIcon("radar"),
                                                 contentDescription = stringResource(R.string.streaming_service_setup_auto_detect)
@@ -332,12 +333,14 @@ fun StreamingServiceSetupScreen(
                     ) {
                         Button(
                             onClick = {
+                                withLocalNetworkAccess {
                                 viewModel.connectService(
                                     serviceId = serviceId,
                                     serverUrl = serverUrl,
                                     username = username,
                                     password = password
                                 )
+                                }
                             },
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !isBusy && canSubmit

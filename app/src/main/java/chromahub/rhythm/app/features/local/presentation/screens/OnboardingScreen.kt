@@ -9991,7 +9991,7 @@ fun EnhancedStreamingSetupContent(
     }
 
     LaunchedEffect(selectedProvider) {
-        if (serverUrl.isBlank() && selectedProvider != "MUSIC_ASSISTANT") {
+        if (serverUrl.isBlank() && selectedProvider != "MUSIC_ASSISTANT" && (android.os.Build.VERSION.SDK_INT < 37 || androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_LOCAL_NETWORK) == android.content.pm.PackageManager.PERMISSION_GRANTED)) {
             isAutoScanning = true
             scanner.startScan()
             delay(3500)
@@ -10340,6 +10340,7 @@ private fun StreamingSetupSelectionAndForm(
     onDisconnect: () -> Unit,
     onSkip: (() -> Unit)? = null
 ) {
+    val withLocalNetworkAccess = chromahub.rhythm.app.features.streaming.presentation.components.rememberLocalNetworkAccess()
     val scope = rememberCoroutineScope()
 
     // Connection Form
@@ -10364,7 +10365,7 @@ private fun StreamingSetupSelectionAndForm(
                     label = { Text(stringResource(R.string.streaming_service_setup_server_url)) },
                     placeholder = { Text(stringResource(R.string.onboardingscreen_httpsyourservercom)) },
                     trailingIcon = {
-                        IconButton(onClick = onDiscoverClick, enabled = !isLoading && !isConnected && selectedProvider != "MUSIC_ASSISTANT") {
+                        IconButton(onClick = { withLocalNetworkAccess(onDiscoverClick) }, enabled = !isLoading && !isConnected && selectedProvider != "MUSIC_ASSISTANT") {
                             Icon(
                                 imageVector = MaterialSymbolIcon("radar"),
                                 contentDescription = stringResource(R.string.streaming_service_setup_auto_detect)
@@ -10514,7 +10515,7 @@ private fun StreamingSetupSelectionAndForm(
                     }
                 } else {
                     Button(
-                        onClick = onConnect,
+                        onClick = { withLocalNetworkAccess(onConnect) },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isLoading && canSubmit,
                         colors = ButtonDefaults.buttonColors(
