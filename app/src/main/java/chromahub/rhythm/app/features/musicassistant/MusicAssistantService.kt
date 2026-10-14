@@ -245,7 +245,7 @@ class MusicAssistantService : Service() {
             try {
                 val manager = getSystemService(NotificationManager::class.java)
                 manager.createNotificationChannel(NotificationChannel(CHANNEL, getString(R.string.music_assistant_name), NotificationManager.IMPORTANCE_LOW))
-                val open = PendingIntent.getActivity(this, 0, Intent(this, MusicAssistantActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                val open = PendingIntent.getActivity(this, 0, Intent(this, MusicAssistantActivity::class.java).putExtra(MusicAssistantEntry.SERVER_ADMINISTRATION, true), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                 val stop = PendingIntent.getService(this, 1, Intent(this, MusicAssistantService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                 val notification = NotificationCompat.Builder(this, CHANNEL)
                     .setSmallIcon(R.drawable.ic_notification)

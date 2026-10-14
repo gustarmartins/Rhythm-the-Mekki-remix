@@ -39,4 +39,6 @@
     <string name="ma_refresh">Atualizar</string>
     <string name="ma_admin">Administração do servidor</string>
     <string name="local_network_access_required">Permita o acesso à rede local para conectar ao seu servidor de música.</string>
+    <string name="ma_native_open">Abrir no Rhythm Go</string>
+    <string name="ma_admin_description">Configure os provedores de música e os ajustes do servidor na interface web.</string>
 </resources>

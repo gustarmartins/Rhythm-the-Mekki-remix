@@ -38,4 +38,6 @@
     <string name="ma_ungroup">Leave group</string>
     <string name="ma_refresh">Refresh</string>
     <string name="ma_admin">Server administration</string>
+    <string name="ma_native_open">Open in Rhythm Go</string>
+    <string name="ma_admin_description">Configure music providers and server settings in the server’s web interface.</string>
 </resources>

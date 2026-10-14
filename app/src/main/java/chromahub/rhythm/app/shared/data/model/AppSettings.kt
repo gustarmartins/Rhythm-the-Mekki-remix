@@ -734,13 +734,18 @@ class AppSettings private constructor(context: Context) {
         return v
     }
 
+    private val _initialStreamingRoute = MutableStateFlow(prefs.getString(KEY_INITIAL_STREAMING_ROUTE, null))
+    val initialStreamingRoute: StateFlow<String?> = _initialStreamingRoute.asStateFlow()
+
     fun setInitialStreamingRoute(route: String?) {
         prefs.edit { putString(KEY_INITIAL_STREAMING_ROUTE, route) }
+        _initialStreamingRoute.value = route
     }
 
     fun consumeInitialStreamingRoute(): String? {
         val v = prefs.getString(KEY_INITIAL_STREAMING_ROUTE, null)
         if (v != null) prefs.edit { remove(KEY_INITIAL_STREAMING_ROUTE) }
+        _initialStreamingRoute.value = null
         return v
     }
 

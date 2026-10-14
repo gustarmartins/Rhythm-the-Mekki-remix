@@ -555,8 +555,9 @@ fun LocalNavigation(
         }
     }
 
-    // Consume pending startup route from shared settings handoff and navigate if valid.
-    LaunchedEffect(navController, appSettings) {
+    // React to settings/shortcut handoffs even when Rhythm Go is already open.
+    val initialStreamingRoute by appSettings.initialStreamingRoute.collectAsState()
+    LaunchedEffect(navController, appSettings, initialStreamingRoute) {
         val pendingRoute = appSettings.consumeInitialStreamingRoute()
         if (!pendingRoute.isNullOrBlank()) {
             val isValidLocalRoute = pendingRoute == Screen.Home.route ||

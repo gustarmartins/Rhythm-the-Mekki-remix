@@ -281,6 +281,7 @@ class MainActivity : AppCompatActivity() {
                             hasHandledStartupIntents = true
                             val shouldHandleStartupIntent = startupIntent?.let {
                                 (it.action == Intent.ACTION_VIEW && it.data != null) ||
+                                    it.action == chromahub.rhythm.app.features.musicassistant.MusicAssistantEntry.OPEN_NATIVE ||
                                     it.action == "chromahub.rhythm.app.action.SHORTCUT_PLAY_PAUSE" ||
                                     it.action == "chromahub.rhythm.app.action.SHORTCUT_SKIP_NEXT" ||
                                     it.action == "chromahub.rhythm.app.action.SHORTCUT_SKIP_PREVIOUS" ||
@@ -762,6 +763,12 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "Handling intent: ${intent.action}, data: ${intent.data}")
         
         try {
+            if (intent.action == chromahub.rhythm.app.features.musicassistant.MusicAssistantEntry.OPEN_NATIVE) {
+                appSettings.setStreamingService("MUSIC_ASSISTANT")
+                appSettings.setInitialStreamingRoute("streaming_service_setup/MUSIC_ASSISTANT")
+                appSettings.setAppMode("STREAMING")
+                return
+            }
             val shouldOpenPlayer = intent.getBooleanExtra(EXTRA_OPEN_PLAYER, false)
 
             // OPEN_PLAYER/OPEN_QUEUE are navigation hints, not content intents.

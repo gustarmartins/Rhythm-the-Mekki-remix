@@ -1,6 +1,7 @@
 # Music Assistant in Rhythm Go
 
-Choose **Music Assistant** in Rhythm Go's provider picker (including first-run
+Use **Open in Rhythm Go** in Go settings, or choose **Music Assistant** in
+Rhythm Go's provider picker (including first-run
 setup), enter the server URL, and sign in with a Music Assistant account. The
 server's songs, albums, artists, playlists and search use Rhythm's existing UI.
 Select a song to connect this phone's native audio receiver. Bluetooth audio

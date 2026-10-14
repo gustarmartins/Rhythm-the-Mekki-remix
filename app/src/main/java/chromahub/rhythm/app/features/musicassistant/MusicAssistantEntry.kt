@@ -11,8 +11,18 @@ object MusicAssistantEntry {
     const val PROCESS_SUFFIX = ":music_assistant"
     const val WEBVIEW_DIRECTORY = "music_assistant"
 
+    const val OPEN_NATIVE = "chromahub.rhythm.app.action.OPEN_MUSIC_ASSISTANT"
+    const val SERVER_ADMINISTRATION = "music_assistant_server_administration"
+
     fun open(context: Context) {
-        context.startActivity(Intent(context, MusicAssistantActivity::class.java))
+        context.startActivity(Intent(context, chromahub.rhythm.app.activities.MainActivity::class.java)
+            .setAction(OPEN_NATIVE)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+    }
+
+    fun openAdministration(context: Context) {
+        context.startActivity(Intent(context, MusicAssistantActivity::class.java)
+            .putExtra(SERVER_ADMINISTRATION, true))
     }
 
     /** Called before any main-process repositories or WebViews are initialized. */

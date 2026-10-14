@@ -91,6 +91,12 @@ class MusicAssistantActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Old shortcuts opened this activity directly. Their default is now native Rhythm.
+        if (!intent.getBooleanExtra(MusicAssistantEntry.SERVER_ADMINISTRATION, false)) {
+            MusicAssistantEntry.open(this)
+            finish()
+            return
+        }
         enableEdgeToEdge()
         connection = ViewModelProvider(this)[MusicAssistantConnection::class.java]
         setContent { RhythmTheme(dynamicColor = true) { Workspace() } }
@@ -98,13 +104,16 @@ class MusicAssistantActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        if (!::connection.isInitialized) return
         connection.visible = true
         if (connection.inSession) connection.service?.resumeVisibleSession(connection.savedAddress)
     }
 
     override fun onStop() {
-        connection.visible = false
-        connection.service?.uiHidden(isChangingConfigurations)
+        if (::connection.isInitialized) {
+            connection.visible = false
+            connection.service?.uiHidden(isChangingConfigurations)
+        }
         super.onStop()
     }
 
@@ -149,7 +158,7 @@ class MusicAssistantActivity : ComponentActivity() {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(stringResource(R.string.music_assistant_name)) },
+                    title = { Text(stringResource(R.string.ma_admin)) },
                     navigationIcon = { IconButton(onClick = { goBack() }) {
                         Icon(MaterialSymbolIcon("arrow_back"), stringResource(R.string.music_assistant_back))
                     } },
