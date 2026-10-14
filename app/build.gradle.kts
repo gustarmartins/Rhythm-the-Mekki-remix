@@ -32,8 +32,8 @@ android {
         
         val overrideVersionCode = project.findProperty("versionCodeOverride")?.toString()?.toIntOrNull()
         val overrideVersionName = project.findProperty("versionNameOverride")?.toString()
-        versionCode = overrideVersionCode ?: 554941300
-        versionName = overrideVersionName ?: "5.5.494.1300-bt-profiles"
+        versionCode = overrideVersionCode ?: 600000000
+        versionName = overrideVersionName ?: "6.0.0"
 
         val overrideReleaseDate = project.findProperty("releaseDateOverride")?.toString()
         buildConfigField("String", "RELEASE_DATE", "\"${overrideReleaseDate ?: "2026-10-04"}\"")
@@ -87,7 +87,7 @@ android {
             buildConfigField("boolean", "ENABLE_WIKIPEDIA", "true")
             buildConfigField("String", "FLAVOR", "\"fdroid\"")
             
-            versionNameSuffix = "-fdroid"
+            versionNameSuffix = "+fdroid"
         }
         
         create("github") {
@@ -104,7 +104,7 @@ android {
             buildConfigField("boolean", "ENABLE_WIKIPEDIA", "true")
             buildConfigField("String", "FLAVOR", "\"github\"")
             
-            versionNameSuffix = "-gh"
+            versionNameSuffix = "+github"
         }
     }
 

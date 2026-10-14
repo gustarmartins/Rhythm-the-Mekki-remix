@@ -11,6 +11,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VersionComparatorTest {
+    @Test
+    fun structuredVersionsIgnoreBuildMetadataAndOrderNightlies() {
+        assertEquals(0, VersionComparator.compare("6.0.0+github", "v6.0.0+android-vc600002701"))
+        assertEquals(0, VersionComparator.compare("6.0.0+nightly.99", "6.0.0+fdroid"))
+        assertTrue(VersionComparator.isNewer("6.1.0-nightly.2802+github", "6.1.0-nightly.2801+github"))
+        assertTrue(VersionComparator.isNewer("6.1.0", "6.1.0-nightly.9999"))
+        assertTrue(VersionComparator.isNewer("6.0.0", "5.5.494.1300-nightly-r2601-da96492d-vc600002601"))
+        assertEquals(600002701, VersionComparator.explicitVersionCode("v6.0.0+android-vc600002701"))
+        assertEquals(2801, VersionComparator.parse("6.1.0-nightly.2801+github").nightlyRunNumber)
+    }
+
 
     @Test
     fun forkStableUpgradesInstalledFastLyricsNightly() {
