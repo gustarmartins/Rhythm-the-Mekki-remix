@@ -2986,4 +2986,6 @@
     <string name="battery_saver_pause_library">Pause library enrichment and cache maintenance</string>
     <string name="battery_saver_pause_canvas">Pause animated artwork</string>
     <string name="battery_saver_offload_desc">Optional hardware playback, when compatible with your playback settings. Leave off when using an external DSP.</string>
+    <string name="music_assistant_native_description">Your server library in Rhythm, with synchronized playback and shared queues.</string>
+    <string name="music_assistant_title">Music Assistant</string>
 </resources>

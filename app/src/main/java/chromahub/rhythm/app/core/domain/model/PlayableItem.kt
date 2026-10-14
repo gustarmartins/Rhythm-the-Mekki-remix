@@ -37,6 +37,7 @@ enum class SourceType {
     LOCAL,
     SUBSONIC,
     JELLYFIN,
+    MUSIC_ASSISTANT,
     SPOTIFY,
     APPLE_MUSIC,
     YOUTUBE_MUSIC,

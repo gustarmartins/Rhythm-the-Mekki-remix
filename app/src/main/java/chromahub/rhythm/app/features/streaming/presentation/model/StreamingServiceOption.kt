@@ -18,6 +18,7 @@ data class StreamingServiceOption(
 object StreamingServiceOptions {
     const val SUBSONIC = StreamingServiceId.SUBSONIC
     const val JELLYFIN = StreamingServiceId.JELLYFIN
+    const val MUSIC_ASSISTANT = StreamingServiceId.MUSIC_ASSISTANT
     val defaults: List<StreamingServiceOption> = listOf(
         StreamingServiceOption(
             id = SUBSONIC,
@@ -29,5 +30,6 @@ object StreamingServiceOptions {
             nameRes = R.string.streaming_service_jellyfin,
             descriptionRes = R.string.streaming_service_jellyfin_desc
         ),
+        StreamingServiceOption(MUSIC_ASSISTANT, R.string.music_assistant_title, R.string.music_assistant_native_description),
     )
 }

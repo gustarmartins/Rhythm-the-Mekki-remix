@@ -2053,7 +2053,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
                 try {
                     when (normalizedServiceId) {
                         "SUBSONIC" -> providerRepository?.authenticate() == true
-                        "JELLYFIN" -> providerRepository?.authenticate() == true
+                        "JELLYFIN", "MUSIC_ASSISTANT" -> providerRepository?.authenticate() == true
                         else -> false
                     }
                 } catch (e: Exception) {
@@ -2124,6 +2124,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     private fun sourceTypeFromServiceId(serviceId: String): SourceType {
         return when (serviceId.uppercase()) {
             StreamingServiceId.SUBSONIC -> SourceType.SUBSONIC
+            StreamingServiceId.MUSIC_ASSISTANT -> SourceType.MUSIC_ASSISTANT
             StreamingServiceId.JELLYFIN -> SourceType.JELLYFIN
             else -> SourceType.UNKNOWN
         }
@@ -2132,6 +2133,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     private fun serviceIdFromSourceType(sourceType: SourceType): String {
         return when (sourceType) {
             SourceType.SUBSONIC -> StreamingServiceId.SUBSONIC
+            SourceType.MUSIC_ASSISTANT -> StreamingServiceId.MUSIC_ASSISTANT
             SourceType.JELLYFIN -> StreamingServiceId.JELLYFIN
             SourceType.SPOTIFY,
             SourceType.APPLE_MUSIC,
@@ -2157,6 +2159,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     fun getSourceTypeName(sourceType: SourceType): String {
         return when (sourceType) {
             SourceType.SUBSONIC -> "Subsonic"
+            SourceType.MUSIC_ASSISTANT -> "Music Assistant"
             SourceType.JELLYFIN -> "Jellyfin"
             SourceType.SPOTIFY -> "Spotify"
             SourceType.APPLE_MUSIC -> "Apple Music"

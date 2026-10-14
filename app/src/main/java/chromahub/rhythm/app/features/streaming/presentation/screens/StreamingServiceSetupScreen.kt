@@ -86,7 +86,7 @@ fun StreamingServiceSetupScreen(
     val session = sessions[serviceId] ?: viewModel.getServiceSession(serviceId)
     val requiresServerUrl = remember(serviceId) { StreamingServiceRules.requiresServerUrl(serviceId) }
 
-    var serverUrl by rememberSaveable(serviceId) { mutableStateOf(session.serverUrl) }
+    var serverUrl by rememberSaveable(serviceId) { mutableStateOf(session.serverUrl.ifBlank { if (serviceId == "MUSIC_ASSISTANT") context.getSharedPreferences("music_assistant", android.content.Context.MODE_PRIVATE).getString("server", "").orEmpty() else "" }) }
     var username by rememberSaveable(serviceId) { mutableStateOf(session.username) }
     var password by rememberSaveable(serviceId) { mutableStateOf("") }
     var showDiscoverySheet by remember { mutableStateOf(false) }
@@ -222,7 +222,7 @@ fun StreamingServiceSetupScreen(
                                     label = { Text(text = stringResource(id = R.string.streaming_service_setup_server_url)) },
                                     placeholder = { Text(text = stringResource(id = R.string.streaming_service_setup_server_url_hint)) },
                                     trailingIcon = {
-                                        IconButton(onClick = { showDiscoverySheet = true }) {
+                                        IconButton(onClick = { showDiscoverySheet = true }, enabled = serviceId != "MUSIC_ASSISTANT") {
                                             Icon(
                                                 imageVector = MaterialSymbolIcon("radar"),
                                                 contentDescription = stringResource(R.string.streaming_service_setup_auto_detect)
