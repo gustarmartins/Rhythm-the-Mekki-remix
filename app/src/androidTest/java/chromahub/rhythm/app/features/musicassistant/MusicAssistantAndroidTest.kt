@@ -96,12 +96,15 @@ class MusicAssistantAndroidTest {
             waitFor("pause") { !controller.playWhenReady }
             val paused = main { controller.currentPosition }
             Thread.sleep(1300)
-            assertTrue("Paused position must stay still", kotlin.math.abs(main { controller.currentPosition } - paused) < 1000)
-            val request = Bundle().apply { putParcelableArrayList(PlayNextCommand.ITEMS, arrayListOf(item(mp3).toBundle(), item(flac).toBundle())) }
+            val afterPause = main { controller.currentPosition }
+            assertTrue("Paused position must stay still: $paused -> $afterPause", kotlin.math.abs(afterPause - paused) < 1000)
+            val request = Bundle().apply { putParcelableArrayList(PlayNextCommand.ITEMS, arrayListOf(item(mp3).toBundleIncludeLocalConfiguration(), item(flac).toBundleIncludeLocalConfiguration())) }
             val added = main { controller.sendCustomCommand(SessionCommand(PlayNextCommand.ACTION, Bundle.EMPTY), request) }.get(90, TimeUnit.SECONDS)
             assertEquals("Native FIFO server enqueue acknowledged", 0, added.resultCode)
             waitFor("queue readback") { controller.mediaItemCount == 3 }
             assertFalse("Adding songs must keep pause", main { controller.playWhenReady })
+            assertEquals("FIFO keeps request order", listOf(flac.providerId, mp3.providerId, flac.providerId),
+                main { (0 until controller.mediaItemCount).map { controller.getMediaItemAt(it).mediaId.removePrefix("MUSIC_ASSISTANT::") } })
             val ids = main { (0 until controller.mediaItemCount).map { controller.getMediaItemAt(it).mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN) } }
             assertEquals("Duplicate tracks retain occurrence identities", 3, ids.toSet().size)
             main { controller.seekToNextMediaItem(); controller.play() }
