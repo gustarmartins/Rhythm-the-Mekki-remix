@@ -576,11 +576,12 @@ class AppUpdaterViewModel(
         // Release titles are human-facing prose (for example, "Rhythm 5.4 - Feature Update")
         // and are not a stable version identifier. Use the tag so semantic comparison and
         // Android update detection continue to work when a release has a custom title.
-        val versionName = release.tag_name.removePrefix("v")
+        val releaseVersion = release.tag_name.removePrefix("v")
+        val versionName = releaseVersion.substringBefore("+")
         
         return AppVersion(
             versionName = versionName,
-            versionCode = calculateVersionCode(versionName),
+            versionCode = calculateVersionCode(releaseVersion),
             releaseDate = releaseDateString,
             whatsNew = releaseContent.whatsNew,
             knownIssues = releaseContent.knownIssues,

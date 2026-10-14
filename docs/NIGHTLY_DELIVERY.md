@@ -1,40 +1,38 @@
-# Nightly delivery
+# Stable and Nightly delivery
 
-Every change pushed to `main` runs
-`.github/workflows/nightly.yml`. Manual dispatch rebuilds the current main branch.
-PR checks remain in `android.yml`; main builds are not duplicated there.
+`.github/workflows/nightly.yml` is the single **Build and Publish Rhythm**
+workflow for both channels; its shared run counter keeps Android versions ordered.
+See [VERSIONING.md](VERSIONING.md) for the version naming and allocation contract.
 
-Concurrency is grouped by branch and source commit. Different commits may build in
-parallel; duplicate runs for the same commit replace one another. Tags, version codes
-and artifacts remain unique per run/attempt. The updater compares versions rather
-than publication time, so an older commit finishing later cannot replace a newer APK.
+- Push `main`: build and publish a Nightly for the development version.
+- Dispatch `nightly.yml` on a `release/*` branch with `channel=stable`: build and
+  publish Stable. Music Assistant source and manifest entries are prohibited.
+- Dispatch on `main` with `channel=nightly`: build a fresh Nightly.
 
-The cloud job runs the JVM regression suite, builds both release flavors with
-R8/lint-vital, and verifies actual APK package/version/signature before publishing.
-Missing signing secrets fail the build. The expected certificate matches the
-existing fork installation. Credentials never appear in artifacts or release notes.
+Each source commit/channel gets its own concurrency group; a duplicate run of the
+same source/channel replaces its predecessor. Different commits may build in
+parallel. The updater compares versions and codes, never publication time alone.
 
-`600000000 + run_number * 100 + run_attempt` is the Android version code.
-Attempts must be 1–99. The same ordinal appears after `nightly-r` in the version
-name; `-vc` records the exact APK version code for update checks. Source version
-numbers remain human-facing. Any future stable release must use a version code
-higher than the latest Nightly if it is intended to replace Nightly installs.
-Do not overwrite a published tag or reuse a version code for changed bytes.
+Both channels run the complete JVM suite, build GitHub and F-Droid releases with
+R8/lint-vital, and verify APK package/version/signature against the fork's existing
+certificate. Missing signing secrets fail the build. Secrets never enter artifacts
+or release notes. APKs and their manifests are retained even if publication fails,
+so a permission/transport failure can be recovered with the exact verified bytes.
 
-Releases are first uploaded as drafts and only published after every asset is
-present. The in-app Nightly channel selects published APKs, not workflow status
-or a moving nightly.link ZIP. `nightly.json` and `SHA256SUMS` describe the exact
-commit, APKs, signing fingerprint and hashes. Failed/cancelled jobs publish nothing.
+All assets are uploaded to a draft and their hashes checked before publication.
+Stable is a normal GitHub release and becomes Latest; Nightly is a prerelease.
+Never overwrite a published tag or reuse a version code for changed bytes.
 
-Choose **Settings → Updates → Nightly**, then check/download the update.
-Android can require confirmation to install. An existing explicit Stable/Beta
-preference is preserved; fresh Nightly installs default to the Nightly channel.
+Use **Settings → Updates → Stable** or **Nightly**. Android can require installation
+confirmation. Existing explicit channel preferences are retained. Fresh Nightly
+installs default to Nightly, and fresh Stable installs default to Stable.
 
-For requested changes: implement and review the scoped diff, add meaningful
-regressions, push, watch the cloud run, inspect test results and release assets,
-and provide the resulting release URL. Building or publishing does not prove
-physical Bluetooth-car behavior; keep that acceptance separate.
+The historical `Rhythm-Nightly-Artifacts` artifact name remains available for
+older clients; modern clients use published APK attachments. Stable artifacts
+have a distinct name. Manifests contain the source SHA, Android code, clean
+version, distribution, sizes, hashes and certificate fingerprints.
 
-Existing installed clients also receive the verified `Rhythm-Nightly-Artifacts` ZIP
-under the historical workflow/artifact name. This bootstraps the first update without
-requiring a manual sideload; updated clients use published release assets directly.
+For requested changes: implement/review, add meaningful regressions, push, follow
+the appropriate cloud run, inspect reports and published assets, and provide the
+release URL. Source, builds, publication, installation and physical playback/car
+acceptance are separate claims. Never interrupt active playback to install.

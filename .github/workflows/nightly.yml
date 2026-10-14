@@ -1,24 +1,35 @@
-name: Build and Publish Nightly
+# Keep this filename/workflow ID: both channels share its monotonic Android build counter.
+name: Build and Publish Rhythm
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      channel:
+        description: 'Nightly from main, or Stable from a release/* branch'
+        type: choice
+        options: [nightly, stable]
+        default: nightly
+        required: true
 
 permissions:
   contents: write
 
 concurrency:
-  # Separate requested changes can finish without cancelling another commit's signed build.
-  group: rhythm-nightly-${{ github.ref }}-${{ github.sha }}
+  group: rhythm-release-${{ github.ref }}-${{ github.sha }}-${{ inputs.channel || 'nightly' }}
   cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  RELEASE_CHANNEL: ${{ inputs.channel || 'nightly' }}
 
 jobs:
   build:
-    if: github.repository == 'gustarmartins/Rhythm-the-Mekki-remix' && github.ref == 'refs/heads/main'
+    if: >-
+      github.repository == 'gustarmartins/Rhythm-the-Mekki-remix' &&
+      ((github.ref == 'refs/heads/main' && inputs.channel != 'stable') ||
+       (github.event_name == 'workflow_dispatch' && inputs.channel == 'stable' && startsWith(github.ref, 'refs/heads/release/')))
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -33,11 +44,21 @@ jobs:
       - uses: android-actions/setup-android@v4
         with:
           packages: ''
-      - name: Test Nightly version policy
-        run: python3 -m unittest discover -s scripts -p test_nightly_version.py
-      - name: Allocate Nightly version
+      - name: Test release version policy
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Allocate release version
         id: version
         run: python3 scripts/nightly_version.py
+      - name: Check Stable excludes Music Assistant
+        if: env.RELEASE_CHANNEL == 'stable'
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          bad = [str(p) for p in Path('app/src').rglob('*') if p.is_file()
+                 and p.suffix in ('.kt', '.java', '.xml')
+                 and ('musicassistant' in p.read_text().lower() or 'music_assistant' in p.read_text().lower())]
+          assert not bad, 'Music Assistant must stay on Nightly: ' + ', '.join(bad)
+          PY
       - name: Restore release signing
         env:
           SIGNING_KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}
@@ -61,62 +82,45 @@ jobs:
           GITHUB_REPO: ${{ github.event.repository.name }}
           NIGHTLY_CODE: ${{ steps.version.outputs.code }}
           NIGHTLY_NAME: ${{ steps.version.outputs.name }}
+          IS_NIGHTLY: ${{ steps.version.outputs.nightly }}
         run: |
           chmod +x gradlew
           ./gradlew --no-daemon --max-workers=2 \
             -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
             -Pkotlin.daemon.jvmargs=-Xmx4500m \
             -PversionCodeOverride="$NIGHTLY_CODE" -PversionNameOverride="$NIGHTLY_NAME" \
-            -PreleaseDateOverride="$(date -u +%F)" -Pnightly=true \
+            -PreleaseDateOverride="$(date -u +%F)" -Pnightly="$IS_NIGHTLY" \
             :app:testGithubDebugUnitTest :app:assembleGithubRelease :app:assembleFdroidRelease
       - name: Verify signer, package, versions and checksums
         env:
           NIGHTLY_CODE: ${{ steps.version.outputs.code }}
           NIGHTLY_NAME: ${{ steps.version.outputs.name }}
         run: python3 scripts/verify_nightly_apks.py
-      # Bootstrap already installed clients whose Nightly downloader still uses nightly.link.
-      # Only verified APKs enter this compatibility artifact; new clients use release assets.
-      - name: Preserve Nightly downloads for existing clients
+      - name: Preserve verified APKs and manifests
         uses: actions/upload-artifact@v7
         with:
-          name: Rhythm-Nightly-Artifacts
-          path: nightly-dist/*.apk
+          name: ${{ env.RELEASE_CHANNEL == 'nightly' && 'Rhythm-Nightly-Artifacts' || 'Rhythm-Stable-Artifacts' }}
+          path: nightly-dist/*
           if-no-files-found: error
           retention-days: 14
       - name: Preserve test and build reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: Nightly-validation-${{ github.run_id }}-${{ github.run_attempt }}
+          name: Rhythm-validation-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             app/build/reports/tests/
             app/build/test-results/
             app/build/reports/lint-results*.html
           if-no-files-found: ignore
           retention-days: 14
-      - name: Publish complete Nightly release
+      - name: Publish complete release
         env:
           GH_TOKEN: ${{ github.token }}
-          NIGHTLY_TAG: ${{ steps.version.outputs.tag }}
-          NIGHTLY_NAME: ${{ steps.version.outputs.name }}
-          NIGHTLY_CODE: ${{ steps.version.outputs.code }}
-        run: |
-          set -euo pipefail
-          python3 - <<'NOTES'
-          import os
-          from pathlib import Path
-          Path('nightly-notes.md').write_text(
-              f"Nightly from `{os.environ['GITHUB_SHA']}`. Android version code: {os.environ['NIGHTLY_CODE']}.\n\n"
-              "Use Settings → Updates → Nightly in Rhythm to download the signed APK. "
-              "Android may ask you to confirm installation.\n\n"
-              "Both distribution flavors and universal/ABI APKs use the existing fork signing key. "
-              "Unit tests, release compilation and APK verification passed before publication.\n\n"
-              "See the commit history for changes; SHA256SUMS and nightly.json describe these exact APKs.\n")
-          NOTES
-          gh release create "$NIGHTLY_TAG" nightly-dist/* --target "$GITHUB_SHA" \
-            --title "$NIGHTLY_NAME - Rhythm Nightly" --notes-file nightly-notes.md \
-            --draft --prerelease
-          gh release edit "$NIGHTLY_TAG" --draft=false --latest=false
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_NAME: ${{ steps.version.outputs.name }}
+          RELEASE_CODE: ${{ steps.version.outputs.code }}
+        run: python3 scripts/publish_release.py
       - name: Remove signing material
         if: always()
         run: rm -f config/signing/rhythm_keystore.jks .config/keystore.properties config/signing/private.properties

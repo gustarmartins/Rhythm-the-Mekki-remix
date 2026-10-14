@@ -94,7 +94,7 @@ object VersionComparator {
     private const val TAG = "VersionComparator"
 
     private val BUILD_REGEX = Regex("(?:b|build|r)-?(\\d+)", RegexOption.IGNORE_CASE)
-    private val NIGHTLY_RUN_REGEX = Regex("nightly-r(\\d+)", RegexOption.IGNORE_CASE)
+    private val NIGHTLY_RUN_REGEX = Regex("nightly(?:-r|\\.)(\\d+)", RegexOption.IGNORE_CASE)
 
     /**
      * Parse a version string into a [SemanticVersion].
@@ -108,7 +108,7 @@ object VersionComparator {
         }
 
         try {
-            val cleaned = versionString.trim().removePrefix("v").removePrefix("V")
+            val cleaned = versionString.trim().removePrefix("v").removePrefix("V").substringBefore("+")
             val lower = cleaned.lowercase(Locale.ROOT)
 
             // Determine channel tier: Nightly > Beta > Stable
