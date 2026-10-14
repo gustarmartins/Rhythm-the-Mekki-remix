@@ -6,8 +6,7 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content xmlns:tools="http://schemas.android.com/tools">
-    <exclude domain="root" path="app_webview_music_assistant/"/>
-    <exclude domain="sharedpref" path="music_assistant.xml"/>
+    <!-- This allowlist also excludes Music Assistant's WebView profile and preferences. -->
     <!-- Include our app's shared preferences -->
     <include domain="sharedpref" path="rhythm_preferences.xml"/>
     
