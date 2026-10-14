@@ -66,6 +66,10 @@ class MusicAssistantAndroidTest {
         val tracks = client.fetchLibrarySongs(3000).getOrThrow()
         val flac = tracks.first { it.codec?.lowercase() == "flac" }
         val mp3 = tracks.first { it.codec?.lowercase() in listOf("mp3", "mpeg") }
+        kotlinx.coroutines.withTimeout(15000) {
+            assertTrue("Native search finds server music", repository.searchSongs(mp3.title.substringBefore(" (")).isNotEmpty())
+            repository.searchArtists(mp3.title.substringBefore(" ("))
+        }
         fun item(song: chromahub.rhythm.app.features.streaming.data.provider.ProviderSong) = MediaItem.Builder()
             .setMediaId("MUSIC_ASSISTANT::${song.providerId}").setUri(client.buildStreamUrl(song.providerId))
             .setMediaMetadata(MediaMetadata.Builder().setTitle(song.title).setArtist(song.artist).setAlbumTitle(song.album)

@@ -2144,7 +2144,9 @@ class StreamingMusicRepositoryImpl(
         serviceId: String,
         songs: List<StreamingSong>
     ): List<StreamingArtist> {
-        return enrichArtistsWithDeezerImages(buildArtistItems(serviceId, songs))
+        // Search must not queue behind the full-library Deezer artwork pass. Use
+        // provider/cached artwork now; catalog enrichment continues independently.
+        return withContext(Dispatchers.Default) { buildArtistItems(serviceId, songs) }
     }
 
     /**
