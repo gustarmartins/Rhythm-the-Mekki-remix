@@ -92,7 +92,7 @@ queue occurrences, ordered append, paused transfers, volume and group controls.
 Earlier browser Sendspin probes received nonzero decoded audio. Those checks do
 not constitute native Rhythm Android or physical speaker acceptance.
 
-Cloud validation compiles the Android app and passes **365 application tests**
+Cloud validation compiles the Android app and passes **374 application tests**
 and **198 Sendspin tests**. The imported protocol tests include reference crypto
 vectors, connection lifecycle, audio scheduling, pairing and redacted logging.
 A fresh platform ChaCha cipher per operation fixes a cipher-pooling failure
@@ -103,11 +103,23 @@ actual MediaPlaybackService: FLAC, MP3, pause, seek, FIFO additions, duplicate
 occurrences and lyric metadata without a playback restart. It requires privately
 supplied credentials and never includes them in source or build artifacts.
 
-**Device qualification is pending.** Munch exposed the missing Android 17 LAN
-permission, which is now declared and requested during connection setup. The
-corrected APK was installed, but the phone restarted during verification and
-became unreachable before the playback test could run. No native listening,
-physical Bluetooth/car, group synchronization or Android Auto result is claimed.
+**Native Android regression passed on Munch (Poco F4, Android API 37).**
+The real-server instrumentation test passed with 1,827 tracks: authentication,
+protected token storage, catalog and search, FLAC and MP3 playback through
+AudioTrack, advancing position, stable pause, seek, FIFO order, duplicate
+occurrences and lyric metadata without queue replacement or rewind. The native
+Go library UI also displayed server tracks and covers on a separate display.
+
+This run caught and fixed a lyric/pause clock discontinuity: positions now use
+the server timestamp instead of restarting elapsed time on every poll. UI search
+also exposed a wait behind the library's artist-image downloads; search now uses
+available artwork without waiting for that background pass.
+
+Cloud run [38538978091](https://github.com/gustarmartins/Rhythm-the-Mekki-remix/actions/runs/38538978091)
+compiled debug, instrumentation and signed minified release APKs. The device test
+passed on its debug build from source `f1b1ddec` (one test, zero failures or skips).
+The lyric assertion uses a fixture; physical listening, Bluetooth/car displays,
+group synchronization and Android Auto still require separate acceptance.
 
 The Sendspin module is adapted from the official
 [Music Assistant mobile client](https://github.com/music-assistant/mobile-app/tree/d1f3c7fc0a9eb7d8d45beccbe45583d95bd0679e),
