@@ -237,6 +237,7 @@ internal class MusicAssistantPlayer(
                 future.set(null)
             } catch (cancelled: CancellationException) { future.cancel(false); throw cancelled }
             catch (failure: Exception) {
+                android.util.Log.e("RhythmMA", "Native playback command failed", failure)
                 // A timeout may have committed a mutation. Reconcile, never blindly replay it.
                 runCatching { operations.withLock { refresh() } }
                 if (released) { future.cancel(false); return@launch }

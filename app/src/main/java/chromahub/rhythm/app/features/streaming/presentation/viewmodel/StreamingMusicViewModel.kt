@@ -218,6 +218,10 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     val isAuthenticated: StateFlow<Boolean> = _isAuthenticated.asStateFlow()
 
     val serviceSessions: StateFlow<Map<String, StreamingServiceSession>> = serviceSessionRepository.sessions
+
+    // A successful reconnect must navigate too; isConnected alone cannot identify it.
+    private val _connectionRevisions = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val connectionRevisions: StateFlow<Map<String, Int>> = _connectionRevisions.asStateFlow()
     
     private val _currentService = MutableStateFlow(SourceType.SUBSONIC)
     val currentService: StateFlow<SourceType> = _currentService.asStateFlow()
@@ -544,7 +548,9 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
                 checkAndSyncAuthentication(normalizedServiceId)
                 loadHomeContent()
                 loadLibrary(forceSync = true)
-                
+                _connectionRevisions.value = _connectionRevisions.value +
+                    (normalizedServiceId to ((_connectionRevisions.value[normalizedServiceId] ?: 0) + 1))
+
                 // Show success notification
                 notificationManager.notifyAuthenticationSuccess(getSourceTypeName(sourceTypeFromServiceId(normalizedServiceId)))
             } catch (e: Exception) {

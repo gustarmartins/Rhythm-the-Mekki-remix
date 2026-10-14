@@ -84,6 +84,7 @@ class MusicAssistantConnection(application: Application) : AndroidViewModel(appl
 
 class MusicAssistantActivity : ComponentActivity() {
     private lateinit var connection: MusicAssistantConnection
+    private var webViewContainer: FrameLayout? = null
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         // Foreground playback is allowed with permission denied, with Android's active-app indicator.
         enableBackground()
@@ -116,6 +117,26 @@ class MusicAssistantActivity : ComponentActivity() {
         if (!::connection.isInitialized) return
         connection.visible = true
         if (connection.inSession) connection.service?.resumeVisibleSession(connection.savedAddress)
+        // uiHidden detaches a retained WebView without changing its Compose state.
+        // Reattach explicitly: resuming need not trigger AndroidView.update.
+        webViewContainer?.let(::attachWebView)
+    }
+
+    private fun attachWebView(container: FrameLayout) {
+        if (!connection.visible) return
+        val service = connection.service ?: return
+        val webView = service.webView ?: return
+        service.attach(this)
+        if (webView.parent !== container) {
+            (webView.parent as? android.view.ViewGroup)?.removeView(webView)
+            container.removeAllViews()
+            container.addView(webView, FrameLayout.LayoutParams(-1, -1))
+        }
+    }
+
+    override fun onDestroy() {
+        webViewContainer = null
+        super.onDestroy()
     }
 
     override fun onStop() {
@@ -256,17 +277,13 @@ class MusicAssistantActivity : ComponentActivity() {
                         }
                     } else {
                         AndroidView(
-                            factory = { context -> FrameLayout(context) },
+                            factory = { context -> FrameLayout(context).also { webViewContainer = it } },
                             modifier = Modifier.weight(1f).fillMaxWidth(),
-                            onRelease = { container -> container.removeAllViews() },
-                            update = { container ->
-                                if (webView.parent !== container) {
-                                    (webView.parent as? android.view.ViewGroup)?.removeView(webView)
-                                    service.attach(this@MusicAssistantActivity)
-                                    container.removeAllViews()
-                                    container.addView(webView, FrameLayout.LayoutParams(-1, -1))
-                                }
-                            }
+                            onRelease = { container ->
+                                container.removeAllViews()
+                                if (webViewContainer === container) webViewContainer = null
+                            },
+                            update = { container -> attachWebView(container) }
                         )
                         BackgroundSetting(service)
                     }

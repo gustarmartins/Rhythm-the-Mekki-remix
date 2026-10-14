@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 package chromahub.rhythm.app.features.musicassistant
 
+import android.app.Application
+import androidx.lifecycle.ViewModelStore
+import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel
+import chromahub.rhythm.app.shared.data.model.Song
 import android.content.ComponentName
 import android.os.Bundle
 import androidx.media3.common.MediaItem
@@ -76,8 +80,23 @@ class MusicAssistantAndroidTest {
                 .setDurationMs(song.durationMs).setArtworkUri(song.artworkUrl?.let(android.net.Uri::parse)).build()).build()
         val future = main { MediaController.Builder(context, SessionToken(context, ComponentName(context, MediaPlaybackService::class.java))).buildAsync() }
         val controller = future.get(30, TimeUnit.SECONDS)
+        val store = ViewModelStore()
+        val settings = AppSettings.getInstance(context)
+        val savedPersistence = settings.queuePersistenceEnabled.value
+        val viewModel = main {
+            settings.setQueuePersistenceEnabled(false)
+            MusicViewModel(context.applicationContext as Application).also { store.put("playback", it) }
+        }
         try {
-            main { controller.setMediaItems(listOf(item(flac))); controller.prepare(); controller.play() }
+            waitFor("app playback ViewModel ready") { viewModel.isInitialized.value }
+            val selected = Song(
+                id = "MUSIC_ASSISTANT::${flac.providerId}", title = flac.title,
+                artist = flac.artist, album = flac.album, duration = flac.durationMs,
+                uri = android.net.Uri.parse(client.buildStreamUrl(flac.providerId))
+            )
+            // Exercise the same queue replacement used by Home/Library/Search clicks.
+            // Direct controller.setMediaItems missed the old clear + add UI path.
+            main { viewModel.playQueue(listOf(selected), enableShuffle = false, respectQueueRule = false) }
             waitFor("FLAC playing in Rhythm") { controller.isPlaying && (MusicAssistantPlayer.active.value?.sessionId ?: 0) > 0 && controller.currentPosition > 2000 }
             assertTrue(main { controller.currentMediaItem?.mediaId == "MUSIC_ASSISTANT::${flac.providerId}" })
             main {
@@ -120,7 +139,12 @@ class MusicAssistantAndroidTest {
             android.util.Log.i("RhythmMA-Test", "PASS native catalog=${songs.size}, FLAC, MP3, pause, FIFO, duplicates, seek")
             Unit
         } finally {
-            main { controller.pause(); controller.release() }
+            main {
+                controller.pause()
+                store.clear()
+                settings.setQueuePersistenceEnabled(savedPersistence)
+                controller.release()
+            }
         }
     }
 }

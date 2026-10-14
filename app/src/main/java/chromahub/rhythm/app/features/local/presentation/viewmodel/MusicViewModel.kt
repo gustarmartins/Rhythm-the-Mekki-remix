@@ -1125,6 +1125,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     // Queue operation state
+    private val _playbackError = MutableStateFlow<String?>(null)
+    val playbackError: StateFlow<String?> = _playbackError.asStateFlow()
+    fun dismissPlaybackError() { _playbackError.value = null }
+
     private val _queueOperationError = MutableStateFlow<String?>(null)
     val queueOperationError: StateFlow<String?> = _queueOperationError.asStateFlow()
 
@@ -4433,7 +4437,12 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 return
             }
             Log.e(TAG, "Player error encountered in ViewModel: ${error.message}", error)
-            if (appSettings.trackErrorCheckerEnabled.value) {
+            _isPlaying.value = false
+            _isBuffering.value = false
+            // Playback failures are not optional file-corruption diagnostics.
+            _playbackError.value = "Playback failed: ${error.message ?: error.errorCodeName}"
+            if (appSettings.trackErrorCheckerEnabled.value &&
+                MissingLocalMediaClassifier.isLocalScheme(_currentSong.value?.uri?.scheme)) {
                 _corruptedTrackName.value = _currentSong.value?.title ?: "Unknown Song"
                 _corruptedTrackMessage.value = "The player encountered a playback error: ${error.message ?: "Unknown error"}"
                 _showCorruptionDialog.value = true
@@ -6281,13 +6290,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 // Switch to main thread to interact with MediaController
                 withContext(Dispatchers.Main) {
                     mediaController?.let { controller ->
-                        // Stop playback first to prevent issues
-                        controller.stop()
+                        // Replace atomically so the service can select the playback engine.
+                        // clear + add bypasses source selection and sends MA URIs to ExoPlayer.
+                        controller.setMediaItems(mediaItems, finalStartIndex, 0L)
 
-                        // Clear existing queue
-                        controller.clearMediaItems()
-
-                        // Set shuffle mode BEFORE adding items if specified
+                        // Apply shuffle after source selection, to the new player.
                         if (enableShuffle != null) {
                             if (useExoPlayerShuffle) {
                                 controller.shuffleModeEnabled = enableShuffle
@@ -6299,11 +6306,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                                     appSettings.setSavedShuffleState(enableShuffle)
                                 }
                             }
-                            Log.d(TAG, "Set shuffle mode to $enableShuffle before building queue (useExoPlayerShuffle=$useExoPlayerShuffle)")
+                            Log.d(TAG, "Set shuffle mode to $enableShuffle after replacing queue (useExoPlayerShuffle=$useExoPlayerShuffle)")
                         }
-
-                        // Add all media items at once
-                        controller.addMediaItems(mediaItems)
 
                         // Prepare BEFORE setting queue state for better sync
                         controller.prepare()
@@ -6326,8 +6330,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         // Save queue to persistence
                         saveQueueToPersistence()
 
-                        // Start playback from the specified index
-                        controller.seekToDefaultPosition(finalStartIndex)
+                        // The replacement already selected the requested occurrence.
                         if (!canStartPlayback("playQueue.prepare")) return@withContext
                         controller.play()
 

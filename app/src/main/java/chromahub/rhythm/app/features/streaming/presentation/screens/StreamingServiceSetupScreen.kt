@@ -35,6 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -68,12 +69,22 @@ fun StreamingServiceSetupScreen(
     serviceId: String,
     viewModel: StreamingMusicViewModel,
     onBackClick: () -> Unit,
+    onConnected: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val withLocalNetworkAccess = chromahub.rhythm.app.features.streaming.presentation.components.rememberLocalNetworkAccess()
     val appSettings = remember(context) { AppSettings.getInstance(context) }
     val sessions by viewModel.serviceSessions.collectAsState()
+    val connectionRevisions by viewModel.connectionRevisions.collectAsState()
+    val connectionRevision = connectionRevisions[serviceId] ?: 0
+    var handledRevision by rememberSaveable(serviceId) { mutableStateOf(connectionRevision) }
+    LaunchedEffect(connectionRevision) {
+        if (connectionRevision > handledRevision) {
+            handledRevision = connectionRevision
+            onConnected()
+        }
+    }
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val rememberStreamingPasswords by appSettings.rememberStreamingPasswords.collectAsState()

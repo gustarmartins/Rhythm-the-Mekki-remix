@@ -665,6 +665,13 @@ fun LocalNavigation(
     )
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val playbackError by viewModel.playbackError.collectAsState()
+    LaunchedEffect(playbackError) {
+        playbackError?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.dismissPlaybackError()
+        }
+    }
     val coroutineScope = rememberCoroutineScope()
     val miniPlayerPaddingValues = PaddingValues(bottom = miniPlayerBottomPadding.coerceAtLeast(0.dp))
 
@@ -3244,6 +3251,14 @@ private fun LocalNavigationContent(
                     StreamingServiceSetupScreen(
                         serviceId = serviceId,
                         viewModel = streamingMusicViewModel,
+                        onConnected = {
+                            if (navController.currentBackStackEntry == backStackEntry) {
+                                navController.navigate(Screen.Home.route) {
+                                    popUpTo(navController.graph.findStartDestination().id)
+                                    launchSingleTop = true
+                                }
+                            }
+                        },
                         onBackClick = {
                             val popped = navController.popBackStack()
                             if (!popped) {

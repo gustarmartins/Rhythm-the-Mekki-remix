@@ -126,3 +126,22 @@ The Sendspin module is adapted from the official
 [Music Assistant mobile client](https://github.com/music-assistant/mobile-app/tree/d1f3c7fc0a9eb7d8d45beccbe45583d95bd0679e),
 under Apache 2.0. Its license, provenance and adaptation notice are included in
 `sendspin/` and the APK's license assets. The Stable 6.0 release remains MA-free.
+
+## October 14 follow-up
+
+- Home/Library/Search queue replacement now uses one Media3 `setMediaItems` call
+  with the selected occurrence. The previous stop/clear/add path bypassed native
+  engine selection and sent Music Assistant sentinel URIs to ExoPlayer. This was
+  observed as `Malformed URL` on the FE with Nightly 3301. The Android regression
+  now starts playback through the app's MusicViewModel, not just its controller.
+- Playback failures show a snackbar independently of the optional local-file
+  corruption checker.
+- Successful provider sign-in/reconnect returns to Home while the shared sync job
+  and the existing top status indicator continue. Failed authentication stays on
+  setup; simply opening an already connected account does not leave setup.
+- Server administration reattaches its retained WebView explicitly on start,
+  including background return with no Compose state change. Native playback does
+  not use that WebView.
+
+These changes require the next Nightly. Physical Bluetooth/car acceptance remains
+separate from build and Android regression results.
