@@ -36,7 +36,7 @@ import androidx.lifecycle.ViewModelProvider
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
-import chromahub.rhythm.app.shared.presentation.theme.RhythmTheme
+import chromahub.rhythm.app.ui.theme.RhythmTheme
 
 /** Application-context binding survives rotation; no Activity is retained by the ViewModel. */
 class MusicAssistantConnection(application: Application) : AndroidViewModel(application), ServiceConnection {
@@ -296,7 +296,7 @@ class MusicAssistantActivity : ComponentActivity() {
                 }
                 Switch(checked = service.backgroundEnabled, onCheckedChange = { enabled ->
                     if (!enabled) service.disableBackground()
-                    else if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    else if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this@MusicAssistantActivity, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                         notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                     } else enableBackground()
                 })
