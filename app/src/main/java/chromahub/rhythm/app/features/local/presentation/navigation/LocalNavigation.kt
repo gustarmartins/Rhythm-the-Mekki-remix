@@ -1214,7 +1214,7 @@ private fun LocalNavigationContent(
 
     Scaffold(
         modifier = modifier,
-        snackbarHost = {},
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             val bottomChromeVisible = showMiniPlayer || showBottomNav
             val bottomChromeAlpha by animateFloatAsState(
