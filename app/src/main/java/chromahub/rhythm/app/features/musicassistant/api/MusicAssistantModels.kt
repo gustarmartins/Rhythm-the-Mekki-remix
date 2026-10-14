@@ -79,6 +79,8 @@ internal data class MusicAssistantQueue(
     val elapsedSeconds: Double,
     val shuffle: Boolean,
     val repeat: String,
+    /** Stop-backed pause and a non-playing transfer keep their position here, not elapsed_time. */
+    val resumePositionSeconds: Double,
 ) {
     companion object {
         fun fromJson(value: JsonObject) = MusicAssistantQueue(
@@ -90,6 +92,7 @@ internal data class MusicAssistantQueue(
             elapsedSeconds = value.number("elapsed_time")?.coerceAtLeast(0.0) ?: 0.0,
             shuffle = value.boolean("shuffle_enabled") ?: false,
             repeat = value.text("repeat_mode") ?: "off",
+            resumePositionSeconds = value.number("resume_pos")?.coerceAtLeast(0.0) ?: 0.0,
         )
     }
 }

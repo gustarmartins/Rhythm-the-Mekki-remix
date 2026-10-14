@@ -104,6 +104,15 @@ class MusicAssistantApiTest {
         assertNull(api.activeQueue("idle"))
     }
 
+    @Test fun stoppedPlayerRetainsServerResumePositionAfterTransfer() = runBlocking {
+        respond("""{"queue_id":"target","state":"idle","elapsed_time":0,"resume_pos":42,"items":3,"current_index":1}""")
+        val queue = api.activeQueue("target")!!
+        assertEquals("idle", queue.state)
+        assertEquals(0.0, queue.elapsedSeconds, 0.0)
+        assertEquals(42.0, queue.resumePositionSeconds, 0.0)
+        assertEquals(1, queue.currentIndex)
+    }
+
     @Test fun transferDoesNotForcePlaybackOnPausedSource() = runBlocking {
         respond("null")
         api.transfer("from", "to")
@@ -148,6 +157,13 @@ class MusicAssistantApiTest {
         respond("null")
         val error = runCatching { api.append("queue", listOf("library://track/1")) }.exceptionOrNull()
         assertEquals(MusicAssistantFailure.SERVER, (error as MusicAssistantApiException).failure)
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test fun slowQueuePreparationCanFinishWithoutReplayingTheCommand() = runBlocking {
+        // Reproduces a cold real server taking longer than OkHttp's default 10s read limit.
+        server.enqueue(MockResponse.Builder().body("null").headersDelay(11, TimeUnit.SECONDS).build())
+        api.play("queue", listOf("library://track/1"))
         assertEquals(1, server.requestCount)
     }
 
@@ -216,11 +232,43 @@ class MusicAssistantApiTest {
     }
 
     @Test fun removingFavoriteClearsInsteadOfDisliking() = runBlocking {
+        respond(TRACK)
         respond("null")
         api.favorite("library://track/42", false)
+        assertEquals("music/item_by_uri", body()["command"].asString)
         val envelope = body()
-        assertEquals("music/favorites/set_item", envelope["command"].asString)
-        assertTrue(envelope["args"].asJsonObject["favorite"].isJsonNull)
+        assertEquals("music/favorites/remove_item", envelope["command"].asString)
+        assertEquals("track", envelope["args"].asJsonObject["media_type"].asString)
+        assertEquals("42", envelope["args"].asJsonObject["library_item_id"].asString)
+        assertFalse(envelope["args"].asJsonObject.has("favorite"))
+    }
+
+    @Test fun addingFavoriteUsesStableCommandAndOriginalUri() = runBlocking {
+        respond("null")
+        api.favorite("filesystem_local://track/Music/song.flac", true)
+        val envelope = body()
+        assertEquals("music/favorites/add_item", envelope["command"].asString)
+        assertEquals("filesystem_local://track/Music/song.flac", envelope["args"].asJsonObject["item"].asString)
+    }
+
+    @Test fun removingProviderFavoriteResolvesLibraryIdentityFirst() = runBlocking {
+        respond("""{"item_id":"folder/song.flac","provider":"filesystem_local--123","media_type":"track"}""")
+        respond(TRACK)
+        respond("null")
+        api.favorite("filesystem_local--123://track/folder/song.flac", false)
+        body()
+        val lookup = body()
+        assertEquals("music/get_library_item", lookup["command"].asString)
+        assertEquals("folder/song.flac", lookup["args"].asJsonObject["item_id"].asString)
+        assertEquals("filesystem_local--123", lookup["args"].asJsonObject["provider_instance_id_or_domain"].asString)
+        assertEquals("42", body()["args"].asJsonObject["library_item_id"].asString)
+    }
+
+    @Test fun absentLibraryMappingDoesNotMutateAnUnrelatedFavorite() = runBlocking {
+        respond("""{"item_id":"42","provider":"provider--123","media_type":"track"}""")
+        respond("null")
+        api.favorite("provider--123://track/42", false)
+        assertEquals(2, server.requestCount)
     }
 
     @Test fun groupArgumentsAndModernPlayerFieldsArePreserved() = runBlocking {

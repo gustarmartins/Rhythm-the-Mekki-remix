@@ -80,3 +80,30 @@ group controls, favorites, errors, redirects, retry prevention, cancellation and
 response limits. This is contract coverage, not a real-server compatibility or
 listening result. Cloud CI additionally runs the full existing JVM suite and
 builds/verifies both signed release flavors before publication.
+
+### Real-server validation — October 14, 2026
+
+The adapters were also exercised against the official **2.10.6 Stable** server
+image (API schema **65**) using an existing music library mounted read-only.
+Native Kotlin calls passed login, paging, search, FLAC/MP3 details, album lookup,
+embedded lyrics, favorite write/read/removal, duplicate queue occurrences,
+ordered append, transfer without autoplay, member volume and group membership.
+Two muted, instrumented browser Sendspin players received nonzero decoded audio.
+This verifies the server and API layer; it does not qualify Rhythm's unfinished
+native audio engine, physical speaker synchronization or Android Auto.
+
+The test exposed and corrected three assumptions:
+
+- Stable does not provide `music/favorites/set_item`. Use the portable add/remove
+  commands, resolving a provider item to its library identity before removal.
+- Cold queue preparation can exceed the HTTP client's default 10-second read
+  timeout. Queue play/transfer get a bounded 90-second deadline; ordinary calls
+  remain bounded at 30 seconds, cancellation works, and mutations are not retried.
+- Sendspin may implement pause as a stop with retained `resume_pos`. Keep that
+  position independently of `elapsed_time`, which may be zero after transfer.
+
+An exact title containing ` - ` returned no matches through the server's own
+search API while a shorter query found it; this server search behavior remains.
+The test server also restarted once during setup/testing; the cause was not
+established. Subsequent completed checks passed. Long-run server stability and
+physical playback are not claimed.

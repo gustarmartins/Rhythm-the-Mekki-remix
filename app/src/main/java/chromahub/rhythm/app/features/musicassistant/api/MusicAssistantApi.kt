@@ -105,11 +105,32 @@ internal class MusicAssistantApi(private val transport: MusicAssistantTransport)
         ))
     }
 
-    suspend fun favorite(uri: String, enabled: Boolean) = mutate(
-        "music/favorites/set_item",
-        // false means dislike in MA; null clears a favorite without creating a dislike.
-        args("item" to identifier(uri), "favorite" to if (enabled) true else null),
-    )
+    suspend fun favorite(uri: String, enabled: Boolean) {
+        identifier(uri)
+        mutations.withLock {
+            // These commands work on Stable (2.10.6) and development servers. The newer
+            // set_item API is not available on Stable, even at API schema version 65.
+            if (enabled) {
+                transport.command("music/favorites/add_item", args("item" to uri))
+            } else {
+                val item = transport.command("music/item_by_uri", args("uri" to uri)).objectOrFail()
+                val libraryItem = if (item.requiredText("provider") == "library") item else {
+                    transport.command("music/get_library_item", args(
+                        "media_type" to item.requiredText("media_type"),
+                        "item_id" to item.requiredText("item_id"),
+                        "provider_instance_id_or_domain" to item.requiredText("provider"),
+                    )).takeUnless { it.isJsonNull }?.objectOrFail() ?: return@withLock
+                }
+                if (libraryItem.requiredText("provider") != "library") invalidResponse()
+                // Removal takes a library ID, not a provider ID or URI. It clears the
+                // favorite; sending false to set_item would instead create a dislike.
+                transport.command("music/favorites/remove_item", args(
+                    "media_type" to libraryItem.requiredText("media_type"),
+                    "library_item_id" to libraryItem.requiredText("item_id"),
+                ))
+            }
+        }
+    }
 
     private suspend fun mutate(command: String, args: JsonObject) {
         mutations.withLock { transport.command(command, args) }

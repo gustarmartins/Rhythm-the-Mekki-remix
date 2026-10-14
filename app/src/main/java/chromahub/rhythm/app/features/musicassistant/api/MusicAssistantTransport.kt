@@ -56,6 +56,9 @@ internal class MusicAssistantHttpTransport(
         .followRedirects(false)
         .followSslRedirects(false)
         .retryOnConnectionFailure(false)
+        // Queue preparation can legitimately take longer than OkHttp's default 10s read
+        // timeout on a cold server. The per-call deadline below remains authoritative.
+        .readTimeout(90, TimeUnit.SECONDS)
         .callTimeout(30, TimeUnit.SECONDS)
         .build()
 
@@ -70,7 +73,11 @@ internal class MusicAssistantHttpTransport(
             addProperty("command", command)
             add("args", args.deepCopy())
         }
-        return post("api", payload, token)
+        val timeoutSeconds = when (command) {
+            "player_queues/play_media", "player_queues/transfer" -> 90L
+            else -> 30L
+        }
+        return post("api", payload, token, timeoutSeconds)
     }
 
     /** Passwords are sent once to the selected server and are not persisted by this adapter. */
@@ -92,7 +99,7 @@ internal class MusicAssistantHttpTransport(
             ?: throw MusicAssistantApiException(MusicAssistantFailure.INVALID_RESPONSE)
     }
 
-    private suspend fun post(path: String, payload: JsonObject, token: String?): JsonElement =
+    private suspend fun post(path: String, payload: JsonObject, token: String?, timeoutSeconds: Long = 30): JsonElement =
         suspendCancellableCoroutine { continuation ->
             val body = payload.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
             val request = Request.Builder()
@@ -109,6 +116,7 @@ internal class MusicAssistantHttpTransport(
                 })
                 .build()
             val call = http.newCall(request)
+            call.timeout().timeout(timeoutSeconds, TimeUnit.SECONDS)
             continuation.invokeOnCancellation { call.cancel() }
             call.enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {
