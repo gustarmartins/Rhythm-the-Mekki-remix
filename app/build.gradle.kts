@@ -242,6 +242,9 @@ androidComponents {
 }
 
 dependencies {
+    implementation(project(":sendspin"))
+    implementation("io.ktor:ktor-client-okhttp:3.5.2")
+    implementation("io.ktor:ktor-client-websockets:3.5.2")
     implementation(libs.androidx.compose.ui.unit)
     // Desugaring library
     coreLibraryDesugaring(libs.androidx.desugar.jdk.libs)

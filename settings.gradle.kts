@@ -29,3 +29,5 @@ dependencyResolutionManagement {
 rootProject.name = "Rhythm"
 include(":app")
 include(":macrobenchmark")
+
+include(":sendspin")
