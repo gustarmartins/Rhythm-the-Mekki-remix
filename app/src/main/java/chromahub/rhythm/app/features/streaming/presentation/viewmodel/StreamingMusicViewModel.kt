@@ -16,6 +16,8 @@ import chromahub.rhythm.app.features.streaming.data.repository.StreamingMusicRep
 import chromahub.rhythm.app.features.streaming.data.repository.StreamingServiceSession
 import chromahub.rhythm.app.features.streaming.data.repository.StreamingServiceSessionRepository
 import chromahub.rhythm.app.features.streaming.di.StreamingMusicModule
+import chromahub.rhythm.app.features.streaming.domain.StreamingSearchController
+import chromahub.rhythm.app.features.streaming.domain.streamingSearchEnabled
 import chromahub.rhythm.app.features.streaming.domain.model.BrowseCategory
 import chromahub.rhythm.app.features.streaming.domain.model.StreamingAlbum
 import chromahub.rhythm.app.features.streaming.domain.model.StreamingArtist
@@ -116,6 +118,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun switchToDownloadedMode() {
+        search("")
         _isAuthenticated.value = false
         notificationManager.cancelSyncNotification()
         val downloaded = _downloadedSongs.value
@@ -307,6 +310,35 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     
     private val _searchResults = MutableStateFlow<StreamingSearchResults>(StreamingSearchResults())
     val searchResults: StateFlow<StreamingSearchResults> = _searchResults.asStateFlow()
+
+    private val _isSearching = MutableStateFlow(false)
+    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+
+    private val searchController = StreamingSearchController(
+        scope = viewModelScope,
+        isEnabled = {
+            streamingSearchEnabled(
+                appSettings.appMode.value, _isAuthenticated.value, _isOnline.value,
+                appSettings.offlineMode.value
+            ) && NetworkUtils.canStream(getApplication(), appSettings.allowCellularStreaming.value)
+        },
+        emptyResults = StreamingSearchResults(),
+        search = { query ->
+            if (!checkAndSyncAuthentication()) {
+                StreamingSearchResults()
+            } else {
+                StreamingSearchResults(
+                    songs = repository.searchSongs(query).filterIsInstance<StreamingSong>(),
+                    albums = repository.searchAlbums(query).filterIsInstance<StreamingAlbum>(),
+                    artists = repository.searchArtists(query).filterIsInstance<StreamingArtist>(),
+                    playlists = repository.searchPlaylists(query).filterIsInstance<StreamingPlaylist>()
+                )
+            }
+        },
+        onResults = { _searchResults.value = it },
+        onLoading = { _isSearching.value = it },
+        onError = { showToast("Search failed: ${it.message}") }
+    )
     
     init {
         observeSelectedService()
@@ -384,6 +416,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
                         switchToDownloadedMode()
                     }
                 } else {
+                    search("")
                     notificationManager.cancelSyncNotification()
                 }
             }
@@ -1028,52 +1061,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
      */
     fun search(query: String) {
         _searchQuery.value = query
-
-        if (query.isBlank()) {
-            _searchResults.value = StreamingSearchResults()
-            return
-        }
-
-        viewModelScope.launch {
-            _isLoading.value = true
-
-            try {
-                if (!checkAndSyncAuthentication()) {
-                    _searchResults.value = StreamingSearchResults()
-                    showToast("Connect to a streaming service first")
-                    return@launch
-                }
-                
-                // Check network and offline constraints
-                if (!NetworkUtils.canStream(getApplication(), appSettings.allowCellularStreaming.value)) {
-                    _searchResults.value = StreamingSearchResults()
-                    showToast("Streaming not allowed on current network")
-                    return@launch
-                }
-                
-                if (appSettings.offlineMode.value) {
-                    _searchResults.value = StreamingSearchResults()
-                    showToast("Search not available in offline mode")
-                    return@launch
-                }
-
-                val songs = repository.searchSongs(query).filterIsInstance<StreamingSong>()
-                val artistsFromRepository = repository.searchArtists(query).filterIsInstance<StreamingArtist>()
-                val albumsFromRepository = repository.searchAlbums(query).filterIsInstance<StreamingAlbum>()
-                val playlists = repository.searchPlaylists(query).filterIsInstance<StreamingPlaylist>()
-
-                _searchResults.value = StreamingSearchResults(
-                    songs = songs,
-                    albums = albumsFromRepository,
-                    artists = artistsFromRepository,
-                    playlists = playlists
-                )
-            } catch (e: Exception) {
-                showToast("Search failed: ${e.message}")
-            } finally {
-                _isLoading.value = false
-            }
-        }
+        searchController.submit(query)
     }
 
     /**

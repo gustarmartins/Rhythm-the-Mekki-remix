@@ -83,6 +83,7 @@ import chromahub.rhythm.app.features.streaming.domain.model.StreamingArtist
 import chromahub.rhythm.app.features.streaming.domain.model.StreamingPlaylist
 import chromahub.rhythm.app.features.streaming.domain.model.StreamingSong
 import chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamingMusicViewModel
+import chromahub.rhythm.app.features.streaming.domain.streamingSearchEnabled
 import chromahub.rhythm.app.shared.data.model.Album
 import chromahub.rhythm.app.shared.data.model.AppSettings
 import chromahub.rhythm.app.shared.data.model.Artist
@@ -204,9 +205,14 @@ fun UniversalSearchScreen(
     val searchHistory by localViewModel.searchHistory.collectAsState()
     val favoriteSongs by localViewModel.favoriteSongs.collectAsState()
 
-    val streamingQuery by streamingViewModel.searchQuery.collectAsState()
     val streamingResults by streamingViewModel.searchResults.collectAsState()
-    val isStreamingLoading by streamingViewModel.isLoading.collectAsState()
+    val streamingLoading by streamingViewModel.isSearching.collectAsState()
+    val streamingAuthenticated by streamingViewModel.isAuthenticated.collectAsState()
+    val streamingOnline by streamingViewModel.isOnline.collectAsState()
+    val offlineMode by appSettings.offlineMode.collectAsState()
+    val selectedStreamingService by appSettings.streamingService.collectAsState()
+    val canSearchStreaming = streamingSearchEnabled(appMode, streamingAuthenticated, streamingOnline, offlineMode)
+    val isStreamingLoading = canSearchStreaming && streamingLoading
     val streamingLikedSongs by streamingViewModel.likedSongs.collectAsState()
 
     val isGenreDetectionComplete by localViewModel.isGenreDetectionComplete.collectAsState()
@@ -214,10 +220,9 @@ fun UniversalSearchScreen(
 
     val genreBrowseSummaries by localViewModel.genreBrowseSummaries.collectAsState()
 
-    LaunchedEffect(query) {
-        if (query.isNotBlank() && streamingQuery != query) {
-            streamingViewModel.search(query)
-        }
+    LaunchedEffect(query, canSearchStreaming, selectedStreamingService) {
+        // Clearing also cancels an old provider request when RhythmGo is disabled.
+        streamingViewModel.search(if (canSearchStreaming) query else "")
     }
 
     val matchedLocalSongs = remember(query, localSongs, filterSongs) {
@@ -257,10 +262,10 @@ fun UniversalSearchScreen(
         else localPlaylists.filter { it.name.contains(query, true) }
     }
 
-    val matchedStreamingSongs = if (filterSongs) streamingResults.songs else emptyList()
-    val matchedStreamingAlbums = if (filterAlbums) streamingResults.albums else emptyList()
-    val matchedStreamingArtists = if (filterArtists) streamingResults.artists else emptyList()
-    val matchedStreamingPlaylists = if (filterPlaylists) streamingResults.playlists else emptyList()
+    val matchedStreamingSongs = if (canSearchStreaming && filterSongs) streamingResults.songs else emptyList()
+    val matchedStreamingAlbums = if (canSearchStreaming && filterAlbums) streamingResults.albums else emptyList()
+    val matchedStreamingArtists = if (canSearchStreaming && filterArtists) streamingResults.artists else emptyList()
+    val matchedStreamingPlaylists = if (canSearchStreaming && filterPlaylists) streamingResults.playlists else emptyList()
 
     val hasResults = matchedLocalSongs.isNotEmpty() || matchedStreamingSongs.isNotEmpty() ||
             matchedLocalAlbums.isNotEmpty() || matchedStreamingAlbums.isNotEmpty() ||
