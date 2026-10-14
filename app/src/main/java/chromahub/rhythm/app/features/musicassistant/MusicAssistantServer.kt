@@ -4,7 +4,7 @@ package chromahub.rhythm.app.features.musicassistant
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
-/** Only the server address is saved by Rhythm. Authentication stays in the isolated WebView. */
+/** Shared server-address validation for native and isolated web sessions. */
 object MusicAssistantServer {
     fun normalize(input: String): String? {
         val value = input.trim()

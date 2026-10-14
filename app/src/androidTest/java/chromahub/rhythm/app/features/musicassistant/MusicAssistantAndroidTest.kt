@@ -76,6 +76,22 @@ class MusicAssistantAndroidTest {
             main { controller.setMediaItems(listOf(item(flac))); controller.prepare(); controller.play() }
             waitFor("FLAC playing in Rhythm") { controller.isPlaying && (MusicAssistantPlayer.active.value?.sessionId ?: 0) > 0 && controller.currentPosition > 2000 }
             assertTrue(main { controller.currentMediaItem?.mediaId == "MUSIC_ASSISTANT::${flac.providerId}" })
+            main {
+                AppSettings.getInstance(context).setBluetoothLyricsEnabled(true)
+                AppSettings.getInstance(context).setBluetoothLyricsTextMode(chromahub.rhythm.app.shared.data.model.BluetoothLyricsTextMode.ORIGINAL)
+            }
+            val lyricData = Bundle().apply {
+                putString("song_id", "MUSIC_ASSISTANT::${flac.providerId}")
+                putStringArrayList("lyric_texts", arrayListOf("Rhythm lyric test"))
+                putStringArrayList("lyric_romanizations", arrayListOf("Rhythm lyric test"))
+                putLongArray("lyric_timestamps", longArrayOf(0))
+                putString("lyrics_source", "Android regression fixture")
+            }
+            main { controller.sendCustomCommand(SessionCommand("UPDATE_LYRICS_DATA", Bundle.EMPTY), lyricData) }.get(10, TimeUnit.SECONDS)
+            val positionBeforeLyrics = main { controller.currentPosition }
+            waitFor("native lyric metadata") { controller.mediaMetadata.title.toString().contains("Rhythm lyric test") || controller.mediaMetadata.artist.toString().contains("Rhythm lyric test") }
+            assertTrue("Lyric metadata must not rewind audio", main { controller.currentPosition } >= positionBeforeLyrics - 500)
+            assertEquals("Lyric metadata must not replace the queue", 1, main { controller.mediaItemCount })
             main { controller.pause() }
             waitFor("pause") { !controller.playWhenReady }
             val paused = main { controller.currentPosition }

@@ -33,14 +33,14 @@ internal class MusicAssistantProviderClient(context: Context) {
     suspend fun ping() = result { api().libraryTracks(limit = 1); Unit }
     suspend fun command(name: String, vararg args: Pair<String, Any?>) = transport().command(name, Gson().toJsonTree(args.toMap()).asJsonObject)
     suspend fun item(uri: String) = command("music/item_by_uri", "uri" to uri).objectOrFail()
-    private fun image(item: JsonObject): String? = item.getAsJsonObject("metadata")?.getAsJsonArray("images")
+    private fun image(item: JsonObject): String? = item.get("metadata")?.takeIf { it.isJsonObject }?.asJsonObject?.get("images")?.takeIf { it.isJsonArray }?.asJsonArray
         ?.firstNotNullOfOrNull { it.asJsonObject.text("proxy_id") }?.let {
             account.server.toHttpUrl().newBuilder().addPathSegment("imageproxy").addPathSegment(it).addQueryParameter("size", "512").build().toString()
         }
     private fun song(item: JsonObject) = MusicAssistantTrack.fromJson(item).toProviderSong().copy(
-        artworkUrl = image(item), trackNumber = item.number("track_number")?.toInt(), year = item.getAsJsonObject("album")?.number("year")?.toInt(),
+        artworkUrl = image(item), trackNumber = item.number("track_number")?.toInt(), year = item.get("album")?.takeIf { it.isJsonObject }?.asJsonObject?.number("year")?.toInt(),
     )
-    private fun artists(item: JsonObject) = item.getAsJsonArray("artists")?.joinToString(", ") { it.asJsonObject.text("name").orEmpty() }.orEmpty()
+    private fun artists(item: JsonObject) = item.get("artists")?.takeIf { it.isJsonArray }?.asJsonArray?.joinToString(", ") { it.asJsonObject.text("name").orEmpty() }.orEmpty()
     private fun album(item: JsonObject) = ProviderAlbum(item.requiredText("uri"), item.requiredText("name"), artists(item), image(item), year = item.number("year")?.toInt())
     private fun artist(item: JsonObject) = ProviderArtist(item.requiredText("uri"), item.requiredText("name"), image(item))
     private fun playlist(item: JsonObject) = ProviderPlaylist(item.requiredText("uri"), item.requiredText("name"), artworkUrl = image(item), owner = if (item.boolean("is_editable") == true) account.username else null)

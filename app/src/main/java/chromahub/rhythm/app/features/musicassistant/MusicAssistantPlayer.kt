@@ -39,14 +39,18 @@ internal class MusicAssistantPlayer(
     private val config = MutableStateFlow<LocalPlayerConfig?>(null)
     private val dispatcher = Executors.newSingleThreadExecutor { action -> Thread(action, "Rhythm-Sendspin").apply { priority = Thread.MAX_PRIORITY } }.asCoroutineDispatcher()
     private val http = HttpClient(OkHttp) { install(WebSockets) }
+    private val wakeLock = (context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager)
+        .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "Rhythm:Sendspin").apply { setReferenceCounted(false) }
     private val clock = MonotonicClock { SystemClock.elapsedRealtimeNanos() / 1000 }
     @Volatile var sessionId: Int = 0
         private set
-    private val sink = AudioTrackSink(context, clock, beforeOpen = foreground, onSessionOpened = {
+    private val sink = MusicAssistantAudioSink(context, AudioTrackSink(context, clock, beforeOpen = foreground, onSessionOpened = {
+        wakeLock.acquire(10 * 60 * 1000L)
         sessionId = it; audioSession(it, true)
     }, onSessionClosing = {
-        if (sessionId == it) sessionId = 0; audioSession(it, false)
-    })
+        if (sessionId == it) sessionId = 0
+        try { audioSession(it, false) } finally { if (wakeLock.isHeld) wakeLock.release() }
+    }))
     private val receiver = SendspinPlayer(config, SendspinDeps(
         sink, AndroidDecoderFactory(), object : SendspinKeyStore {
             override fun read(key: String) = runCatching { client.account.read("sendspin.$key") }.getOrNull()
@@ -74,6 +78,7 @@ internal class MusicAssistantPlayer(
                     is PlayerState.Connecting -> "Connecting to Music Assistant"
                     else -> "Music Assistant stopped"
                 }
+                if (state is PlayerState.Connected && state.audio.phase == AudioPhase.Playing && sessionId != 0) wakeLock.acquire(10 * 60 * 1000L)
                 if (state is PlayerState.Failed) {
                     error = PlaybackException(nativeStatus.value, null, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
                     invalidateState()
@@ -266,6 +271,14 @@ internal class MusicAssistantPlayer(
             mediaItems.forEach { metadata[uri(it)] = it }; invalidateState(); return Futures.immediateVoidFuture()
         }
         return Futures.immediateFailedFuture<Void>(UnsupportedOperationException("Replace server songs with an explicit Play action"))
+    }
+    fun keepCurrent() = submit {
+        refresh()
+        val id = queueId()
+        val keep = queue?.currentOccurrenceId ?: return@submit
+        val remove = rows.filter { it.occurrenceId != keep }.map { it.occurrenceId }
+        remove.asReversed().forEach { client.command("player_queues/delete_item", "queue_id" to id, "item_id_or_index" to it) }
+        pendingManual.clear()
     }
     fun selectedOutputId(): String? = targetId ?: (receiver.state.value as? PlayerState.Connected)?.playerId
     fun selectOutput(id: String, transfer: Boolean) = submit {

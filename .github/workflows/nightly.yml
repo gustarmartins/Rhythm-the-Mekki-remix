@@ -91,7 +91,7 @@ jobs:
             -Pkotlin.daemon.jvmargs=-Xmx4500m \
             -PversionCodeOverride="$NIGHTLY_CODE" -PversionNameOverride="$NIGHTLY_NAME" \
             -PreleaseDateOverride="$(date -u +%F)" -Pnightly="$IS_NIGHTLY" \
-            :app:testGithubDebugUnitTest :app:assembleGithubRelease :app:assembleFdroidRelease
+            :sendspin:testDebugUnitTest :app:testGithubDebugUnitTest :app:assembleGithubRelease :app:assembleFdroidRelease
       - name: Verify signer, package, versions and checksums
         env:
           NIGHTLY_CODE: ${{ steps.version.outputs.code }}
@@ -110,6 +110,8 @@ jobs:
         with:
           name: Rhythm-validation-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
+            sendspin/build/reports/tests/
+            sendspin/build/test-results/
             app/build/reports/tests/
             app/build/test-results/
             app/build/reports/lint-results*.html

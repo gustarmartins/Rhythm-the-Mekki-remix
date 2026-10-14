@@ -2655,6 +2655,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         if (native == (musicAssistantPlayer != null)) return false
         libraryContinuationJob?.cancel()
         btCollapseJob?.cancel()
+        if (::transitionController.isInitialized) transitionController.cancelPendingTransition()
         restoreQueueFromBtVirtual()
         val old = player
         old.pause()
@@ -3066,6 +3067,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         positionMs: Long = C.TIME_UNSET,
         isSkipPrevious: Boolean = false
     ): Boolean {
+        if (musicAssistantPlayer != null) return false
         try {
             if (!appSettings.crossfade.value || !appSettings.crossfadeOnSkip.value) {
                 return false
@@ -3146,6 +3148,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     }
 
     private fun skipWithCrossfade(toNext: Boolean): Boolean {
+        if (musicAssistantPlayer != null) return false
         val playerToUse = rhythmPlayerEngine.masterPlayer
         if (!playerToUse.isPlaying) {
             return false
@@ -3463,6 +3466,15 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             if (customCommand.customAction == PlayNextCommand.CLEAR_EXCEPT_CURRENT) {
                 if (controller.packageName != packageName || !::player.isInitialized) {
                     return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
+                }
+                musicAssistantPlayer?.let { native ->
+                    val result = com.google.common.util.concurrent.SettableFuture.create<SessionResult>()
+                    val operation = native.keepCurrent()
+                    operation.addListener({
+                        try { operation.get(); result.set(SessionResult(SessionResult.RESULT_SUCCESS)) }
+                        catch (_: Exception) { result.set(SessionResult(SessionError.ERROR_UNKNOWN)) }
+                    }, androidx.core.content.ContextCompat.getMainExecutor(this@MediaPlaybackService))
+                    return result
                 }
                 clearQueueExceptCurrent()
                 return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
