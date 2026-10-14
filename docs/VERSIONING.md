@@ -41,6 +41,8 @@ with the clean version, for example **v6.0.0 - Rhythm Stable**.
 Stable is manually dispatched with `channel=stable` on `release/*`. Main push
 builds use `channel=nightly`. Stable must exclude Music Assistant source and
 manifest entries until that integration has been explicitly approved for Stable.
+Backup exclusions for credentials retained by older experimental installs remain
+active even on Stable; they do not enable the feature.
 The legacy `release.yml` publisher is retired to prevent duplicate counters,
 unverified publication and unsolicited channel broadcasts.
 
