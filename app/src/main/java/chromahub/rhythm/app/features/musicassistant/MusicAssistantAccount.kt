@@ -18,12 +18,17 @@ internal class MusicAssistantAccount(context: Context) {
     val server: String get() = prefs.getString("server", null) ?: legacy.getString("server", "").orEmpty()
     val username: String get() = prefs.getString("username", "").orEmpty()
     val token: String get() = read("token")?.toString(Charsets.UTF_8).orEmpty()
-    fun save(server: String, username: String, token: String) {
-        write("token", token.toByteArray())
-        check(prefs.edit().putString("server", server).putString("username", username).commit())
+    class Session(val server: String, val username: String, val token: String)
+    fun snapshot() = synchronized(lock) { Session(server, username, token) }
+    fun save(server: String, username: String, token: String) = synchronized(lock) {
+        // Commit the server and encrypted token together: never send a new account's
+        // bearer to the previous server during a concurrent catalog request.
+        val encrypted = encrypt("token", token.toByteArray())
+        check(prefs.edit().putString("server", server).putString("username", username)
+            .putString("secret.token", encrypted).commit())
         legacy.edit().putString("server", server).apply()
     }
-    fun clear() { check(prefs.edit().clear().commit()) }
+    fun clear() = synchronized(lock) { check(prefs.edit().clear().commit()) }
     fun read(name: String): ByteArray? = synchronized(lock) {
         val encoded = prefs.getString("secret.$name", null) ?: return@synchronized null
         val parts = encoded.split(':', limit = 2)
@@ -35,12 +40,14 @@ internal class MusicAssistantAccount(context: Context) {
         }
     }
     fun write(name: String, bytes: ByteArray) = synchronized(lock) {
+        check(prefs.edit().putString("secret.$name", encrypt(name, bytes)).commit())
+    }
+    private fun encrypt(name: String, bytes: ByteArray): String {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
             init(Cipher.ENCRYPT_MODE, key()); updateAAD(name.toByteArray())
         }
         val encrypted = cipher.doFinal(bytes)
-        val encoded = Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(encrypted, Base64.NO_WRAP)
-        check(prefs.edit().putString("secret.$name", encoded).commit())
+        return Base64.encodeToString(cipher.iv, Base64.NO_WRAP) + ":" + Base64.encodeToString(encrypted, Base64.NO_WRAP)
     }
     fun delete(name: String) { check(prefs.edit().remove("secret.$name").commit()) }
     private fun key(): SecretKey {

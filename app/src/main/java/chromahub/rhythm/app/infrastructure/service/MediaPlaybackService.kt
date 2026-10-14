@@ -2652,7 +2652,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         if (items.isEmpty()) return false
         val native = items.any(MusicAssistantPlayer::isMusicAssistant)
         require(!native || items.all(MusicAssistantPlayer::isMusicAssistant)) { "Mixed local/server queues are not supported" }
-        if (native == (musicAssistantPlayer != null)) return false
+        if (native == (musicAssistantPlayer != null) && musicAssistantPlayer?.isReleased != true) return false
         libraryContinuationJob?.cancel()
         btCollapseJob?.cancel()
         if (::transitionController.isInitialized) transitionController.cancelPendingTransition()
@@ -3521,7 +3521,13 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                     val items = bundles.map { MediaItem.fromBundle(it) }
                     if (items.isEmpty() || items.any { it.localConfiguration?.uri == null }) {
                         Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
-                    } else if (musicAssistantPlayer != null) {
+                    } else if (items.any(MusicAssistantPlayer::isMusicAssistant) &&
+                        (!items.all(MusicAssistantPlayer::isMusicAssistant) ||
+                            (musicAssistantPlayer == null && player.mediaItemCount > 0))) {
+                        // A failed cross-source enqueue must never replace existing playback.
+                        Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
+                    } else if (musicAssistantPlayer?.isReleased == false || items.all(MusicAssistantPlayer::isMusicAssistant)) {
+                        if (musicAssistantPlayer == null || musicAssistantPlayer?.isReleased == true) switchMusicSource(items)
                         val result = com.google.common.util.concurrent.SettableFuture.create<SessionResult>()
                         val operation = musicAssistantPlayer!!.enqueueNext(items)
                         operation.addListener({
@@ -3530,6 +3536,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                         }, androidx.core.content.ContextCompat.getMainExecutor(this@MediaPlaybackService))
                         result
                     } else {
+                        if (musicAssistantPlayer?.isReleased == true) switchMusicSource(items)
                         Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS, enqueuePlayNext(items)))
                     }
                 } catch (e: Exception) {

@@ -1,109 +1,92 @@
-# Native Music Assistant integration — 6.1 Nightly development
+# Music Assistant in Rhythm Go
 
-The target is to browse a Music Assistant library in Rhythm's existing screens
-and listen through Rhythm's native player. A server filesystem track is a
-provider-backed media item, not a file path or HTTP download on the phone.
+Choose **Music Assistant** in Rhythm Go's provider picker (including first-run
+setup), enter the server URL, and sign in with a Music Assistant account. The
+server's songs, albums, artists, playlists and search use Rhythm's existing UI.
+Select a song to connect this phone's native audio receiver. Bluetooth audio
+then follows the phone's normal output route.
 
-The first native implementation is the catalog and control API layer under
-`features/musicassistant/api`. It does not yet connect Music Assistant to the
-Rhythm GO provider picker or replace the phone audio engine. The existing
-experimental web workspace remains available on Nightly. Stable 6.0.0 excludes
-both integrations.
+The connection accepts LAN, Tailscale and HTTPS reverse-proxy URLs. The VPN must
+already connect the phone to the server. A reverse proxy must forward WebSocket
+connections. Use the server's direct URL, not Home Assistant ingress. Android 17
+requires nearby/local-network access; Connect requests that permission.
 
-## Implemented adapters
+## Native playback
 
-- Direct HTTP/HTTPS connection, including Tailscale addresses and reverse-proxy
-  path prefixes; built-in account login and bearer-token API requests.
-- Paged library tracks, provider search, individual track details and album
-  tracks, mapped into Rhythm's shared provider-song model. Provider-qualified
-  identity, FLAC/MP3 format metadata and embedded plain/timed lyrics are retained.
-- Player discovery, active group queue resolution and paged queue occurrences.
-  Repeated songs keep separate `queue_item_id` identities.
-- Explicit Play, append, pause/resume/stop/next/previous, volume, seek, queue
-  transfer, favorite state and group membership commands. Transfers preserve
-  the source's pause state by omitting `auto_play`.
-- Cancellable requests, bounded response size, no redirect forwarding, no
-  automatic mutation retries and sanitized failures. An invalid response raises
-  an error instead of reporting a successful empty library.
+Music Assistant delivers phone audio through Sendspin. A Media3 adapter exposes
+the server's queue and playback state to Rhythm's existing player, notification,
+lyrics and Bluetooth metadata code. The server owns track resolution and queue
+occurrences; server URIs are never interpreted as phone filesystem paths or
+preview downloads.
 
-Credentials are supplied in memory to this layer. It does not persist them or
-borrow the WebView login. The future native account UI must use private secure
-storage excluded from backup, independently of the existing WebView profile.
+- Library, search, album/artist browsing, playlists, favorites and provider lyrics
+  are connected to the native streaming repository.
+- The account token and Sendspin identity are encrypted using an Android
+  Keystore key and excluded from backup. Passwords are not persisted. Native
+  authentication is separate from the optional server-administration WebView.
+- Phone audio uses native decoders and AudioTrack, respects audio focus and
+  headphone interruptions, and balances audio-effect OPEN/CLOSE notifications.
+  Rhythm's bass, spatial and mono PCM processors are reused; session-based EQ
+  and JamesDSP use the active native audio session.
+- Media controls use the active server queue. Duplicate tracks retain separate
+  occurrence IDs. Play Next requests are serialized, appended, moved in caller
+  order and read back before acknowledgement. A failed mutation never replaces
+  playback or blindly retries an ambiguous request.
+- Server changes are refreshed while the native player is connected. Output
+  controls are available in the player's output sheet and Go settings. Selecting
+  an output observes its queue; **Move playback here** explicitly transfers the
+  current queue while preserving pause state. Compatible players can be grouped
+  and their volumes adjusted; the server decides compatibility.
 
-These adapters do not automatically execute against any server. The caller must
-select a player, resolve its active queue, and reconcile server state after
-mutations. `append` means append to the queue tail; it must not be presented as
-Rhythm's FIFO Play Next. That integration needs reservation ordering, server
-occurrence reconciliation and cancellation handling before it can be exposed.
+The **Server administration** entry remains available for provider setup and
+other MA administration. Normal Rhythm playback does not require its web player.
 
-## What your friend would have today
+## Current boundaries
 
-| Capability | Existing Nightly web workspace | Native Rhythm integration |
-| --- | --- | --- |
-| Server FLAC/MP3 library and configured music providers | Supplied by the server frontend | Catalog adapters implemented; existing Rhythm screens not connected yet |
-| Playback on this phone | Server web player | Sendspin audio/clock/pairing integration pending |
-| Shared server queue and remote players | Server frontend controls | API adapters implemented; native controls pending |
-| Compatible synchronized player groups and member volumes | Server frontend controls | Group/volume API adapters implemented; native UI and synchronized phone output pending |
-| Direct LAN/Tailscale server URL | Available | HTTP transport implemented |
-| Remote ID over WebRTC | Not implemented by Rhythm's connection screen | Signaling, authentication and data-channel transport pending |
-| Rhythm Bluetooth lyrics, DSP and Android Auto behavior for server audio | Web audio has a separate playback path | Media3 service/Sendspin integration and device validation pending |
-| Offline original files and embedding edited artwork/tags | Not provided by this integration | Needs provider-specific capability; a preview URL is not a full-track download |
+| Feature | Current behavior |
+| --- | --- |
+| Native phone playback and ordinary Rhythm UI | Implemented; device qualification described below |
+| Rhythm lyrics and Bluetooth metadata | Uses the existing native formatter, timing and canonical track identity; physical car acceptance is separate |
+| Group queues and remote outputs | Native control adapters; synchronization depends on server/player compatibility |
+| Local phone files mixed into an MA queue | Not supported; the server cannot read Android content URIs |
+| Offline downloads and embedded artwork/tag edits | Not exposed by this MA adapter; preview streams are never substituted for full originals |
+| WebRTC Remote ID | Not implemented; use a reachable direct URL, including Tailscale |
+| Crossfade, normalization and queue continuation | Server-owned; the phone's local dual-player engine does not rewrite shared queues |
+| USB bit-perfect playback | Not qualified; the current Sendspin receiver advertises 48 kHz, 16-bit stereo |
+| Legacy-car one-item queue view | Local playback retains its existing compatibility view; MA queue collapse is disabled to avoid rewriting a shared server queue |
 
-## Next integration steps
+Native audio requires Android 9 or newer and a server compatible with the
+bundled encrypted Sendspin protocol. The official mobile implementation requires
+API schema 45 or newer; the lab server is 2.10.6 Stable, schema 65. Older servers
+and WebRTC-only connections have not been qualified.
 
-1. Native account storage and catalog provider wiring, including authenticated
-   artwork and paging for albums, artists and playlists.
-2. Native Sendspin player with a Media3 adapter: server-owned queue/state,
-   synchronized clock/output, audio focus, background lifecycle and balanced
-   JamesDSP session broadcasts. Keep local queue continuation and crossfade out
-   of server-owned queues. Preserve FIFO requests and Bluetooth compatibility.
-3. Native player/group picker, shared queue events and transfer controls.
-4. WebRTC Remote ID signaling and transports for API and Sendspin audio.
+## Validation
 
-The official mobile client's encrypted Sendspin implementation requires server
-API schema 45 or newer. The friend's server version is not yet known. That must
-be checked before choosing a compatible native playback path; older versions
-must receive an explicit unsupported-version result, not a silent preview-file
-or web-player substitution.
+The official **2.10.6 Stable** container was tested using an existing library
+mounted read-only: 1,846 audio-file mappings, unified by MA into 1,827 tracks.
+The API adapters passed real-server authentication, catalog, metadata, favorites,
+queue occurrences, ordered append, paused transfers, volume and group controls.
+Earlier browser Sendspin probes received nonzero decoded audio. Those checks do
+not constitute native Rhythm Android or physical speaker acceptance.
 
-## Evidence and validation
+Cloud validation compiles the Android app and passes **365 application tests**
+and **198 Sendspin tests**. The imported protocol tests include reference crypto
+vectors, connection lifecycle, audio scheduling, pairing and redacted logging.
+A fresh platform ChaCha cipher per operation fixes a cipher-pooling failure
+found by these tests.
 
-The adapters were checked against the official
-[server API implementation](https://github.com/music-assistant/server/tree/bb8a6fe866712ec98f83111d90daeebc4ecf9457/music_assistant/controllers)
-and [mobile client](https://github.com/music-assistant/mobile-app/tree/d1f3c7fc0a9eb7d8d45beccbe45583d95bd0679e).
-No upstream implementation has been copied into this API layer. Protocol/audio
-module reuse, if added later, must preserve upstream licensing and attribution.
+A real-server Android instrumentation test exercises the native repository and
+actual MediaPlaybackService: FLAC, MP3, pause, seek, FIFO additions, duplicate
+occurrences and lyric metadata without a playback restart. It requires privately
+supplied credentials and never includes them in source or build artifacts.
 
-`MusicAssistantApiTest` uses mock HTTP responses to cover request/auth contracts,
-proxy paths, metadata, queue occurrences, paused transfers, ordered appends,
-group controls, favorites, errors, redirects, retry prevention, cancellation and
-response limits. This is contract coverage, not a real-server compatibility or
-listening result. Cloud CI additionally runs the full existing JVM suite and
-builds/verifies both signed release flavors before publication.
+**Device qualification is pending.** Munch exposed the missing Android 17 LAN
+permission, which is now declared and requested during connection setup. The
+corrected APK was installed, but the phone restarted during verification and
+became unreachable before the playback test could run. No native listening,
+physical Bluetooth/car, group synchronization or Android Auto result is claimed.
 
-### Real-server validation — October 14, 2026
-
-The adapters were also exercised against the official **2.10.6 Stable** server
-image (API schema **65**) using an existing music library mounted read-only.
-Native Kotlin calls passed login, paging, search, FLAC/MP3 details, album lookup,
-embedded lyrics, favorite write/read/removal, duplicate queue occurrences,
-ordered append, transfer without autoplay, member volume and group membership.
-Two muted, instrumented browser Sendspin players received nonzero decoded audio.
-This verifies the server and API layer; it does not qualify Rhythm's unfinished
-native audio engine, physical speaker synchronization or Android Auto.
-
-The test exposed and corrected three assumptions:
-
-- Stable does not provide `music/favorites/set_item`. Use the portable add/remove
-  commands, resolving a provider item to its library identity before removal.
-- Cold queue preparation can exceed the HTTP client's default 10-second read
-  timeout. Queue play/transfer get a bounded 90-second deadline; ordinary calls
-  remain bounded at 30 seconds, cancellation works, and mutations are not retried.
-- Sendspin may implement pause as a stop with retained `resume_pos`. Keep that
-  position independently of `elapsed_time`, which may be zero after transfer.
-
-An exact title containing ` - ` returned no matches through the server's own
-search API while a shorter query found it; this server search behavior remains.
-The test server also restarted once during setup/testing; the cause was not
-established. Subsequent completed checks passed. Long-run server stability and
-physical playback are not claimed.
+The Sendspin module is adapted from the official
+[Music Assistant mobile client](https://github.com/music-assistant/mobile-app/tree/d1f3c7fc0a9eb7d8d45beccbe45583d95bd0679e),
+under Apache 2.0. Its license, provenance and adaptation notice are included in
+`sendspin/` and the APK's license assets. The Stable 6.0 release remains MA-free.

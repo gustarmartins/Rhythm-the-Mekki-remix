@@ -21,6 +21,7 @@ internal data class MusicAssistantTrack(
     val codec: String?,
     val sampleRate: Int?,
     val channels: Int?,
+    val providerUris: Set<String> = emptySet(),
 ) {
     /** Shared Rhythm catalog model; audio and artwork are resolved by their own authenticated adapters. */
     fun toProviderSong() = ProviderSong(
@@ -50,6 +51,11 @@ internal data class MusicAssistantTrack(
                 lyrics = metadata?.text("lyrics"), syncedLyrics = metadata?.text("lrc_lyrics"),
                 codec = format?.text("content_type"), sampleRate = format?.number("sample_rate")?.toInt(),
                 channels = format?.number("channels")?.toInt(),
+                providerUris = mappings.flatMap { mapping ->
+                    val id = mapping.text("item_id") ?: return@flatMap emptyList()
+                    listOfNotNull(mapping.text("provider_instance"), mapping.text("provider_domain"))
+                        .map { provider -> "$provider://track/$id" }
+                }.toSet(),
             )
         }
     }

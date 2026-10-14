@@ -108,9 +108,10 @@ internal class MusicAssistantPlayer(
     private fun connect() {
         if (config.value != null) return
         foreground()
-        val server = client.account.server
+        val session = client.account.snapshot()
+        val server = session.server
         val endpoint = server.replaceFirst("https://", "wss://").replaceFirst("http://", "ws://") + "sendspin"
-        config.value = LocalPlayerConfig(Endpoint.WebSocket(endpoint, client.account.token), "Rhythm • ${android.os.Build.MODEL}",
+        config.value = LocalPlayerConfig(Endpoint.WebSocket(endpoint, session.token), "Rhythm • ${android.os.Build.MODEL}",
             listOf(AudioCodec.FLAC, AudioCodec.PCM, AudioCodec.OPUS), 4 * 1024 * 1024, 0)
     }
     private suspend fun target(): String {
@@ -231,8 +232,9 @@ internal class MusicAssistantPlayer(
     fun enqueueNext(items: List<MediaItem>): ListenableFuture<Void> = submit {
         refresh()
         val current = rows.indexOfFirst { it.occurrenceId == queue?.currentOccurrenceId }
-        val tail = rows.indexOfLast { it.occurrenceId in pendingManual }.coerceAtLeast(current)
-        addAt(items, (tail + 1).coerceAtLeast(0), manual = true)
+        val empty = rows.isEmpty()
+        addAt(items, (current + 1).coerceAtLeast(0), manual = true)
+        if (empty) { foreground(); client.api().playerAction(target(), MusicAssistantApi.PlayerAction.PLAY) }
     }
     override fun handleAddMediaItems(index: Int, mediaItems: MutableList<MediaItem>) = submit { addAt(mediaItems, index, false) }
     private suspend fun addAt(items: List<MediaItem>, index: Int, manual: Boolean) {
@@ -240,17 +242,28 @@ internal class MusicAssistantPlayer(
         val id = queueId(); val before = readItems(id, client.api().activeQueue(target())?.itemCount ?: 0)
         client.api().append(id, items.map(::uri))
         val after = readItems(id, client.api().activeQueue(target())?.itemCount ?: 0)
-        val added = after.filter { row -> before.none { it.occurrenceId == row.occurrenceId } }
-        check(added.size == items.size) { "Queue changed concurrently; refresh before reordering" }
+        val beforeIds = before.map { it.occurrenceId }.toSet()
+        val added = orderMusicAssistantAdditions(items.map(::uri), after.filter { it.occurrenceId !in beforeIds })
         items.forEach { metadata[uri(it)] = it }
-        for ((offset, row) in added.withIndex()) {
+        // ADD can reshuffle the existing tail too. Keep all unplayed manual requests
+        // together, in reservation order, before the remaining context.
+        val beforeById = before.associateBy { it.occurrenceId }
+        val ordered = if (manual) pendingManual.mapNotNull(beforeById::get) + added else added
+        for ((offset, row) in ordered.withIndex()) {
             val now = readItems(id, after.size)
             val from = now.indexOfFirst { it.occurrenceId == row.occurrenceId }
             val destination = (index + offset).coerceAtMost(now.lastIndex)
             if (from != destination) client.command("player_queues/move_item", "queue_id" to id, "queue_item_id" to row.occurrenceId, "pos_shift" to destination - from)
         }
         val verified = readItems(id, after.size)
-        check(verified.drop(index).take(added.size).map { it.occurrenceId } == added.map { it.occurrenceId }) { "Server has buffered the next song; refresh queue order" }
+        if (verified.drop(index).take(ordered.size).map { it.occurrenceId } != ordered.map { it.occurrenceId }) {
+            // The server can protect already-buffered audio. Roll back only our identified
+            // new occurrences; delete_item itself refuses played/buffered items.
+            for (row in added.asReversed()) runCatching {
+                client.command("player_queues/delete_item", "queue_id" to id, "item_id_or_index" to row.occurrenceId)
+            }
+            error("Server has buffered the next song; refresh queue order")
+        }
         if (manual) pendingManual.addAll(added.map { it.occurrenceId })
     }
     override fun handleRemoveMediaItems(fromIndex: Int, toIndex: Int): ListenableFuture<*> {
@@ -295,6 +308,15 @@ internal class MusicAssistantPlayer(
     fun setOutputVolume(id: String, volume: Int) = submit { client.api().volume(id, volume) }
     fun setMember(id: String, enabled: Boolean) = submit {
         client.api().groupMembers(target(), if (enabled) listOf(id) else emptyList(), if (enabled) emptyList() else listOf(id))
+    }
+    val isReleased: Boolean get() = released
+    fun disconnectAccount() {
+        queue = null
+        rows = emptyList()
+        pendingManual.clear()
+        error = null
+        invalidateState()
+        release()
     }
     override fun handleRelease(): ListenableFuture<*> {
         if (released) return Futures.immediateVoidFuture()

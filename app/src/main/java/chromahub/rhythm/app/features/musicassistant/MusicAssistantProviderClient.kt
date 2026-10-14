@@ -19,17 +19,24 @@ internal class MusicAssistantProviderClient(context: Context) {
     fun isConnected() = runCatching { account.server.isNotBlank() && account.token.isNotBlank() }.getOrDefault(false)
     fun getUsername() = account.username
     fun getServerUrl() = account.server
-    fun transport() = MusicAssistantHttpTransport(account.server, { account.token })
+    fun transport(): MusicAssistantHttpTransport {
+        val session = account.snapshot()
+        return MusicAssistantHttpTransport(session.server, { session.token })
+    }
     fun api() = MusicAssistantApi(transport())
     suspend fun login(serverUrl: String, username: String, password: String, saveCredentials: Boolean = true) = result {
         check(android.os.Build.VERSION.SDK_INT >= 28) { "Music Assistant playback requires Android 9 or newer" }
         val server = requireNotNull(MusicAssistantServer.normalize(serverUrl)) { "Invalid server address" }
         val token = MusicAssistantHttpTransport(server, { "" }).login(username, password)
         // A foreground media service must be able to restore this account after process recreation.
+        withContext(Dispatchers.Main.immediate) { MusicAssistantPlayer.active.value?.disconnectAccount() }
         account.save(server, username, token)
         ProviderConnectionResult(username, server)
     }
-    fun logout() = account.clear()
+    suspend fun logout() {
+        withContext(Dispatchers.Main.immediate) { MusicAssistantPlayer.active.value?.disconnectAccount() }
+        account.clear()
+    }
     suspend fun ping() = result { api().libraryTracks(limit = 1); Unit }
     suspend fun command(name: String, vararg args: Pair<String, Any?>) = transport().command(name, Gson().toJsonTree(args.toMap()).asJsonObject)
     suspend fun item(uri: String) = command("music/item_by_uri", "uri" to uri).objectOrFail()

@@ -29,4 +29,14 @@
     <string name="music_assistant_android8">No Android 8, o Music Assistant abre no navegador. O player integrado exige Android 9 ou mais recente.</string>
     <string name="music_assistant_done">Concluir</string>
     <string name="music_assistant_cancel">Cancelar</string>
+    <string name="music_assistant_native_description">Sua biblioteca do servidor no Rhythm, com reprodução sincronizada e filas compartilhadas.</string>
+    <string name="ma_outputs">Saídas do Music Assistant</string>
+    <string name="ma_start_song">Reproduza uma música do Music Assistant no Rhythm para conectar este celular.</string>
+    <string name="ma_output_failed">O servidor não concluiu a alteração. Atualize e verifique se os reprodutores permitem agrupamento.</string>
+    <string name="ma_transfer">Mover reprodução para cá</string>
+    <string name="ma_group">Entrar no grupo</string>
+    <string name="ma_ungroup">Sair do grupo</string>
+    <string name="ma_refresh">Atualizar</string>
+    <string name="ma_admin">Administração do servidor</string>
+    <string name="local_network_access_required">Permita o acesso à rede local para conectar ao seu servidor de música.</string>
 </resources>
