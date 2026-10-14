@@ -4,6 +4,11 @@ Every change pushed to `main` runs
 `.github/workflows/nightly.yml`. Manual dispatch rebuilds the current main branch.
 PR checks remain in `android.yml`; main builds are not duplicated there.
 
+Concurrency is grouped by branch and source commit. Different commits may build in
+parallel; duplicate runs for the same commit replace one another. Tags, version codes
+and artifacts remain unique per run/attempt. The updater compares versions rather
+than publication time, so an older commit finishing later cannot replace a newer APK.
+
 The cloud job runs the JVM regression suite, builds both release flavors with
 R8/lint-vital, and verifies actual APK package/version/signature before publishing.
 Missing signing secrets fail the build. The expected certificate matches the

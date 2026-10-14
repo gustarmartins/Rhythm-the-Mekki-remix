@@ -191,20 +191,18 @@ fun PlayerScreen(
     val appleCanvasEnabled by appSettings.appleCanvasEnabled.collectAsState()
     val appleCanvasActive = appleCanvasEnabled && integrationsEnabled
     val appleCanvasNetworkMode by appSettings.appleCanvasNetworkMode.collectAsState()
+    val artworkNetworkRevision by chromahub.rhythm.app.util.ArtworkDownloadPolicy.revision.collectAsState()
+    val artworkSetupCompleted by appSettings.artworkSetupCompleted.collectAsState()
     var canvasArtwork by remember(song?.id) { mutableStateOf<CanvasArtwork?>(null) }
     var canvasLoading by remember(song?.id) { mutableStateOf(false) }
 
-    LaunchedEffect(song?.id, appleCanvasActive, appleCanvasNetworkMode) {
+    LaunchedEffect(song?.id, appleCanvasActive, appleCanvasNetworkMode, artworkNetworkRevision, artworkSetupCompleted) {
         // Reset immediately so stale canvas from previous track is gone
         canvasArtwork = null
         canvasLoading = false
 
         if (song != null && appleCanvasActive) {
-            val hasNetwork = if (appleCanvasNetworkMode == CanvasNetworkMode.WIFI_ONLY) {
-                NetworkUtils.isWifiConnected(context)
-            } else {
-                NetworkUtils.isNetworkAvailable(context)
-            }
+            val hasNetwork = chromahub.rhythm.app.util.ArtworkDownloadPolicy.canvasAllowed()
             if (hasNetwork) {
                 canvasLoading = true
                 val result = withContext(Dispatchers.IO) {

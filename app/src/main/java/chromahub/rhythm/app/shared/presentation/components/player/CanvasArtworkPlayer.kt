@@ -52,7 +52,15 @@ fun CanvasArtworkPlayer(
     val settings = remember { chromahub.rhythm.app.shared.data.model.AppSettings.getInstance(context) }
     val saver by settings.batterySaverActive.collectAsState()
     val pauseCanvas by settings.batterySaverDisableCanvas.collectAsState()
-    if (!foreground || (saver && pauseCanvas)) return
+    val networkRevision by chromahub.rhythm.app.util.ArtworkDownloadPolicy.revision.collectAsState()
+    val networkMode by settings.appleCanvasNetworkMode.collectAsState()
+    val setupCompleted by settings.artworkSetupCompleted.collectAsState()
+    val canvasEnabled by settings.appleCanvasEnabled.collectAsState()
+    val integrationsEnabled by settings.integrationsEnabled.collectAsState()
+    val networkAllowed = remember(networkRevision, networkMode, setupCompleted, canvasEnabled, integrationsEnabled) {
+        chromahub.rhythm.app.util.ArtworkDownloadPolicy.canvasAllowed()
+    }
+    if (!foreground || (saver && pauseCanvas) || !networkAllowed) return
     val primary = primaryUrl?.takeIf { it.isNotBlank() }
     val fallback = fallbackUrl?.takeIf { it.isNotBlank() }
     val initial = primary ?: fallback ?: return
@@ -86,6 +94,8 @@ fun CanvasArtworkPlayer(
         // Use the application context so the player never retains the Activity
         // (media3 holds the builder context in its codec adapter factory).
         ExoPlayer.Builder(context.applicationContext, renderersFactory)
+            .setMediaSourceFactory(androidx.media3.exoplayer.source.DefaultMediaSourceFactory(
+                chromahub.rhythm.app.util.CanvasNetworkDataSource.Factory(context)))
             .setLoadControl(loadControl)
             .build()
             .apply {

@@ -90,6 +90,7 @@ fun PermissionHandler(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val onboardingCompleted by appSettings.onboardingCompleted.collectAsState()
+    val artworkSetupCompleted by appSettings.artworkSetupCompleted.collectAsState()
     val initialMediaScanCompleted by appSettings.initialMediaScanCompleted.collectAsState()
     val appMode by appSettings.appMode.collectAsState()
     var permissionScreenState by remember { mutableStateOf<PermissionScreenState>(PermissionScreenState.Loading) }
@@ -304,6 +305,9 @@ fun PermissionHandler(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        if (onboardingCompleted && currentOnboardingStep == OnboardingStep.COMPLETE && !artworkSetupCompleted) {
+            ArtworkDownloadSettingsDialog(appSettings, firstSetup = true, onDismiss = {})
+        }
         // Show the main app as soon as onboarding is complete, not initializing
         AnimatedVisibility(
             visible = currentOnboardingStep == OnboardingStep.COMPLETE, // Show app as soon as onboarding is complete (service starts in the background)

@@ -207,6 +207,11 @@ fun LibrarySettingsScreen(onBackClick: () -> Unit) {
 
     var showLibraryTabOrderBottomSheet by remember { mutableStateOf(false) }
     var showArtistArtworkSourceBottomSheet by remember { mutableStateOf(false) }
+    var showArtworkDownloadChoices by remember { mutableStateOf(false) }
+    if (showArtworkDownloadChoices) {
+        chromahub.rhythm.app.shared.presentation.components.ArtworkDownloadSettingsDialog(
+            appSettings, firstSetup = false, onDismiss = { showArtworkDownloadChoices = false })
+    }
 
     val artistArtworkSourceSubtitle = when (artistArtworkSource) {
         ArtistArtworkSource.PREFER_LOCAL_THEN_API -> stringResource(R.string.settings_artist_artwork_source_prefer_local)
@@ -310,6 +315,12 @@ fun LibrarySettingsScreen(onBackClick: () -> Unit) {
                         description = context.getString(R.string.library_auto_fetch_artwork_desc),
                         toggleState = autoFetchArtwork,
                         onToggleChange = { enabled -> appSettings.setAutoFetchArtwork(enabled) }
+                    ),
+                    SettingItem(
+                        icon = MaterialSymbolIcon("network_wifi"),
+                        title = stringResource(R.string.artwork_download_choices),
+                        description = stringResource(R.string.artwork_download_settings_desc),
+                        onClick = { showArtworkDownloadChoices = true }
                     ),
                     SettingItem(
                         icon = MaterialSymbolIcon("portrait"),

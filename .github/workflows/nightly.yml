@@ -9,7 +9,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: rhythm-nightly-${{ github.ref }}
+  # Separate requested changes can finish without cancelling another commit's signed build.
+  group: rhythm-nightly-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 
 env:

@@ -33,7 +33,7 @@ object OptionalWorkController {
     private val imageDispatchers = java.util.concurrent.CopyOnWriteArraySet<okhttp3.Dispatcher>()
     internal val imageDecodeDispatcher = dispatcher.limitedParallelism(2)
 
-    fun imageNetworkAllowed(): Boolean = gate.policy.allows(OptionalWork.ARTWORK)
+    fun imageNetworkAllowed(): Boolean = gate.policy.allows(OptionalWork.ARTWORK) && ArtworkDownloadPolicy.artworkAllowed()
 
     fun registerImageDispatcher(value: okhttp3.Dispatcher) {
         imageDispatchers.add(value)
@@ -52,6 +52,7 @@ object OptionalWorkController {
     fun initialize(app: Application, settings: AppSettings) {
         if (initialized) return
         initialized = true
+        ArtworkDownloadPolicy.initialize(app, settings)
         var resumed = 0
         app.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
             override fun onActivityResumed(activity: Activity) { resumed++; setForeground(true) }

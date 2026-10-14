@@ -82,6 +82,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
@@ -2016,6 +2017,20 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      * This is called AFTER _isInitialized is set to true, so UI is already responsive.
      */
     private fun startBackgroundTasksDeferred() {
+        // Retry deferred artwork once consent/network availability changes, using the
+        // existing extraction mutex. Skip the initial emission; startup already has a pass.
+        viewModelScope.launch {
+            combine(chromahub.rhythm.app.util.ArtworkDownloadPolicy.revision,
+                appSettings.artworkSetupCompleted, appSettings.artworkAllowMobileData,
+                appSettings.integrationsEnabled, appSettings.autoFetchArtwork) { _, _, _, integrations, covers ->
+                Triple(chromahub.rhythm.app.util.ArtworkDownloadPolicy.artworkAllowed(), integrations, covers)
+            }.distinctUntilChanged().drop(1).collectLatest { (allowed, integrations, covers) ->
+                if (allowed && integrations) {
+                    delay(1500)
+                    fetchArtworkFromInternetSerialized(fetchArtists = true, fetchAlbumsAndSongs = covers)
+                }
+            }
+        }
         armLibrarySetupCompletionNotification()
 
         // Note: The redundant full MediaStore sync on startup has been removed.
@@ -3928,6 +3943,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         fetchArtists: Boolean = true,
         fetchAlbumsAndSongs: Boolean = true
     ) = withContext(Dispatchers.IO) {
+        if (!chromahub.rhythm.app.util.ArtworkDownloadPolicy.artworkAllowed()) return@withContext
         val artistSource = appSettings.artistArtworkSource.value
         val isAutoFetchActive = appSettings.autoFetchArtwork.value
         if (!isAutoFetchActive && artistSource == chromahub.rhythm.app.shared.data.model.ArtistArtworkSource.DISABLED) {
@@ -3941,6 +3957,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 Log.d(TAG, "Found ${missingArtists.size} artists without images out of ${_artists.value.size} total artists")
                 val chunkSize = 10
                 for (batch in missingArtists.chunked(chunkSize)) {
+                    if (!chromahub.rhythm.app.util.ArtworkDownloadPolicy.artworkAllowed()) return@withContext
                     val updatedArtists = repository.fetchArtistImages(batch)
                     if (updatedArtists.isNotEmpty()) {
                         val artistMap: Map<String, Artist> = updatedArtists.associateBy { a: Artist -> a.id }
@@ -3952,7 +3969,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
 
-            if (fetchAlbumsAndSongs) {
+            if (fetchAlbumsAndSongs && isAutoFetchActive) {
                 Log.d(TAG, "Fetching album artwork from internet")
                 val context = getApplication<Application>()
 
@@ -3976,6 +3993,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 val songsToUpdate = mutableListOf<Song>()
                 val probeBudget = minOf(library.size, 120)
                 repeat(probeBudget) {
+                    if (!chromahub.rhythm.app.util.ArtworkDownloadPolicy.artworkAllowed()) return@withContext
                     if (songsToUpdate.size >= 40 || library.isEmpty()) return@repeat
                     val song = library[artworkProbeCursor.mod(library.size)]
                     artworkProbeCursor = (artworkProbeCursor + 1).mod(library.size)
@@ -4009,6 +4027,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     Log.d(TAG, "No songs found that need fallback artwork")
                 }
             }
+        } catch (e: CancellationException) { throw e
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching artwork from internet", e)
         }
@@ -4019,6 +4038,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      * updates the song in memory & repository, and invokes onResult callback with success & artwork Uri string.
      */
     fun autoFetchArtworkForSong(song: Song, onResult: (Boolean, String?) -> Unit) {
+        if (!chromahub.rhythm.app.util.ArtworkDownloadPolicy.artworkAllowed()) {
+            onResult(false, null)
+            return
+        }
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 _isFetchingArtwork.value = true

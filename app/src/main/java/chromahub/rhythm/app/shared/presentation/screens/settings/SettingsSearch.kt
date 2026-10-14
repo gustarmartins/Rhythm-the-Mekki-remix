@@ -832,6 +832,16 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             settingKey = "autoFetchArtwork"
         ))
         add(SearchableSettingItem(
+            id = "artwork_download_choices",
+            title = context.getString(R.string.artwork_download_choices),
+            description = context.getString(R.string.artwork_download_settings_desc),
+            keywords = listOf("wifi", "wi-fi", "mobile data", "cellular", "LTE", "metered", "motion", "canvas", "media manager"),
+            icon = MaterialSymbolIcon("network_wifi"),
+            route = SettingsRoutes.LIBRARY_SETTINGS,
+            parentScreen = context.getString(R.string.settings_library_settings),
+            settingKey = "artworkDownloadChoices"
+        ))
+        add(SearchableSettingItem(
             id = "prefer_song_artwork",
             title = context.getString(R.string.settings_ignore_mediastore_covers),
             description = context.getString(R.string.settings_ignore_mediastore_covers_desc),

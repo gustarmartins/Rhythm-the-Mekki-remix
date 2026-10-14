@@ -1,5 +1,19 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
+    <string name="artwork_download_choices">Artwork downloads</string>
+    <string name="artwork_download_choices_desc">Choose how Rhythm downloads covers and Apple Music motion artwork. Lyrics and other enabled online integrations use their own settings.</string>
+    <string name="artwork_download_covers">Automatically find missing song and album covers</string>
+    <string name="artwork_download_cover_mobile">Allow cover and artist images on mobile or metered data</string>
+    <string name="artwork_download_motion">Apple Music motion artwork</string>
+    <string name="artwork_download_motion_mobile">Allow motion artwork on mobile or metered data</string>
+    <string name="artwork_download_wifi_note">With mobile data off, downloads use unmetered Wi-Fi or Ethernet. Saved covers and local artwork remain available offline.</string>
+    <string name="artwork_download_settings_desc">Choose automatic covers, motion artwork and mobile data use</string>
+    <string name="artwork_download_save">Save choices</string>
+    <string name="artwork_download_keep_defaults">Not now</string>
+    <string name="artwork_media_access_desc">Optional: allow Rhythm to save fetched covers into your music files without repeated Android confirmations. Downloading and displaying covers does not require this access.</string>
+    <string name="artwork_media_access_open">Open Android Media Manager access</string>
+    <string name="artwork_media_access_granted">Media Manager access granted</string>
+    <string name="artwork_media_settings_unavailable">This device does not provide the Media Manager settings screen.</string>
     <string name="app_name">Rhythm</string>
 <string name="home">Home</string>
     <string name="library">Library</string>

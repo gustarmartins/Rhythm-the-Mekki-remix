@@ -4,6 +4,8 @@
  */
 
 package chromahub.rhythm.app.features.local.data.repository
+import chromahub.rhythm.app.util.LyricsOrigin
+import chromahub.rhythm.app.util.firstAvailableLyrics
 import chromahub.rhythm.app.shared.data.model.ScanProgress
 import chromahub.rhythm.app.core.domain.scan.MediaScanEngine
 import chromahub.rhythm.app.core.domain.scan.MediaScanScope
@@ -214,11 +216,7 @@ class MusicRepository(context: Context) {
     private val roomDb by lazy { RhythmDatabase.getInstance(context) }
     val songDao by lazy { roomDb.songDao() }
     val playlistDao by lazy { roomDb.playlistDao() }
-    private enum class LyricsOrigin(val label: String) {
-        LOCAL("Local .lrc"),
-        EMBEDDED("Embedded"),
-        API("Online API")
-    }
+
 
     private fun verifiedArtwork(id: String, title: String, artist: String, album: String): String? {
         val identity = chromahub.rhythm.app.util.ArtworkSourcePolicy.identity(title, artist, album)
@@ -2651,6 +2649,10 @@ class MusicRepository(context: Context) {
                         return@run
                     }
 
+                    if (!chromahub.rhythm.app.util.ArtworkDownloadPolicy.artworkAllowed()) {
+                        updatedArtists.add(artist)
+                        return@run
+                    }
                     val artistAttemptKey = "artist_attempt_v2_${artist.name.hashCode()}"
                     val attemptAge = System.currentTimeMillis() - artworkPrefs.getLong(artistAttemptKey, 0L)
                     if (attemptAge in 0 until 6 * 60 * 60 * 1000L) {
@@ -2788,7 +2790,7 @@ class MusicRepository(context: Context) {
                         }
                     }
 
-                    if (isNetworkAvailable()) artworkPrefs.edit {
+                    if (chromahub.rhythm.app.util.ArtworkDownloadPolicy.artworkAllowed()) artworkPrefs.edit {
                         putLong(artistAttemptKey, System.currentTimeMillis())
                     }
                     // If we get here, generate a placeholder image
@@ -4557,9 +4559,6 @@ class MusicRepository(context: Context) {
             "===== FETCH LYRICS START: $artist - $title (songId=$songId, forceRefresh=$forceRefresh, requireRomanization=$requireRomanization, requireTranslation=$requireTranslation, source=$sourcePreference) ====="
         )
 
-        if (artist.isBlank() || title.isBlank())
-            return@withContext LyricsData("No lyrics available for this song", null, null)
-
         // Use song ID in cache key if available to prevent wrong lyrics for songs with similar metadata
         val lyricsIdentityKey = if (songId != null) {
             "$songId:$artist:$title".lowercase()
@@ -4649,6 +4648,9 @@ class MusicRepository(context: Context) {
             wantRomanization: Boolean,
             wantTranslation: Boolean
         ): LyricsData? {
+            // Missing tags prevent a reliable online search, but local/embedded lyrics
+            // can still be resolved from the track URI and must remain available.
+            if (artist.isBlank() || title.isBlank()) return null
             val requirements = wantRomanization to wantTranslation
             if (requirements in fetchedApiRequirements) {
                 return apiLyricsByRequirements[requirements]
@@ -4698,26 +4700,6 @@ class MusicRepository(context: Context) {
                 fetchFromEmbedded()?.takeIf { it.hasLyrics() }?.let { return@withContext it }
             }
         }
-        val baseOrder = when (sourcePreference) {
-            LyricsSourcePreference.API_FIRST -> listOf(
-                LyricsOrigin.API,
-                LyricsOrigin.EMBEDDED,
-                LyricsOrigin.LOCAL
-            )
-
-            LyricsSourcePreference.EMBEDDED_FIRST -> listOf(
-                LyricsOrigin.EMBEDDED,
-                LyricsOrigin.API,
-                LyricsOrigin.LOCAL
-            )
-
-            LyricsSourcePreference.LOCAL_FIRST -> listOf(
-                LyricsOrigin.LOCAL,
-                LyricsOrigin.EMBEDDED,
-                LyricsOrigin.API
-            )
-        }
-
         var baseLyrics =
             if ((requireRomanization || requireTranslation) && !forceRefresh) {
                 lyricsCache[baseCacheKey]
@@ -4725,24 +4707,13 @@ class MusicRepository(context: Context) {
                 null
             }
         if (baseLyrics == null) {
-            for (origin in baseOrder) {
-                val candidate = try {
-                    fetch(origin, wantRomanization = false)
-                } catch (e: Exception) {
-                    if (e is CancellationException) throw e
-                    Log.w(TAG, "Error fetching base lyrics from ${origin.label}: ${e.message}")
-                    null
-                }
-                if (candidate?.hasLyrics() == true) {
-                    baseLyrics = candidate
-                    Log.d(
-                        TAG,
-                        "Selected base lyrics from ${candidate.source} for: $artist - $title"
-                    )
-                    lyricsCache[baseCacheKey] = candidate
-                    if (origin == LyricsOrigin.API) saveLocalLyrics(artist, title, candidate)
-                    break
-                }
+            firstAvailableLyrics(sourcePreference,
+                fetch = { origin -> fetch(origin, wantRomanization = false) },
+                onFailure = { origin, error -> Log.w(TAG, "Error fetching base lyrics from ${origin.label}", error) }
+            )?.let { (origin, candidate) ->
+                baseLyrics = candidate
+                lyricsCache[baseCacheKey] = candidate
+                if (origin == LyricsOrigin.API) saveLocalLyrics(artist, title, candidate)
             }
         }
 
@@ -6083,6 +6054,10 @@ class MusicRepository(context: Context) {
 
         for (album in albums) {
             OptionalWorkController.run(OptionalWork.ARTWORK) {
+            if (!chromahub.rhythm.app.util.ArtworkDownloadPolicy.artworkAllowed()) {
+                updatedAlbums.add(album)
+                return@run
+            }
             val existingArt = album.artworkUri
             if (existingArt != null && !(existingArt.authority == MediaStore.AUTHORITY &&
                     existingArt.path.orEmpty().contains("/albumart"))) {
@@ -6293,7 +6268,10 @@ class MusicRepository(context: Context) {
                     return@run
                 }
             }
-            if (!isNetworkAvailable()) { updatedSongs.add(song); return@run }
+            if (!chromahub.rhythm.app.util.ArtworkDownloadPolicy.artworkAllowed()) {
+                updatedSongs.add(song)
+                return@run
+            }
             var fetchedUri: Uri? = null
 
             // 1. Try Deezer search first (Deezer returns high resolution album/track artwork)
@@ -6577,20 +6555,38 @@ class MusicRepository(context: Context) {
      * Saves artist image to local storage
      */
     private fun saveLocalArtistImage(artistName: String, imageUrl: String) {
+        if (!chromahub.rhythm.app.util.OptionalWorkController.imageNetworkAllowed()) return
+        var temporary: File? = null
         try {
             val fileName = "${artistName}.jpg".replace(Regex("[^a-zA-Z0-9._-]"), "_")
-            val imageDir = File(context.filesDir, "artist_images")
-            imageDir.mkdirs()
-
-            val file = File(imageDir, fileName)
-            URL(imageUrl).openStream().use { input ->
-                file.outputStream().use { output ->
-                    input.copyTo(output)
+            val imageDir = File(context.filesDir, "artist_images").apply { mkdirs() }
+            val staged = File.createTempFile("artist_", ".tmp", imageDir)
+            temporary = staged
+            val connection = URL(imageUrl).openConnection().apply {
+                connectTimeout = 10_000
+                readTimeout = 15_000
+            }
+            connection.getInputStream().use { input ->
+                staged.outputStream().use { output ->
+                    val buffer = ByteArray(8192)
+                    var total = 0L
+                    while (true) {
+                        if (!chromahub.rhythm.app.util.OptionalWorkController.imageNetworkAllowed()) {
+                            throw java.io.IOException("Artwork download paused by network or saver preference")
+                        }
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        if (total > 16L * 1024 * 1024) throw java.io.IOException("Artist image exceeds download limit")
+                        output.write(buffer, 0, count)
+                    }
                 }
             }
-            Log.d(TAG, "Saved artist image to local file: ${file.absolutePath}")
+            check(staged.renameTo(File(imageDir, fileName))) { "Unable to save complete artist image" }
         } catch (e: Exception) {
-            Log.e(TAG, "Error saving artist image to local file: ${e.message}", e)
+            Log.w(TAG, "Artist image download deferred: ${e.message}")
+        } finally {
+            temporary?.delete()
         }
     }
 

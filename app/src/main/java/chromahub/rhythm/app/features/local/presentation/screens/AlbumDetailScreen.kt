@@ -334,20 +334,18 @@ fun AlbumDetailScreen(
     }
 
     val appleCanvasNetworkMode by appSettings.appleCanvasNetworkMode.collectAsState()
+    val artworkNetworkRevision by chromahub.rhythm.app.util.ArtworkDownloadPolicy.revision.collectAsState()
+    val artworkSetupCompleted by appSettings.artworkSetupCompleted.collectAsState()
     var canvasArtwork by remember(albumId) { mutableStateOf<CanvasArtwork?>(null) }
     var canvasLoading by remember(albumId) { mutableStateOf(false) }
 
-    LaunchedEffect(albumId, albumName, album?.artist, allDisplaySongs, appleCanvasActive, appleCanvasNetworkMode) {
+    LaunchedEffect(albumId, albumName, album?.artist, allDisplaySongs, appleCanvasActive, appleCanvasNetworkMode, artworkNetworkRevision, artworkSetupCompleted) {
         canvasArtwork = null
         canvasLoading = false
 
         val artistName = album?.artist ?: allDisplaySongs.firstOrNull()?.artist
         if (albumName.isNotBlank() && artistName != null && appleCanvasActive) {
-            val hasNetwork = if (appleCanvasNetworkMode == CanvasNetworkMode.WIFI_ONLY) {
-                NetworkUtils.isWifiConnected(context)
-            } else {
-                NetworkUtils.isNetworkAvailable(context)
-            }
+            val hasNetwork = chromahub.rhythm.app.util.ArtworkDownloadPolicy.canvasAllowed()
             if (hasNetwork) {
                 canvasLoading = true
                 val result = withContext(Dispatchers.IO) {

@@ -630,6 +630,9 @@ fun MaterialPlayerScreen(
     }
 
     val autoFetchArtwork by appSettings.autoFetchArtwork.collectAsState()
+    val artworkNetworkRevision by chromahub.rhythm.app.util.ArtworkDownloadPolicy.revision.collectAsState()
+    val artworkSetupCompleted by appSettings.artworkSetupCompleted.collectAsState()
+    val artworkMobileData by appSettings.artworkAllowMobileData.collectAsState()
     val artworkValidation = rememberArtworkValidation(song?.artworkUri, context)
     var isAutoFetchingMissingArtwork by remember { mutableStateOf(false) }
     var fetchedAutoArtworkUriStr by remember { mutableStateOf<String?>(null) }
@@ -711,10 +714,10 @@ fun MaterialPlayerScreen(
 
     // Auto-fetch in both modes, but only after validation confirms the song has no
     // artwork (null = still checking). Each song is prompted at most once per session.
-    LaunchedEffect(song?.id, autoFetchArtwork, artworkValidation) {
+    LaunchedEffect(song?.id, autoFetchArtwork, artworkValidation, artworkNetworkRevision, artworkSetupCompleted, artworkMobileData) {
         val currentSong = song
         val alreadyPrompted = currentSong != null && currentSong.id in autoFetchPromptedSongIds.value
-        if (autoFetchArtwork && currentSong != null && artworkValidation == false && !isAutoFetchingMissingArtwork && !alreadyPrompted) {
+        if (autoFetchArtwork && chromahub.rhythm.app.util.ArtworkDownloadPolicy.artworkAllowed() && currentSong != null && artworkValidation == false && !isAutoFetchingMissingArtwork && !alreadyPrompted) {
             autoFetchPromptedSongIds.value = autoFetchPromptedSongIds.value + currentSong.id
             isAutoFetchingMissingArtwork = true
             musicViewModel.autoFetchArtworkForSong(currentSong) { success, uriStr ->

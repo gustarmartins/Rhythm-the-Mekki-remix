@@ -702,6 +702,28 @@ class AppSettings private constructor(context: Context) {
     private val context: Context = context.applicationContext
     val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    init { seedNewUserDefaults() }
+
+    private fun seedNewUserDefaults() {
+        val defaults = chromahub.rhythm.app.util.NewUserDefaults.forEmptyPreferences(prefs.all, mapOf(
+            KEY_DEEZER_API_ENABLED to BuildConfig.ENABLE_DEEZER,
+            KEY_LRCLIB_API_ENABLED to BuildConfig.ENABLE_LRCLIB,
+            KEY_BETTERLYRICS_API_ENABLED to BuildConfig.ENABLE_BETTERLYRICS,
+            KEY_YTMUSIC_API_ENABLED to BuildConfig.ENABLE_YOUTUBE_MUSIC,
+            KEY_SPOTIFY_API_ENABLED to BuildConfig.ENABLE_SPOTIFY_SEARCH,
+            KEY_LYRICALLY_API_ENABLED to BuildConfig.ENABLE_LYRICALLY_API,
+            KEY_WIKIPEDIA_API_ENABLED to BuildConfig.ENABLE_WIKIPEDIA
+        ))
+        if (defaults.isEmpty()) return
+        prefs.edit {
+            defaults.forEach { (key, value) -> when (value) {
+                is Boolean -> putBoolean(key, value)
+                is Int -> putInt(key, value)
+                else -> error("Unsupported new-user preference type for $key")
+            } }
+        }
+    }
+
     fun setInitialSettingsSubroute(route: String?) {
         prefs.edit { putString(KEY_INITIAL_SETTINGS_SUBROUTE, route) }
     }
@@ -1745,6 +1767,12 @@ class AppSettings private constructor(context: Context) {
 
     private val _autoFetchArtwork = MutableStateFlow(prefs.getBoolean(KEY_AUTO_FETCH_ARTWORK, true))
     val autoFetchArtwork: StateFlow<Boolean> = _autoFetchArtwork.asStateFlow()
+
+    // Missing keys on existing installs preserve their earlier unrestricted artwork policy.
+    private val _artworkAllowMobileData = MutableStateFlow(prefs.getBoolean("artwork_allow_mobile_data", true))
+    val artworkAllowMobileData = _artworkAllowMobileData.asStateFlow()
+    private val _artworkSetupCompleted = MutableStateFlow(prefs.getBoolean("artwork_setup_completed", true))
+    val artworkSetupCompleted = _artworkSetupCompleted.asStateFlow()
 
     private val _artistArtworkSource = MutableStateFlow(
         ArtistArtworkSource.fromName(prefs.getString(KEY_ARTIST_ARTWORK_SOURCE, ArtistArtworkSource.PREFER_LOCAL_THEN_API.name))
@@ -4053,6 +4081,16 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         updateDerivedSettings()
     }
 
+    fun setArtworkAllowMobileData(allowed: Boolean) {
+        prefs.edit { putBoolean("artwork_allow_mobile_data", allowed) }
+        _artworkAllowMobileData.value = allowed
+    }
+
+    fun completeArtworkSetup() {
+        prefs.edit { putBoolean("artwork_setup_completed", true) }
+        _artworkSetupCompleted.value = true
+    }
+
     fun setSpotifyClientId(clientId: String) {
         prefs.edit { putString(KEY_SPOTIFY_CLIENT_ID, clientId) }
         _spotifyClientId.value = clientId
@@ -5753,6 +5791,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
      * Refreshes all StateFlows to reflect current SharedPreferences values
      */
     private fun refreshAllStateFlows() {
+        seedNewUserDefaults()
         // Playback Settings
         _gaplessPlayback.value = prefs.getBoolean(KEY_GAPLESS_PLAYBACK, true)
         _crossfade.value = prefs.getBoolean(KEY_CROSSFADE, true)
@@ -5921,11 +5960,11 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         // API Enable/Disable States
         _integrationsEnabled.value = prefs.getBoolean(KEY_INTEGRATIONS_ENABLED, false)
         _deezerApiEnabled.value = prefs.getBoolean(KEY_DEEZER_API_ENABLED, false)
-        _lrclibApiEnabled.value = prefs.getBoolean(KEY_LRCLIB_API_ENABLED, false)
-        _betterLyricsApiEnabled.value = prefs.getBoolean(KEY_BETTERLYRICS_API_ENABLED, false)
+        _lrclibApiEnabled.value = prefs.getBoolean(KEY_LRCLIB_API_ENABLED, BuildConfig.FLAVOR != "fdroid")
+        _betterLyricsApiEnabled.value = prefs.getBoolean(KEY_BETTERLYRICS_API_ENABLED, BuildConfig.FLAVOR != "fdroid")
         _ytMusicApiEnabled.value = prefs.getBoolean(KEY_YTMUSIC_API_ENABLED, false)
-        _spotifyApiEnabled.value = prefs.getBoolean(KEY_SPOTIFY_API_ENABLED, false)
-        _lyricallyApiEnabled.value = prefs.getBoolean(KEY_LYRICALLY_API_ENABLED, false)
+        _spotifyApiEnabled.value = prefs.getBoolean(KEY_SPOTIFY_API_ENABLED, BuildConfig.FLAVOR != "fdroid")
+        _lyricallyApiEnabled.value = prefs.getBoolean(KEY_LYRICALLY_API_ENABLED, BuildConfig.FLAVOR != "fdroid")
         _wikipediaApiEnabled.value = prefs.getBoolean(KEY_WIKIPEDIA_API_ENABLED, false)
         _appleCanvasEnabled.value = prefs.getBoolean(KEY_APPLE_CANVAS_ENABLED, false)
         _appleCanvasNetworkMode.value = CanvasNetworkMode.fromOrdinal(
@@ -5942,6 +5981,8 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
             ?.toSet()
             ?: defaultDisabledLyricallySources
         _autoFetchArtwork.value = prefs.getBoolean(KEY_AUTO_FETCH_ARTWORK, true)
+        _artworkAllowMobileData.value = prefs.getBoolean("artwork_allow_mobile_data", true)
+        _artworkSetupCompleted.value = prefs.getBoolean("artwork_setup_completed", true)
         _spotifyClientId.value = prefs.getString(KEY_SPOTIFY_CLIENT_ID, "") ?: ""
         _spotifyClientSecret.value = prefs.getString(KEY_SPOTIFY_CLIENT_SECRET, "") ?: ""
 

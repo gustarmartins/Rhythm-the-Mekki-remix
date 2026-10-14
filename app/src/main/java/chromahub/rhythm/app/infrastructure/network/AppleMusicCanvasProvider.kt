@@ -70,6 +70,15 @@ object AppleMusicCanvasProvider {
             .build()
     }
 
+    private val canvasClient by lazy {
+        client.newBuilder().addInterceptor { chain ->
+            if (!chromahub.rhythm.app.util.ArtworkDownloadPolicy.canvasAllowed()) {
+                throw IOException("Motion artwork disabled on this network")
+            }
+            chain.proceed(chain.request())
+        }.build()
+    }
+
     private val gson = Gson()
 
     private data class CacheEntry(
@@ -80,7 +89,7 @@ object AppleMusicCanvasProvider {
     private val cache = ConcurrentHashMap<String, CacheEntry>()
     private const val CACHE_TTL_MS = 1000L * 60 * 60 * 24 // 24 hours
 
-    private suspend fun getOrFetchToken(): String = withContext(Dispatchers.IO) {
+    private suspend fun getOrFetchToken(http: OkHttpClient = client): String = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         if (cachedToken != null && now < tokenExpiryMs - 60_000) {
             return@withContext cachedToken!!
@@ -93,7 +102,7 @@ object AppleMusicCanvasProvider {
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .build()
 
-            client.newCall(request).execute().use { response ->
+            http.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     AppleCanvasLogger.w("Failed to get Apple Music browse page: ${response.code}")
                     return@use null
@@ -121,7 +130,7 @@ object AppleMusicCanvasProvider {
                         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                         .build()
 
-                    client.newCall(scriptReq).execute().use { scriptRes ->
+                    http.newCall(scriptReq).execute().use { scriptRes ->
                         if (!scriptRes.isSuccessful) return@use
 
                         val scriptText = scriptRes.body.string()
@@ -184,6 +193,7 @@ object AppleMusicCanvasProvider {
         album: String? = null,
         storefront: String = "us",
     ): CanvasArtwork? = OptionalWorkController.run(OptionalWork.CANVAS) {
+        if (!chromahub.rhythm.app.util.ArtworkDownloadPolicy.canvasAllowed()) return@run null
         val key = cacheKey("song", song, artist, album ?: "", storefront)
         cache[key]?.takeIf { it.expiresAtMs > System.currentTimeMillis() }?.let { return@run it.value }
 
@@ -204,6 +214,7 @@ object AppleMusicCanvasProvider {
             }
         }
 
+        if (!chromahub.rhythm.app.util.ArtworkDownloadPolicy.canvasAllowed()) return@run null
         if (cache.size >= 256) cache.clear()
         cache[key] = CacheEntry(null, System.currentTimeMillis() + CACHE_TTL_MS)
         return@run null
@@ -214,10 +225,12 @@ object AppleMusicCanvasProvider {
         artist: String,
         storefront: String = "us",
     ): CanvasArtwork? = OptionalWorkController.run(OptionalWork.CANVAS) {
+        if (!chromahub.rhythm.app.util.ArtworkDownloadPolicy.canvasAllowed()) return@run null
         val key = cacheKey("album", album, artist, storefront)
         cache[key]?.takeIf { it.expiresAtMs > System.currentTimeMillis() }?.let { return@run it.value }
 
         val result = searchAndFetchMotion(term = album, artist = artist, album = null, storefront = storefront, type = "albums")
+        if (!chromahub.rhythm.app.util.ArtworkDownloadPolicy.canvasAllowed()) return@run null
         if (cache.size >= 256) cache.clear()
         cache[key] = CacheEntry(result, System.currentTimeMillis() + CACHE_TTL_MS)
         return@run result
@@ -298,7 +311,7 @@ object AppleMusicCanvasProvider {
                 query = "$query $album"
             }
 
-            val token = getOrFetchToken()
+            val token = getOrFetchToken(canvasClient)
             val urlBuilder = "https://amp-api.music.apple.com/v1/catalog/$storefront/search".toHttpUrl().newBuilder()
             
             urlBuilder.addQueryParameter("term", query)
@@ -315,7 +328,7 @@ object AppleMusicCanvasProvider {
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .build()
 
-            client.newCall(request).execute().use { response ->
+            canvasClient.newCall(request).execute().use { response ->
                 if (response.code != 200) {
                     AppleCanvasLogger.w("Search failed with status ${response.code}")
                     return@use null
@@ -485,7 +498,7 @@ object AppleMusicCanvasProvider {
         if (albumId.startsWith("pl.")) return@withContext null
         try {
             AppleCanvasLogger.d("fetching album $albumId")
-            val token = getOrFetchToken()
+            val token = getOrFetchToken(canvasClient)
             val url = "https://amp-api.music.apple.com/v1/catalog/$storefront/albums/$albumId?extend=editorialVideo&include=tracks"
 
             val request = Request.Builder()
@@ -496,7 +509,7 @@ object AppleMusicCanvasProvider {
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .build()
 
-            client.newCall(request).execute().use { response ->
+            canvasClient.newCall(request).execute().use { response ->
                 if (response.code != 200) {
                     AppleCanvasLogger.w("album fetch failed for $albumId: ${response.code}")
                     return@use null
