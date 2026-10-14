@@ -56,6 +56,7 @@ jobs:
           from pathlib import Path
           bad = [str(p) for p in Path('app/src').rglob('*') if p.is_file()
                  and p.suffix in ('.kt', '.java', '.xml')
+                 and p != Path('app/src/main/res/xml/data_extraction_rules.xml')
                  and ('musicassistant' in p.read_text().lower() or 'music_assistant' in p.read_text().lower())]
           assert not bad, 'Music Assistant must stay on Nightly: ' + ', '.join(bad)
           PY

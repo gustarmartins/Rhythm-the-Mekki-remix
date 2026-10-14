@@ -21,11 +21,12 @@ def main():
     releases = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/releases?per_page=100'], text=True))
     if channel == 'stable':
         assert not any(not r['draft'] and r['tag_name'].removeprefix('v').split('+')[0] == name for r in releases), 'Stable version already published; increment PATCH'
-    source_notes = Path(f'docs/releases/{name}.md')
-    body = source_notes.read_text() if channel == 'stable' and source_notes.exists() else f'Rhythm {name} Nightly. See the commit history for changes.\n'
+    notes_version = name if channel == 'stable' else name.split('-nightly.')[0] + '-nightly'
+    source_notes = Path(f'docs/releases/{notes_version}.md')
+    body = source_notes.read_text() if source_notes.exists() else f'Rhythm {name} Nightly. See the commit history for changes.\n'
     body += (f'\nSource: `{sha}`. Android build: **{code}**.\n\n'
              f'Update using **Settings → Updates → {channel.title()}**. Android may ask to confirm installation.\n\n'
-             'Both release flavors passed the complete JVM suite, compilation, R8/lint-vital, '
+             'Validation passed the complete Github debug JVM suite, both release flavor builds, R8/lint-vital, '
              'and APK package/version/signature verification. All APKs use the existing fork signing key. '
              f'`{manifest_name}` and `SHA256SUMS` identify these exact files.\n')
     Path('release-notes.md').write_text(body)

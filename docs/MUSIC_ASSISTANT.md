@@ -1,5 +1,10 @@
 # Music Assistant
 
+Music Assistant is experimental and stays on the **6.1 Nightly** development
+line. Stable 6.0.0 excludes it. The native catalog/control adapters are being
+implemented separately; see [native integration status and feature comparison](MUSIC_ASSISTANT_NATIVE.md).
+The screen described below still uses the server's web frontend.
+
 Open **Settings → Rhythm GO → Music Assistant**, or search Settings for
 **Music Assistant**, **Tailscale**, or **Sendspin**. It is also available on the
 streaming Settings screen. Enabling Rhythm GO is not required to use it.
