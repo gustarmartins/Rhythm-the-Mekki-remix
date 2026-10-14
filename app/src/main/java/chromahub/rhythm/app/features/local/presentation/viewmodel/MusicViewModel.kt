@@ -8339,6 +8339,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     title = song.title,
                     songId = song.id,
                     songUri = song.uri,
+                    album = song.album,
+                    durationMs = song.duration,
                     sourcePreference = lyricsPreference,
                     requireRomanization = false,
                     forceRefresh = forceRefresh
@@ -8375,6 +8377,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         title = song.title,
                         songId = song.id,
                         songUri = song.uri,
+                        album = song.album,
+                        durationMs = song.duration,
                         sourcePreference = lyricsPreference,
                         requireRomanization = requireRomanization,
                         requireTranslation = requireTranslation
@@ -8480,6 +8484,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         title = title,
                         songId = song.id,
                         songUri = songUri,
+                        album = song.album,
+                        durationMs = song.duration,
                         sourcePreference = appSettings.lyricsSourcePreference.value,
                         forceRefresh = true, // Force bypass cache
                         requireRomanization = appSettings.showLyricsRomanization.value,

@@ -4202,6 +4202,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                         title = song.title,
                         songId = song.id,
                         songUri = song.uri,
+                        album = song.album,
+                        durationMs = song.duration,
                         sourcePreference = appSettings.lyricsSourcePreference.value,
                         requireRomanization = false,
                         requireTranslation = false
@@ -4232,6 +4234,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                         title = song.title,
                         songId = song.id,
                         songUri = song.uri,
+                        album = song.album,
+                        durationMs = song.duration,
                         sourcePreference = appSettings.lyricsSourcePreference.value,
                         requireRomanization = true
                     )
@@ -4274,6 +4278,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                         title = song.title,
                         songId = song.id,
                         songUri = song.uri,
+                        album = song.album,
+                        durationMs = song.duration,
                         sourcePreference = appSettings.lyricsSourcePreference.value,
                         requireRomanization = true,
                         requireTranslation = true

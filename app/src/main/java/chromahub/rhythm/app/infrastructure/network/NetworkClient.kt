@@ -28,7 +28,7 @@ object NetworkClient {
     private const val TAG = "NetworkClient"
     
     private const val LRCLIB_BASE_URL = "https://lrclib.net/"
-    private const val BETTERLYRICS_BASE_URL = "https://lyrics-api.boidu.dev/"
+    private const val BETTERLYRICS_BASE_URL = "https://api.betterlyrics.org/"
     private const val DEEZER_BASE_URL = "https://api.deezer.com/"
     private const val YTMUSIC_BASE_URL = "https://music.youtube.com/"
     private const val SPOTIFY_API_BASE_URL = "https://api.spotify.com/v1/"

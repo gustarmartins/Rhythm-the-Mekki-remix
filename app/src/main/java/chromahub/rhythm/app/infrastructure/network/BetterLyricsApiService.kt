@@ -20,7 +20,9 @@ interface BetterLyricsApiService {
     @GET("getLyrics")
     suspend fun getLyrics(
         @Query("a") artist: String,
-        @Query("s") song: String
+        @Query("s") song: String,
+        @Query("al") album: String? = null,
+        @Query("d") durationSeconds: Long? = null
     ): BetterLyricsResponse
 }
 

@@ -10,6 +10,9 @@ choices. The one-time artwork prompt is shown after onboarding, not on upgrades.
 - Lyrics priority: local sidecar/cache, embedded lyrics, then enabled online
   providers. Missing or unreadable files and provider error messages fall through.
   Missing title/artist tags do not prevent extracting local/embedded lyrics.
+  Better Lyrics requests use its current endpoint and include album/duration to
+  match the public cache; authentication-required cache misses fall through to the
+  other enabled providers. No API credentials are invented or automatically granted.
 - Online integrations and supported provider switches: on. Features that require
   credentials still require those credentials. Explicit disabled settings survive.
 - Automatic cover discovery: on, with mobile/metered data off. Apple Music motion

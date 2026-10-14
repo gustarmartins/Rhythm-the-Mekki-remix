@@ -4505,7 +4505,9 @@ class MusicRepository(context: Context) {
         sourcePreference: LyricsSourcePreference = LyricsSourcePreference.API_FIRST,
         forceRefresh: Boolean = false,
         requireRomanization: Boolean = false,
-        requireTranslation: Boolean = false
+        requireTranslation: Boolean = false,
+        album: String? = null,
+        durationMs: Long? = null
     ): LyricsData? {
         val appSettings = AppSettings.getInstance(context)
         val songSpecificPreference = songId?.let(appSettings::getSongLyricsPreference)
@@ -4524,6 +4526,8 @@ class MusicRepository(context: Context) {
             songId.orEmpty(),
             artist.trim().lowercase(Locale.ROOT),
             title.trim().lowercase(Locale.ROOT),
+            album.orEmpty(),
+            durationMs.toString(),
             effectiveSourcePreference.name,
             forceRefresh.toString(),
             requireRomanization.toString(),
@@ -4539,7 +4543,9 @@ class MusicRepository(context: Context) {
                 sourcePreference = effectiveSourcePreference,
                 forceRefresh = forceRefresh,
                 requireRomanization = requireRomanization,
-                requireTranslation = requireTranslation
+                requireTranslation = requireTranslation,
+                album = album,
+                durationMs = durationMs
             )
         }
     }
@@ -4552,7 +4558,9 @@ class MusicRepository(context: Context) {
         sourcePreference: LyricsSourcePreference,
         forceRefresh: Boolean,
         requireRomanization: Boolean,
-        requireTranslation: Boolean
+        requireTranslation: Boolean,
+        album: String?,
+        durationMs: Long?
     ): LyricsData? = withContext(Dispatchers.IO) {
         Log.d(
             TAG,
@@ -4663,7 +4671,9 @@ class MusicRepository(context: Context) {
                         artist = artist,
                         title = title,
                         requireRomanization = wantRomanization,
-                        requireTranslation = wantTranslation
+                        requireTranslation = wantTranslation,
+                        album = album,
+                        durationMs = durationMs
                     )
                   }
                 }
@@ -4840,8 +4850,11 @@ class MusicRepository(context: Context) {
         artist: String,
         title: String,
         requireRomanization: Boolean = false,
-        requireTranslation: Boolean = false
+        requireTranslation: Boolean = false,
+        album: String? = null,
+        durationMs: Long? = null
     ): LyricsData? {
+        val providerQuery = chromahub.rhythm.app.util.BetterLyricsQuery.from(album, durationMs)
         val cleanArtist = sanitizeSearchQuery(artist)
         val cleanTitle = sanitizeSearchQuery(title)
 
@@ -4854,13 +4867,15 @@ class MusicRepository(context: Context) {
         val fetchBetterLyrics = suspend {
             if (NetworkClient.isBetterLyricsApiEnabled() && betterLyricsApiService != null) {
                 try {
-                    var response = betterLyricsApiService.getLyrics(artist = cleanArtist, song = cleanTitle)
+                    var response = betterLyricsApiService.getLyrics(artist = cleanArtist, song = cleanTitle,
+                        album = providerQuery.album, durationSeconds = providerQuery.durationSeconds)
                     
                     if (response.ttml.isNullOrBlank()) {
                         val simplifiedArtist = cleanArtist.split(" feat.", " ft.", " featuring").first().trim()
                         val simplifiedTitle = cleanTitle.split(" feat.", " ft.", " featuring").first().trim()
                         if (simplifiedArtist != cleanArtist || simplifiedTitle != cleanTitle) {
-                            response = betterLyricsApiService.getLyrics(artist = simplifiedArtist, song = simplifiedTitle)
+                            response = betterLyricsApiService.getLyrics(artist = simplifiedArtist, song = simplifiedTitle,
+                                album = providerQuery.album, durationSeconds = providerQuery.durationSeconds)
                         }
                     }
                     
