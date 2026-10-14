@@ -189,6 +189,17 @@ fun GoSettingsScreen(
         ) {
             item {
                 Material3SettingsGroup(
+                    title = stringResource(R.string.music_assistant_name),
+                    items = listOf(Material3SettingsItem(
+                        icon = MaterialSymbolIcon("speaker_group"),
+                        title = { Text(stringResource(R.string.music_assistant_open)) },
+                        description = { Text(stringResource(R.string.music_assistant_description)) },
+                        onClick = { chromahub.rhythm.app.features.musicassistant.MusicAssistantEntry.open(context) }
+                    ))
+                )
+            }
+            item {
+                Material3SettingsGroup(
                     title = stringResource(R.string.streaming_settings_group_services),
                     items = listOf(
                         Material3SettingsItem(

@@ -53,6 +53,7 @@ class RhythmApplication : Application(), ImageLoaderFactory {
     private var anrWatchdog: ANRWatchdog? = null
     private val maintenanceScope = CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
     private var cacheTrimJob: kotlinx.coroutines.Job? = null
+    private var musicAssistantProcess = false
 
     private fun scheduleCacheTrim() {
         if (cacheTrimJob?.isActive == true) return
@@ -73,6 +74,8 @@ class RhythmApplication : Application(), ImageLoaderFactory {
         super.onCreate()
         
         instance = this
+        musicAssistantProcess = chromahub.rhythm.app.features.musicassistant.MusicAssistantEntry.initializeProcess(this)
+        if (musicAssistantProcess) return
         
         Log.d(TAG, "═══════════════════════════════════════════════════")
         Log.d(TAG, "RhythmApplication onCreate")
@@ -234,6 +237,7 @@ class RhythmApplication : Application(), ImageLoaderFactory {
     
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
+        if (musicAssistantProcess) return
         
         val levelName = when {
             level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN -> "UI_HIDDEN"

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="music_assistant_name" translatable="false">Music Assistant</string>
+    <string name="music_assistant_description">Your server library, players and synchronized groups inside Rhythm.</string>
+    <string name="music_assistant_open">Open Music Assistant</string>
+    <string name="music_assistant_server_url">Server address</string>
+    <string name="music_assistant_setup_help">Enter the Music Assistant web address from your Raspberry Pi or server. On Tailscale, connect the VPN first and use its IP or MagicDNS name, usually on port 8095. Sign in on your server’s page. This workspace uses your current network, including mobile data.</string>
+    <string name="music_assistant_invalid_url">Use a host name or an HTTP/HTTPS address. Keep passwords, tokens and query parameters out of the address.</string>
+    <string name="music_assistant_back">Back</string>
+    <string name="music_assistant_help">Using Music Assistant</string>
+    <string name="music_assistant_reload">Reload server</string>
+    <string name="music_assistant_server_settings">Server and player settings</string>
+    <string name="music_assistant_usage_help">Music Assistant runs on your server and brings together its music sources. Rhythm displays the server’s own interface, including library browsing, search, queues and player controls.\n\nTo listen on this phone, enable the web player in Music Assistant and select it in the player menu. Use Music Assistant’s player menu to select your PC, TV or speakers, move playback, or group compatible players. Synchronization and group compatibility are managed by the server.\n\nTurn on background playback below the player before locking the screen or leaving Rhythm. The notification can stop this phone’s player. Other server players continue independently. Leave background playback off when only using Rhythm as a remote.\n\nFor remote access, keep Tailscale connected on the phone and server. An HTTPS reverse proxy must forward WebSocket connections too. Use the direct Music Assistant web address, not a Home Assistant ingress link.\n\nMusic Assistant uses its own web audio player. Rhythm’s native Play Next queue, downloads, Bluetooth lyric formatting and equalizer settings apply to Rhythm’s native player. Home Assistant or provider sign-in that needs another site can be completed in a browser; browser and Rhythm logins are separate.</string>
+    <string name="music_assistant_background">Keep player active in background</string>
+    <string name="music_assistant_background_description">Keep phone playback connected while locked. Turn off when finished.</string>
+    <string name="music_assistant_background_notification">Phone web player enabled • Tap to open</string>
+    <string name="music_assistant_background_error">Could not keep the phone player running. Reopen Music Assistant and try again.</string>
+    <string name="music_assistant_stop_player">Stop phone player</string>
+    <string name="music_assistant_player_stopped">The phone player is stopped. Open the server to reconnect.</string>
+    <string name="music_assistant_forget">Forget server and sign out</string>
+    <string name="music_assistant_forget_description">Stop this phone’s web player and clear the saved address, cookies and website storage for Music Assistant in Rhythm? This does not stop other server players.</string>
+    <string name="music_assistant_connection_error">The server page could not load. Check the address, server and Tailscale connection, then reload.</string>
+    <string name="music_assistant_certificate_error">The server certificate could not be verified. Use a valid HTTPS certificate or the server’s HTTP address over your private network.</string>
+    <string name="music_assistant_renderer_error">The web player closed unexpectedly. Reload to reconnect.</string>
+    <string name="music_assistant_blocked_link">This link cannot open inside Music Assistant.</string>
+    <string name="music_assistant_external_title">Open another website?</string>
+    <string name="music_assistant_external_description">This link leaves your Music Assistant server. It will open in your browser, which has a separate login session.</string>
+    <string name="music_assistant_browser">Open browser</string>
+    <string name="music_assistant_no_browser">No browser is available to open this link.</string>
+    <string name="music_assistant_android8">On Android 8, Music Assistant opens in your browser. The in-app player requires Android 9 or later.</string>
+    <string name="music_assistant_done">Done</string>
+    <string name="music_assistant_cancel">Cancel</string>
+</resources>
