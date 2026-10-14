@@ -26,7 +26,17 @@ class PublishReleaseTest(unittest.TestCase):
                 previous = [{'draft': False, 'tag_name': 'v6.0.0+android-vc600002701'}] if existing else []
                 env = {'RELEASE_CHANNEL': channel, 'RELEASE_TAG': 'v' + name + '+android-vc600002801', 'RELEASE_NAME': name,
                        'RELEASE_CODE': '600002801', 'GITHUB_SHA': 'b' * 40, 'GITHUB_REPOSITORY': 'owner/repo'}
-                with patch.dict(os.environ, env), patch('publish_release.subprocess.check_output', side_effect=[json.dumps(previous), json.dumps({'assets': assets})]), patch('publish_release.subprocess.run') as run:
+                draft = {'id': 123, 'draft': True, 'tag_name': env['RELEASE_TAG'], 'assets': assets}
+                def github_read(command, **kwargs):
+                    endpoint = command[-1]
+                    if '/releases/tags/' in endpoint:
+                        raise AssertionError('Published-tag endpoint cannot read drafts')
+                    if endpoint.endswith('/releases/123'):
+                        return json.dumps(draft)
+                    github_read.count += 1
+                    return json.dumps(previous if github_read.count == 1 else [draft])
+                github_read.count = 0
+                with patch.dict(os.environ, env), patch('publish_release.subprocess.check_output', side_effect=github_read), patch('publish_release.subprocess.run') as run:
                     run.return_value.returncode = 1  # No previous release at the exact tag.
                     if existing or bad_digest:
                         with self.assertRaises(AssertionError): publish_release.main()

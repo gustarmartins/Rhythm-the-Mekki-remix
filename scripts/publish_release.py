@@ -35,7 +35,13 @@ def main():
                '--target', sha, '--title', f'v{name} - Rhythm {channel.title()}', '--notes-file', 'release-notes.md', '--draft']
     if channel == 'nightly': command.append('--prerelease')
     subprocess.run(command, check=True)
-    release = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/releases/tags/{tag}'], text=True))
+    # GitHub's /releases/tags endpoint only resolves published releases.
+    # Enumerate authenticated drafts and then verify this exact release by its ID.
+    drafts = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/releases?per_page=100'], text=True))
+    matches = [r for r in drafts if r['tag_name'] == tag and r['draft']]
+    assert len(matches) == 1, 'Created draft not found; leave it unpublished for inspection'
+    release = json.loads(subprocess.check_output(['gh', 'api', f"repos/{repo}/releases/{matches[0]['id']}"], text=True))
+    assert release['draft'] and release['tag_name'] == tag
     assets = {a['name']: a for a in release['assets']}
     for apk in manifest['apks']:
         assert assets[apk['name']]['size'] == apk['size']
