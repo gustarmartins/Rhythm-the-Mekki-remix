@@ -1348,15 +1348,6 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             parentScreen = context.getString(R.string.exp_go_mode)
         ))
         add(SearchableSettingItem(
-            id = "music_assistant",
-            title = context.getString(R.string.music_assistant_name),
-            description = context.getString(R.string.music_assistant_description),
-            keywords = listOf("music assistant", "sendspin", "tailscale", "raspberry pi", "multiroom", "sync", "server", "servidor", "sincronizar"),
-            icon = MaterialSymbolIcon("speaker_group"),
-            route = SettingsRoutes.GO_SETTINGS,
-            parentScreen = context.getString(R.string.exp_go_mode)
-        ))
-        add(SearchableSettingItem(
             id = "go_streaming_quality",
             title = context.getString(R.string.streaming_settings_quality),
             description = context.getString(R.string.streaming_settings_quality_sheet_desc),

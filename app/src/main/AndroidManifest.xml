@@ -64,19 +64,6 @@
             android:shell="true"
             tools:targetApi="29" />
 
-        <!-- Separate profile/process keeps server logins and web audio out of local playback. -->
-        <activity
-            android:name=".features.musicassistant.MusicAssistantActivity"
-            android:exported="false"
-            android:process=":music_assistant"
-            android:launchMode="singleTask" />
-        <service
-            android:name=".features.musicassistant.MusicAssistantService"
-            android:exported="false"
-            android:process=":music_assistant"
-            android:foregroundServiceType="mediaPlayback"
-            android:stopWithTask="false" />
-
         <!-- Media3 notification icon -->
         <meta-data
             android:name="androidx.media3.ui.PlayerNotificationManager.smallIcon"

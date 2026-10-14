@@ -5,14 +5,10 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <exclude domain="root" path="app_webview_music_assistant/"/>
-        <exclude domain="sharedpref" path="music_assistant.xml"/>
         <!-- Exclude Room database to avoid stale cached library data surviving reinstalls -->
         <exclude domain="database" path="rhythm_database*"/>
     </cloud-backup>
     <device-transfer>
-        <exclude domain="root" path="app_webview_music_assistant/"/>
-        <exclude domain="sharedpref" path="music_assistant.xml"/>
         <!-- Exclude Room database to avoid stale cached library data surviving reinstalls -->
         <exclude domain="database" path="rhythm_database*"/>
     </device-transfer>
