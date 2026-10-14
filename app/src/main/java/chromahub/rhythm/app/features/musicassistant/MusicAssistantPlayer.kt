@@ -34,7 +34,8 @@ internal class MusicAssistantPlayer(
     private val audioSession: (Int, Boolean) -> Unit,
 ) : SimpleBasePlayer(Looper.getMainLooper()) {
     private val client = MusicAssistantProviderClient(context)
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val playerJob = SupervisorJob()
+    private val scope = CoroutineScope(playerJob + Dispatchers.Main.immediate)
     private val operations = Mutex()
     private val config = MutableStateFlow<LocalPlayerConfig?>(null)
     private val dispatcher = Executors.newSingleThreadExecutor { action -> Thread(action, "Rhythm-Sendspin").apply { priority = Thread.MAX_PRIORITY } }.asCoroutineDispatcher()
@@ -169,14 +170,14 @@ internal class MusicAssistantPlayer(
             .setDurationUs(row.track?.durationMs?.times(1000) ?: C.TIME_UNSET).setIsSeekable(true).build() })
             .setCurrentMediaItemIndex(if (rows.isEmpty()) C.INDEX_UNSET else index)
             .setPlayWhenReady(playing, PLAY_WHEN_READY_CHANGE_REASON_REMOTE)
-            .setPlaybackState(if (rows.isEmpty()) STATE_IDLE else STATE_READY)
+            .setPlaybackState(if (rows.isEmpty() || error != null) STATE_IDLE else STATE_READY)
             .setContentPositionMs(PositionSupplier { position.toLong() + if (playing) SystemClock.elapsedRealtime() - sampledAt else 0 })
             .setRepeatMode(when (q?.repeat) { "one" -> REPEAT_MODE_ONE; "all" -> REPEAT_MODE_ALL; else -> REPEAT_MODE_OFF })
             .setShuffleModeEnabled(q?.shuffle ?: false).setAudioSessionId(sessionId).setPlayerError(error).build()
     }
     private fun submit(block: suspend () -> Unit): ListenableFuture<Void> {
         val future = SettableFuture.create<Void>()
-        scope.launch {
+        val job = scope.launch {
             try {
                 operations.withLock { block(); refresh() }
                 future.set(null)
@@ -184,10 +185,13 @@ internal class MusicAssistantPlayer(
             catch (failure: Exception) {
                 // A timeout may have committed a mutation. Reconcile, never blindly replay it.
                 runCatching { operations.withLock { refresh() } }
-                error = PlaybackException("Music Assistant command failed. Refresh the server connection.", null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
+                if (released) { future.cancel(false); return@launch }
+                nativeStatus.value = "Music Assistant command failed. Refresh the server connection."
+                if (rows.isEmpty()) error = PlaybackException(nativeStatus.value, null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
                 invalidateState(); future.setException(failure)
             }
         }
+        job.invokeOnCompletion { if (!future.isDone) future.cancel(false) }
         return future
     }
     override fun handleSetMediaItems(mediaItems: MutableList<MediaItem>, startIndex: Int, startPositionMs: Long): ListenableFuture<*> {
@@ -293,12 +297,23 @@ internal class MusicAssistantPlayer(
         client.api().groupMembers(target(), if (enabled) listOf(id) else emptyList(), if (enabled) emptyList() else listOf(id))
     }
     override fun handleRelease(): ListenableFuture<*> {
-        if (!released) {
-            released = true; config.value = null
-            if (active.value === this) active.value = null
-            scope.launch { delay(100); scope.cancel(); http.close(); dispatcher.close() }
+        if (released) return Futures.immediateVoidFuture()
+        released = true
+        config.value = null
+        if (active.value === this) active.value = null
+        val completion = SettableFuture.create<Void>()
+        playerJob.cancel()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Await the audio loop's finally block before closing its dispatcher.
+                playerJob.join()
+                http.close()
+                dispatcher.close()
+                if (wakeLock.isHeld) wakeLock.release()
+                completion.set(null)
+            } catch (failure: Exception) { completion.setException(failure) }
         }
-        return Futures.immediateVoidFuture()
+        return completion
     }
     companion object {
         val active = MutableStateFlow<MusicAssistantPlayer?>(null)

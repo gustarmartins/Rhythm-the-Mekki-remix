@@ -21,13 +21,36 @@ jobs:
       - uses: android-actions/setup-android@v4
         with:
           packages: ''
-      - name: Compile and test native playback
+      - name: Restore owner signing for device qualification
+        env:
+          SIGNING_KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}
+          SIGNING_PROPERTIES: ${{ secrets.SIGNING_PROPERTIES }}
+          PRIVATE_PROPERTIES: ${{ secrets.PRIVATE_PROPERTIES }}
         run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p config/signing .config
+          printf '%s' "$SIGNING_KEYSTORE" | base64 --decode > config/signing/rhythm_keystore.jks
+          printf '%s' "$SIGNING_PROPERTIES" | base64 --decode > .config/keystore.properties
+          if [ -n "$PRIVATE_PROPERTIES" ]; then
+            printf '%s' "$PRIVATE_PROPERTIES" | base64 --decode > config/signing/private.properties
+          else
+            touch config/signing/private.properties
+          fi
+      - name: Compile and test native playback
+        env:
+          GITHUB_OWNER: ${{ github.repository_owner }}
+          GITHUB_REPO: ${{ github.event.repository.name }}
+        run: |
+          # Private qualification builds fit between published Nightly 3001 and the next 3101.
+          test "$GITHUB_RUN_NUMBER" -lt 99
           chmod +x gradlew
           ./gradlew --continue --no-daemon --max-workers=2 \
             -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
             -Pkotlin.daemon.jvmargs=-Xmx4500m \
-            :sendspin:testDebugUnitTest :app:testGithubDebugUnitTest :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest
+            -PversionCodeOverride="$((600003001 + GITHUB_RUN_NUMBER))" \
+            -PversionNameOverride="6.1.0-dev.$GITHUB_RUN_NUMBER" \
+            :sendspin:testDebugUnitTest :app:testGithubDebugUnitTest :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest :app:assembleGithubRelease
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -37,3 +60,6 @@ jobs:
             **/build/reports/tests/
             app/build/outputs/apk/
           retention-days: 7
+      - name: Remove signing material
+        if: always()
+        run: rm -f config/signing/rhythm_keystore.jks .config/keystore.properties config/signing/private.properties
