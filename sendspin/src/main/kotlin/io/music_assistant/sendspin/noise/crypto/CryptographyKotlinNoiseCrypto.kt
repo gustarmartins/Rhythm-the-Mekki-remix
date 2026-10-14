@@ -51,37 +51,28 @@ internal class CryptographyKotlinNoiseCrypto(
         associatedData: ByteArray,
         plaintext: ByteArray,
     ): ByteArray {
-        val cipherKey = provider.get(ChaCha20Poly1305)
-            .keyDecoder()
-            .decodeFromByteArray(ChaCha20Poly1305.Key.Format.RAW, key)
-        // Explicit caller-managed nonce: Noise supplies its own counter-based
-        // nonces, so the auto-IV encrypt() variants (which prepend a random
-        // IV) must not be used here.
-        return cipherKey.cipher().encryptWithIv(nonce, plaintext, associatedData)
+        return freshCipher(javax.crypto.Cipher.ENCRYPT_MODE, key, nonce, associatedData).doFinal(plaintext)
     }
 
-    @OptIn(DelicateCryptographyApi::class)
     override suspend fun aeadDecrypt(
         key: ByteArray,
         nonce: ByteArray,
         associatedData: ByteArray,
         ciphertext: ByteArray,
-    ): ByteArray? {
-        val cipherKey = provider.get(ChaCha20Poly1305)
-            .keyDecoder()
-            .decodeFromByteArray(ChaCha20Poly1305.Key.Format.RAW, key)
-        return try {
-            cipherKey.cipher().decryptWithIv(nonce, ciphertext, associatedData)
-        } catch (e: Exception) {
-            // Tag/AAD mismatch surfaces as an exception from the underlying
-            // platform crypto; Noise treats it as a nullable auth failure.
-            // Logged at debug because this catch is broad: a configuration
-            // bug (wrong key/IV size) would otherwise masquerade as a forged
-            // message.
-            logger.d(e) { "AEAD decrypt failed" }
-            null
-        }
+    ): ByteArray? = try {
+        freshCipher(javax.crypto.Cipher.DECRYPT_MODE, key, nonce, associatedData).doFinal(ciphertext)
+    } catch (_: javax.crypto.AEADBadTagException) {
+        null
     }
+
+    // Never pool a ChaCha cipher across send/receive roles. JCA rejects initializing a
+    // pooled instance twice with the same key/nonce, including a legitimate decrypt.
+    // A new platform Cipher per message also keeps independent sessions isolated.
+    private fun freshCipher(mode: Int, key: ByteArray, nonce: ByteArray, aad: ByteArray) =
+        javax.crypto.Cipher.getInstance("ChaCha20-Poly1305").apply {
+            init(mode, javax.crypto.spec.SecretKeySpec(key, "ChaCha20"), javax.crypto.spec.IvParameterSpec(nonce))
+            updateAAD(aad)
+        }
 
     override suspend fun sha256(data: ByteArray): ByteArray = sha256Hasher.hash(data)
 

@@ -42,6 +42,8 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 class AudioTrackSink(
     context: Context,
     private val clock: MonotonicClock,
+    private val onSessionOpened: (Int) -> Unit = {},
+    private val onSessionClosing: (Int) -> Unit = {},
 ) : AudioSink {
     private val logger = Logger.withTag("AudioTrackSink")
     private val context = context.applicationContext
@@ -87,12 +89,11 @@ class AudioTrackSink(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             runCatching { track.setStartThresholdInFrames(1) }
         }
-        track.play()
         logger.i {
             "AudioTrack opened: ${format.sampleRate}Hz ${format.channels}ch ${format.bitDepth}bit, " +
                 "buffer ${minBuffer * BUFFER_MULTIPLIER}, performanceMode=${track.performanceMode}"
         }
-        return Handle(track, format)
+        return try { Handle(track, format) } catch (error: Exception) { track.release(); throw error }
     }
 
     private inner class Handle(private val track: AudioTrack, private val format: SinkFormat) : SinkHandle {
@@ -160,11 +161,13 @@ class AudioTrackSink(
         init {
             track.addOnRoutingChangedListener(routingListener, null)
             val granted = audioManager.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-            if (!granted) logger.w { "Audio focus not granted; playing anyway" }
+            check(granted) { "Audio focus was denied" }
             context.registerReceiver(noisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 modeListener?.let { runCatching { audioManager.addOnModeChangedListener(context.mainExecutor, it) } }
             }
+            onSessionOpened(track.audioSessionId)
+            track.play()
         }
 
         private fun interrupt(resumable: Boolean) {
@@ -230,6 +233,7 @@ class AudioTrackSink(
                 track.flush()
                 track.stop()
             }
+            onSessionClosing(track.audioSessionId)
             track.release()
             audioManager.abandonAudioFocusRequest(focusRequest)
             logger.i { "AudioTrack closed (${format.sampleRate}Hz)" }

@@ -9,6 +9,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.BroadcastReceiver
+import chromahub.rhythm.app.features.musicassistant.MusicAssistantPlayer
 import android.content.Context
 import android.widget.Toast
 import android.media.AudioDeviceInfo
@@ -91,6 +92,7 @@ import androidx.core.net.toUri
 class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private var mediaSession: MediaLibrarySession? = null
     private lateinit var player: Player
+    private var musicAssistantPlayer: MusicAssistantPlayer? = null
     private lateinit var customCommands: List<CommandButton>
     private lateinit var preloadController: PreloadController
 
@@ -973,6 +975,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         
         // Register player swap listener for crossfade transitions
         rhythmPlayerEngine.addPlayerSwapListener { newPlayer ->
+            if (musicAssistantPlayer != null) return@addPlayerSwapListener
             Log.d(TAG, "Player swapped during crossfade transition")
             val oldPlayer = player
             val wrappedNewPlayer = wrapPlayer(newPlayer)
@@ -1004,7 +1007,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         // Store reference for proper cleanup in onDestroy
         playerListener = object : Player.Listener {
             override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
-                if (::preloadController.isInitialized) {
+                if (musicAssistantPlayer == null && ::preloadController.isInitialized) {
                     val mediaItems = mutableListOf<MediaItem>()
                     for (i in 0 until player.mediaItemCount) {
                         mediaItems.add(player.getMediaItemAt(i))
@@ -2322,6 +2325,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     }
 
     private fun persistServiceQueue() {
+        // The MA server persists its own queue and occurrences. Never restore these into ExoPlayer.
+        if (musicAssistantPlayer != null) return
         if (!::player.isInitialized || !appSettings.queuePersistenceEnabled.value ||
             isMutatingBtVirtualQueue || restoringSavedQueue) return
         // Match the UI's persisted format: played + current + upcoming, not physical
@@ -2346,6 +2351,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     }
 
     private fun maybeContinueWithDeviceLibrary() {
+        if (musicAssistantPlayer != null) return
         if (!::player.isInitialized || queueClearedByUser || !appSettings.continueWithDeviceLibrary.value ||
             libraryContinuationJob?.isActive == true || isMutatingBtVirtualQueue) return
         val currentItem = player.currentMediaItem ?: return
@@ -2641,6 +2647,51 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             serviceBtCanonicalSong?.artist ?: item?.mediaMetadata?.artist?.toString().orEmpty())
     }
 
+    /** Switch only for an explicit queue replacement; never send MA sentinel URIs to ExoPlayer. */
+    private fun switchMusicSource(items: List<MediaItem>): Boolean {
+        if (items.isEmpty()) return false
+        val native = items.any(MusicAssistantPlayer::isMusicAssistant)
+        require(!native || items.all(MusicAssistantPlayer::isMusicAssistant)) { "Mixed local/server queues are not supported" }
+        if (native == (musicAssistantPlayer != null)) return false
+        libraryContinuationJob?.cancel()
+        btCollapseJob?.cancel()
+        restoreQueueFromBtVirtual()
+        val old = player
+        old.pause()
+        playerListener?.let(old::removeListener)
+        updateExternalAudioEffectSession(0)
+        if (native) {
+            rhythmPlayerEngine.masterPlayer.stop()
+            musicAssistantPlayer = MusicAssistantPlayer(this,
+                foreground = { startForegroundWithNotification(getString(chromahub.rhythm.app.R.string.service_rhythm_music), "Music Assistant") },
+                audioSession = { id, opened ->
+                    if (opened) {
+                        updateExternalAudioEffectSession(id)
+                        serviceScope.launch { initializeAudioEffects() }
+                    } else {
+                        // The sink waits for teardown before releasing AudioTrack.
+                        kotlinx.coroutines.runBlocking {
+                            audioEffectsInitMutex.withLock {
+                                if (currentAudioEffectsSessionId == id) {
+                                    equalizer?.release(); equalizer = null
+                                    currentAudioEffectsSessionId = 0; audioEffectsInitialized = false
+                                }
+                                if (externalAudioEffectSessionId == id) updateExternalAudioEffectSession(0)
+                            }
+                        }
+                    }
+                })
+        } else {
+            musicAssistantPlayer?.release()
+            musicAssistantPlayer = null
+        }
+        player = wrapPlayer(musicAssistantPlayer ?: rhythmPlayerEngine.masterPlayer)
+        playerListener?.let(player::addListener)
+        mediaSession?.player = player
+        pendingPlayNextTokens.clear()
+        return true
+    }
+
     private fun wrapPlayer(rawPlayer: Player): Player = RhythmForwardingPlayer(rawPlayer)
 
     private inner class RhythmForwardingPlayer(rawPlayer: Player) : ForwardingPlayer(rawPlayer) {
@@ -2794,6 +2845,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
 
         override fun setMediaItems(mediaItems: List<MediaItem>) {
+            if (!isMutatingBtVirtualQueue && switchMusicSource(mediaItems)) { player.setMediaItems(mediaItems); return }
             if (!isMutatingBtVirtualQueue) {
                 pendingPlayNextTokens.clear()
                 libraryContinuationActive = false
@@ -2805,6 +2857,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
 
         override fun setMediaItems(mediaItems: List<MediaItem>, resetPosition: Boolean) {
+            if (!isMutatingBtVirtualQueue && switchMusicSource(mediaItems)) { player.setMediaItems(mediaItems, resetPosition); return }
             if (!isMutatingBtVirtualQueue) {
                 pendingPlayNextTokens.clear()
                 libraryContinuationActive = false
@@ -2816,6 +2869,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
 
         override fun setMediaItems(mediaItems: List<MediaItem>, startIndex: Int, startPositionMs: Long) {
+            if (!isMutatingBtVirtualQueue && switchMusicSource(mediaItems)) { player.setMediaItems(mediaItems, startIndex, startPositionMs); return }
             if (!isMutatingBtVirtualQueue) {
                 pendingPlayNextTokens.clear()
                 libraryContinuationActive = false
@@ -2827,6 +2881,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
 
         override fun setMediaItem(mediaItem: MediaItem) {
+            if (!isMutatingBtVirtualQueue && switchMusicSource(listOf(mediaItem))) { player.setMediaItem(mediaItem); return }
             if (!isMutatingBtVirtualQueue) {
                 pendingPlayNextTokens.clear()
                 libraryContinuationActive = false
@@ -2838,6 +2893,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
 
         override fun setMediaItem(mediaItem: MediaItem, startPositionMs: Long) {
+            if (!isMutatingBtVirtualQueue && switchMusicSource(listOf(mediaItem))) { player.setMediaItem(mediaItem, startPositionMs); return }
             if (!isMutatingBtVirtualQueue) {
                 pendingPlayNextTokens.clear()
                 libraryContinuationActive = false
@@ -2849,6 +2905,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
 
         override fun setMediaItem(mediaItem: MediaItem, resetPosition: Boolean) {
+            if (!isMutatingBtVirtualQueue && switchMusicSource(listOf(mediaItem))) { player.setMediaItem(mediaItem, resetPosition); return }
             if (!isMutatingBtVirtualQueue) {
                 pendingPlayNextTokens.clear()
                 libraryContinuationActive = false
@@ -3298,6 +3355,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         updateExternalAudioEffectSession(0)
         releaseAudioEffects()
 
+        musicAssistantPlayer?.release()
+        musicAssistantPlayer = null
+
         // Release crossfade engine and transition controller
         if (::transitionController.isInitialized) transitionController.release()
         if (::rhythmPlayerEngine.isInitialized) rhythmPlayerEngine.release()
@@ -3449,6 +3509,14 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                     val items = bundles.map { MediaItem.fromBundle(it) }
                     if (items.isEmpty() || items.any { it.localConfiguration?.uri == null }) {
                         Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
+                    } else if (musicAssistantPlayer != null) {
+                        val result = com.google.common.util.concurrent.SettableFuture.create<SessionResult>()
+                        val operation = musicAssistantPlayer!!.enqueueNext(items)
+                        operation.addListener({
+                            try { operation.get(); result.set(SessionResult(SessionResult.RESULT_SUCCESS)) }
+                            catch (_: Exception) { result.set(SessionResult(SessionError.ERROR_UNKNOWN)) }
+                        }, androidx.core.content.ContextCompat.getMainExecutor(this@MediaPlaybackService))
+                        result
                     } else {
                         Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS, enqueuePlayNext(items)))
                     }
@@ -3843,6 +3911,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     }
 
     private fun collapseQueueForBtLyrics() {
+        // Queue collapse must never rewrite a shared server queue.
+        if (musicAssistantPlayer != null) return
         if (!::player.isInitialized || !btVirtualQueueActive() || isMutatingBtVirtualQueue) return
         val count = player.mediaItemCount
         val idx = player.currentMediaItemIndex
@@ -4927,7 +4997,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     }
     
     private fun getPlayerAudioSessionId(): Int {
-        return if (::rhythmPlayerEngine.isInitialized) rhythmPlayerEngine.getAudioSessionId() else 0
+        return musicAssistantPlayer?.sessionId ?: if (::rhythmPlayerEngine.isInitialized) rhythmPlayerEngine.getAudioSessionId() else 0
     }
 
     /**
@@ -5099,6 +5169,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             } catch (e: Exception) {
                 Log.w(TAG, "Error releasing existing effects: ${e.message}")
             }
+
+            if (getPlayerAudioSessionId() != audioSessionId) return
 
             // Do not allocate a platform effect when the user has EQ disabled. A flat,
             // enabled hardware Equalizer is still a real AudioFlinger effect and conflicts

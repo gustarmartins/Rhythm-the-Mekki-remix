@@ -24,7 +24,7 @@ jobs:
       - name: Compile and test native playback
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon --max-workers=2 \
+          ./gradlew --continue --no-daemon --max-workers=2 \
             -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8" \
             -Pkotlin.daemon.jvmargs=-Xmx4500m \
             :sendspin:testDebugUnitTest :app:testGithubDebugUnitTest :app:assembleGithubDebug
