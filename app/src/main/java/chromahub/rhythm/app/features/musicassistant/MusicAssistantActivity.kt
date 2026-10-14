@@ -102,6 +102,15 @@ class MusicAssistantActivity : ComponentActivity() {
         setContent { RhythmTheme(dynamicColor = true) { Workspace() } }
     }
 
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (!intent.getBooleanExtra(MusicAssistantEntry.SERVER_ADMINISTRATION, false)) {
+            MusicAssistantEntry.open(this)
+            finish()
+        }
+    }
+
     override fun onStart() {
         super.onStart()
         if (!::connection.isInitialized) return
