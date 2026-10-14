@@ -1060,8 +1060,12 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
      * Search across the streaming service.
      */
     fun search(query: String) {
-        _searchQuery.value = query
-        searchController.submit(query)
+        // Network callbacks can clear search from a binder thread. Keep request
+        // cancellation and generation changes on the ViewModel's main dispatcher.
+        viewModelScope.launch {
+            _searchQuery.value = query
+            searchController.submit(query)
+        }
     }
 
     /**
