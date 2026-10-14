@@ -43,7 +43,7 @@ class MusicAssistantAndroidTest {
         }
         fail("Timed out: $label; ${MusicAssistantPlayer.nativeStatus.value}")
     }
-    @Test fun nativeLibraryAndMediaSessionPlayback() = runBlocking {
+    @Test fun nativeLibraryAndMediaSessionPlayback(): Unit = runBlocking {
         val input = File(context.filesDir, "ma-test-account.json")
         assumeTrue("Supply a private real-server account to run this test", input.isFile)
         val credentials = JsonParser.parseString(input.readText()).asJsonObject
@@ -111,6 +111,7 @@ class MusicAssistantAndroidTest {
             main { controller.pause() }
             waitFor("final pause") { !controller.playWhenReady }
             android.util.Log.i("RhythmMA-Test", "PASS native catalog=${songs.size}, FLAC, MP3, pause, FIFO, duplicates, seek")
+            Unit
         } finally {
             main { controller.pause(); controller.release() }
         }
