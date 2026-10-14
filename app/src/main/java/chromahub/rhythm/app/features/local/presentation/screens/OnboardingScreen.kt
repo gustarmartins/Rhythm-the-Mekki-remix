@@ -9873,6 +9873,42 @@ private fun StreamingProviderSelectionList(
                     HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                     onProviderSelected("JELLYFIN")
                 }
+            ),
+            Material3SettingsItem(
+                leadingContent = {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_music_note),
+                        contentDescription = null,
+                        tint = if (selectedProvider == "MUSIC_ASSISTANT") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(28.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = stringResource(R.string.music_assistant_name),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                },
+                description = {
+                    Text(
+                        text = stringResource(R.string.music_assistant_native_description),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                trailingContent = {
+                    RadioButton(
+                        selected = selectedProvider == "MUSIC_ASSISTANT",
+                        onClick = null,
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = MaterialTheme.colorScheme.primary,
+                            unselectedColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+                },
+                onClick = {
+                    HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                    onProviderSelected("MUSIC_ASSISTANT")
+                }
             )
         ),
         containerColor = MaterialTheme.colorScheme.surface
@@ -9938,15 +9974,15 @@ fun EnhancedStreamingSetupContent(
     val selectedProvider = currentStreamingService.ifBlank { "SUBSONIC" }
     
     val currentSession = sessions[selectedProvider] ?: streamingViewModel.getServiceSession(selectedProvider)
-    val requiresServerUrl = remember(selectedProvider) { selectedProvider == "SUBSONIC" || selectedProvider == "JELLYFIN" }
+    val requiresServerUrl = remember(selectedProvider) { chromahub.rhythm.app.features.streaming.domain.model.StreamingServiceRules.requiresServerUrl(selectedProvider) }
 
-    var serverUrl by rememberSaveable(selectedProvider) { mutableStateOf(currentSession.serverUrl) }
+    var serverUrl by rememberSaveable(selectedProvider) { mutableStateOf(currentSession.serverUrl.ifBlank { if (selectedProvider == "MUSIC_ASSISTANT") context.getSharedPreferences("music_assistant", android.content.Context.MODE_PRIVATE).getString("server", "").orEmpty() else "" }) }
     var username by rememberSaveable(selectedProvider) { mutableStateOf(currentSession.username) }
     var password by rememberSaveable(selectedProvider) { mutableStateOf("") }
     var showDiscoverySheet by remember { mutableStateOf(false) }
 
     val scanner = remember(selectedProvider) { NearbyServerScanner(context, selectedProvider, scope) }
-    var isAutoScanning by rememberSaveable(selectedProvider) { mutableStateOf(serverUrl.isBlank()) }
+    var isAutoScanning by rememberSaveable(selectedProvider) { mutableStateOf(serverUrl.isBlank() && selectedProvider != "MUSIC_ASSISTANT") }
 
     DisposableEffect(scanner) {
         onDispose {
@@ -9955,7 +9991,7 @@ fun EnhancedStreamingSetupContent(
     }
 
     LaunchedEffect(selectedProvider) {
-        if (serverUrl.isBlank()) {
+        if (serverUrl.isBlank() && selectedProvider != "MUSIC_ASSISTANT") {
             isAutoScanning = true
             scanner.startScan()
             delay(3500)
@@ -9970,17 +10006,23 @@ fun EnhancedStreamingSetupContent(
     val canSubmit = username.isNotBlank() && password.isNotBlank() && (!requiresServerUrl || serverUrl.isNotBlank())
     val scrollState = rememberScrollState()
 
-    val providerDisplayName = if (selectedProvider == "JELLYFIN") {
+    val providerDisplayName = if (selectedProvider == "MUSIC_ASSISTANT") {
+        stringResource(R.string.music_assistant_name)
+    } else if (selectedProvider == "JELLYFIN") {
         stringResource(R.string.streaming_service_jellyfin)
     } else {
         stringResource(R.string.onboardingscreen_subsonic_navidrome)
     }
-    val providerDescription = if (selectedProvider == "JELLYFIN") {
+    val providerDescription = if (selectedProvider == "MUSIC_ASSISTANT") {
+        stringResource(R.string.music_assistant_native_description)
+    } else if (selectedProvider == "JELLYFIN") {
         stringResource(R.string.streaming_service_jellyfin_desc)
     } else {
         stringResource(R.string.streaming_service_subsonic_desc)
     }
-    val providerIconRes = if (selectedProvider == "JELLYFIN") {
+    val providerIconRes = if (selectedProvider == "MUSIC_ASSISTANT") {
+        R.drawable.ic_music_note
+    } else if (selectedProvider == "JELLYFIN") {
         R.drawable.ic_jellyfin
     } else {
         R.drawable.ic_subsonic
@@ -10322,7 +10364,7 @@ private fun StreamingSetupSelectionAndForm(
                     label = { Text(stringResource(R.string.streaming_service_setup_server_url)) },
                     placeholder = { Text(stringResource(R.string.onboardingscreen_httpsyourservercom)) },
                     trailingIcon = {
-                        IconButton(onClick = onDiscoverClick, enabled = !isLoading && !isConnected) {
+                        IconButton(onClick = onDiscoverClick, enabled = !isLoading && !isConnected && selectedProvider != "MUSIC_ASSISTANT") {
                             Icon(
                                 imageVector = MaterialSymbolIcon("radar"),
                                 contentDescription = stringResource(R.string.streaming_service_setup_auto_detect)

@@ -1818,7 +1818,7 @@
     <string name="onboardingscreen_choose_your_playback_mode">Choose Your Playback Mode</string>
     <string name="onboardingscreen_rhythm_go">Rhythm GO</string>
     <string name="onboardingscreen_mode_local_desc">Play audio files stored on your device</string>
-    <string name="onboardingscreen_mode_streaming_desc">Stream from Jellyfin or Subsonic servers</string>
+    <string name="onboardingscreen_mode_streaming_desc">Stream from Music Assistant, Jellyfin or Subsonic servers</string>
     <string name="onboardingscreen_playback_mode_tips">Playback Mode Tips</string>
     <string name="onboardingscreen_local_mode_scans_and">Local mode scans and catalogs audio files on your device.</string>
     <string name="onboardingscreen_go_streaming_connects_via">GO Streaming connects via subsonic/jellyfin API server.</string>
