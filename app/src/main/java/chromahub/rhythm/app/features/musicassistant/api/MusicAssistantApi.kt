@@ -68,7 +68,8 @@ internal class MusicAssistantApi(private val transport: MusicAssistantTransport)
      * MA's start_item only selects within containers (albums/playlists), not a batch of tracks.
      * Stage the ordered list while stopped, then select the exact returned occurrence.
      */
-    suspend fun replaceQueueAndSelect(queueId: String, uris: List<String>, startIndex: Int, positionSeconds: Int = 0) {
+    suspend fun replaceQueueAndSelect(queueId: String, uris: List<String>, startIndex: Int,
+                                      positionSeconds: Int = 0, shuffle: Boolean = false) {
         require(uris.isNotEmpty() && startIndex in uris.indices && positionSeconds >= 0)
         uris.forEach(::identifier)
         mutations.withLock {
@@ -86,6 +87,7 @@ internal class MusicAssistantApi(private val transport: MusicAssistantTransport)
             }
             transport.command("player_queues/play_index", args("queue_id" to queueId,
                 "index" to loaded[startIndex].occurrenceId, "seek_position" to positionSeconds))
+            if (shuffle) transport.command("player_queues/shuffle", args("queue_id" to queueId, "shuffle_enabled" to true))
         }
     }
 

@@ -6285,7 +6285,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 // Create all media items on background thread
-                val mediaItems = finalSongs.map { it.toMediaItem() }
+                val mediaItems = finalSongs.mapIndexed { index, song ->
+                    val item = song.toMediaItem()
+                    if (index == 0 && enableShuffle != null) {
+                        // Carry intent atomically across an engine switch. A separate shuffle
+                        // setter may be elided when the old player already has that value.
+                        val extras = android.os.Bundle(item.mediaMetadata.extras ?: android.os.Bundle.EMPTY).apply {
+                            putBoolean(PlayNextCommand.REQUESTED_SHUFFLE, enableShuffle && useExoPlayerShuffle)
+                        }
+                        item.buildUpon().setMediaMetadata(item.mediaMetadata.buildUpon().setExtras(extras).build()).build()
+                    } else item
+                }
 
                 // Switch to main thread to interact with MediaController
                 withContext(Dispatchers.Main) {

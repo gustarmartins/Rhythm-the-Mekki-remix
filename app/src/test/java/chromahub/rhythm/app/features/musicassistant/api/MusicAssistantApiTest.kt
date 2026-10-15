@@ -124,6 +124,21 @@ class MusicAssistantApiTest {
         assertEquals(12, commands.last().second["seek_position"].asInt)
     }
 
+    @Test fun shuffleIsAppliedOnlyAfterSelectingTheExactOccurrence() = runBlocking {
+        val commands = mutableListOf<Pair<String, JsonObject>>()
+        val recording = MusicAssistantApi(MusicAssistantTransport { command, args ->
+            commands += command to args
+            if (command == "player_queues/items") JsonParser.parseString(
+                """[{"queue_item_id":"selected","name":"Song","media_item":$TRACK}]""")
+            else com.google.gson.JsonNull.INSTANCE
+        })
+        recording.replaceQueueAndSelect("queue", listOf("library://track/42"), 0, shuffle = true)
+        val toggles = commands.filter { it.first == "player_queues/shuffle" }.map { it.second["shuffle_enabled"].asBoolean }
+        assertEquals(listOf(false, true), toggles)
+        assertEquals("player_queues/play_index", commands[commands.lastIndex - 1].first)
+        assertEquals("player_queues/shuffle", commands.last().first)
+    }
+
     @Test fun missingTrackInReplacementDoesNotStartTheWrongOccurrence() = runBlocking {
         val commands = mutableListOf<String>()
         val recording = MusicAssistantApi(MusicAssistantTransport { command, _ ->

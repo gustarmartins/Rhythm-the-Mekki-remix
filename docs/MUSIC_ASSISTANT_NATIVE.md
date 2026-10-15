@@ -182,3 +182,8 @@ parameter selects inside containers, not among separately supplied track URIs.
 Failures are surfaced without replaying mutations. Android regression now checks
 Home album resolution, selecting a duplicate beyond index zero, and Next while
 playing without an extra Play command that could hide a stopped-player bug.
+
+Queue replacements also carry their explicit shuffle choice in the Media3 item
+extras. This avoids losing that choice when a redundant setter is optimized away
+against the previous player state. The server first selects the exact occurrence,
+then applies requested shuffle to the remaining queue.

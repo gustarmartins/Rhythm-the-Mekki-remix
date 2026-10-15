@@ -18,6 +18,7 @@ object PlayNextCommand {
     const val CURRENT_INDEX = "current_index"
     // The saved list is already in playback traversal order, including native shuffle.
     const val RESTORED_TRAVERSAL = "rhythm_restored_traversal"
+    const val REQUESTED_SHUFFLE = "rhythm_requested_shuffle"
 }
 
 internal data class PlayNextInsertion(

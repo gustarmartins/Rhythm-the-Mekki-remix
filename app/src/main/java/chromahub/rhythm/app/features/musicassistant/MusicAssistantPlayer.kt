@@ -255,6 +255,9 @@ internal class MusicAssistantPlayer(
     override fun handleSetMediaItems(mediaItems: MutableList<MediaItem>, startIndex: Int, startPositionMs: Long): ListenableFuture<*> {
         require(mediaItems.all(::isMusicAssistant)) { "Local and server queues cannot be mixed" }
         mediaItems.forEach { metadata[uri(it)] = it }
+        val requestedShuffle = mediaItems.firstOrNull()?.mediaMetadata?.extras
+            ?.takeIf { it.containsKey(PlayNextCommand.REQUESTED_SHUFFLE) }
+            ?.getBoolean(PlayNextCommand.REQUESTED_SHUFFLE) ?: shuffleModeEnabled
         return submit {
             pendingManual.clear()
             val id = queueId()
@@ -262,7 +265,7 @@ internal class MusicAssistantPlayer(
             else {
                 foreground()
                 client.api().replaceQueueAndSelect(id, mediaItems.map(::uri),
-                    startIndex.coerceIn(0, mediaItems.lastIndex), (startPositionMs.coerceAtLeast(0) / 1000).toInt())
+                    startIndex.coerceIn(0, mediaItems.lastIndex), (startPositionMs.coerceAtLeast(0) / 1000).toInt(), requestedShuffle)
             }
         }
     }
