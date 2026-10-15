@@ -13,7 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
-import androidx.compose.ui.test.hasSetProgressAction
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -185,7 +186,7 @@ class SettingsSliderInteractionTest {
     }
 
     private fun dragAcrossRecomposition(readSavedValue: () -> Float, initialValue: Float) {
-        val slider = compose.onNode(hasSetProgressAction()).assertIsDisplayed()
+        val slider = compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress)).assertIsDisplayed()
         slider.performTouchInput {
             down(Offset(width * 0.5f, centerY))
             moveTo(Offset(width * 0.65f, centerY))
@@ -202,7 +203,7 @@ class SettingsSliderInteractionTest {
     }
 
     private fun dragBack() {
-        val slider = compose.onNode(hasSetProgressAction()).assertIsDisplayed()
+        val slider = compose.onNode(SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress)).assertIsDisplayed()
         slider.performTouchInput {
             down(Offset(width * 0.85f, centerY))
             moveTo(Offset(width * 0.55f, centerY))

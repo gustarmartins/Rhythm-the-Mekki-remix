@@ -136,7 +136,7 @@ class MusicAssistantAndroidTest {
             waitFor("app playback ViewModel ready") { viewModel.isInitialized.value }
             val album = client.searchAlbums("folklore").getOrThrow().first { it.title.equals("folklore", ignoreCase = true) }
             val expectedAlbumTracks = client.getAlbumSongs(album.providerId).getOrThrow()
-            val nativeAlbum = repository.searchAlbums("folklore").first { it.title.equals("folklore", ignoreCase = true) }
+            val nativeAlbum = repository.searchAlbums("folklore").filterIsInstance<chromahub.rhythm.app.features.streaming.domain.model.StreamingAlbum>().first { it.title.equals("folklore", ignoreCase = true) }
             assertTrue("Album fixture needs multiple tracks", expectedAlbumTracks.size > 1)
             var selectedAlbumTracks = emptyList<chromahub.rhythm.app.features.streaming.domain.model.StreamingSong>()
             var albumShuffle = true
