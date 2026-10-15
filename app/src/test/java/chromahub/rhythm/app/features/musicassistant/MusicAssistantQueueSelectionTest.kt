@@ -72,7 +72,9 @@ class MusicAssistantQueueSelectionTest {
                 throw expected
             }
         }.exceptionOrNull()
-        assertSame(expected, failure)
+        // Coroutine stack-trace recovery may copy the IOException across the timeout boundary.
+        assertEquals(expected.javaClass, failure?.javaClass)
+        assertEquals(expected.message, failure?.message)
         assertEquals(1, reads)
     }
 
