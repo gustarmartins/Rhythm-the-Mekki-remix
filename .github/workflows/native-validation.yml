@@ -37,6 +37,8 @@ jobs:
           else
             touch config/signing/private.properties
           fi
+      # Signed release/R8 qualification runs in nightly.yml; this job supplies the
+      # isolated debug app and instrumentation APK for physical-device regressions.
       - name: Compile and test native playback
         env:
           GITHUB_OWNER: ${{ github.repository_owner }}
@@ -50,7 +52,7 @@ jobs:
             -Pkotlin.daemon.jvmargs=-Xmx4500m \
             -PversionCodeOverride="$((600003001 + GITHUB_RUN_NUMBER))" \
             -PversionNameOverride="6.1.0-dev.$GITHUB_RUN_NUMBER" \
-            :sendspin:testDebugUnitTest :app:testGithubDebugUnitTest :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest :app:assembleGithubRelease
+            :sendspin:testDebugUnitTest :app:testGithubDebugUnitTest :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest
       - uses: actions/upload-artifact@v7
         if: always()
         with:

@@ -68,7 +68,7 @@ class LibraryScanIntegrityAndroidTest {
                         MediaStore.Audio.Media.ALBUM_ARTIST -> "Regression artist"
                         MediaStore.Audio.Media.DISC_NUMBER -> 1
                         else -> null
-                    } }.toTypedArray())
+                    } }.toTypedArray<Any?>())
                 }
             }
         }
