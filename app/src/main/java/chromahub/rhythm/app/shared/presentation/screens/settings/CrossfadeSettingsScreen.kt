@@ -190,7 +190,7 @@ fun CrossfadeSettingsScreen(
                                 Column(modifier = Modifier.fillMaxWidth()) {
                                     Text(stringResource(R.string.settings_crossfade_duration_help))
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    val crossfadeSliderState = remember(crossfadeDuration) {
+                                    val crossfadeSliderState = remember {
                                         SliderState(
                                             value = crossfadeDuration,
                                             steps = 22,

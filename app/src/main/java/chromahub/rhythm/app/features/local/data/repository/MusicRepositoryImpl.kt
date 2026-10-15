@@ -7,6 +7,8 @@ package chromahub.rhythm.app.features.local.data.repository
 import chromahub.rhythm.app.util.LyricsOrigin
 import chromahub.rhythm.app.util.firstAvailableLyrics
 import chromahub.rhythm.app.shared.data.model.ScanProgress
+import chromahub.rhythm.app.core.domain.scan.LibraryScanJournal
+import chromahub.rhythm.app.core.domain.scan.librarySnapshotNeedsRefresh
 import chromahub.rhythm.app.core.domain.scan.MediaScanEngine
 import chromahub.rhythm.app.core.domain.scan.MediaScanScope
 import chromahub.rhythm.app.core.domain.scan.MediaLibraryFingerprint
@@ -186,6 +188,8 @@ class MusicRepository(context: Context) {
     private val dateAddedPrefs: SharedPreferences by lazy { context.getSharedPreferences("song_date_added_cache", Context.MODE_PRIVATE) }
     private val libraryScanPrefs: SharedPreferences by lazy { context.getSharedPreferences("library_scan_metadata", Context.MODE_PRIVATE) }
 
+    private val scanJournal by lazy { LibraryScanJournal(libraryScanPrefs) }
+
     // Scan progress tracking
 
     private val _scanProgress = MutableStateFlow(ScanProgress(0, 0, ScanPhase.Idle))
@@ -267,10 +271,7 @@ class MusicRepository(context: Context) {
             Log.d(TAG, "Persisting ${songs.size} songs to disk cache")
             val songsWithMetadata = songs.count { it.bitrate != null && it.sampleRate != null && it.channels != null && it.codec != null }
             Log.d(TAG, "Songs with complete metadata: $songsWithMetadata/${songs.size}")
-            val previousSongs = cachedSongs
-            repositoryScope.launch {
-                saveSongsToRoom(songs, clearArtistCache = false, previousSongs = previousSongs) // Don't clear artist cache when persisting metadata
-            }
+            repositoryScope.launch { saveSongsToRoom(songs) }
         } ?: Log.w(TAG, "No cached songs to persist to disk")
     }
 
@@ -284,16 +285,10 @@ class MusicRepository(context: Context) {
             Log.d(TAG, "Skipping Room save because the song snapshot is unchanged")
             return
         }
-        repositoryScope.launch {
-            saveSongsToRoom(songs, clearArtistCache = false, previousSongs = previousSongs) // Don't clear artist cache for metadata updates
-        }
+        repositoryScope.launch { saveSongsToRoom(songs) }
     }
 
-    private suspend fun saveSongsToRoom(
-        songs: List<Song>,
-        clearArtistCache: Boolean = true,
-        previousSongs: List<Song>? = cachedSongs
-    ) {
+    private suspend fun saveSongsToRoom(songs: List<Song>) {
         try {
             // Load existing artwork URIs from DB to check for lossless versions
             val existingSongs = runCatching { songDao.getAllSongs().associate { it.id to it.artworkUri } }.getOrNull() ?: emptyMap()
@@ -352,77 +347,22 @@ class MusicRepository(context: Context) {
                     path = song.path
                 )
             }
-            val entitiesById = entities.associateBy { it.id }
-
-            val songsWithMetadata =
-                songs.count { it.bitrate != null && it.sampleRate != null && it.channels != null && it.codec != null }
-            Log.d(
-                TAG,
-                "Saving ${songs.size} songs to Room (${songsWithMetadata} with metadata, clearArtistCache=$clearArtistCache)"
-            )
-
-            val canUseIncrementalUpdate =
-                !clearArtistCache &&
-                        previousSongs != null &&
-                        previousSongs.size == songs.size &&
-                        previousSongs.map { it.id }.toSet() == songs.map { it.id }.toSet()
-
-            if (canUseIncrementalUpdate) {
-                val previousById = previousSongs.associateBy { it.id }
-                val changedSongs = songs.filter { previousById[it.id] != it }
-
-                if (changedSongs.isEmpty()) {
-                    Log.d(TAG, "Skipping Room save because the incremental snapshot is unchanged")
-                    return
-                }
-
-                val chunkSize = 200
-                changedSongs.chunked(chunkSize).forEach { chunk ->
-                    val chunkEntities = chunk.mapNotNull { song -> entitiesById[song.id] }
-                    val chunkSongIds = chunk.map { it.id }
-                    val relationshipSets = buildSongArtistRelationshipSets(chunk)
-
-                    roomDb.withTransaction {
-                        songDao.upsertAll(chunkEntities)
-                        roomDb.songArtistDao().deleteBySongIds(chunkSongIds)
-                        roomDb.songArtistDao().insertAll(relationshipSets.albumArtistRelationships)
-                        roomDb.songArtistDao().insertAll(relationshipSets.trackArtistRelationships)
-                    }
-                    yield()
-                }
-
-                Log.d(
-                    TAG,
-                    "Saved ${changedSongs.size} changed songs to Room database in chunks of $chunkSize (incremental metadata update)"
-                )
-            } else {
-                val relationshipSets = buildSongArtistRelationshipSets(songs)
+            // This is metadata enrichment, not a new authoritative library snapshot. A stale
+            // ViewModel or one completed batch must never replace all rows or resurrect deleted ones.
+            entities.chunked(200).forEach { chunk ->
                 roomDb.withTransaction {
-                    songDao.replaceAll(entities)
-                    roomDb.songArtistDao()
-                        .replaceAll(relationshipSets.albumArtistRelationships, true)
-                    roomDb.songArtistDao()
-                        .replaceAll(relationshipSets.trackArtistRelationships, false)
-
-                    if (clearArtistCache) {
-                        // Clear artist cache since songs have changed
-                        roomDb.artistDao().deleteAll()
-                    }
+                    val accepted = songDao.updateCurrentMetadata(chunk)
+                    val relationships = buildSongArtistRelationshipSets(accepted.map { it.toSong() })
+                    roomDb.songArtistDao().deleteBySongIds(accepted.map { it.id })
+                    roomDb.songArtistDao().insertAll(relationships.albumArtistRelationships)
+                    roomDb.songArtistDao().insertAll(relationships.trackArtistRelationships)
                 }
-
-                if (clearArtistCache) {
-                    Log.d(
-                        TAG,
-                        "Saved ${songs.size} songs to Room database and cleared artist cache"
-                    )
-                } else {
-                    Log.d(TAG, "Saved ${songs.size} songs to Room database (kept artist cache)")
-                }
+                yield()
             }
-
-            cachedSongs = songs
+            cachedSongs = loadSongsFromRoom() ?: cachedSongs
             cacheTimestamp = System.currentTimeMillis()
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Log.e(TAG, "Failed to save songs to Room database", e)
         }
     }
@@ -854,17 +794,17 @@ class MusicRepository(context: Context) {
 
         if (!hasPermission) {
             Log.w(TAG, "MediaStore permission not granted. Cannot scan music library.")
-            // Return empty list with error indication
             _scanProgress.value = ScanProgress(0, 0, ScanPhase.PermissionDenied, 0)
-            return@withContext emptyList()
+            // Revocation is not an empty library. Keep the last complete snapshot available.
+            return@withContext cachedSongs ?: loadSongsFromRoom().orEmpty().also { cachedSongs = it }
         }
 
         val appSettings = AppSettings.getInstance(context)
         var shouldForceRefresh = forceRefresh
 
         if (appSettings.consumePendingFullMediaRescanRequest()) {
-            Log.i(TAG, "Pending full media rescan detected, invalidating persistent library caches")
-            invalidatePersistentLibraryCachesForForcedRescan()
+            Log.i(TAG, "Pending full media rescan detected; retaining completed library until replacement commits")
+            scanJournal.requestFullScan()
             shouldForceRefresh = true
         }
 
@@ -6719,25 +6659,16 @@ class MusicRepository(context: Context) {
         }
     }
 
-    private suspend fun invalidatePersistentLibraryCachesForForcedRescan() {
-        try {
-            roomDb.withTransaction {
-                songDao.deleteAll()
-                roomDb.songArtistDao().deleteAll()
-                roomDb.artistDao().deleteAll()
-            }
-            genrePrefs.edit { clear() }
-            libraryScanPrefs.edit { clear() }
-            clearInMemoryCaches()
-            Log.i(TAG, "Invalidated Room + metadata caches for forced full media rescan")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to invalidate persistent caches for forced media rescan", e)
-        }
+    suspend fun isLibraryStale(lastScan: Long, cachedCount: Int): Boolean = withContext(Dispatchers.IO) {
+        isLibraryStaleOnIo(lastScan, cachedCount)
     }
 
-    fun isLibraryStale(lastScan: Long, cachedCount: Int): Boolean {
+    private suspend fun isLibraryStaleOnIo(lastScan: Long, cachedCount: Int): Boolean {
         try {
-            if (lastScan <= 0L) { Log.i(TAG, "Library change check: no completed scan"); return true }
+            if (lastScan <= 0L || scanJournal.interrupted || scanJournal.fullScanPending) {
+                Log.i(TAG, "Library change check: missing, interrupted or requested scan")
+                return true
+            }
             val scope = MediaScanScope(appSettings.mediaScanMode.value.name,
                 appSettings.allowedFormats.value, appSettings.minimumDuration.value,
                 appSettings.whitelistedFolders.value.toSet(), appSettings.whitelistedSongs.value.toSet(),
@@ -6770,10 +6701,12 @@ class MusicRepository(context: Context) {
             }
             val current = fingerprint.value()
             val previous = libraryScanPrefs.getString("scoped_fingerprint", null)
-            val changed = current != previous
-            if (changed) Log.i(TAG, "Library change check: scoped snapshot changed (baselineMissing=${previous == null}, cachedCount=$cachedCount)")
+            val roomCount = songDao.getCount()
+            val changed = librarySnapshotNeedsRefresh(previous, current, roomCount, cachedCount, scanJournal.interrupted)
+            if (changed) Log.i(TAG, "Library change check: provider or persisted snapshot changed (baselineMissing=${previous == null}, roomCount=$roomCount, cachedCount=$cachedCount)")
             return changed
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             Log.w(TAG, "Library change check failed; keeping existing cache", e)
             return false
         }
@@ -6821,29 +6754,24 @@ class MusicRepository(context: Context) {
     }
 
     /**
-     * Clears all song cache data from Room database.
-     * Call this when the user explicitly clears cache from settings.
+     * Clears derived artwork/metadata caches and schedules a full catalog rebuild.
+     * Keep the completed Room snapshot until its replacement commits, even after process death.
      */
     fun clearSongCacheData() {
         try {
             repositoryScope.launch {
                 try {
-                    roomDb.withTransaction {
-                        songDao.deleteAll()
-                        roomDb.songArtistDao().deleteAll()
-                        roomDb.artistDao().deleteAll()
-                    }
+                    scanJournal.requestFullScan()
                     genrePrefs.edit { clear() }
                     artworkPrefs.edit { clear() }
-                    libraryScanPrefs.edit { clear() }
                     clearEmbeddedArtworkFileCaches()
                     clearInMemoryCaches()
-                    Log.d(TAG, "Cleared Room song/artist/link tables and metadata caches")
+                    Log.d(TAG, "Cleared metadata caches; retaining complete catalog until full rescan commits")
                 } catch (e: Exception) {
                     Log.e(TAG, "Error clearing Room database", e)
                 }
             }
-            Log.d(TAG, "Scheduled full song cache clear (Room, metadata, in-memory)")
+            Log.d(TAG, "Scheduled derived cache clear and safe catalog rebuild")
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing song cache data", e)
         }
@@ -7211,7 +7139,7 @@ class MusicRepository(context: Context) {
             val batchEntities = batchResults.map { it.toEntity() }
 
             // Keep upstream's incremental persistence without introducing parallel extractor load.
-            roomDb.songDao().upsertAll(batchEntities)
+            roomDb.songDao().updateCurrentMetadata(batchEntities)
             onBatchComplete?.invoke(batchResults)
 
             val batchDuration = System.currentTimeMillis() - batchStartTime
@@ -7228,8 +7156,9 @@ class MusicRepository(context: Context) {
             updatedSongsById[originalSong.id] ?: originalSong
         }
 
-        cachedSongs = finalSongs
-        onComplete?.invoke(finalSongs)
+        // A concurrent scan may have changed membership while metadata was being extracted.
+        cachedSongs = loadSongsFromRoom() ?: cachedSongs
+        onComplete?.invoke(cachedSongs ?: finalSongs)
     }
 
     /**

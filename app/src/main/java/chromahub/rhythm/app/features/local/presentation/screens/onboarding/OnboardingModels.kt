@@ -36,3 +36,14 @@ sealed class PermissionScreenState {
     object RedirectToSettings : PermissionScreenState()
     object PermissionsGranted : PermissionScreenState()
 }
+
+/** Storage access is recoverable independently of a completed first-run setup. */
+internal fun onboardingStepAfterPermissionCheck(
+    onboardingCompleted: Boolean,
+    currentStep: OnboardingStep,
+    hasStorageAccess: Boolean
+): OnboardingStep = when {
+    onboardingCompleted -> OnboardingStep.COMPLETE
+    !hasStorageAccess -> OnboardingStep.PERMISSIONS
+    else -> currentStep
+}

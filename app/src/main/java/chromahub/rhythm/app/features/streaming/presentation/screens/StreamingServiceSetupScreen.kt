@@ -36,6 +36,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -85,10 +87,10 @@ fun StreamingServiceSetupScreen(
             onConnected()
         }
     }
-    val isLoading by viewModel.isLoading.collectAsState()
+    val operation by viewModel.connectionOperation.collectAsState()
     val error by viewModel.error.collectAsState()
     val rememberStreamingPasswords by appSettings.rememberStreamingPasswords.collectAsState()
-    val isBusy = isLoading
+    val isBusy = operation != chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamConnectionOperation.IDLE
 
     val option = remember(serviceId) {
         StreamingServiceOptions.defaults.firstOrNull { it.id == serviceId }
@@ -102,16 +104,21 @@ fun StreamingServiceSetupScreen(
     var username by rememberSaveable(serviceId) { mutableStateOf(session.username) }
     var password by remember(serviceId) { mutableStateOf("") }
     var showDiscoverySheet by remember { mutableStateOf(false) }
+    val discoveryScope = rememberCoroutineScope()
+    val scanner = remember(serviceId) {
+        chromahub.rhythm.app.features.streaming.presentation.components.bottomsheets.NearbyServerScanner(context, serviceId, discoveryScope)
+    }
+    DisposableEffect(scanner) { onDispose { scanner.stopScan() } }
 
     val canSubmit = username.isNotBlank() && password.isNotBlank() && (!requiresServerUrl || serverUrl.isNotBlank())
     val primaryActionText = when {
-        isBusy && session.isConnected -> R.string.streaming_service_setup_disconnecting
+        operation == chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamConnectionOperation.DISCONNECTING -> R.string.streaming_service_setup_disconnecting
         isBusy -> R.string.streaming_service_setup_connecting
         session.isConnected -> R.string.streaming_service_setup_reconnect
         else -> R.string.streaming_connect
     }
     val statusText = when {
-        isBusy && session.isConnected -> stringResource(id = R.string.streaming_service_setup_disconnecting)
+        operation == chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamConnectionOperation.DISCONNECTING -> stringResource(id = R.string.streaming_service_setup_disconnecting)
         isBusy -> stringResource(id = R.string.streaming_service_setup_connecting)
         session.isConnected -> stringResource(id = R.string.streaming_status_connected)
         else -> stringResource(id = R.string.streaming_status_not_connected)
@@ -190,7 +197,7 @@ fun StreamingServiceSetupScreen(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                val loadingText = if (session.isConnected) {
+                                val loadingText = if (operation == chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamConnectionOperation.DISCONNECTING) {
                                     stringResource(id = R.string.streaming_service_setup_disconnecting)
                                 } else {
                                     stringResource(id = R.string.streaming_service_setup_connecting)
@@ -234,7 +241,7 @@ fun StreamingServiceSetupScreen(
                                     label = { Text(text = stringResource(id = R.string.streaming_service_setup_server_url)) },
                                     placeholder = { Text(text = stringResource(id = R.string.streaming_service_setup_server_url_hint)) },
                                     trailingIcon = {
-                                        IconButton(onClick = { withLocalNetworkAccess { showDiscoverySheet = true } }, enabled = serviceId != "MUSIC_ASSISTANT") {
+                                        IconButton(onClick = { withLocalNetworkAccess { showDiscoverySheet = true } }, enabled = !isBusy) {
                                             Icon(
                                                 imageVector = MaterialSymbolIcon("radar"),
                                                 contentDescription = stringResource(R.string.streaming_service_setup_auto_detect)
@@ -363,7 +370,7 @@ fun StreamingServiceSetupScreen(
 
                         if (session.isConnected) {
                             OutlinedButton(
-                                onClick = { viewModel.disconnectService(serviceId) },
+                                onClick = { password = ""; viewModel.disconnectService(serviceId) },
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = !isBusy
                             ) {
@@ -392,6 +399,7 @@ fun StreamingServiceSetupScreen(
     if (showDiscoverySheet) {
         NearbyServerDiscoverySheet(
             serviceId = serviceId,
+            scanner = scanner,
             onDismiss = { showDiscoverySheet = false },
             onServerSelected = { detectedUrl ->
                 serverUrl = detectedUrl

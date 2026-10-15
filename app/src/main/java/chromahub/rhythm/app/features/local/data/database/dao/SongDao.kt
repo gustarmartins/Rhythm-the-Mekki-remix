@@ -10,6 +10,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Update
 import chromahub.rhythm.app.features.local.data.database.entity.SongEntity
 
 @Dao
@@ -40,6 +41,23 @@ interface SongDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(songs: List<SongEntity>)
+
+    /** Metadata workers may update the current library, never recreate removed or unscanned rows. */
+    @Update
+    suspend fun updateExisting(songs: List<SongEntity>)
+
+    @Transaction
+    suspend fun updateCurrentMetadata(songs: List<SongEntity>): List<SongEntity> {
+        val current = getSongsByIds(songs.map { it.id }).associateBy { it.id }
+        val accepted = songs.filter { incoming ->
+            current[incoming.id]?.let { existing ->
+                existing != incoming && existing.uri == incoming.uri && existing.path == incoming.path &&
+                    existing.dateModified == incoming.dateModified
+            } == true
+        }
+        updateExisting(accepted)
+        return accepted
+    }
 
     @Query("DELETE FROM songs")
     suspend fun deleteAll()

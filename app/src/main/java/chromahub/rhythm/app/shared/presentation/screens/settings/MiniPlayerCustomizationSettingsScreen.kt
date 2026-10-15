@@ -492,7 +492,6 @@ fun MiniPlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
             onSizeSelected = { size ->
                 HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                 appSettings.setMiniPlayerArtworkSize(size)
-                showMiniPlayerArtworkSizeSheet = false
             },
             onDismiss = { showMiniPlayerArtworkSizeSheet = false },
             context = context,
@@ -507,7 +506,6 @@ fun MiniPlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
             onRadiusSelected = { radius ->
                 HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                 appSettings.setMiniPlayerCornerRadius(radius)
-                showMiniPlayerCornerRadiusSheet = false
             },
             onDismiss = { showMiniPlayerCornerRadiusSheet = false },
             context = context,
@@ -552,7 +550,8 @@ fun MiniPlayerArtworkSizeSheet(
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 24.dp)
         ) {
-            val sizeSliderState = remember(tempSize) {
+            // SliderState owns the active gesture; changing its value must not replace it.
+            val sizeSliderState = remember {
                 SliderState(
                     value = tempSize.toFloat(),
                     steps = 31,
@@ -615,7 +614,7 @@ fun MiniPlayerCornerRadiusSheet(
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 24.dp)
         ) {
-            val radiusSliderState = remember(tempRadius) {
+            val radiusSliderState = remember {
                 SliderState(
                     value = tempRadius.toFloat(),
                     steps = 27,

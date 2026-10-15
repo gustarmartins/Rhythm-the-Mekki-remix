@@ -148,7 +148,7 @@ fun ExampleInteractiveIntensity() {
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            val intensitySliderState = remember(intensity) {
+            val intensitySliderState = remember {
                 SliderState(
                     value = intensity,
                     trackRange = 0.1f..1f

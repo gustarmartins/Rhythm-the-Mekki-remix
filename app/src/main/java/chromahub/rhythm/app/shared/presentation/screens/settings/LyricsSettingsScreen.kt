@@ -577,7 +577,7 @@ fun LyricsSettingsScreen(onBackClick: () -> Unit) {
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.primary
                                         )
-                                        val lyricsSizeSliderState = remember(playerLyricsTextSize) {
+                                        val lyricsSizeSliderState = remember {
                                             SliderState(
                                                 value = playerLyricsTextSize,
                                                 trackRange = 0.5f..2.0f

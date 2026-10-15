@@ -711,7 +711,7 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                     .padding(horizontal = 24.dp)
                     .padding(bottom = 24.dp)
             ) {
-                val radiusSliderState = remember(tempRadius) {
+                val radiusSliderState = remember {
                     SliderState(
                         value = tempRadius.toFloat(),
                         steps = 39,
@@ -794,7 +794,8 @@ fun PlayerCustomizationSettingsScreen(onBackClick: () -> Unit) {
                     .padding(horizontal = 24.dp)
                     .padding(bottom = 24.dp)
             ) {
-                val intensitySliderState = remember(tempIntensity) {
+                // Retain the drag across the recompositions caused by its own value updates.
+                val intensitySliderState = remember {
                     SliderState(
                         value = tempIntensity,
                         steps = 39,

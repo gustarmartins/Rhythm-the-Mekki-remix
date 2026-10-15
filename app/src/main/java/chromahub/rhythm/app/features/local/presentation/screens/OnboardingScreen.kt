@@ -169,6 +169,7 @@ import chromahub.rhythm.app.shared.presentation.viewmodel.rememberAppUpdaterView
 import chromahub.rhythm.app.shared.presentation.viewmodel.AppVersion
 import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel
 import chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamingMusicViewModel
+import chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamConnectionOperation
 import chromahub.rhythm.app.features.streaming.presentation.components.bottomsheets.NearbyServerDiscoverySheet
 import chromahub.rhythm.app.features.streaming.presentation.components.bottomsheets.NearbyServerScanner
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmWavyProgressLoader
@@ -203,6 +204,7 @@ import chromahub.rhythm.app.shared.presentation.components.bottomsheets.ShapePre
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.getLocalizedShapePresetName
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.ArtistDelimitersBottomSheet
 import chromahub.rhythm.app.util.ArtistSeparator
+import chromahub.rhythm.app.util.UpdateChannels
 import chromahub.rhythm.app.shared.presentation.screens.settings.CanvasNetworkModeDialog
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
@@ -5109,7 +5111,7 @@ fun EnhancedUpdaterContent(
                                 Material3SettingsItem(
                                     icon = when (updateChannel) {
                                         "stable" -> RhythmIcons.Public
-                                        "beta" -> RhythmIcons.BugReport
+                                        "nightly" -> RhythmIcons.DarkMode
                                         else -> RhythmIcons.Public
                                     },
                                     title = { Text(context.getString(R.string.onboarding_update_channel_title)) },
@@ -5122,14 +5124,14 @@ fun EnhancedUpdaterContent(
                                             )
                                             Spacer(modifier = Modifier.height(12.dp))
                                             ExpressiveButtonGroup(
-                                                items = listOf(
-                                                    context.getString(R.string.option_stable),
-                                                    context.getString(R.string.option_beta)
-                                                ),
-                                                selectedIndex = if (updateChannel == "beta") 1 else 0,
+                                                items = UpdateChannels.available.map { channel ->
+                                                    context.getString(if (channel == "nightly")
+                                                        R.string.option_nightly else R.string.option_stable)
+                                                },
+                                                selectedIndex = UpdateChannels.available.indexOf(updateChannel).coerceAtLeast(0),
                                                 onItemClick = { index ->
                                                     HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
-                                                    scope.launch { appSettings.setUpdateChannel(if (index == 0) "stable" else "beta") }
+                                                    scope.launch { appSettings.setUpdateChannel(UpdateChannels.available[index]) }
                                                 },
                                                 modifier = Modifier.fillMaxWidth()
                                             )
@@ -5361,7 +5363,7 @@ fun EnhancedUpdaterContent(
                                 Material3SettingsItem(
                                     icon = when (updateChannel) {
                                         "stable" -> RhythmIcons.Public
-                                        "beta" -> RhythmIcons.BugReport
+                                        "nightly" -> RhythmIcons.DarkMode
                                         else -> RhythmIcons.Public
                                     },
                                     title = { Text(context.getString(R.string.onboarding_update_channel_title)) },
@@ -5374,14 +5376,14 @@ fun EnhancedUpdaterContent(
                                             )
                                             Spacer(modifier = Modifier.height(12.dp))
                                             ExpressiveButtonGroup(
-                                                items = listOf(
-                                                    context.getString(R.string.option_stable),
-                                                    context.getString(R.string.option_beta)
-                                                ),
-                                                selectedIndex = if (updateChannel == "beta") 1 else 0,
+                                                items = UpdateChannels.available.map { channel ->
+                                                    context.getString(if (channel == "nightly")
+                                                        R.string.option_nightly else R.string.option_stable)
+                                                },
+                                                selectedIndex = UpdateChannels.available.indexOf(updateChannel).coerceAtLeast(0),
                                                 onItemClick = { index ->
                                                     HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
-                                                    scope.launch { appSettings.setUpdateChannel(if (index == 0) "stable" else "beta") }
+                                                    scope.launch { appSettings.setUpdateChannel(UpdateChannels.available[index]) }
                                                 },
                                                 modifier = Modifier.fillMaxWidth()
                                             )
@@ -5693,7 +5695,7 @@ fun SettingsDropdownItem(
                                     option.contains("Grid") -> RhythmIcons.GridView
                                     option.contains("Hour") -> RhythmIcons.AccessTime
                                     option.contains("Stable") -> RhythmIcons.Public
-                                    option.contains("Beta") -> RhythmIcons.BugReport
+                                    option.contains("Nightly") -> RhythmIcons.DarkMode
                                     option == "Home" -> RhythmIcons.HomeFilled
                                     option == "Library" -> RhythmIcons.Library
                                     option == "API" -> MaterialSymbolIcon("cloud", filled = true)
@@ -8415,7 +8417,6 @@ private fun PlayerThemeSettingsSection(
             currentSize = miniArtworkSize,
             onSizeSelected = { size ->
                 appSettings.setMiniPlayerArtworkSize(size)
-                showArtworkSizeSheet = false
             },
             onDismiss = { showArtworkSizeSheet = false },
             context = context,
@@ -8427,7 +8428,6 @@ private fun PlayerThemeSettingsSection(
             currentRadius = miniCornerRadius,
             onRadiusSelected = { radius ->
                 appSettings.setMiniPlayerCornerRadius(radius)
-                showCornerRadiusSheet = false
             },
             onDismiss = { showCornerRadiusSheet = false },
             context = context,
@@ -9967,7 +9967,7 @@ fun EnhancedStreamingSetupContent(
     val scope = rememberCoroutineScope()
     
     val sessions by streamingViewModel.serviceSessions.collectAsState()
-    val isLoading by streamingViewModel.isLoading.collectAsState()
+    val connectionOperation by streamingViewModel.connectionOperation.collectAsState()
     val error by streamingViewModel.error.collectAsState()
     val rememberStreamingPasswords by appSettings.rememberStreamingPasswords.collectAsState()
     val currentStreamingService by appSettings.streamingService.collectAsState()
@@ -9982,7 +9982,7 @@ fun EnhancedStreamingSetupContent(
     var showDiscoverySheet by remember { mutableStateOf(false) }
 
     val scanner = remember(selectedProvider) { NearbyServerScanner(context, selectedProvider, scope) }
-    var isAutoScanning by rememberSaveable(selectedProvider) { mutableStateOf(serverUrl.isBlank() && selectedProvider != "MUSIC_ASSISTANT") }
+    var isAutoScanning by remember(selectedProvider) { mutableStateOf(false) }
 
     DisposableEffect(scanner) {
         onDispose {
@@ -9991,7 +9991,7 @@ fun EnhancedStreamingSetupContent(
     }
 
     LaunchedEffect(selectedProvider) {
-        if (serverUrl.isBlank() && selectedProvider != "MUSIC_ASSISTANT" && (android.os.Build.VERSION.SDK_INT < 37 || androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_LOCAL_NETWORK) == android.content.pm.PackageManager.PERMISSION_GRANTED)) {
+        if (serverUrl.isBlank() && (android.os.Build.VERSION.SDK_INT < 37 || androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_LOCAL_NETWORK) == android.content.pm.PackageManager.PERMISSION_GRANTED)) {
             isAutoScanning = true
             scanner.startScan()
             delay(3500)
@@ -10128,7 +10128,7 @@ fun EnhancedStreamingSetupContent(
                     password = password,
                     onPasswordChange = { password = it },
                     isConnected = isConnected,
-                    isLoading = isLoading,
+                    connectionOperation = connectionOperation,
                     error = error,
                     canSubmit = canSubmit,
                     selectedProviderName = providerDisplayName,
@@ -10150,6 +10150,7 @@ fun EnhancedStreamingSetupContent(
                         )
                     },
                     onDisconnect = {
+                        password = ""
                         streamingViewModel.disconnectService(selectedProvider)
                     },
                     onSkip = onSkip
@@ -10233,7 +10234,7 @@ fun EnhancedStreamingSetupContent(
                 password = password,
                 onPasswordChange = { password = it },
                 isConnected = isConnected,
-                isLoading = isLoading,
+                connectionOperation = connectionOperation,
                 error = error,
                 canSubmit = canSubmit,
                 selectedProviderName = providerDisplayName,
@@ -10255,6 +10256,7 @@ fun EnhancedStreamingSetupContent(
                     )
                 },
                 onDisconnect = {
+                    password = ""
                     streamingViewModel.disconnectService(selectedProvider)
                 },
                 onSkip = onSkip
@@ -10329,7 +10331,7 @@ private fun StreamingSetupSelectionAndForm(
     password: String,
     onPasswordChange: (String) -> Unit,
     isConnected: Boolean,
-    isLoading: Boolean,
+    connectionOperation: StreamConnectionOperation,
     error: String?,
     canSubmit: Boolean,
     selectedProviderName: String,
@@ -10342,6 +10344,7 @@ private fun StreamingSetupSelectionAndForm(
 ) {
     val withLocalNetworkAccess = chromahub.rhythm.app.features.streaming.presentation.components.rememberLocalNetworkAccess()
     val scope = rememberCoroutineScope()
+    val isLoading = connectionOperation != StreamConnectionOperation.IDLE
 
     // Connection Form
     Card(
@@ -10365,7 +10368,7 @@ private fun StreamingSetupSelectionAndForm(
                     label = { Text(stringResource(R.string.streaming_service_setup_server_url)) },
                     placeholder = { Text(stringResource(R.string.onboardingscreen_httpsyourservercom)) },
                     trailingIcon = {
-                        IconButton(onClick = { withLocalNetworkAccess(onDiscoverClick) }, enabled = !isLoading && !isConnected && selectedProvider != "MUSIC_ASSISTANT") {
+                        IconButton(onClick = { withLocalNetworkAccess(onDiscoverClick) }, enabled = !isLoading && !isConnected) {
                             Icon(
                                 imageVector = MaterialSymbolIcon("radar"),
                                 contentDescription = stringResource(R.string.streaming_service_setup_auto_detect)
@@ -10507,13 +10510,14 @@ private fun StreamingSetupSelectionAndForm(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (isConnected) {
+                if (isConnected || connectionOperation == StreamConnectionOperation.DISCONNECTING) {
                     OutlinedButton(
                         onClick = onDisconnect,
                         modifier = Modifier.weight(1f),
                         enabled = !isLoading
                     ) {
-                        Text(stringResource(R.string.streaming_service_setup_disconnect))
+                        Text(stringResource(if (connectionOperation == StreamConnectionOperation.DISCONNECTING)
+                            R.string.streaming_service_setup_disconnecting else R.string.streaming_service_setup_disconnect))
                     }
                 } else {
                     Button(

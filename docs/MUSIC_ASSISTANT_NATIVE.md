@@ -187,3 +187,22 @@ Queue replacements also carry their explicit shuffle choice in the Media3 item
 extras. This avoids losing that choice when a redundant setter is optimized away
 against the previous player state. The server first selects the exact occurrence,
 then applies requested shuffle to the remaining queue.
+
+## Connection and recovery regressions
+
+Provider setup tracks Connecting/Disconnecting independently from catalog loading.
+Signing out clears authentication after pending auth checks finish and cancels
+catalog loaders; late work from the previous session cannot restore its catalog.
+Nearby discovery uses Music Assistant's `_mass._tcp` advertisement and keeps a
+bounded scan lifetime, including when a listener fails or the sheet is reopened.
+
+Local-library recovery also checks the saved catalog's row count against the
+scoped MediaStore fingerprint. A completed scan is published atomically; metadata
+batches only update existing matching rows. Cache clearing requests a replacement
+scan without deleting the completed catalog first, and an unfinished scan is
+retried after restart. Revoking local music permission preserves completed setup;
+local mode offers permission recovery without repeating onboarding.
+
+Settings slider regressions cover continuing the same drag across recomposition,
+persisting at release, and keeping adjustment sheets open for another edit.
+Onboarding and Settings expose the published Stable and Nightly channels.

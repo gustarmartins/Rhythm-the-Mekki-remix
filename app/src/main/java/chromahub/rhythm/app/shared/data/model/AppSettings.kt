@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import chromahub.rhythm.app.util.GsonUtils
+import chromahub.rhythm.app.util.UpdateChannels
 import chromahub.rhythm.app.util.ArtistSeparator
 import chromahub.rhythm.app.worker.BackupWorker
 import chromahub.rhythm.app.worker.RhythmPulseNotificationWorker
@@ -2068,7 +2069,8 @@ class AppSettings private constructor(context: Context) {
 private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CHECK_FOR_UPDATES, BuildConfig.FLAVOR != "fdroid"))
     val autoCheckForUpdates: StateFlow<Boolean> = _autoCheckForUpdates.asStateFlow()
 
-    private val _updateChannel = MutableStateFlow(prefs.getString(KEY_UPDATE_CHANNEL, if (BuildConfig.IS_NIGHTLY) "nightly" else "stable") ?: "stable")
+    private val _updateChannel = MutableStateFlow(UpdateChannels.normalize(
+        prefs.getString(KEY_UPDATE_CHANNEL, null), BuildConfig.IS_NIGHTLY))
     val updateChannel: StateFlow<String> = _updateChannel.asStateFlow()
 
     private val _updateSource = MutableStateFlow(prefs.getString(KEY_UPDATE_SOURCE, "installed") ?: "installed")
@@ -4305,8 +4307,9 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
     }
 
     fun setUpdateChannel(channel: String) {
-        prefs.edit { putString(KEY_UPDATE_CHANNEL, channel) }
-        _updateChannel.value = channel
+        val supportedChannel = UpdateChannels.normalize(channel, BuildConfig.IS_NIGHTLY)
+        prefs.edit { putString(KEY_UPDATE_CHANNEL, supportedChannel) }
+        _updateChannel.value = supportedChannel
     }
 
     fun setUpdateSource(source: String) {
@@ -6043,7 +6046,8 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
 
         // App Updates
         _autoCheckForUpdates.value = prefs.getBoolean(KEY_AUTO_CHECK_FOR_UPDATES, BuildConfig.FLAVOR != "fdroid")
-        _updateChannel.value = prefs.getString(KEY_UPDATE_CHANNEL, if (BuildConfig.IS_NIGHTLY) "nightly" else "stable") ?: "stable"
+        _updateChannel.value = UpdateChannels.normalize(
+            prefs.getString(KEY_UPDATE_CHANNEL, null), BuildConfig.IS_NIGHTLY)
         _updateSource.value = prefs.getString(KEY_UPDATE_SOURCE, "installed") ?: "installed"
         _updatesEnabled.value = prefs.getBoolean(KEY_UPDATES_ENABLED, BuildConfig.FLAVOR != "fdroid")
         _updateNotificationsEnabled.value = prefs.getBoolean(KEY_UPDATE_NOTIFICATIONS_ENABLED, BuildConfig.FLAVOR != "fdroid")

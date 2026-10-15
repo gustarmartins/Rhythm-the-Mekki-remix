@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="local_music_permission_title">Allow access to music on this device</string>
+    <string name="local_music_permission_recovery_desc">Rhythm needs music permission to read and play your local library. Your settings and saved library are still here. You can grant access now or keep using Rhythm Go from Settings.</string>
+    <string name="option_nightly">Nightly</string>
+</resources>

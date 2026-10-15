@@ -106,10 +106,15 @@ class NearbyServerScanner(
     private val listeners = mutableListOf<NsdManager.DiscoveryListener>()
     private val pendingResolves = mutableListOf<NsdServiceInfo>()
     private var isResolving = false
+    private var drainResolves: (() -> Unit)? = null
+    private var scanGeneration = 0
+    private var scanTimeout: Job? = null
 
     fun startScan() {
         if (isScanning) return
         isScanning = true
+        val generation = ++scanGeneration
+        scanTimeout = scope.launch { delay(10_000); if (scanGeneration == generation) stopScan() }
 
         try {
             multicastLock = wifiManager.createMulticastLock("RhythmGoDiscovery").apply {
@@ -124,13 +129,7 @@ class NearbyServerScanner(
             // Ignore
         }
 
-        val targetServiceType = when (upperServiceId) {
-            StreamingServiceId.JELLYFIN -> "_jellyfin._tcp"
-            StreamingServiceId.SUBSONIC -> "_subsonic._tcp"
-            else -> "_http._tcp"
-        }
-
-        val serviceTypesToScan = listOf(targetServiceType, "_http._tcp")
+        val serviceTypesToScan = ServerDiscoveryPolicy.serviceTypes(upperServiceId)
 
         if (upperServiceId == StreamingServiceId.JELLYFIN) {
             jellyfinUdpJob = scope.launch(Dispatchers.IO) {
@@ -192,6 +191,7 @@ class NearbyServerScanner(
                                     val formattedPktHost = if (pktHost.contains(":") && !pktHost.startsWith("[")) "[$pktHost]" else pktHost
                                     val finalUrl = if (rawAddress.isNotBlank()) rawAddress else "http://$formattedPktHost:8096"
                                     withContext(Dispatchers.Main) {
+                                        if (generation != scanGeneration || !isScanning) return@withContext
                                         if (discoveredServers.none { it.url == finalUrl }) {
                                             discoveredServers.add(
                                                 DiscoveredServer(
@@ -224,7 +224,7 @@ class NearbyServerScanner(
 
         @Suppress("DEPRECATION")
         fun resolveNext() {
-            if (isResolving || pendingResolves.isEmpty()) return
+            if (!isScanning || scanGeneration != generation || isResolving || pendingResolves.isEmpty()) return
             isResolving = true
             val info = pendingResolves.removeAt(0)
             try {
@@ -232,12 +232,15 @@ class NearbyServerScanner(
                     override fun onResolveFailed(serviceInfo: NsdServiceInfo?, errorCode: Int) {
                         mainHandler.post {
                             isResolving = false
+                            if (generation != scanGeneration || !isScanning) { drainResolves?.invoke(); return@post }
                             resolveNext()
                         }
                     }
 
                     override fun onServiceResolved(serviceInfo: NsdServiceInfo?) {
                         mainHandler.post {
+                            isResolving = false
+                            if (generation != scanGeneration || !isScanning) { drainResolves?.invoke(); return@post }
                             if (serviceInfo != null) {
                                 val hostAddress = serviceInfo.host?.hostAddress
                                 val port = serviceInfo.port
@@ -249,7 +252,9 @@ class NearbyServerScanner(
                                     }
                                     val url = "http://$formattedHost:$port"
                                     val nameLower = (serviceInfo.serviceName ?: "").lowercase()
-                                    val serverType = if (serviceInfo.serviceType.contains("jellyfin", ignoreCase = true) || nameLower.contains("jellyfin")) {
+                                    val serverType = if (upperServiceId == StreamingServiceId.MUSIC_ASSISTANT) {
+                                        "Music Assistant"
+                                    } else if (serviceInfo.serviceType.contains("jellyfin", ignoreCase = true) || nameLower.contains("jellyfin")) {
                                         "Jellyfin"
                                     } else if (nameLower.contains("navidrome")) {
                                         "Navidrome"
@@ -285,40 +290,21 @@ class NearbyServerScanner(
             }
         }
 
+        drainResolves = ::resolveNext
         serviceTypesToScan.forEach { type ->
             val listener = object : NsdManager.DiscoveryListener {
-                override fun onStartDiscoveryFailed(serviceType: String?, errorCode: Int) {
-                    isScanning = false
-                }
-
-                override fun onStopDiscoveryFailed(serviceType: String?, errorCode: Int) {
-                    isScanning = false
-                }
-
-                override fun onDiscoveryStarted(regType: String?) {
-                    isScanning = true
-                }
-
-                override fun onDiscoveryStopped(serviceType: String?) {
-                    isScanning = false
-                }
+                // Each scan has several listeners. One listener stopping/failing must not
+                // hide the scan or leak the remaining listeners/multicast lock.
+                override fun onStartDiscoveryFailed(serviceType: String?, errorCode: Int) = Unit
+                override fun onStopDiscoveryFailed(serviceType: String?, errorCode: Int) = Unit
+                override fun onDiscoveryStarted(regType: String?) = Unit
+                override fun onDiscoveryStopped(serviceType: String?) = Unit
 
                 override fun onServiceFound(serviceInfo: NsdServiceInfo?) {
                     if (serviceInfo != null) {
-                        if (type.startsWith("_http._tcp")) {
-                            val name = serviceInfo.serviceName?.lowercase() ?: ""
-                            val port = serviceInfo.port
-                            val isJellyfinMatch = upperServiceId == StreamingServiceId.JELLYFIN && 
-                                (port == 8096 || name.contains("jellyfin") || name.contains("emby") || name.contains("media") || name.contains("server") || name.contains("arch"))
-                            val isSubsonicMatch = upperServiceId == StreamingServiceId.SUBSONIC && 
-                                (port == 4533 || port == 4040 || name.contains("subsonic") || name.contains("navidrome") || name.contains("airsonic") || name.contains("music") || name.contains("server"))
-                            
-                            if (!isJellyfinMatch && !isSubsonicMatch) {
-                                return
-                            }
-                        }
-                        
+                        if (!ServerDiscoveryPolicy.matches(upperServiceId, type, serviceInfo.serviceName.orEmpty())) return
                         mainHandler.post {
+                            if (generation != scanGeneration || !isScanning) return@post
                             pendingResolves.add(serviceInfo)
                             resolveNext()
                         }
@@ -327,7 +313,11 @@ class NearbyServerScanner(
 
                 override fun onServiceLost(serviceInfo: NsdServiceInfo?) {
                     if (serviceInfo != null) {
-                        discoveredServers.removeIf { it.name == serviceInfo.serviceName }
+                        mainHandler.post {
+                            if (generation == scanGeneration && isScanning) {
+                                discoveredServers.removeIf { it.name == serviceInfo.serviceName }
+                            }
+                        }
                     }
                 }
             }
@@ -341,9 +331,11 @@ class NearbyServerScanner(
     }
 
     fun stopScan() {
-        if (!isScanning) return
+        ++scanGeneration
         isScanning = false
-        mainHandler.removeCallbacksAndMessages(null)
+        scanTimeout?.cancel()
+        scanTimeout = null
+        drainResolves = null
         jellyfinUdpJob?.cancel()
         jellyfinUdpJob = null
         try {
@@ -390,9 +382,7 @@ fun NearbyServerDiscoverySheet(
     }
 
     DisposableEffect(effectiveScanner) {
-        if (scanner == null) {
-            effectiveScanner.startScan()
-        }
+        effectiveScanner.startScan()
         onDispose {
             if (scanner == null) {
                 effectiveScanner.stopScan()
@@ -402,14 +392,6 @@ fun NearbyServerDiscoverySheet(
 
     val discoveredServers = effectiveScanner.discoveredServers
     val isScanning = effectiveScanner.isScanning
-
-    // Automatically stop scanning after 10 seconds to conserve battery
-    LaunchedEffect(effectiveScanner.isScanning) {
-        if (effectiveScanner.isScanning) {
-            delay(10000)
-            effectiveScanner.stopScan()
-        }
-    }
 
     RhythmAdaptiveModalSheet(
         adaptiveType = SheetAdaptiveType.AUTO_DIALOG,
@@ -511,7 +493,7 @@ fun NearbyServerDiscoverySheet(
                     )
                 }
             } else {
-                val serverItems = remember(discoveredServers) {
+                val serverItems = remember(discoveredServers.toList()) {
                     discoveredServers.map { server ->
                         Material3SettingsItem(
                             leadingContent = {

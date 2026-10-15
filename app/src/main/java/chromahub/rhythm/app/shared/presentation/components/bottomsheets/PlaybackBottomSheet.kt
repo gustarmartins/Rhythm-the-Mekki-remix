@@ -960,7 +960,7 @@ private fun PlaybackQuickSettingsCard(
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Spacer(modifier = Modifier.height(8.dp))
-                            val crossfadeSliderState = remember(crossfadeDuration) {
+                            val crossfadeSliderState = remember {
                                 SliderState(
                                     value = crossfadeDuration,
                                     steps = 8,
@@ -1215,7 +1215,7 @@ private fun PlaybackPitchCard(
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
-                val pitchSliderState = remember(selectedPitch) {
+                val pitchSliderState = remember {
                     SliderState(
                         value = selectedPitch,
                         steps = 54,
@@ -1395,7 +1395,7 @@ private fun AudioEffectsCard(
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            val bassBoostSliderState = remember(bassBoostStrength) {
+                            val bassBoostSliderState = remember {
                                 SliderState(
                                     value = bassBoostStrength.toFloat(),
                                     trackRange = 0f..1000f
@@ -1459,7 +1459,7 @@ private fun AudioEffectsCard(
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.primary
                             )
-                            val virtualizerSliderState = remember(virtualizerStrength) {
+                            val virtualizerSliderState = remember {
                                 SliderState(
                                     value = virtualizerStrength.toFloat(),
                                     trackRange = 0f..1000f

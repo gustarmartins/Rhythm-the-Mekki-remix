@@ -131,6 +131,7 @@ class StreamingMusicRepositoryImpl(
     private val gson = com.google.gson.Gson()
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val catalogCacheWriter = CatalogCacheWriter()
+    private val catalogSession = CatalogSessionGeneration()
 
     /**
      * A sync or start-up requests several saves within seconds (catalog, liked songs, playlists,
@@ -145,7 +146,20 @@ class StreamingMusicRepositoryImpl(
      * One catalog sync at a time: several triggers (start-up, network changes, screens) can
      * request one together, and a request that arrives during a sync joins it.
      */
-    private val catalogSync = SingleFlight<List<StreamingSong>>()
+    @Volatile private var catalogSync = SingleFlight<List<StreamingSong>>()
+
+    private fun currentCatalogGeneration(): Long = catalogSession.select(activeServiceId()) {
+        clearInMemoryCatalog()
+        catalogSync = SingleFlight()
+    }
+
+    private fun closeCatalogSession(keepCatalog: Boolean = false) {
+        catalogSession.close {
+            if (!keepCatalog) clearInMemoryCatalog()
+            catalogSync = SingleFlight()
+        }
+        artistEnrichmentJob?.cancel()
+    }
 
     /** The cold-start library change check ([isCatalogOutdated]) runs once per process. */
     private val coldStartCatalogCheck = OnceGate()
@@ -168,6 +182,7 @@ class StreamingMusicRepositoryImpl(
             initialCatalogLoad.await()
             // The current service was just loaded; reload only when it changes.
             appSettings.streamingService.drop(1).collect { serviceId ->
+                currentCatalogGeneration()
                 loadCatalogCacheForActiveService(normalizeServiceId(serviceId))
             }
         }
@@ -298,16 +313,16 @@ class StreamingMusicRepositoryImpl(
     }
 
     private fun loadCatalogCacheForActiveService(targetServiceId: String? = null) {
+        val generation = currentCatalogGeneration()
         try {
             val serviceId = targetServiceId ?: activeServiceId()
-            catalogLibraryMarker = null
             val cacheFile = getCatalogCacheFile(serviceId)
             if (!cacheFile.exists()) return
 
             val cache = catalogCacheCodec(serviceId).readFile(cacheFile) ?: return
-            if (cache.serviceId != serviceId) return
+            if (cache.serviceId != serviceId || serviceId != activeServiceId()) return
 
-            if (cache.songs.isNotEmpty()) {
+            if (cache.songs.isNotEmpty()) catalogSession.publish(generation) {
                 songCache.clear()
                 cache.songs.forEach { song ->
                     songCache[song.id] = song
@@ -347,6 +362,8 @@ class StreamingMusicRepositoryImpl(
                 updateFollowedArtistsFlow()
                 Log.d("StreamingMusicRepo", "Loaded cached catalog for $serviceId with ${cache.songs.size} songs")
             }
+        } catch (e: CancellationException) {
+            // A login/logout superseded this disk read.
         } catch (e: Exception) {
             Log.e("StreamingMusicRepo", "Error loading streaming catalog cache", e)
         }
@@ -354,12 +371,14 @@ class StreamingMusicRepositoryImpl(
 
     private fun saveCatalogCache(serviceId: String = activeServiceId()) {
         if (appSettings.offlineMode.value) return
-        catalogSaveCoalescer.request(serviceId) {
+        val generation = currentCatalogGeneration()
+        catalogSaveCoalescer.request("$serviceId:$generation") {
             try {
                 var songCount = 0
                 // Saves run one at a time and snapshot the catalog inside the writer's lock,
                 // so overlapping saves cannot corrupt the file and the last one wins.
                 val saved = catalogCacheWriter.write(getCatalogCacheFile(serviceId), snapshot = {
+                    if (!catalogSession.isCurrent(generation) || activeServiceId() != serviceId) return@write null
                     val currentSongs = songsFlow.value.filterIsInstance<StreamingSong>()
                     if (currentSongs.isEmpty()) return@write null
 
@@ -417,25 +436,46 @@ class StreamingMusicRepositoryImpl(
         saveCredentials: Boolean = true
     ): ServiceConnectionInfo {
         val normalizedService = normalizeServiceId(serviceId)
-
-        val result = when (normalizedService) {
-            StreamingServiceId.SUBSONIC -> subsonicClient.login(serverUrl, username, password, saveCredentials)
-            StreamingServiceId.MUSIC_ASSISTANT -> musicAssistantClient.login(serverUrl, username, password, saveCredentials)
-            StreamingServiceId.JELLYFIN -> jellyfinClient.login(serverUrl, username, password, saveCredentials)
-            else -> Result.failure(IllegalArgumentException("Unsupported streaming service"))
+        val previousService = activeServiceId()
+        val previousIdentity = serviceIdentity(previousService)
+        closeCatalogSession(keepCatalog = true)
+        try {
+            val result = when (normalizedService) {
+                StreamingServiceId.SUBSONIC -> subsonicClient.login(serverUrl, username, password, saveCredentials)
+                StreamingServiceId.MUSIC_ASSISTANT -> musicAssistantClient.login(serverUrl, username, password, saveCredentials)
+                StreamingServiceId.JELLYFIN -> jellyfinClient.login(serverUrl, username, password, saveCredentials)
+                else -> Result.failure(IllegalArgumentException("Unsupported streaming service"))
+            }
+            val connection = result.getOrElse { throw it }
+            // A successful login may be a new account: do not restore the predecessor's cache.
+            catalogCacheWriter.delete(getCatalogCacheFile(normalizedService))
+            catalogSaveFilter.remember(null)
+            ResumableLibraryFetch.discard(getLibraryFetchCheckpointDir(normalizedService))
+            clearInMemoryCatalog()
+            catalogSession.open()
+            return ServiceConnectionInfo(connection.displayName, connection.serverUrl)
+        } catch (e: Exception) {
+            // A mistyped replacement URL must not disable the still-configured old account.
+            if (activeServiceId() == previousService && isServiceConnected(previousService) &&
+                serviceIdentity(previousService) == previousIdentity) {
+                catalogSession.open()
+            } else {
+                clearInMemoryCatalog()
+            }
+            throw e
         }
+    }
 
-        val connection = result.getOrElse { throw it }
-        // A new login may be another account or server: never resume its predecessor's fetch.
-        ResumableLibraryFetch.discard(getLibraryFetchCheckpointDir(normalizedService))
-        return ServiceConnectionInfo(
-            displayName = connection.displayName,
-            serverUrl = connection.serverUrl
-        )
+    private fun serviceIdentity(serviceId: String): Pair<String, String> = when (serviceId) {
+        StreamingServiceId.SUBSONIC -> subsonicClient.getServerUrl() to subsonicClient.getUsername()
+        StreamingServiceId.MUSIC_ASSISTANT -> musicAssistantClient.getServerUrl() to musicAssistantClient.getUsername()
+        StreamingServiceId.JELLYFIN -> jellyfinClient.getServerUrl() to jellyfinClient.getUsername()
+        else -> "" to ""
     }
 
     suspend fun disconnect(serviceId: String) {
         val normalized = normalizeServiceId(serviceId)
+        if (activeServiceId() == normalized) closeCatalogSession()
         when (normalized) {
             StreamingServiceId.SUBSONIC -> subsonicClient.logout()
             StreamingServiceId.MUSIC_ASSISTANT -> musicAssistantClient.logout()
@@ -450,9 +490,6 @@ class StreamingMusicRepositoryImpl(
             Log.e("StreamingMusicRepo", "Error deleting catalog cache on disconnect", e)
         }
 
-        if (activeServiceId() == normalized) {
-            clearInMemoryCatalog()
-        }
     }
 
     fun isServiceConnected(serviceId: String): Boolean {
@@ -1433,18 +1470,20 @@ class StreamingMusicRepositoryImpl(
     }
 
     override suspend fun searchSongs(query: String): List<PlayableItem> {
+        val generation = currentCatalogGeneration()
+        catalogSession.requireCurrent(generation, allowClosed = appSettings.offlineMode.value)
         if (appSettings.offlineMode.value) {
             val results = downloadedSongsMap.values.filter {
                 it.title.contains(query, ignoreCase = true) ||
                 it.artist.contains(query, ignoreCase = true) ||
                 it.album.contains(query, ignoreCase = true)
             }
-            mergeCatalog(results)
+            mergeCatalog(results, generation, offline = true)
             return results
         }
         val serviceId = activeServiceId()
         if (!isServiceConnected(serviceId)) {
-            clearInMemoryCatalog()
+            catalogSession.publish(generation) { clearInMemoryCatalog() }
             return emptyList()
         }
 
@@ -1458,7 +1497,7 @@ class StreamingMusicRepositoryImpl(
         val mappedSongs = providerResult.getOrElse { emptyList() }
             .map { mapProviderSong(serviceId, it) }
 
-        mergeCatalog(mappedSongs)
+        mergeCatalog(mappedSongs, generation)
         return mappedSongs
     }
 
@@ -1546,8 +1585,10 @@ class StreamingMusicRepositoryImpl(
         limit: Int,
         onProgress: ((current: Int, total: Int, songsCount: Int) -> Unit)?
     ): List<StreamingSong> {
+        val generation = currentCatalogGeneration()
         // Never let the cache load finish after (and overwrite) a newly synced catalog.
         initialCatalogLoad.await()
+        catalogSession.requireCurrent(generation, allowClosed = appSettings.offlineMode.value)
         // Never queue a second sync behind a running one: join it and share its result.
         return catalogSync.run { syncCatalogLocked(limit, onProgress) }
     }
@@ -1569,27 +1610,33 @@ class StreamingMusicRepositoryImpl(
         limit: Int,
         onProgress: ((current: Int, total: Int, songsCount: Int) -> Unit)?
     ): List<StreamingSong> {
+        val generation = currentCatalogGeneration()
+        catalogSession.requireCurrent(generation, allowClosed = appSettings.offlineMode.value)
         if (appSettings.offlineMode.value) {
             val downloadedList = downloadedSongsMap.values.toList()
-            replaceCatalog(downloadedList)
+            replaceCatalog(downloadedList, generation = generation, offline = true)
             return downloadedList
         }
         val serviceId = activeServiceId()
         if (!isServiceConnected(serviceId)) {
-            clearInMemoryCatalog()
+            catalogSession.publish(generation) { clearInMemoryCatalog() }
             return emptyList()
         }
 
         // Sync artists directly from provider first so all artists appear immediately
         syncArtists()
+        catalogSession.requireCurrent(generation)
 
         // Subsonic: skip the full album-by-album fetch while the server library is unchanged
         // since the catalog in memory (from the previous sync or the disk cache) was fetched.
         val libraryMarker = if (serviceId == StreamingServiceId.SUBSONIC) subsonicClient.getLibraryMarker() else null
+        catalogSession.requireCurrent(generation)
         if (libraryMarker != null && libraryMarker == catalogLibraryMarker && songsFlow.value.isNotEmpty()) {
             Log.d("StreamingMusicRepo", "Server library unchanged; reusing catalog of ${songsFlow.value.size} songs")
             refreshSubsonicStarredSongs()
+            catalogSession.requireCurrent(generation)
             syncPlaylists()
+            catalogSession.requireCurrent(generation)
             return songsFlow.value.filterIsInstance<StreamingSong>()
         }
 
@@ -1599,18 +1646,21 @@ class StreamingMusicRepositoryImpl(
             StreamingServiceId.MUSIC_ASSISTANT -> musicAssistantClient.fetchLibrarySongs(limit, onProgress)
             StreamingServiceId.JELLYFIN -> jellyfinClient.fetchLibrarySongs(limit, onProgress)
             else -> Result.success(emptyList())
-        }.getOrElse { if (serviceId == StreamingServiceId.MUSIC_ASSISTANT) throw it else emptyList() }
+        }.getOrElse { if (it is CancellationException || serviceId == StreamingServiceId.MUSIC_ASSISTANT) throw it else emptyList() }
 
+        catalogSession.requireCurrent(generation)
         val mappedSongs = mapProviderSongs(serviceId, providerSongs)
         // A partial fetch (skipped albums) is not marked, so the next sync fetches again.
-        replaceCatalog(mappedSongs, libraryMarker?.takeIf { fetchComplete.get() && providerSongs.isNotEmpty() })
+        replaceCatalog(mappedSongs, libraryMarker?.takeIf { fetchComplete.get() && providerSongs.isNotEmpty() }, generation)
+        catalogSession.requireCurrent(generation)
         if (serviceId == StreamingServiceId.SUBSONIC) {
             refreshSubsonicStarredSongs()
         }
         
         // Also sync playlists
+        catalogSession.requireCurrent(generation)
         syncPlaylists()
-        
+        catalogSession.requireCurrent(generation)
         saveCatalogCache(serviceId)
         return mappedSongs
     }
@@ -1620,19 +1670,23 @@ class StreamingMusicRepositoryImpl(
      * On failure the liked ids derived from the synced songs are kept.
      */
     private suspend fun refreshSubsonicStarredSongs() {
+        val generation = currentCatalogGeneration()
         val serviceId = StreamingServiceId.SUBSONIC
         val starred = subsonicClient.getStarredSongs().getOrElse { e ->
+            if (e is CancellationException) throw e
             Log.w("StreamingMusicRepo", "getStarred2 failed; liked songs limited to the synced catalog", e)
             return
         }.map { mapProviderSong(serviceId, it) }
 
-        val merged = StarredSongs.mergeLikedIds(likedSongIds, "$serviceId::", starred)
-        likedSongIds.clear()
-        likedSongIds.addAll(merged)
-        starredSongCache.clear()
-        starred.forEach { starredSongCache[it.id] = it }
-        updateLikedSongsFlow()
-        Log.d("StreamingMusicRepo", "Liked songs: ${starred.size} starred, ${starred.count { songCache.containsKey(it.id) }} in the synced catalog")
+        catalogSession.publish(generation) {
+            val merged = StarredSongs.mergeLikedIds(likedSongIds, "$serviceId::", starred)
+            likedSongIds.clear()
+            likedSongIds.addAll(merged)
+            starredSongCache.clear()
+            starred.forEach { starredSongCache[it.id] = it }
+            updateLikedSongsFlow()
+            Log.d("StreamingMusicRepo", "Liked songs: ${starred.size} starred, ${starred.count { songCache.containsKey(it.id) }} in the synced catalog")
+        }
     }
 
     /**
@@ -1664,13 +1718,15 @@ class StreamingMusicRepositoryImpl(
     }
 
     override suspend fun syncPlaylists(): List<StreamingPlaylist> {
+        val generation = currentCatalogGeneration()
+        catalogSession.requireCurrent(generation, allowClosed = appSettings.offlineMode.value)
         if (appSettings.offlineMode.value) {
-            playlistsFlow.value = emptyList()
+            catalogSession.publish(generation, allowClosed = true) { playlistsFlow.value = emptyList() }
             return emptyList()
         }
         val serviceId = activeServiceId()
         if (!isServiceConnected(serviceId)) {
-            playlistsFlow.value = emptyList()
+            catalogSession.publish(generation) { playlistsFlow.value = emptyList() }
             return emptyList()
         }
 
@@ -1682,7 +1738,7 @@ class StreamingMusicRepositoryImpl(
         }
 
         val playlists = coroutineScope {
-            result.getOrElse { emptyList() }
+            result.getOrElse { if (it is CancellationException) throw it else emptyList() }
                 .map { providerPlaylist ->
                     async {
                         val tracks = fetchPlaylistTracks(serviceId, providerPlaylist.providerId)
@@ -1691,8 +1747,10 @@ class StreamingMusicRepositoryImpl(
                 }.awaitAll()
         }
 
-        playlistsFlow.value = playlists
-        saveCatalogCache(serviceId)
+        catalogSession.publish(generation) {
+            playlistsFlow.value = playlists
+            saveCatalogCache(serviceId)
+        }
         return playlists
     }
 
@@ -1816,9 +1874,9 @@ class StreamingMusicRepositoryImpl(
      * @param libraryMarker server library marker [songs] were fetched under, if known to be the
      *        complete, current library (see [SubsonicApiClient.getLibraryMarker]).
      */
-    private suspend fun replaceCatalog(songs: List<StreamingSong>, libraryMarker: String? = null) {
+    private suspend fun replaceCatalog(songs: List<StreamingSong>, libraryMarker: String? = null,
+                                       generation: Long = currentCatalogGeneration(), offline: Boolean = false) {
         val serviceId = activeServiceId()
-        catalogLibraryMarker = libraryMarker
         // Only populate albumsFlow with derived albums if no provider albums are cached
         val deriveAlbums = providerAlbumCache.isEmpty()
         // Grouping thousands of songs into albums/artists is CPU work; keep it off the caller's
@@ -1828,37 +1886,43 @@ class StreamingMusicRepositoryImpl(
                 buildArtistItems(serviceId, songs)
         }
 
-        songCache.clear()
-        songs.forEach { song ->
-            songCache[song.id] = song
+        catalogSession.publish(generation, allowClosed = offline) {
+            catalogLibraryMarker = libraryMarker
+            songCache.clear()
+            songs.forEach { song ->
+                songCache[song.id] = song
+            }
+
+            songsFlow.value = songs
+            // Re-check after the suspension: provider albums may have been cached meanwhile, and
+            // derived albums must not overwrite them.
+            if (derivedAlbums != null && providerAlbumCache.isEmpty()) {
+                albumsFlow.value = derivedAlbums
+            }
+            if (artistsFlow.value.isEmpty() || rawArtists.size >= artistsFlow.value.size) {
+                artistsFlow.value = rawArtists
+            }
+
+            updateLikedSongsFlow()
+            updateSavedAlbumsFlow()
+            updateFollowedArtistsFlow()
+
+            saveCatalogCache(serviceId)
+
         }
-
-        songsFlow.value = songs
-        // Re-check after the suspension: provider albums may have been cached meanwhile, and
-        // derived albums must not overwrite them.
-        if (derivedAlbums != null && providerAlbumCache.isEmpty()) {
-            albumsFlow.value = derivedAlbums
-        }
-        if (artistsFlow.value.isEmpty() || rawArtists.size >= artistsFlow.value.size) {
-            artistsFlow.value = rawArtists
-        }
-
-        updateLikedSongsFlow()
-        updateSavedAlbumsFlow()
-        updateFollowedArtistsFlow()
-
-        saveCatalogCache(serviceId)
-
+        if (offline) return
         // Asynchronously enrich with Deezer images in background to avoid blocking.
         // A newer catalog change supersedes a running pass (finished lookups stay cached).
         artistEnrichmentJob?.cancel()
         artistEnrichmentJob = repositoryScope.launch {
             try {
                 val enriched = enrichArtistsWithDeezerImages(rawArtists)
-                if (artistsFlow.value != enriched) {
-                    artistsFlow.value = enriched
-                    updateFollowedArtistsFlow()
-                    saveCatalogCache(serviceId)
+                catalogSession.publish(generation) {
+                    if (artistsFlow.value != enriched) {
+                        artistsFlow.value = enriched
+                        updateFollowedArtistsFlow()
+                        saveCatalogCache(serviceId)
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -1868,17 +1932,12 @@ class StreamingMusicRepositoryImpl(
         }
     }
 
-    private suspend fun mergeCatalog(songs: List<StreamingSong>) {
+    private suspend fun mergeCatalog(songs: List<StreamingSong>, generation: Long, offline: Boolean = false) {
         if (songs.isEmpty()) {
             return
         }
 
         val serviceId = activeServiceId()
-        songs.forEach { song ->
-            songCache[song.id] = song
-        }
-        trimSongCache()
-
         val currentSongs = songsFlow.value
         // Merging a search result into a catalog of thousands of songs re-groups every album and
         // artist; do that off the caller's (main) dispatcher, as replaceCatalog() does.
@@ -1892,27 +1951,34 @@ class StreamingMusicRepositoryImpl(
             )
         }
 
-        songsFlow.value = mergedSongs
-        // Only populate albumsFlow with derived albums if no provider albums are cached
-        if (derivedAlbums != null && providerAlbumCache.isEmpty()) {
-            albumsFlow.value = derivedAlbums
+        catalogSession.publish(generation, allowClosed = offline) {
+            songs.forEach { song -> songCache[song.id] = song }
+            trimSongCache()
+            songsFlow.value = mergedSongs
+            // Only populate albumsFlow with derived albums if no provider albums are cached
+            if (derivedAlbums != null && providerAlbumCache.isEmpty()) {
+                albumsFlow.value = derivedAlbums
+            }
+            artistsFlow.value = rawArtists
+            playlistsFlow.value = emptyList()
+
+            updateLikedSongsFlow()
+            updateSavedAlbumsFlow()
+            updateFollowedArtistsFlow()
+
         }
-        artistsFlow.value = rawArtists
-        playlistsFlow.value = emptyList()
-
-        updateLikedSongsFlow()
-        updateSavedAlbumsFlow()
-        updateFollowedArtistsFlow()
-
+        if (offline) return
         // Asynchronously enrich with Deezer images in background to avoid blocking.
         // A newer catalog change supersedes a running pass (finished lookups stay cached).
         artistEnrichmentJob?.cancel()
         artistEnrichmentJob = repositoryScope.launch {
             try {
                 val enriched = enrichArtistsWithDeezerImages(rawArtists)
-                if (artistsFlow.value != enriched) {
-                    artistsFlow.value = enriched
-                    updateFollowedArtistsFlow()
+                catalogSession.publish(generation) {
+                    if (artistsFlow.value != enriched) {
+                        artistsFlow.value = enriched
+                        updateFollowedArtistsFlow()
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -1924,6 +1990,14 @@ class StreamingMusicRepositoryImpl(
 
     private fun clearInMemoryCatalog() {
         catalogLibraryMarker = null
+        providerAlbumCache.clear()
+        providerAlbumsFlow.value = emptyList()
+        starredSongCache.clear()
+        artistArtworkCache.clear()
+        likedSongIds.clear()
+        likedSongsFlow.value = emptyList()
+        savedAlbumsFlow.value = emptyList()
+        followedArtistsFlow.value = emptyList()
         songCache.clear()
         followedPlaylistIds.clear()
         songsFlow.value = emptyList()
@@ -2580,6 +2654,8 @@ class StreamingMusicRepositoryImpl(
     }
 
     override suspend fun syncArtists(): List<StreamingArtist> {
+        val generation = currentCatalogGeneration()
+        catalogSession.requireCurrent(generation)
         val serviceId = activeServiceId()
         if (!isServiceConnected(serviceId)) return emptyList()
 
@@ -2594,20 +2670,22 @@ class StreamingMusicRepositoryImpl(
                     else -> null
                 }
             }
-            providerArtists?.forEach { artist ->
-                if (!artist.artworkUrl.isNullOrBlank()) {
-                    artistArtworkCache[normalizeKey(artist.name)] = artist.artworkUrl
-                }
-            }
             if (!providerArtists.isNullOrEmpty()) {
                 val directArtists = mapProviderArtists(serviceId, providerArtists)
-                artistsFlow.value = directArtists
-                updateFollowedArtistsFlow()
+                catalogSession.publish(generation) {
+                    providerArtists.forEach { artist ->
+                        if (!artist.artworkUrl.isNullOrBlank()) artistArtworkCache[normalizeKey(artist.name)] = artist.artworkUrl
+                    }
+                    artistsFlow.value = directArtists
+                    updateFollowedArtistsFlow()
+                }
                 Log.d("StreamingMusicRepo", "Synced ${directArtists.size} artists directly from provider")
                 directArtists
             } else {
                 emptyList()
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w("StreamingMusicRepo", "Failed to sync artists from provider", e)
             emptyList()

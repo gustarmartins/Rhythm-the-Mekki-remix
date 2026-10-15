@@ -204,7 +204,7 @@ fun FestiveSettingsScreen(
                             
                             Spacer(modifier = Modifier.height(12.dp))
                             
-                            val festiveSliderState = remember(festiveIntensity) {
+                            val festiveSliderState = remember {
                                 SliderState(
                                     value = festiveIntensity,
                                     trackRange = 0.1f..1f

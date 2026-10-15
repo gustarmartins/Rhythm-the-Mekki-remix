@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="local_music_permission_title">Permitir acesso às músicas deste dispositivo</string>
+    <string name="local_music_permission_recovery_desc">O Rhythm precisa da permissão de músicas para ler e reproduzir sua biblioteca local. Suas configurações e sua biblioteca salva continuam aqui. Você pode permitir o acesso agora ou continuar usando o Rhythm Go nas Configurações.</string>
+    <string name="option_nightly">Nightly</string>
+</resources>

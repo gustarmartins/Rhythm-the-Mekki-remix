@@ -103,6 +103,7 @@ import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.shared.data.repository.PlaybackStatsRepository
 import chromahub.rhythm.app.shared.data.repository.StatsTimeRange
 import chromahub.rhythm.app.util.GsonUtils
+import chromahub.rhythm.app.util.UpdateChannels
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
 import coil.compose.AsyncImage
@@ -1172,17 +1173,15 @@ fun UpdatesSettingsScreen(onBackClick: () -> Unit) {
                         .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    val channels = listOf(
-                        "stable" to context.getString(R.string.updates_channel_stable_desc),
-                        "beta" to context.getString(R.string.updates_channel_beta_desc),
-                        "nightly" to context.getString(R.string.updates_channel_nightly_desc)
-                    )
+                    val channels = UpdateChannels.available.map { channel ->
+                        channel to context.getString(if (channel == "nightly")
+                            R.string.updates_channel_nightly_desc else R.string.updates_channel_stable_desc)
+                    }
 
                     channels.forEachIndexed { index, (channel, description) ->
                         val isSelected = updateChannel == channel
                         val channelIcon = when (channel) {
                             "nightly" -> MaterialSymbolIcon("nights_stay", filled = true)
-                            "beta" -> MaterialSymbolIcon("science", filled = true)
                             else -> MaterialSymbolIcon("verified", filled = true)
                         }
 

@@ -47,9 +47,13 @@ class MusicAssistantAndroidTest {
         return result!!.getOrThrow()
     }
     private fun waitFor(label: String, timeoutSeconds: Int = 90, condition: () -> Boolean) {
+        android.util.Log.i("RhythmMA-Test", "Waiting: $label")
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds.toLong())
         while (System.nanoTime() < end) {
-            if (main(condition)) return
+            if (main(condition)) {
+                android.util.Log.i("RhythmMA-Test", "Passed: $label")
+                return
+            }
             Thread.sleep(250)
         }
         fail("Timed out: $label; ${MusicAssistantPlayer.nativeStatus.value}")
@@ -132,6 +136,7 @@ class MusicAssistantAndroidTest {
             waitFor("app playback ViewModel ready") { viewModel.isInitialized.value }
             val album = client.searchAlbums("folklore").getOrThrow().first { it.title.equals("folklore", ignoreCase = true) }
             val expectedAlbumTracks = client.getAlbumSongs(album.providerId).getOrThrow()
+            val nativeAlbum = repository.searchAlbums("folklore").first { it.title.equals("folklore", ignoreCase = true) }
             assertTrue("Album fixture needs multiple tracks", expectedAlbumTracks.size > 1)
             var selectedAlbumTracks = emptyList<chromahub.rhythm.app.features.streaming.domain.model.StreamingSong>()
             var albumShuffle = true
@@ -146,11 +151,7 @@ class MusicAssistantAndroidTest {
                     albumShuffle = shuffle
                     true
                 }
-                streamingViewModel.playAlbum(chromahub.rhythm.app.features.streaming.domain.model.StreamingAlbum(
-                    id = "MUSIC_ASSISTANT::${album.providerId}", title = album.title, artist = album.artist,
-                    artworkUri = album.artworkUrl, songCount = expectedAlbumTracks.size, year = album.year,
-                    sourceType = chromahub.rhythm.app.core.domain.model.SourceType.MUSIC_ASSISTANT
-                ))
+                streamingViewModel.playAlbum(nativeAlbum.copy(tracks = emptyList()))
             }
             waitFor("Home album resolved by identity") { selectedAlbumTracks.isNotEmpty() }
             assertFalse("Explicit album Play must not inherit the old shuffle setting", albumShuffle)
@@ -222,6 +223,20 @@ class MusicAssistantAndroidTest {
                 fullLibrary.first().id, main { controller.currentMediaItem?.mediaId })
             main { controller.pause() }
             waitFor("final pause") { !controller.playWhenReady }
+            main {
+                streamingViewModel.refreshCurrentSession()
+                streamingViewModel.disconnectService("MUSIC_ASSISTANT")
+                assertEquals(chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamConnectionOperation.DISCONNECTING,
+                    streamingViewModel.connectionOperation.value)
+            }
+            waitFor("native sign out finishes") {
+                streamingViewModel.connectionOperation.value == chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamConnectionOperation.IDLE
+            }
+            assertFalse(client.isConnected())
+            main { streamingViewModel.refreshCurrentSession() }
+            kotlinx.coroutines.delay(1000)
+            assertFalse("Auth refresh after sign out must not reconnect", streamingViewModel.isAuthenticated.value)
+            assertFalse(streamingViewModel.getServiceSession("MUSIC_ASSISTANT").isConnected)
             android.util.Log.i("RhythmMA-Test", "PASS native catalog=${songs.size}, FLAC, MP3, pause, FIFO, duplicates, seek")
             Unit
         } finally {

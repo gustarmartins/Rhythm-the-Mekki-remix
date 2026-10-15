@@ -6,10 +6,14 @@
 package chromahub.rhythm.app.shared.presentation.components
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.core.content.ContextCompat
+import androidx.core.app.ActivityCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -38,13 +42,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -56,10 +64,12 @@ import chromahub.rhythm.app.shared.data.model.AppSettings
 import chromahub.rhythm.app.shared.presentation.components.common.InitializationLoader
 import chromahub.rhythm.app.features.local.presentation.screens.onboarding.OnboardingStep
 import chromahub.rhythm.app.features.local.presentation.screens.onboarding.PermissionScreenState
+import chromahub.rhythm.app.features.local.presentation.screens.onboarding.onboardingStepAfterPermissionCheck
 import chromahub.rhythm.app.features.local.presentation.screens.OnboardingScreen
+import chromahub.rhythm.app.R
+import chromahub.rhythm.app.util.findActivity
 import chromahub.rhythm.app.shared.presentation.viewmodel.ThemeViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.accompanist.permissions.shouldShowRationale
 import kotlinx.coroutines.delay
@@ -94,11 +104,11 @@ fun PermissionHandler(
     val initialMediaScanCompleted by appSettings.initialMediaScanCompleted.collectAsState()
     val appMode by appSettings.appMode.collectAsState()
     var permissionScreenState by remember { mutableStateOf<PermissionScreenState>(PermissionScreenState.Loading) }
-    var permissionRequestLaunched by remember { mutableStateOf(false) } // New state to track if permission request has been launched
+    var permissionRequestLaunched by rememberSaveable { mutableStateOf(false) }
     var continueFullTour by remember { mutableStateOf(false) }
-    // Track whether the tour was programmatically reset so that remember(onboardingCompleted)
-    // does not flip currentOnboardingStep back to COMPLETE during mid-tour recompositions.
-    var tourWasReset by remember { mutableStateOf(false) }
+    var permissionRecoveryDismissed by rememberSaveable(appMode) { mutableStateOf(false) }
+    var localPermissionWasMissing by rememberSaveable { mutableStateOf(false) }
+    var permissionResultRevision by remember { mutableStateOf(0) }
 
     // Storage permissions based on Android version:
     // - Android 13+ (API 33+): READ_MEDIA_AUDIO (granular media permissions)
@@ -141,52 +151,8 @@ fun PermissionHandler(
     // Only request essential permissions that are actually needed
     val essentialPermissions = storagePermissions + bluetoothPermissions + notificationPermissions
     
-    // Check if onboarding state is valid - if onboarding is marked complete but permissions are not granted,
-    // reset the onboarding state to force a fresh start (except in streaming mode where storage permission isn't required)
-    LaunchedEffect(Unit) {
-        if (onboardingCompleted && appSettings.appMode.value != "STREAMING") {
-            val hasStoragePermissions = storagePermissions.all { permission ->
-                ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
-            }
-            if (!hasStoragePermissions) {
-                // Invalid state: onboarding marked complete but permissions missing
-                // Reset onboarding to start fresh from WELCOME
-                tourWasReset = true
-                appSettings.setOnboardingCompleted(false)
-                appSettings.setInitialMediaScanCompleted(false)
-                // Immediately clear loading so the WELCOME screen can appear instead of
-                // getting stuck on the loading spinner indefinitely.
-                onSetIsLoading(false)
-            }
-        }
-    }
-
-    // Reactive check: when the user switches from STREAMING → LOCAL mode after the onboarding
-    // was already completed in streaming mode, we must verify storage permissions are present.
-    // LaunchedEffect(Unit) above only runs once; this covers runtime mode switches.
-    LaunchedEffect(appMode) {
-        if (appMode != "STREAMING" && onboardingCompleted) {
-            val hasStoragePermissions = storagePermissions.all { permission ->
-                ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
-            }
-            if (!hasStoragePermissions) {
-                // Permissions are required for local mode but not granted — restart the tour
-                // so the user goes through the PERMISSIONS step before reaching the main app.
-                tourWasReset = true
-                appSettings.setOnboardingCompleted(false)
-                appSettings.setInitialMediaScanCompleted(false)
-                onSetIsLoading(false)
-            }
-        }
-    }
-
-    // remember(onboardingCompleted) re-runs its lambda ONLY when the key (onboardingCompleted)
-    // changes. The initial value is simple: completed → COMPLETE, not completed → WELCOME.
-    // tourWasReset is intentionally NOT used here — when setOnboardingCompleted(true) fires at
-    // tour completion, the DataStore flow emits true, the key changes, and the lambda runs again.
-    // If tourWasReset were still true at that point (it's never auto-cleared), the lambda would
-    // return WELCOME instead of COMPLETE, causing a 1-frame WELCOME flash.
-    // tourWasReset is only used by the AnimatedVisibility escape hatch below.
+    // Permission revocation does not undo setup or invalidate a previously scanned library.
+    // Completed users recover access inside the app instead of repeating the welcome tour.
     var currentOnboardingStep by remember(onboardingCompleted) {
         mutableStateOf(
             if (onboardingCompleted) OnboardingStep.COMPLETE else OnboardingStep.WELCOME
@@ -194,7 +160,6 @@ fun PermissionHandler(
     }
 
     fun completeOnboardingNow() {
-        tourWasReset = false // Clear reset flag before completing so the remember lambda sees false
         appSettings.setOnboardingCompleted(true)
         currentOnboardingStep = OnboardingStep.COMPLETE
         if (!initialMediaScanCompleted && !musicViewModel.isLibraryRefreshing.value && appSettings.appMode.value != "STREAMING") {
@@ -204,20 +169,37 @@ fun PermissionHandler(
     }
     
     val permissionsState = rememberMultiplePermissionsState(essentialPermissions)
+    val localPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        permissionResultRevision += 1
+    }
     
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // Centralized function to evaluate permission status and update onboarding step
     suspend fun evaluatePermissionsAndSetStep() {
-        // Check if we have the essential storage permissions (bypass if streaming)
-        val hasStoragePermissions = appSettings.appMode.value == "STREAMING" || storagePermissions.all { permission ->
-            permissionsState.permissions.find { it.permission == permission }?.status?.isGranted == true
+        // Read Android directly: Accompanist may not have refreshed yet when ON_RESUME fires.
+        val hasLocalStoragePermissions = storagePermissions.all { permission ->
+            ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
         }
+        val hasStoragePermissions = appSettings.appMode.value == "STREAMING" || hasLocalStoragePermissions
+        currentOnboardingStep = onboardingStepAfterPermissionCheck(
+            onboardingCompleted, currentOnboardingStep, hasStoragePermissions
+        )
 
         if (hasStoragePermissions) {
             permissionScreenState = PermissionScreenState.PermissionsGranted
+            permissionRecoveryDismissed = false
+            if (onboardingCompleted && appSettings.appMode.value != "STREAMING" &&
+                hasLocalStoragePermissions && localPermissionWasMissing) {
+                // Restore the library in the background; retain the last complete Room snapshot.
+                musicViewModel.refreshLibrary(showMediaScanLoader = false)
+            }
+            if (hasLocalStoragePermissions && appSettings.appMode.value != "STREAMING") {
+                localPermissionWasMissing = false
+            }
             if (onboardingCompleted) {
-                currentOnboardingStep = OnboardingStep.COMPLETE
                 onSetIsInitializingApp(true) // Start app initialization
                 // MusicViewModel owns service startup and serializes controller connection
                 // attempts. Starting another foreground-service intent here raced its init path
@@ -231,19 +213,18 @@ fun PermissionHandler(
             }
             onSetIsLoading(false) // Always set loading to false after evaluation
         } else {
+            localPermissionWasMissing = true
             // Check denied permissions state
             val deniedStoragePermissions = storagePermissions.filter { permission ->
-                permissionsState.permissions.find { it.permission == permission }?.status?.isGranted != true
+                ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED
             }
 
             val shouldShowRationaleForAny = deniedStoragePermissions.any { permission ->
-                permissionsState.permissions.find { it.permission == permission }?.status?.shouldShowRationale == true
+                context.findActivity()?.let { ActivityCompat.shouldShowRequestPermissionRationale(it, permission) } == true
             }
             
-            val allDeniedPermanently = deniedStoragePermissions.isNotEmpty() && deniedStoragePermissions.all { permission ->
-                val permissionState = permissionsState.permissions.find { it.permission == permission }
-                permissionState?.status?.shouldShowRationale == false && permissionRequestLaunched
-            }
+            val allDeniedPermanently = deniedStoragePermissions.isNotEmpty() &&
+                !shouldShowRationaleForAny && permissionRequestLaunched
 
             // Determine the correct permission screen state
             if (!permissionRequestLaunched && !onboardingCompleted) {
@@ -259,7 +240,6 @@ fun PermissionHandler(
                 // Default state
                 permissionScreenState = PermissionScreenState.PermissionsRequired
             }
-            currentOnboardingStep = OnboardingStep.PERMISSIONS
             onSetIsLoading(false) // Always set loading to false after evaluation
         }
     }
@@ -275,37 +255,41 @@ fun PermissionHandler(
     }
 
     // Effect to re-evaluate permissions after a request or on resume
-    LaunchedEffect(permissionsState.allPermissionsGranted, permissionsState.shouldShowRationale) {
+    LaunchedEffect(appMode, onboardingCompleted, permissionsState.allPermissionsGranted,
+        permissionsState.shouldShowRationale, permissionResultRevision) {
         // This effect runs when permission state changes (e.g., after user interacts with dialog)
         // or when the app resumes.
         // Only re-evaluate if we are currently on the permissions step or if onboarding is complete
         // but permissions somehow became ungranted (e.g., user revoked from settings).
-        if (currentOnboardingStep == OnboardingStep.PERMISSIONS || (onboardingCompleted && permissionScreenState != PermissionScreenState.PermissionsGranted)) {
+        if (currentOnboardingStep == OnboardingStep.PERMISSIONS || onboardingCompleted) {
             // Don't show loading immediately - evaluate first, then decide
             evaluatePermissionsAndSetStep()
         }
     }
 
     // Effect to observe lifecycle and re-check permissions on resume
-    LaunchedEffect(lifecycleOwner) {
-        lifecycleOwner.lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
+    val recheckPermissionsOnResume by rememberUpdatedState<suspend () -> Unit> {
+        if (currentOnboardingStep == OnboardingStep.PERMISSIONS || onboardingCompleted) {
+            evaluatePermissionsAndSetStep()
+        }
+    }
+    DisposableEffect(lifecycleOwner) {
+        val observer = object : androidx.lifecycle.DefaultLifecycleObserver {
             override fun onResume(owner: androidx.lifecycle.LifecycleOwner) {
                 super.onResume(owner)
-                // When activity resumes, if we are on the permissions step, re-check
-                if (currentOnboardingStep == OnboardingStep.PERMISSIONS || (onboardingCompleted && permissionScreenState != PermissionScreenState.PermissionsGranted)) {
-                    scope.launch {
-                        delay(300) // Small delay to ensure system permission dialogs are fully dismissed
-                        // Don't set loading here - just re-evaluate
-                        evaluatePermissionsAndSetStep()
-                        permissionRequestLaunched = false // Reset for next time
-                    }
+                scope.launch {
+                    delay(300) // Let permission dialogs finish dismissing before rechecking.
+                    recheckPermissionsOnResume()
                 }
             }
-        })
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (onboardingCompleted && currentOnboardingStep == OnboardingStep.COMPLETE && !artworkSetupCompleted) {
+        if (onboardingCompleted && currentOnboardingStep == OnboardingStep.COMPLETE &&
+            permissionScreenState == PermissionScreenState.PermissionsGranted && !artworkSetupCompleted) {
             ArtworkDownloadSettingsDialog(appSettings, firstSetup = true, onDismiss = {})
         }
         // Show the main app as soon as onboarding is complete, not initializing
@@ -338,12 +322,8 @@ fun PermissionHandler(
         }
 
         AnimatedVisibility(
-            // Show onboarding when:
-            //  • Not in a loading/initializing state, OR
-            //  • The tour was explicitly reset (we always want to show WELCOME in that case,
-            //    even if isLoading hasn't fully settled yet).
-            visible = (!isLoading && !isInitializingApp && currentOnboardingStep != OnboardingStep.COMPLETE)
-                    || (tourWasReset && currentOnboardingStep == OnboardingStep.WELCOME && !isInitializingApp),
+            visible = !onboardingCompleted && !isLoading && !isInitializingApp &&
+                currentOnboardingStep != OnboardingStep.COMPLETE,
             enter = fadeIn(animationSpec = tween(800, easing = androidx.compose.animation.core.EaseOutCubic)) +
                    scaleIn(initialScale = 0.95f, animationSpec = tween(800, easing = androidx.compose.animation.core.EaseOutCubic))
         ) {
@@ -507,6 +487,35 @@ fun PermissionHandler(
                 appSettings = appSettings, // Pass appSettings to OnboardingScreen
                 onFinish = {
                     completeOnboardingNow()
+                }
+            )
+        }
+
+        if (onboardingCompleted && appMode != "STREAMING" && !permissionRecoveryDismissed &&
+            permissionScreenState != PermissionScreenState.Loading &&
+            permissionScreenState != PermissionScreenState.PermissionsGranted) {
+            AlertDialog(
+                onDismissRequest = { permissionRecoveryDismissed = true },
+                title = { Text(context.getString(R.string.local_music_permission_title)) },
+                text = { Text(context.getString(R.string.local_music_permission_recovery_desc)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        if (permissionScreenState == PermissionScreenState.RedirectToSettings) {
+                            context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:${context.packageName}")))
+                        } else {
+                            permissionRequestLaunched = true
+                            localPermissionLauncher.launch(storagePermissions.toTypedArray())
+                        }
+                    }) {
+                        Text(context.getString(if (permissionScreenState == PermissionScreenState.RedirectToSettings)
+                            R.string.onboarding_open_settings else R.string.onboarding_grant_access))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { permissionRecoveryDismissed = true }) {
+                        Text(context.getString(android.R.string.cancel))
+                    }
                 }
             )
         }

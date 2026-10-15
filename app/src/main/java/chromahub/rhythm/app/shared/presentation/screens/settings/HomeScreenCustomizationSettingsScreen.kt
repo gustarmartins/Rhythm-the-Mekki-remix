@@ -409,7 +409,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.primary
                                         )
-                                        val recentlyPlayedSliderState = remember(recentlyPlayedCount) {
+                                        val recentlyPlayedSliderState = remember {
                                             SliderState(
                                                 value = recentlyPlayedCount.toFloat(),
                                                 steps = 8,
@@ -453,7 +453,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.primary
                                         )
-                                        val artistsSliderState = remember(artistsCount) {
+                                        val artistsSliderState = remember {
                                             SliderState(
                                                 value = artistsCount.toFloat(),
                                                 steps = 15,
@@ -497,7 +497,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.primary
                                         )
-                                        val newReleasesSliderState = remember(newReleasesCount) {
+                                        val newReleasesSliderState = remember {
                                             SliderState(
                                                 value = newReleasesCount.toFloat(),
                                                 steps = 15,
@@ -541,7 +541,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.primary
                                         )
-                                        val recentlyAddedSliderState = remember(recentlyAddedCount) {
+                                        val recentlyAddedSliderState = remember {
                                             SliderState(
                                                 value = recentlyAddedCount.toFloat(),
                                                 steps = 15,
@@ -585,7 +585,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.primary
                                         )
-                                        val recommendedSliderState = remember(recommendedCount) {
+                                        val recommendedSliderState = remember {
                                             SliderState(
                                                 value = recommendedCount.toFloat(),
                                                 steps = 5,
@@ -731,7 +731,7 @@ fun HomeScreenCustomizationSettingsScreen(onBackClick: () -> Unit) {
                                                 style = MaterialTheme.typography.bodyMedium,
                                                 color = MaterialTheme.colorScheme.primary
                                             )
-                                            val discoverSliderState = remember(discoverItemCount) {
+                                            val discoverSliderState = remember {
                                                 SliderState(
                                                     value = discoverItemCount.toFloat(),
                                                     steps = 8,

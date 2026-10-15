@@ -50,6 +50,7 @@ import android.net.NetworkCapabilities
 import android.widget.Toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -59,6 +60,8 @@ import kotlinx.coroutines.withTimeoutOrNull
  * ViewModel for managing streaming music playback and library.
  * Handles authentication, browsing, and playback for streaming services.
  */
+enum class StreamConnectionOperation { IDLE, CONNECTING, DISCONNECTING }
+
 class StreamingMusicViewModel(application: Application) : AndroidViewModel(application) {
     private val appSettings = AppSettings.getInstance(application)
 
@@ -80,6 +83,10 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     private var networkLostJob: Job? = null
     private var networkAvailableJob: Job? = null
     private val authMutex = Mutex()
+    private val _connectionOperation = MutableStateFlow(StreamConnectionOperation.IDLE)
+    val connectionOperation = _connectionOperation.asStateFlow()
+    private var homeLoadJob: Job? = null
+    private var libraryLoadJob: Job? = null
     private val queueSelectionMutex = Mutex()
     private var lastSuccessfulAuthTimestamp = 0L
 
@@ -521,8 +528,11 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun connectService(serviceId: String, serverUrl: String, username: String, password: String) {
+        if (_connectionOperation.value != StreamConnectionOperation.IDLE) return
+        _connectionOperation.value = StreamConnectionOperation.CONNECTING
+        homeLoadJob?.cancel()
+        libraryLoadJob?.cancel()
         viewModelScope.launch {
-            _isLoading.value = true
             _error.value = null
 
             try {
@@ -553,6 +563,8 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
 
                 // Show success notification
                 notificationManager.notifyAuthenticationSuccess(getSourceTypeName(sourceTypeFromServiceId(normalizedServiceId)))
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val userMessage = when {
                     e is java.net.ConnectException ||
@@ -578,29 +590,43 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
                 _error.value = userMessage
                 notificationManager.notifyAuthenticationFailed(getSourceTypeName(_currentService.value))
             } finally {
-                _isLoading.value = false
+                _connectionOperation.value = StreamConnectionOperation.IDLE
             }
         }
     }
 
     fun disconnectService(serviceId: String) {
+        if (_connectionOperation.value != StreamConnectionOperation.IDLE) return
+        _connectionOperation.value = StreamConnectionOperation.DISCONNECTING
+        homeLoadJob?.cancel()
+        libraryLoadJob?.cancel()
+        networkAvailableJob?.cancel()
         viewModelScope.launch {
-            _isLoading.value = true
             _error.value = null
-
             try {
-                val normalizedServiceId = normalizeServiceId(serviceId)
-                providerRepository?.disconnect(normalizedServiceId)
-
-                serviceSessionRepository.disconnect(normalizedServiceId)
-                if (appSettings.streamingService.value == normalizedServiceId) {
-                    checkAndSyncAuthentication(normalizedServiceId)
-                    clearContent()
+                // Wait for an earlier auth probe before clearing credentials, so its late
+                // success cannot mark a disconnected account authenticated again.
+                authMutex.withLock {
+                    val normalizedServiceId = normalizeServiceId(serviceId)
+                    providerRepository?.disconnect(normalizedServiceId)
+                    serviceSessionRepository.disconnect(normalizedServiceId)
+                    if (appSettings.streamingService.value == normalizedServiceId) {
+                        lastSuccessfulAuthTimestamp = 0
+                        _isAuthenticated.value = false
+                        _streamingConfig.value = _streamingConfig.value.copy(isAuthenticated = false)
+                        clearContent()
+                        _allSongs.value = emptyList()
+                        _syncProgress.value = StreamingSyncProgress(isSyncing = false, stage = StreamingSyncStage.Idle)
+                        notificationManager.cancelSyncNotification()
+                    }
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _error.value = "Disconnect failed: ${e.message}"
             } finally {
                 _isLoading.value = false
+                _connectionOperation.value = StreamConnectionOperation.IDLE
             }
         }
     }
@@ -655,7 +681,9 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
      * Load home screen content.
      */
     fun loadHomeContent() {
-        viewModelScope.launch {
+        if (_connectionOperation.value == StreamConnectionOperation.DISCONNECTING) return
+        homeLoadJob?.cancel()
+        homeLoadJob = viewModelScope.launch {
             _isLoading.value = true
             _hasLoadedHomeContent.value = false
             
@@ -695,9 +723,12 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
                     repository.getFeaturedPlaylists(limit = 24)
                 }
 
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 _recommendations.value = recommendations
                 _newReleases.value = newReleases
                 _featuredPlaylists.value = featuredPlaylists
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("StreamingMusicViewModel", "loadHomeContent failed", e)
                 val isNetworkDown = !NetworkUtils.isNetworkAvailable(getApplication())
@@ -798,7 +829,10 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
      *                  If false, loads quickly from disk/memory cache without notifications or server overhead.
      */
     fun loadLibrary(forceSync: Boolean = false) {
-        viewModelScope.launch {
+        if (_connectionOperation.value == StreamConnectionOperation.DISCONNECTING) return
+        if (libraryLoadJob?.isActive == true && !forceSync) return
+        libraryLoadJob?.cancel()
+        libraryLoadJob = viewModelScope.launch {
             _isLoading.value = true
             val serviceName = getSourceTypeName(_currentService.value)
 
@@ -1007,6 +1041,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
                     }
                 }
 
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 _likedSongs.value = likedSongs
                 _savedAlbums.value = resolvedAlbums
                 _newReleases.value = newReleases
@@ -1029,6 +1064,8 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
                     _featuredPlaylists.value = resolvedPlaylists
                 }
                 syncSuccess = true
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e("StreamingMusicViewModel", "loadLibrary failed", e)
                 _error.value = "Failed to load library: ${e.message}"
@@ -2082,6 +2119,8 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
                         "JELLYFIN", "MUSIC_ASSISTANT" -> providerRepository?.authenticate() == true
                         else -> false
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.w("StreamingMusicViewModel", "Auth ping attempt $attempt failed", e)
                     false
