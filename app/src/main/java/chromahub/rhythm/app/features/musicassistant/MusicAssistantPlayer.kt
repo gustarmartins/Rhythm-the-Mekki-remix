@@ -75,15 +75,7 @@ internal class MusicAssistantPlayer(
         active.value = this
         scope.launch {
             receiver.state.collect { state ->
-                nativeStatus.value = when (state) {
-                    is PlayerState.Connected -> "Connected to ${state.serverName}"
-                    is PlayerState.Failed -> "Music Assistant: ${state.cause}"
-                    is PlayerState.Reconnecting -> "Reconnecting to Music Assistant"
-                    is PlayerState.Connecting -> "Connecting to Music Assistant"
-                    else -> "Music Assistant stopped"
-                }
-                connectionIssue.value = if (state is PlayerState.Reconnecting)
-                    "Connection lost. Reconnecting to Music Assistant…" else null
+                publishConnectionStatus()
                 if (state is PlayerState.Connected) localPlayerId = state.playerId
                 val audio = when (state) {
                     is PlayerState.Connected -> state.audio
@@ -117,11 +109,26 @@ internal class MusicAssistantPlayer(
                 if (targetId != null || receiver.state.value is PlayerState.Connected) {
                     try { operations.withLock { refresh(forceItems = false) } }
                     catch (cancelled: CancellationException) { throw cancelled }
-                    catch (_: Exception) { nativeStatus.value = "Music Assistant unavailable; reconnecting" }
+                    // This HTTP request may predate a successful WebSocket reconnect.
+                    // Connection status belongs to the current receiver, not that old request.
+                    catch (_: Exception) { publishConnectionStatus() }
                 }
                 delay(1000)
             }
         }
+    }
+    private fun publishConnectionStatus() {
+        if (released || active.value !== this) return
+        val current = receiver.state.value
+        nativeStatus.value = when (current) {
+            is PlayerState.Connected -> "Connected to ${current.serverName}"
+            is PlayerState.Failed -> "Music Assistant: ${current.cause}"
+            is PlayerState.Reconnecting -> "Reconnecting to Music Assistant"
+            is PlayerState.Connecting -> "Connecting to Music Assistant"
+            else -> "Music Assistant stopped"
+        }
+        connectionIssue.value = if (current is PlayerState.Reconnecting)
+            "Connection lost. Reconnecting to Music Assistant…" else null
     }
     private suspend fun connect() {
         if (config.value != null) return
@@ -190,6 +197,7 @@ internal class MusicAssistantPlayer(
         val upcoming = items.drop((currentIndex + 1).coerceAtLeast(0)).map { it.occurrenceId }.toSet()
         pendingManual.retainAll(upcoming)
         error = null
+        publishConnectionStatus()
         invalidateState()
     }
     private fun mediaItem(row: MusicAssistantQueueItem): MediaItem {
@@ -242,10 +250,11 @@ internal class MusicAssistantPlayer(
                 android.util.Log.e("RhythmMA", "Native playback command failed", failure)
                 // A timeout may have committed a mutation. Reconcile, never blindly replay it.
                 withTimeoutOrNull(5000) { runCatching { operations.withLock { refresh() } } }
-                if (released) { future.cancel(false); return@launch }
-                nativeStatus.value = "Music Assistant command failed. Refresh the server connection."
-                if (rows.isEmpty()) error = PlaybackException(nativeStatus.value, null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
-                else commandFailure.value = nativeStatus.value
+                if (released || active.value !== this@MusicAssistantPlayer) { future.cancel(false); return@launch }
+                val message = "Music Assistant command failed. Refresh the server connection."
+                if (rows.isEmpty()) error = PlaybackException(message, null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
+                else commandFailure.value = message
+                publishConnectionStatus()
                 invalidateState(); future.setException(failure)
             }
         }
@@ -384,6 +393,7 @@ internal class MusicAssistantPlayer(
         config.value = null
         if (active.value === this) {
             active.value = null
+            nativeStatus.value = "Music Assistant stopped"
             connectionIssue.value = null
         }
         val completion = SettableFuture.create<Void>()

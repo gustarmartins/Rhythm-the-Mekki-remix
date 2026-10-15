@@ -20,6 +20,7 @@ import chromahub.rhythm.app.features.streaming.data.repository.StreamingServiceS
 import chromahub.rhythm.app.infrastructure.service.MediaPlaybackService
 import chromahub.rhythm.app.infrastructure.service.PlayNextCommand
 import chromahub.rhythm.app.shared.data.model.AppSettings
+import chromahub.rhythm.app.features.musicassistant.api.MusicAssistantQueue
 import com.google.gson.JsonParser
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.CoroutineScope
@@ -69,6 +70,29 @@ class MusicAssistantAndroidTest {
                 check(connection.responseCode == 200) { "Test outage controller rejected $action" }
             } finally { connection.disconnect() }
         }
+
+    private suspend fun waitForServerQueue(
+        client: MusicAssistantProviderClient,
+        label: String,
+        condition: (MusicAssistantQueue) -> Boolean,
+    ): MusicAssistantQueue {
+        android.util.Log.i("RhythmMA-Test", "Waiting for server: $label")
+        var matched: MusicAssistantQueue? = null
+        kotlinx.coroutines.withTimeout(90_000) {
+            while (matched == null) {
+                val playerId = main { MusicAssistantPlayer.active.value?.selectedOutputId() }
+                val queue = if (playerId == null) null else try {
+                    client.api().activeQueue(playerId)
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) { null }
+                if (queue != null && condition(queue)) matched = queue
+                else kotlinx.coroutines.delay(250)
+            }
+        }
+        android.util.Log.i("RhythmMA-Test", "Server confirmed: $label")
+        return checkNotNull(matched)
+    }
 
     @Test fun checkingConfiguredAccountDoesNotDecryptTokensOnTheUiThread() {
         val prefs = context.getSharedPreferences("music_assistant_native", 0)
@@ -176,7 +200,11 @@ class MusicAssistantAndroidTest {
             }
             main { controller.seekToNextMediaItem() }
             waitFor("next folklore track without another Play") {
-                controller.isPlaying && controller.currentMediaItem?.mediaId == selectedAlbumTracks[1].id
+                controller.isPlaying && controller.currentMediaItem?.mediaId == selectedAlbumTracks[1].id &&
+                    controller.currentPosition > 1500
+            }
+            waitForServerQueue(client, "next folklore track playing") {
+                it.state == "playing" && it.itemCount == selectedAlbumTracks.size && it.currentIndex == 1
             }
             val selected = Song(
                 id = "MUSIC_ASSISTANT::${flac.providerId}", title = flac.title,
@@ -186,8 +214,11 @@ class MusicAssistantAndroidTest {
             // Exercise the same queue replacement used by Home/Library/Search clicks.
             // Direct controller.setMediaItems missed the old clear + add UI path.
             main { viewModel.playQueue(listOf(selected), enableShuffle = false, respectQueueRule = false) }
-            waitFor("FLAC playing in Rhythm") { controller.isPlaying && (MusicAssistantPlayer.active.value?.sessionId ?: 0) > 0 && controller.currentPosition > 2000 }
-            assertTrue(main { controller.currentMediaItem?.mediaId == "MUSIC_ASSISTANT::${flac.providerId}" })
+            waitFor("FLAC playing in Rhythm") {
+                controller.isPlaying && controller.currentMediaItem?.mediaId == selected.id &&
+                    (MusicAssistantPlayer.active.value?.sessionId ?: 0) > 0 && controller.currentPosition > 2000
+            }
+            waitForServerQueue(client, "FLAC playing") { it.state == "playing" && it.itemCount == 1 }
             main {
                 AppSettings.getInstance(context).setBluetoothLyricsEnabled(true)
                 AppSettings.getInstance(context).setBluetoothLyricsTextMode(chromahub.rhythm.app.shared.data.model.BluetoothLyricsTextMode.ORIGINAL)
@@ -252,6 +283,11 @@ class MusicAssistantAndroidTest {
             val outageToken = credentials.get("outageControlToken")?.asString.orEmpty()
             if (outageUrl != null) {
                 val mediaIdBeforeOutage = main { controller.currentMediaItem?.mediaId }
+                // Media3 masks pause immediately, before the server command completes.
+                // MA's Sendspin pause can be represented as idle with a saved resume position.
+                val pausedQueue = waitForServerQueue(client, "pause acknowledged before outage") {
+                    it.state in setOf("idle", "paused") && it.itemCount == fullLibrary.size
+                }
                 try {
                     controlOutage(outageUrl, outageToken, "pause")
                     waitFor("network loss detected", timeoutSeconds = 30) { MusicAssistantPlayer.connectionIssue.value != null }
@@ -266,14 +302,38 @@ class MusicAssistantAndroidTest {
                 waitFor("server connection recovered", timeoutSeconds = 60) {
                     MusicAssistantPlayer.connectionIssue.value == null && MusicAssistantPlayer.nativeStatus.value.startsWith("Connected to")
                 }
+                val recoveredQueue = waitForServerQueue(client, "original queue recovered") {
+                    it.id == pausedQueue.id && it.itemCount == fullLibrary.size
+                }
+                assertTrue("Reconnect must preserve the server's pause", recoveredQueue.state in setOf("idle", "paused"))
+                assertEquals("Reconnect must preserve the selected occurrence", pausedQueue.currentOccurrenceId, recoveredQueue.currentOccurrenceId)
+                kotlinx.coroutines.delay(1500)
+                val stillPaused = waitForServerQueue(client, "fresh queue after reconnect settles") { it.id == pausedQueue.id }
+                assertTrue("Reconnect must not auto-resume after its first state report", stillPaused.state in setOf("idle", "paused"))
                 assertFalse("Reconnect must preserve a user's pause", main { controller.playWhenReady })
                 main { controller.play() }
+                waitForServerQueue(client, "Play acknowledged after recovery") {
+                    it.state == "playing" && it.itemCount == fullLibrary.size &&
+                        it.currentOccurrenceId == pausedQueue.currentOccurrenceId
+                }
                 waitFor("same queue plays after network recovery") {
                     controller.isPlaying && controller.mediaItemCount == fullLibrary.size &&
-                        controller.currentMediaItem?.mediaId == mediaIdBeforeOutage && controller.currentPosition > 1500
+                        controller.currentMediaItem?.mediaId == mediaIdBeforeOutage &&
+                        (MusicAssistantPlayer.active.value?.sessionId ?: 0) > 0
                 }
+                val recoveredPosition = main { controller.currentPosition }
+                kotlinx.coroutines.delay(1500)
+                waitFor("recovered playback advances beyond its paused position") {
+                    controller.isPlaying && controller.currentMediaItem?.mediaId == mediaIdBeforeOutage &&
+                        controller.currentPosition >= recoveredPosition + 1000
+                }
+                assertTrue("A stale HTTP timeout must not overwrite the recovered connection status",
+                    MusicAssistantPlayer.nativeStatus.value.startsWith("Connected to"))
                 main { controller.pause() }
                 waitFor("pause after recovery") { !controller.playWhenReady }
+                waitForServerQueue(client, "pause acknowledged after recovery") {
+                    it.state in setOf("idle", "paused") && it.itemCount == fullLibrary.size
+                }
             }
             main {
                 streamingViewModel.refreshCurrentSession()

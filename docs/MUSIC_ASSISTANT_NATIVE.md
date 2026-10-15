@@ -217,3 +217,10 @@ playback ViewModel, advances to its next track, then checks both codecs, FIFO,
 duplicate occurrences and a complete library shuffle. An optional private outage
 controller can blackhole only the test server connection, verifying UI response,
 connection recovery, queue/pause preservation and playback after reconnection.
+
+Connection status is derived from the current audio receiver and active player.
+A request that times out after reconnection cannot replace that status with an
+old unavailable message. Command failures retain their separate playback error
+or snackbar reporting. The device regression requires server acknowledgement of
+pause and Play, retained queue occurrence identity, and advancing playback after
+reconnection; optimistic controller state alone is not accepted as recovery.
