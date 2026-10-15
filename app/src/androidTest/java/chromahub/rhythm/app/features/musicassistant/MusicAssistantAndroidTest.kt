@@ -5,6 +5,7 @@ import android.app.Application
 import androidx.lifecycle.ViewModelStore
 import chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel
 import chromahub.rhythm.app.shared.data.model.Song
+import chromahub.rhythm.app.features.streaming.presentation.screens.toLibrarySong
 import android.content.ComponentName
 import android.os.Bundle
 import androidx.media3.common.MediaItem
@@ -122,6 +123,7 @@ class MusicAssistantAndroidTest {
         val store = ViewModelStore()
         val settings = AppSettings.getInstance(context)
         val savedPersistence = settings.queuePersistenceEnabled.value
+        val savedNativeShuffle = settings.shuffleUsesExoplayer.value
         val viewModel = main {
             settings.setQueuePersistenceEnabled(false)
             MusicViewModel(context.applicationContext as Application).also { store.put("playback", it) }
@@ -206,6 +208,18 @@ class MusicAssistantAndroidTest {
             waitFor("explicit occurrence at index two") {
                 controller.mediaItemCount == 3 && controller.currentMediaItemIndex == 2 && controller.isPlaying
             }
+            main {
+                settings.setShuffleUsesExoplayer(true)
+                controller.shuffleModeEnabled = true
+            }
+            waitFor("shuffle already enabled") { controller.shuffleModeEnabled }
+            val fullLibrary = songs.shuffled().map { it.toLibrarySong() }
+            main { viewModel.playQueue(fullLibrary, enableShuffle = true, pinStartIndex = true, respectQueueRule = false) }
+            waitFor("full-library shuffled playback", timeoutSeconds = 180) {
+                controller.mediaItemCount == fullLibrary.size && controller.isPlaying && controller.shuffleModeEnabled
+            }
+            assertEquals("Full-library shuffle retains the selected first occurrence",
+                fullLibrary.first().id, main { controller.currentMediaItem?.mediaId })
             main { controller.pause() }
             waitFor("final pause") { !controller.playWhenReady }
             android.util.Log.i("RhythmMA-Test", "PASS native catalog=${songs.size}, FLAC, MP3, pause, FIFO, duplicates, seek")
@@ -215,6 +229,7 @@ class MusicAssistantAndroidTest {
                 controller.pause()
                 store.clear()
                 settings.setQueuePersistenceEnabled(savedPersistence)
+                settings.setShuffleUsesExoplayer(savedNativeShuffle)
                 controller.release()
             }
         }
