@@ -17,14 +17,14 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 internal class MusicAssistantProviderClient(context: Context) {
     val account = MusicAssistantAccount(context)
     private val http = okhttp3.OkHttpClient()
-    fun isConnected() = runCatching { account.server.isNotBlank() && account.token.isNotBlank() }.getOrDefault(false)
+    fun isConnected() = account.hasCredentials
     fun getUsername() = account.username
     fun getServerUrl() = account.server
-    fun transport(): MusicAssistantHttpTransport {
+    suspend fun transport(): MusicAssistantHttpTransport = withContext(Dispatchers.IO) {
         val session = account.snapshot()
-        return MusicAssistantHttpTransport(session.server, { session.token }, http)
+        MusicAssistantHttpTransport(session.server, { session.token }, http)
     }
-    fun api() = MusicAssistantApi(transport())
+    suspend fun api() = MusicAssistantApi(transport())
     suspend fun login(serverUrl: String, username: String, password: String, saveCredentials: Boolean = true) = result {
         check(android.os.Build.VERSION.SDK_INT >= 28) { "Music Assistant playback requires Android 9 or newer" }
         val server = requireNotNull(MusicAssistantServer.normalize(serverUrl)) { "Invalid server address" }
@@ -36,7 +36,7 @@ internal class MusicAssistantProviderClient(context: Context) {
     }
     suspend fun logout() {
         withContext(Dispatchers.Main.immediate) { MusicAssistantPlayer.active.value?.disconnectAccount() }
-        account.clear()
+        withContext(Dispatchers.IO) { account.clear() }
     }
     suspend fun ping() = result { api().libraryTracks(limit = 1); Unit }
     suspend fun command(name: String, vararg args: Pair<String, Any?>) = transport().command(name, Gson().toJsonTree(args.toMap()).asJsonObject)

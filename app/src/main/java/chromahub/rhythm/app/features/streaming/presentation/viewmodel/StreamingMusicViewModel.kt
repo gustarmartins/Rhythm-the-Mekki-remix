@@ -72,7 +72,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     private val notificationManager = StreamingNotificationManager(application)
     private var queueSelectionHandler: ((suspend () -> List<StreamingSong>) -> Unit)? = null
     private var queueSelectionRequested: (() -> Boolean)? = null
-    private var playbackHandler: ((List<StreamingSong>, Int) -> Boolean)? = null
+    private var playbackHandler: ((List<StreamingSong>, Int, Boolean) -> Boolean)? = null
     private var seekProgressHandler: ((Float) -> Unit)? = null
     private var seekPositionHandler: ((Long) -> Unit)? = null
     private var wasOffline: Boolean? = null
@@ -612,7 +612,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     fun setPlaybackHandler(
         shouldEnqueueSelection: () -> Boolean = { false },
         onQueueSelection: (suspend () -> List<StreamingSong>) -> Unit = {},
-        handler: (List<StreamingSong>, Int) -> Boolean
+        handler: (List<StreamingSong>, Int, Boolean) -> Boolean
     ) {
         queueSelectionRequested = shouldEnqueueSelection
         queueSelectionHandler = onQueueSelection
@@ -1199,7 +1199,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
                 return@withLock
             }
 
-            val queuedWithoutInterrupting = playbackHandler?.invoke(queueWithResolvedSongs, selectedIndex) == true
+            val queuedWithoutInterrupting = playbackHandler?.invoke(queueWithResolvedSongs, selectedIndex, shuffle) == true
             if (!queuedWithoutInterrupting) {
                 _queue.value = queueWithResolvedSongs
                 _currentSong.value = selectedResolvedSong
@@ -1212,8 +1212,28 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     /**
      * Play an album.
      */
-    fun playAlbum(album: StreamingAlbum) {
-        // Album logic intentionally disabled for streaming mode cleanup.
+    fun playAlbum(album: StreamingAlbum) = playAlbums(listOf(album))
+
+    fun playAlbums(albums: List<StreamingAlbum>, shuffle: Boolean = false) {
+        suspend fun resolve(): List<StreamingSong> = albums.flatMap { getAlbumSongs(it) }
+        // Reserve FIFO order before fetching album contents.
+        if (queueSelectionRequested?.invoke() == true) {
+            queueSelectionHandler?.invoke {
+                resolve().let { if (shuffle) it.shuffled() else it }
+            }
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val tracks = resolve()
+                if (tracks.isEmpty()) showToast("No playable tracks found in the selected album")
+                else playQueue(tracks, shuffle = shuffle, enqueueWholeList = true)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                showToast("Unable to load the selected album. Check the server connection.")
+            }
+        }
     }
 
     /**
@@ -1854,7 +1874,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
             _currentSong.value = refreshedQueue[currentIndex]
 
             // Tell the playback handler to re-prepare the queue at the same index
-            playbackHandler?.invoke(refreshedQueue, currentIndex)
+            playbackHandler?.invoke(refreshedQueue, currentIndex, appSettings.savedShuffleState.value)
 
             // Attempt to restore playback position immediately after re-preparing
             // The handler should be ready to accept a seek command; call the seek handler

@@ -145,3 +145,40 @@ under Apache 2.0. Its license, provenance and adaptation notice are included in
 
 These changes require the next Nightly. Physical Bluetooth/car acceptance remains
 separate from build and Android regression results.
+
+## Library Shuffle and VPN recovery
+
+FE ANRs captured on October14 at21:44 and21:51 both show the main thread in
+Android Keystore decryption from `StreamingMusicViewModel.playQueue` through
+`getStreamingUrl`. A full-library selection checked the encrypted account for
+every track. Account presence checks now inspect saved configuration without
+cryptography; actual authenticated snapshots and Sendspin identity operations
+run on IO dispatchers. Download-file and network-policy checks yield the main
+thread during full-library URL resolution.
+
+Sendspin uses OkHttp-level WebSocket pings so losing a VPN route without a clean
+socket close triggers the existing reconnect loop. The Ktor WebSockets plugin
+interval alone does not configure this engine. A silent TCP peer regression
+checks that the socket closes and a fresh connection can open. Reconnecting is
+visible in the shared UI; genuine command timeouts are reported instead of
+being treated as user cancellation. Queue mutations are never blindly replayed.
+
+Android regression coverage includes configured-account checks without token
+decryption, full-library URI resolution while UI events continue, and the app's
+native playback/queue path. These tests still require a device and private lab
+credentials; cloud JVM results alone do not establish phone or car acceptance.
+
+Home album Play now resolves that album by provider identity when the card does
+not contain loaded tracks. Explicit Play keeps album order instead of reapplying
+the row-selection shuffle preference. Discovery albums and recommendations no
+longer always take the first cache entries. Mapped selections retain the selected
+occurrence when unavailable rows are removed; a missing selected track is an
+error, not permission to play a different track.
+
+For explicit native track-list replacement, the adapter clears the old queue,
+loads the ordered list without starting it, checks the returned occurrences, then
+starts the exact selected occurrence. This is necessary because MA's start_item
+parameter selects inside containers, not among separately supplied track URIs.
+Failures are surfaced without replaying mutations. Android regression now checks
+Home album resolution, selecting a duplicate beyond index zero, and Next while
+playing without an extra Play command that could hide a stopped-player bug.

@@ -486,11 +486,10 @@ class StreamingMusicRepositoryImpl(
             return downloadedSongsMap.values.shuffled().take(limit.coerceAtLeast(1))
         }
         val activePrefix = "${activeServiceId()}::"
-        return songCache.values
-            .asSequence()
+        return songsFlow.value.filterIsInstance<StreamingSong>()
             .filter { it.id.startsWith(activePrefix) }
+            .shuffled()
             .take(limit.coerceAtLeast(1))
-            .toList()
     }
 
     override suspend fun getNewReleases(limit: Int): List<StreamingAlbum> {
@@ -831,10 +830,13 @@ class StreamingMusicRepositoryImpl(
         val (serviceId, providerId) = decodeSongId(songId) ?: return null
         
         // 1. If downloaded, return the local downloaded file URI
-        val localFile = getDownloadFile(songId)
-        if (localFile.exists() && localFile.length() > 0) {
-            return Uri.fromFile(localFile).toString()
+        // A Library Shuffle resolves every track. Even cached URI preparation must
+        // yield the UI thread: filesystem probes can block, especially under pressure.
+        val downloadedUri = withContext(Dispatchers.IO) {
+            val localFile = getDownloadFile(songId)
+            if (localFile.exists() && localFile.length() > 0) Uri.fromFile(localFile).toString() else null
         }
+        if (downloadedUri != null) return downloadedUri
 
         // 2. Check if offline mode is enabled - fallback to cache or return null
         if (appSettings.offlineMode.value) {
@@ -846,7 +848,7 @@ class StreamingMusicRepositoryImpl(
 
         // Check if streaming is allowed by network settings
         val allowCellular = appSettings.allowCellularStreaming.value
-        if (!NetworkUtils.canStream(context, allowCellular)) {
+        if (!withContext(Dispatchers.IO) { NetworkUtils.canStream(context, allowCellular) }) {
             return null // Network conditions don't allow streaming
         }
         

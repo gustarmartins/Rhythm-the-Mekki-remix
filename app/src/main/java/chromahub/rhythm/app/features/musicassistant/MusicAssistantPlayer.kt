@@ -13,9 +13,6 @@ import chromahub.rhythm.app.infrastructure.service.PlayNextCommand
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.SettableFuture
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
-import io.ktor.client.plugins.websocket.WebSockets
 import io.music_assistant.sendspin.SendspinPlayer
 import io.music_assistant.sendspin.android.AndroidDecoderFactory
 import io.music_assistant.sendspin.android.AudioTrackSink
@@ -39,7 +36,7 @@ internal class MusicAssistantPlayer(
     private val operations = Mutex()
     private val config = MutableStateFlow<LocalPlayerConfig?>(null)
     private val dispatcher = Executors.newSingleThreadExecutor { action -> Thread(action, "Rhythm-Sendspin").apply { priority = Thread.MAX_PRIORITY } }.asCoroutineDispatcher()
-    private val http = HttpClient(OkHttp) { install(WebSockets) }
+    private val http = musicAssistantSocketClient()
     private val wakeLock = (context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager)
         .newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "Rhythm:Sendspin").apply { setReferenceCounted(false) }
     private val clock = MonotonicClock { SystemClock.elapsedRealtimeNanos() / 1000 }
@@ -58,7 +55,7 @@ internal class MusicAssistantPlayer(
             override fun write(key: String, value: ByteArray) = client.account.write("sendspin.$key", value)
             override fun delete(key: String) = client.account.delete("sendspin.$key")
         }, http, MutableStateFlow(true), { token -> client.command("sendspin/pair_web_player", "pairing_token" to token); Unit }, dispatcher, clock
-    ), scope)
+    ), CoroutineScope(playerJob + Dispatchers.IO))
     private var queue: MusicAssistantQueue? = null
     private var rows = emptyList<MusicAssistantQueueItem>()
     private var playlistData = emptyList<MediaItemData>()
@@ -85,6 +82,8 @@ internal class MusicAssistantPlayer(
                     is PlayerState.Connecting -> "Connecting to Music Assistant"
                     else -> "Music Assistant stopped"
                 }
+                connectionIssue.value = if (state is PlayerState.Reconnecting)
+                    "Connection lost. Reconnecting to Music Assistant…" else null
                 if (state is PlayerState.Connected) localPlayerId = state.playerId
                 val audio = when (state) {
                     is PlayerState.Connected -> state.audio
@@ -124,10 +123,10 @@ internal class MusicAssistantPlayer(
             }
         }
     }
-    private fun connect() {
+    private suspend fun connect() {
         if (config.value != null) return
         foreground()
-        val session = client.account.snapshot()
+        val session = withContext(Dispatchers.IO) { client.account.snapshot() }
         val server = session.server
         val endpoint = server.replaceFirst("https://", "wss://").replaceFirst("http://", "ws://") + "sendspin"
         config.value = LocalPlayerConfig(Endpoint.WebSocket(endpoint, session.token), "Rhythm • ${android.os.Build.MODEL}",
@@ -235,14 +234,18 @@ internal class MusicAssistantPlayer(
             try {
                 operations.withLock { block(); refresh() }
                 future.set(null)
-            } catch (cancelled: CancellationException) { future.cancel(false); throw cancelled }
-            catch (failure: Exception) {
+            } catch (failure: Exception) {
+                if (failure is CancellationException && failure !is TimeoutCancellationException) {
+                    future.cancel(false)
+                    throw failure
+                }
                 android.util.Log.e("RhythmMA", "Native playback command failed", failure)
                 // A timeout may have committed a mutation. Reconcile, never blindly replay it.
-                runCatching { operations.withLock { refresh() } }
+                withTimeoutOrNull(5000) { runCatching { operations.withLock { refresh() } } }
                 if (released) { future.cancel(false); return@launch }
                 nativeStatus.value = "Music Assistant command failed. Refresh the server connection."
                 if (rows.isEmpty()) error = PlaybackException(nativeStatus.value, null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
+                else commandFailure.value = nativeStatus.value
                 invalidateState(); future.setException(failure)
             }
         }
@@ -258,9 +261,8 @@ internal class MusicAssistantPlayer(
             if (mediaItems.isEmpty()) client.command("player_queues/clear", "queue_id" to id)
             else {
                 foreground()
-                client.command("player_queues/play_media", "queue_id" to id, "media" to mediaItems.map(::uri), "option" to "replace",
-                    "start_item" to uri(mediaItems[startIndex.coerceIn(0, mediaItems.lastIndex)]))
-                if (startPositionMs > 0) client.api().seek(id, (startPositionMs / 1000).toInt())
+                client.api().replaceQueueAndSelect(id, mediaItems.map(::uri),
+                    startIndex.coerceIn(0, mediaItems.lastIndex), (startPositionMs.coerceAtLeast(0) / 1000).toInt())
             }
         }
     }
@@ -272,7 +274,7 @@ internal class MusicAssistantPlayer(
     override fun handleStop() = submit { client.api().playerAction(target(), MusicAssistantApi.PlayerAction.STOP) }
     override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: Int) = submit {
         val qid = queueId()
-        val wasPlaying = queue?.state == "playing"
+        val wasPlaying = playWhenReady
         when (seekCommand) {
             COMMAND_SEEK_TO_NEXT, COMMAND_SEEK_TO_NEXT_MEDIA_ITEM -> client.command("player_queues/next", "queue_id" to qid)
             COMMAND_SEEK_TO_PREVIOUS, COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM -> client.command("player_queues/previous", "queue_id" to qid)
@@ -377,7 +379,10 @@ internal class MusicAssistantPlayer(
         if (released) return Futures.immediateVoidFuture()
         released = true
         config.value = null
-        if (active.value === this) active.value = null
+        if (active.value === this) {
+            active.value = null
+            connectionIssue.value = null
+        }
         val completion = SettableFuture.create<Void>()
         playerJob.cancel()
         CoroutineScope(Dispatchers.IO).launch {
@@ -395,6 +400,8 @@ internal class MusicAssistantPlayer(
     companion object {
         val active = MutableStateFlow<MusicAssistantPlayer?>(null)
         val nativeStatus = MutableStateFlow("Music Assistant stopped")
+        val connectionIssue = MutableStateFlow<String?>(null)
+        val commandFailure = MutableStateFlow<String?>(null)
         fun isMusicAssistant(item: MediaItem) = item.mediaId.startsWith("MUSIC_ASSISTANT::") || item.localConfiguration?.uri?.scheme == "musicassistant"
         private fun uri(item: MediaItem): String = if (item.mediaId.startsWith("MUSIC_ASSISTANT::")) item.mediaId.removePrefix("MUSIC_ASSISTANT::")
             else Uri.decode(item.localConfiguration?.uri?.encodedPath?.removePrefix("/"))

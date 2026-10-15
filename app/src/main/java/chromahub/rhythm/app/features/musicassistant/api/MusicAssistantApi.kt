@@ -63,6 +63,32 @@ internal class MusicAssistantApi(private val transport: MusicAssistantTransport)
     /** Explicit Play action only. Failure never falls back to another queue or player. */
     suspend fun play(queueId: String, mediaUris: List<String>) = playMedia(queueId, mediaUris, "replace")
 
+    /**
+     * Replace an explicit track list without briefly playing its first track.
+     * MA's start_item only selects within containers (albums/playlists), not a batch of tracks.
+     * Stage the ordered list while stopped, then select the exact returned occurrence.
+     */
+    suspend fun replaceQueueAndSelect(queueId: String, uris: List<String>, startIndex: Int, positionSeconds: Int = 0) {
+        require(uris.isNotEmpty() && startIndex in uris.indices && positionSeconds >= 0)
+        uris.forEach(::identifier)
+        mutations.withLock {
+            transport.command("player_queues/clear", args("queue_id" to identifier(queueId)))
+            transport.command("player_queues/shuffle", args("queue_id" to queueId, "shuffle_enabled" to false))
+            transport.command("player_queues/play_media", args("queue_id" to queueId, "media" to uris, "option" to "add"))
+            val loaded = ArrayList<MusicAssistantQueueItem>()
+            while (true) {
+                val page = queueItems(queueId, loaded.size, 500)
+                loaded.addAll(page)
+                if (page.size < 500 || loaded.size > uris.size) break
+            }
+            check(loaded.size == uris.size && loaded.map { it.occurrenceId }.toSet().size == loaded.size) {
+                "Server queue changed while selecting a track; refresh and retry"
+            }
+            transport.command("player_queues/play_index", args("queue_id" to queueId,
+                "index" to loaded[startIndex].occurrenceId, "seek_position" to positionSeconds))
+        }
+    }
+
     /** Append preserves caller order and duplicates. This is NOT Rhythm's FIFO Play Next adapter. */
     suspend fun append(queueId: String, mediaUris: List<String>) = playMedia(queueId, mediaUris, "add")
 

@@ -105,6 +105,40 @@ class MusicAssistantApiTest {
         assertEquals("all", queue.repeat)
     }
 
+    @Test fun explicitSelectionUsesTheRequestedOccurrenceNotTheFirstTrack() = runBlocking {
+        val commands = mutableListOf<Pair<String, JsonObject>>()
+        val recording = MusicAssistantApi(MusicAssistantTransport { command, args ->
+            commands += command to args
+            if (command == "player_queues/items") JsonParser.parseString(
+                """[{"queue_item_id":"a1","name":"Song","media_item":$TRACK},
+                    {"queue_item_id":"a2","name":"Song","media_item":$TRACK},
+                    {"queue_item_id":"a3","name":"Song","media_item":$TRACK}]""")
+            else com.google.gson.JsonNull.INSTANCE
+        })
+        recording.replaceQueueAndSelect("queue", List(3) { "library://track/42" }, 2, 12)
+        assertEquals(listOf("player_queues/clear", "player_queues/shuffle", "player_queues/play_media",
+            "player_queues/items", "player_queues/play_index"), commands.map { it.first })
+        assertEquals("add", commands[2].second["option"].asString)
+        assertFalse(commands[2].second.has("start_item"))
+        assertEquals("a3", commands.last().second["index"].asString)
+        assertEquals(12, commands.last().second["seek_position"].asInt)
+    }
+
+    @Test fun missingTrackInReplacementDoesNotStartTheWrongOccurrence() = runBlocking {
+        val commands = mutableListOf<String>()
+        val recording = MusicAssistantApi(MusicAssistantTransport { command, _ ->
+            commands += command
+            if (command == "player_queues/items") JsonParser.parseString("[]")
+            else com.google.gson.JsonNull.INSTANCE
+        })
+        try {
+            recording.replaceQueueAndSelect("queue", listOf("library://track/42"), 0)
+            fail("An incomplete queue must be rejected")
+        } catch (_: IllegalStateException) { }
+        assertFalse(commands.contains("player_queues/play_index"))
+        assertEquals(1, commands.count { it == "player_queues/play_media" })
+    }
+
     @Test fun inactivePlayerHasNoQueue() = runBlocking {
         respond("null")
         assertNull(api.activeQueue("idle"))

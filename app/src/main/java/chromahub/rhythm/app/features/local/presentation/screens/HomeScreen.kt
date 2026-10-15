@@ -797,8 +797,9 @@ private fun StreamingHomeBody(
             .distinctBy { it.id }
             .associateBy { it.id }
     }
-    val streamingAlbumById = remember(rawNewReleases, rawDownloadedAlbums) {
-        (rawNewReleases + rawDownloadedAlbums).distinctBy { it.id }.associateBy { it.id }
+    val rawSavedAlbums = vm?.savedAlbums?.collectAsState()?.value ?: emptyList()
+    val streamingAlbumById = remember(rawSavedAlbums, rawNewReleases, rawDownloadedAlbums) {
+        (rawNewReleases + rawSavedAlbums + rawDownloadedAlbums).distinctBy { it.id }.associateBy { it.id }
     }
     val streamingArtistById = remember(rawArtists, rawDownloadedArtists) {
         (rawArtists + rawDownloadedArtists).distinctBy { it.id }.associateBy { it.id }
@@ -864,8 +865,21 @@ private fun StreamingHomeBody(
     }
 
     val playQueueFromMapped: (List<Song>, Int, Boolean) -> Unit = { mappedSongs, startIndex, shuffle ->
-        val originals = mappedSongs.mapNotNull { streamingSongById[it.id] }
-        if (originals.isNotEmpty()) onPlayQueue(originals, startIndex, shuffle)
+        val selected = chromahub.rhythm.app.features.streaming.domain.resolveStreamingQueueSelection(
+            mappedSongs, startIndex
+        ) { streamingSongById[it.id] }
+        if (selected != null) onPlayQueue(selected.items, selected.startIndex, shuffle)
+        else vm?.showToast("Selected track is unavailable. Refresh the library and try again.")
+    }
+
+    fun rawAlbum(album: Album) = streamingAlbumById[album.id]
+        ?: chromahub.rhythm.app.features.streaming.domain.model.StreamingAlbum(
+            id = album.id, title = album.title, artist = album.artist,
+            artworkUri = album.artworkUri?.toString(), songCount = album.numberOfSongs,
+            year = album.year, sourceType = vm?.currentService?.value ?: chromahub.rhythm.app.core.domain.model.SourceType.UNKNOWN
+        )
+    val featuredAlbums = remember(effectiveAlbums, discoverItemCount) {
+        effectiveAlbums.shuffled().take(discoverItemCount)
     }
 
     val serviceSessions = vm?.serviceSessions?.collectAsState()?.value ?: emptyMap()
@@ -948,7 +962,7 @@ private fun StreamingHomeBody(
         ) {
         if (showDiscoverCarousel && effectiveAlbums.isNotEmpty()) {
             ModernFeaturedSection(
-                albums = effectiveAlbums.take(discoverItemCount),
+                albums = featuredAlbums,
                 onAlbumClick = { album ->
                     streamingAlbumById[album.id]?.let(onNavigateToAlbum)
                 },
@@ -960,7 +974,7 @@ private fun StreamingHomeBody(
                 widthSizeClass = widthSizeClass,
                 heightSizeClass = heightSizeClass,
                 onPlayAlbum = { album ->
-                    playQueueFromMapped(album.songs, 0, false)
+                    vm?.playAlbum(rawAlbum(album))
                 }
             )
         }
@@ -1020,10 +1034,10 @@ private fun StreamingHomeBody(
                                     )
                                 },
                                 onPlayAll = {
-                                    playQueueFromMapped(effectiveAlbums.flatMap { it.songs }, 0, false)
+                                    vm?.playAlbums(effectiveAlbums.map(::rawAlbum))
                                 },
                                 onShufflePlay = {
-                                    onShuffleQueue(effectiveAlbums.flatMap { it.songs }.mapNotNull { streamingSongById[it.id] })
+                                    vm?.playAlbums(effectiveAlbums.map(::rawAlbum), shuffle = true)
                                 }
                             )
                             Spacer(modifier = Modifier.height(20.dp))
@@ -1051,7 +1065,7 @@ private fun StreamingHomeBody(
                                         widthSizeClass = widthSizeClass,
                                         heightSizeClass = heightSizeClass,
                                         onPlayClick = { clickedAlbum ->
-                                            playQueueFromMapped(clickedAlbum.songs, 0, false)
+                                            vm?.playAlbum(rawAlbum(clickedAlbum))
                                         }
                                     )
                                 }

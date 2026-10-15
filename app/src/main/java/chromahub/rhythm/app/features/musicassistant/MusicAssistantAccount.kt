@@ -17,6 +17,9 @@ internal class MusicAssistantAccount(context: Context) {
     private val legacy = context.getSharedPreferences("music_assistant", Context.MODE_PRIVATE)
     val server: String get() = prefs.getString("server", null) ?: legacy.getString("server", "").orEmpty()
     val username: String get() = prefs.getString("username", "").orEmpty()
+    // This is a configuration check, not authentication. Never decrypt in UI predicates.
+    val hasCredentials: Boolean get() = server.isNotBlank() &&
+        !prefs.getString("secret.token", null).isNullOrBlank()
     val token: String get() = read("token")?.toString(Charsets.UTF_8).orEmpty()
     class Session(val server: String, val username: String, val token: String)
     fun snapshot() = synchronized(lock) { Session(server, username, token) }

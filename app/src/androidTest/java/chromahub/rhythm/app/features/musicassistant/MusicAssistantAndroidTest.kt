@@ -21,6 +21,12 @@ import chromahub.rhythm.app.infrastructure.service.PlayNextCommand
 import chromahub.rhythm.app.shared.data.model.AppSettings
 import com.google.gson.JsonParser
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -47,6 +53,22 @@ class MusicAssistantAndroidTest {
         }
         fail("Timed out: $label; ${MusicAssistantPlayer.nativeStatus.value}")
     }
+    @Test fun checkingConfiguredAccountDoesNotDecryptTokensOnTheUiThread() {
+        val prefs = context.getSharedPreferences("music_assistant_native", 0)
+        val saved = prefs.all
+        try {
+            prefs.edit().putString("server", "http://127.0.0.1:8095/")
+                .putString("secret.token", "not-decryptable").commit()
+            val client = MusicAssistantProviderClient(context)
+            main { repeat(2000) { assertTrue(client.isConnected()) } }
+            // Credentials are validated by authenticated calls, never by a per-song UI predicate.
+        } finally {
+            val editor = prefs.edit().clear()
+            saved.forEach { (key, value) -> if (value is String) editor.putString(key, value) }
+            editor.commit()
+        }
+    }
+
     @Test fun nativeLibraryAndMediaSessionPlayback(): Unit = runBlocking {
         val input = File(context.filesDir, "ma-test-account.json")
         assumeTrue("Supply a private real-server account to run this test", input.isFile)
@@ -67,6 +89,23 @@ class MusicAssistantAndroidTest {
         val repository = StreamingMusicRepositoryImpl(context)
         val songs = repository.syncCatalog(3000)
         assertTrue("Real music library must be visible", songs.size > 100)
+        val resolving = AtomicBoolean(true)
+        val uiEvents = AtomicInteger(0)
+        lateinit var resolution: Deferred<Unit>
+        main {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                if (resolving.get()) uiEvents.incrementAndGet()
+            }
+            // The Library Shuffle path resolves the whole catalog from the main dispatcher.
+            // Main.immediate makes this fail if resolution blocks until the entire loop ends.
+            resolution = CoroutineScope(Dispatchers.Main.immediate).async {
+                try {
+                    songs.forEach { assertNotNull(repository.getStreamingUrl(it.id)) }
+                } finally { resolving.set(false) }
+            }
+        }
+        resolution.await()
+        assertTrue("Full-library URI resolution must allow UI events", uiEvents.get() > 0)
         val tracks = client.fetchLibrarySongs(3000).getOrThrow()
         val flac = tracks.first { it.codec?.lowercase() == "flac" }
         val mp3 = tracks.first { it.codec?.lowercase() in listOf("mp3", "mpeg") }
@@ -89,6 +128,31 @@ class MusicAssistantAndroidTest {
         }
         try {
             waitFor("app playback ViewModel ready") { viewModel.isInitialized.value }
+            val album = client.searchAlbums("folklore").getOrThrow().first { it.title.equals("folklore", ignoreCase = true) }
+            val expectedAlbumTracks = client.getAlbumSongs(album.providerId).getOrThrow()
+            assertTrue("Album fixture needs multiple tracks", expectedAlbumTracks.size > 1)
+            var selectedAlbumTracks = emptyList<chromahub.rhythm.app.features.streaming.domain.model.StreamingSong>()
+            var albumShuffle = true
+            val streamingViewModel = main {
+                chromahub.rhythm.app.features.streaming.presentation.viewmodel.StreamingMusicViewModel(context.applicationContext as Application)
+                    .also { store.put("streaming", it) }
+            }
+            main {
+                streamingViewModel.setPlaybackHandler { items, index, shuffle ->
+                    assertEquals(0, index)
+                    selectedAlbumTracks = items
+                    albumShuffle = shuffle
+                    true
+                }
+                streamingViewModel.playAlbum(chromahub.rhythm.app.features.streaming.domain.model.StreamingAlbum(
+                    id = "MUSIC_ASSISTANT::${album.providerId}", title = album.title, artist = album.artist,
+                    artworkUri = album.artworkUrl, songCount = expectedAlbumTracks.size, year = album.year,
+                    sourceType = chromahub.rhythm.app.core.domain.model.SourceType.MUSIC_ASSISTANT
+                ))
+            }
+            waitFor("Home album resolved by identity") { selectedAlbumTracks.isNotEmpty() }
+            assertFalse("Explicit album Play must not inherit the old shuffle setting", albumShuffle)
+            assertEquals(expectedAlbumTracks.map { "MUSIC_ASSISTANT::${it.providerId}" }, selectedAlbumTracks.map { it.id })
             val selected = Song(
                 id = "MUSIC_ASSISTANT::${flac.providerId}", title = flac.title,
                 artist = flac.artist, album = flac.album, duration = flac.durationMs,
@@ -130,10 +194,18 @@ class MusicAssistantAndroidTest {
                 main { (0 until controller.mediaItemCount).map { controller.getMediaItemAt(it).mediaId.removePrefix("MUSIC_ASSISTANT::") } })
             val ids = main { (0 until controller.mediaItemCount).map { controller.getMediaItemAt(it).mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN) } }
             assertEquals("Duplicate tracks retain occurrence identities", 3, ids.toSet().size)
-            main { controller.seekToNextMediaItem(); controller.play() }
+            main { controller.play() }
+            waitFor("resume before Next") { controller.isPlaying }
+            main { controller.seekToNextMediaItem() }
             waitFor("MP3 playing in Rhythm") { controller.isPlaying && controller.currentMediaItem?.mediaId == "MUSIC_ASSISTANT::${mp3.providerId}" && controller.currentPosition > 1500 }
             main { controller.seekTo(12000) }
             waitFor("seek acknowledgement") { controller.currentPosition in 11500..22000 }
+            // Select a duplicate occurrence beyond index zero through the app's queue path.
+            main { viewModel.playQueue(listOf(selected, selected, selected), startIndex = 2,
+                enableShuffle = false, respectQueueRule = false) }
+            waitFor("explicit occurrence at index two") {
+                controller.mediaItemCount == 3 && controller.currentMediaItemIndex == 2 && controller.isPlaying
+            }
             main { controller.pause() }
             waitFor("final pause") { !controller.playWhenReady }
             android.util.Log.i("RhythmMA-Test", "PASS native catalog=${songs.size}, FLAC, MP3, pause, FIFO, duplicates, seek")

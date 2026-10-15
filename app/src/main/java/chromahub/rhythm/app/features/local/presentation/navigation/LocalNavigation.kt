@@ -672,6 +672,22 @@ fun LocalNavigation(
             viewModel.dismissPlaybackError()
         }
     }
+    val nativeCommandFailure by chromahub.rhythm.app.features.musicassistant.MusicAssistantPlayer.commandFailure.collectAsState()
+    LaunchedEffect(nativeCommandFailure) {
+        nativeCommandFailure?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            if (chromahub.rhythm.app.features.musicassistant.MusicAssistantPlayer.commandFailure.value == message) {
+                chromahub.rhythm.app.features.musicassistant.MusicAssistantPlayer.commandFailure.value = null
+            }
+        }
+    }
+    val connectionIssue by chromahub.rhythm.app.features.musicassistant.MusicAssistantPlayer.connectionIssue.collectAsState()
+    LaunchedEffect(connectionIssue) {
+        connectionIssue?.let { message ->
+            // Cancelling this effect on recovery dismisses only its own snackbar.
+            snackbarHostState.showSnackbar(message, duration = androidx.compose.material3.SnackbarDuration.Indefinite)
+        }
+    }
     val coroutineScope = rememberCoroutineScope()
     val miniPlayerPaddingValues = PaddingValues(bottom = miniPlayerBottomPadding.coerceAtLeast(0.dp))
 
@@ -996,13 +1012,18 @@ private fun LocalNavigationContent(
             .distinctBy { it.id }
             .associateBy { it.id }
     }
-    val playStreamingMappedQueue: (List<chromahub.rhythm.app.shared.data.model.Song>, Int, Boolean) -> Unit =
-        { mappedSongs, startIndex, shuffle ->
-            val originals = mappedSongs.mapNotNull { streamingSongById[it.id] }
-            if (originals.isNotEmpty()) {
-                streamingMusicViewModel.playQueue(originals, startIndex, shuffle, pinStartIndex = shuffle)
-            }
+    fun playStreamingMappedQueue(mappedSongs: List<Song>, startIndex: Int, shuffle: Boolean,
+                                 enqueueWholeList: Boolean = false) {
+        val selected = chromahub.rhythm.app.features.streaming.domain.resolveStreamingQueueSelection(
+            mappedSongs, startIndex
+        ) { streamingSongById[it.id] }
+        if (selected == null) {
+            streamingMusicViewModel.showToast("Selected track is unavailable. Refresh the library and try again.")
+        } else {
+            streamingMusicViewModel.playQueue(selected.items, selected.startIndex, shuffle,
+                pinStartIndex = shuffle, enqueueWholeList = enqueueWholeList)
         }
+    }
     val streamingMappedSongs by rememberOffMain(emptyList<chromahub.rhythm.app.shared.data.model.Song>(), streamingServiceConnected, streamingAllSongs, streamingRecommendations, streamingLikedSongs, streamingDownloadedSongs) {
         val base = if (!streamingServiceConnected) {
             streamingDownloadedSongs
@@ -1061,7 +1082,7 @@ private fun LocalNavigationContent(
             onQueueSelection = { resolveSongs ->
                 viewModel.playNextResolving { resolveSongs().mapNotNull { it.toLocalSong() } }
             }
-        ) { streamingQueue, startIndex ->
+        ) { streamingQueue, startIndex, shuffle ->
             val mappedQueue = streamingQueue.mapNotNull { it.toLocalSong() }
             if (mappedQueue.isEmpty()) {
                 streamingMusicViewModel.reportError(
@@ -1084,7 +1105,9 @@ private fun LocalNavigationContent(
             if (viewModel.enqueueSelectionIfRequested(listOf(mappedQueue[safeIndex]))) {
                 return@setPlaybackHandler true
             }
-            viewModel.playSongFromSearch(mappedQueue[safeIndex], mappedQueue)
+            // Preserve explicit album/list shuffle intent instead of applying the row-click preference again.
+            viewModel.playQueue(mappedQueue, enableShuffle = shuffle, startIndex = safeIndex,
+                pinStartIndex = true)
             navController.navigate(Screen.Player.route) {
                 launchSingleTop = true
             }
@@ -2096,7 +2119,7 @@ private fun LocalNavigationContent(
                                 streamingMusicViewModel.playQueue(queue, startIndex, shuffle)
                             },
                             onStreamingShuffleQueue = { queue ->
-                                streamingMusicViewModel.playQueue(queue, 0, true)
+                                streamingMusicViewModel.playQueue(queue, 0, true, enqueueWholeList = true)
                             }
                         )
                 }
@@ -3442,14 +3465,14 @@ private fun LocalNavigationContent(
                         },
                         onAlbumShufflePlay = { album ->
                             if (isStreamingMode) {
-                                playStreamingMappedQueue(album.songs, 0, true)
+                                playStreamingMappedQueue(album.songs, 0, true, enqueueWholeList = true)
                             } else {
                                 onPlayAlbumShuffled(album)
                             }
                         },
                         onPlayQueue = { queue ->
                             if (isStreamingMode) {
-                                playStreamingMappedQueue(queue, 0, false)
+                                playStreamingMappedQueue(queue, 0, false, enqueueWholeList = true)
                             } else {
                                 viewModel.playSongs(queue)
                             }
@@ -3466,7 +3489,7 @@ private fun LocalNavigationContent(
                         },
                         onShuffleQueue = { queue ->
                             if (isStreamingMode) {
-                                playStreamingMappedQueue(queue, 0, true)
+                                playStreamingMappedQueue(queue, 0, true, enqueueWholeList = true)
                             } else {
                                 viewModel.playShuffled(queue)
                             }
