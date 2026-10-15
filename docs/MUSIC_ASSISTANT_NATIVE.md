@@ -224,3 +224,9 @@ old unavailable message. Command failures retain their separate playback error
 or snackbar reporting. The device regression requires server acknowledgement of
 pause and Play, retained queue occurrence identity, and advancing playback after
 reconnection; optimistic controller state alone is not accepted as recovery.
+
+On a cold connection, Sendspin can become connected before Music Assistant has
+registered its queue. Queue commands await that registration with cancellable,
+bounded read-only polling. A Play following an explicit selection is allowed
+only after that selection succeeds; failed or superseded selections cannot
+resume the previous server context. Queue mutations are never blindly retried.

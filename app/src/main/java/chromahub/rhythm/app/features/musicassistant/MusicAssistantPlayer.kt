@@ -34,6 +34,7 @@ internal class MusicAssistantPlayer(
     private val playerJob = SupervisorJob()
     private val scope = CoroutineScope(playerJob + Dispatchers.Main.immediate)
     private val operations = Mutex()
+    private val queueSelection = MusicAssistantQueueSelection()
     private val config = MutableStateFlow<LocalPlayerConfig?>(null)
     private val dispatcher = Executors.newSingleThreadExecutor { action -> Thread(action, "Rhythm-Sendspin").apply { priority = Thread.MAX_PRIORITY } }.asCoroutineDispatcher()
     private val http = musicAssistantSocketClient()
@@ -146,7 +147,10 @@ internal class MusicAssistantPlayer(
         check(state is PlayerState.Connected) { "Music Assistant audio connection failed" }
         return state.playerId
     }
-    private suspend fun queueId() = client.api().activeQueue(target())?.id ?: error("Music Assistant player has no queue")
+    private suspend fun queueId(): String {
+        val playerId = target()
+        return awaitMusicAssistantQueue { client.api().activeQueue(playerId)?.id }
+    }
     private suspend fun readItems(id: String, count: Int): List<MusicAssistantQueueItem> {
         val result = ArrayList<MusicAssistantQueueItem>()
         while (result.size < count) {
@@ -263,6 +267,8 @@ internal class MusicAssistantPlayer(
     }
     override fun handleSetMediaItems(mediaItems: MutableList<MediaItem>, startIndex: Int, startPositionMs: Long): ListenableFuture<*> {
         require(mediaItems.all(::isMusicAssistant)) { "Local and server queues cannot be mixed" }
+        // Reserve synchronously: prepare/Play may arrive before this async replacement finishes.
+        val replacement = queueSelection.beginReplacement()
         mediaItems.forEach { metadata[uri(it)] = it }
         val requestedShuffle = mediaItems.firstOrNull()?.mediaMetadata?.extras
             ?.takeIf { it.containsKey(PlayNextCommand.REQUESTED_SHUFFLE) }
@@ -276,11 +282,18 @@ internal class MusicAssistantPlayer(
                 client.api().replaceQueueAndSelect(id, mediaItems.map(::uri),
                     startIndex.coerceIn(0, mediaItems.lastIndex), (startPositionMs.coerceAtLeast(0) / 1000).toInt(), requestedShuffle)
             }
+            queueSelection.confirmReplacement(replacement, mediaItems.isNotEmpty())
         }
     }
-    override fun handleSetPlayWhenReady(playWhenReady: Boolean) = submit {
-        if (playWhenReady) foreground()
-        client.api().playerAction(target(), if (playWhenReady) MusicAssistantApi.PlayerAction.PLAY else MusicAssistantApi.PlayerAction.PAUSE)
+    override fun handleSetPlayWhenReady(playWhenReady: Boolean): ListenableFuture<*> {
+        val selection = queueSelection.generation
+        return submit {
+            if (playWhenReady) {
+                if (!queueSelection.canPlay(selection)) return@submit
+                foreground()
+            }
+            client.api().playerAction(target(), if (playWhenReady) MusicAssistantApi.PlayerAction.PLAY else MusicAssistantApi.PlayerAction.PAUSE)
+        }
     }
     override fun handlePrepare() = submit { connect() }
     override fun handleStop() = submit { client.api().playerAction(target(), MusicAssistantApi.PlayerAction.STOP) }
@@ -306,6 +319,7 @@ internal class MusicAssistantPlayer(
     }
     override fun handleAddMediaItems(index: Int, mediaItems: MutableList<MediaItem>) = submit { addAt(mediaItems, index, false) }
     private suspend fun addAt(items: List<MediaItem>, index: Int, manual: Boolean) {
+        val selection = queueSelection.generation
         require(items.isNotEmpty() && items.all(::isMusicAssistant)) { "Only Music Assistant songs can be added to this server queue" }
         val id = queueId(); val before = readItems(id, client.api().activeQueue(target())?.itemCount ?: 0)
         client.api().append(id, items.map(::uri))
@@ -333,6 +347,7 @@ internal class MusicAssistantPlayer(
             error("Server has buffered the next song; refresh queue order")
         }
         if (manual) pendingManual.addAll(added.map { it.occurrenceId })
+        queueSelection.confirmAddition(selection)
     }
     override fun handleRemoveMediaItems(fromIndex: Int, toIndex: Int): ListenableFuture<*> {
         val ids = rows.subList(fromIndex, toIndex).map { it.occurrenceId }
