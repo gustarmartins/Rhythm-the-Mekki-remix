@@ -1029,6 +1029,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     // For tracking progress
     private var progressUpdateJob: Job? = null
     private var playbackWatchdogJob: Job? = null
+    private val playbackStallWatchdog = LocalPlaybackStallWatchdog()
 
     // Selected song for adding to playlist
     private val _selectedSongForPlaylist = MutableStateFlow<Song?>(null)
@@ -4348,53 +4349,42 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun startPlaybackWatchdog() {
         playbackWatchdogJob?.cancel()
+        playbackStallWatchdog.reset()
         playbackWatchdogJob = viewModelScope.launch {
             Log.d(TAG, "Playback watchdog started")
-            var lastPosition = -1L
-            var lastProgressTime = System.currentTimeMillis()
-
             while (isActive) {
                 delay(1000) // check every second
-                val controller = mediaController ?: continue
-                val state = controller.playbackState
-
-                // If ended or idle, reset the progress timers and continue
-                if (state == Player.STATE_ENDED || state == Player.STATE_IDLE) {
-                    lastPosition = -1L
-                    lastProgressTime = System.currentTimeMillis()
+                val controller = mediaController
+                if (controller == null) {
+                    playbackStallWatchdog.reset()
                     continue
                 }
-
-                if (controller.playWhenReady) {
-                    val currentPos = controller.currentPosition
-                    if (lastPosition == -1L) {
-                        lastPosition = currentPos
-                        lastProgressTime = System.currentTimeMillis()
-                    } else {
-                        val progress = currentPos - lastPosition
-                        if (progress != 0L) {
-                            lastPosition = currentPos
-                            lastProgressTime = System.currentTimeMillis()
-                        } else {
-                            val noProgressDuration = System.currentTimeMillis() - lastProgressTime
-                            if (noProgressDuration >= 10000L) { // 10 seconds timeout
-                                Log.w(TAG, "Playback watchdog: Stuck/looping at position $currentPos (progress: $progress ms) in state $state for $noProgressDuration ms. Triggering corruption dialog.")
-
-                                // Determine the scenario-specific error message
-                                val scenarioMessage = when {
-                                    isSeeking.value -> "The player got stuck loading while seeking. The file may have corrupted indexes or metadata."
-                                    state == Player.STATE_BUFFERING -> "The song is stuck loading/buffering indefinitely. This usually indicates a corrupted or unreadable audio stream."
-                                    else -> "The player is unable to make progress during playback. The file format or encoding might be corrupted."
-                                }
-
-                                triggerTrackCorruption(controller, scenarioMessage)
-                                break
-                            }
-                        }
-                    }
-                } else {
-                    lastPosition = -1L
-                    lastProgressTime = System.currentTimeMillis()
+                val item = controller.currentMediaItem
+                // MediaController may omit LocalConfiguration. Use the matching song only;
+                // a stale local song must never classify a new server queue as local media.
+                val source = item?.localConfiguration?.uri ?: _currentSong.value
+                    ?.takeIf { it.id == item?.mediaId }?.uri
+                val occurrence = item?.let {
+                    it.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN)
+                        ?: "${it.mediaId}:${controller.currentMediaItemIndex}"
+                }
+                val stalled = playbackStallWatchdog.update(
+                    LocalPlaybackStallWatchdog.Sample(
+                        occurrenceKey = occurrence,
+                        sourceUri = source?.toString(),
+                        ready = controller.playbackState == Player.STATE_READY,
+                        playing = controller.isPlaying,
+                        seeking = isSeeking.value,
+                        checkerEnabled = appSettings.trackErrorCheckerEnabled.value,
+                        positionMs = controller.currentPosition,
+                    ),
+                    nowMs = SystemClock.elapsedRealtime(),
+                )
+                if (stalled) {
+                    Log.w(TAG, "Playback watchdog: Local ready playback stopped advancing at ${controller.currentPosition} ms for 10 seconds.")
+                    triggerTrackCorruption(controller,
+                        "The player is unable to make progress during playback. The file format or encoding might be corrupted.")
+                    break
                 }
             }
         }
@@ -4403,6 +4393,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private fun stopPlaybackWatchdog() {
         playbackWatchdogJob?.cancel()
         playbackWatchdogJob = null
+        playbackStallWatchdog.reset()
     }
 
     private fun triggerTrackCorruption(controller: MediaController, message: String) {
@@ -4526,6 +4517,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             Log.d(TAG, "Media item transition: ${mediaItem?.mediaId}, reason: $reason")
+            // Even a repeat or queue replacement containing the same song is a new attempt.
+            playbackStallWatchdog.reset()
+            checkPlaybackWatchdogState()
 
             if (isRestoringQueue) {
                 Log.d(TAG, "Ignoring media item transition during queue restoration: ${mediaItem?.mediaId}")
@@ -4539,13 +4533,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             ) {
                 Log.d(TAG, "Ignoring playlist change transition for same song: ${mediaItem.mediaId}")
                 return
-            }
-
-            // Restart/reset watchdog for the new song
-            if (mediaController?.playWhenReady == true) {
-                startPlaybackWatchdog()
-            } else {
-                stopPlaybackWatchdog()
             }
 
             // Finalize stats for the previous song before switching
@@ -4676,6 +4663,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
+            if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
+                playbackStallWatchdog.reset()
+            }
             if (pendingMissingItemQueueSync && reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
                 pendingMissingItemQueueSync = false
                 syncQueueWithMediaController()
@@ -4685,6 +4675,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             if (appSettings.shuffleUsesExoplayer.value && mediaController?.shuffleModeEnabled == true) {
                 syncQueueWithMediaController()
             }
+        }
+
+        override fun onPositionDiscontinuity(
+            oldPosition: Player.PositionInfo,
+            newPosition: Player.PositionInfo,
+            reason: Int
+        ) {
+            playbackStallWatchdog.reset()
         }
     }
 

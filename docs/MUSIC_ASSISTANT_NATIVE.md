@@ -206,3 +206,14 @@ local mode offers permission recovery without repeating onboarding.
 Settings slider regressions cover continuing the same drag across recomposition,
 persisting at release, and keeping adjustment sheets open for another edit.
 Onboarding and Settings expose the published Stable and Nightly channels.
+
+The local-file stall watchdog only diagnoses known local media that reports ready
+and actively playing without position progress. Network buffering is not file
+corruption. Queue occurrences, replacements, seeks, pauses and buffering reset
+its deadline; the corruption-checker preference remains authoritative.
+
+The real-server Android regression plays the resolved Home album through the app
+playback ViewModel, advances to its next track, then checks both codecs, FIFO,
+duplicate occurrences and a complete library shuffle. An optional private outage
+controller can blackhole only the test server connection, verifying UI response,
+connection recovery, queue/pause preservation and playback after reconnection.

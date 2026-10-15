@@ -58,6 +58,18 @@ class MusicAssistantAndroidTest {
         }
         fail("Timed out: $label; ${MusicAssistantPlayer.nativeStatus.value}")
     }
+    private suspend fun controlOutage(url: String, token: String, action: String) =
+        kotlinx.coroutines.withContext(Dispatchers.IO) {
+            val connection = java.net.URL("${url.trimEnd('/')}/$action").openConnection() as java.net.HttpURLConnection
+            try {
+                connection.requestMethod = "POST"
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+                connection.setRequestProperty("Authorization", "Bearer $token")
+                check(connection.responseCode == 200) { "Test outage controller rejected $action" }
+            } finally { connection.disconnect() }
+        }
+
     @Test fun checkingConfiguredAccountDoesNotDecryptTokensOnTheUiThread() {
         val prefs = context.getSharedPreferences("music_assistant_native", 0)
         val saved = prefs.all
@@ -149,6 +161,8 @@ class MusicAssistantAndroidTest {
                     assertEquals(0, index)
                     selectedAlbumTracks = items
                     albumShuffle = shuffle
+                    viewModel.playQueue(items.map { it.toLibrarySong() }, startIndex = index,
+                        enableShuffle = shuffle, respectQueueRule = false)
                     true
                 }
                 streamingViewModel.playAlbum(nativeAlbum.copy(tracks = emptyList()))
@@ -156,6 +170,14 @@ class MusicAssistantAndroidTest {
             waitFor("Home album resolved by identity") { selectedAlbumTracks.isNotEmpty() }
             assertFalse("Explicit album Play must not inherit the old shuffle setting", albumShuffle)
             assertEquals(expectedAlbumTracks.map { "MUSIC_ASSISTANT::${it.providerId}" }, selectedAlbumTracks.map { it.id })
+            waitFor("folklore album actually playing") {
+                controller.isPlaying && controller.currentMediaItem?.mediaId == selectedAlbumTracks.first().id &&
+                    controller.mediaItemCount == selectedAlbumTracks.size && controller.currentPosition > 1500
+            }
+            main { controller.seekToNextMediaItem() }
+            waitFor("next folklore track without another Play") {
+                controller.isPlaying && controller.currentMediaItem?.mediaId == selectedAlbumTracks[1].id
+            }
             val selected = Song(
                 id = "MUSIC_ASSISTANT::${flac.providerId}", title = flac.title,
                 artist = flac.artist, album = flac.album, duration = flac.durationMs,
@@ -214,15 +236,45 @@ class MusicAssistantAndroidTest {
                 controller.shuffleModeEnabled = true
             }
             waitFor("shuffle already enabled") { controller.shuffleModeEnabled }
-            val fullLibrary = songs.shuffled().map { it.toLibrarySong() }
+            // Keep a known-playable, long track first while shuffling the rest of the real catalog.
+            val fullLibrary = (listOf(songs.first { it.id == selected.id }) +
+                songs.filterNot { it.id == selected.id }.shuffled()).map { it.toLibrarySong() }
             main { viewModel.playQueue(fullLibrary, enableShuffle = true, pinStartIndex = true, respectQueueRule = false) }
             waitFor("full-library shuffled playback", timeoutSeconds = 180) {
+                assertFalse("Server buffering must not trigger file-corruption pause", viewModel.showCorruptionDialog.value)
                 controller.mediaItemCount == fullLibrary.size && controller.isPlaying && controller.shuffleModeEnabled
             }
             assertEquals("Full-library shuffle retains the selected first occurrence",
                 fullLibrary.first().id, main { controller.currentMediaItem?.mediaId })
             main { controller.pause() }
             waitFor("final pause") { !controller.playWhenReady }
+            val outageUrl = credentials.get("outageControlUrl")?.asString
+            val outageToken = credentials.get("outageControlToken")?.asString.orEmpty()
+            if (outageUrl != null) {
+                val mediaIdBeforeOutage = main { controller.currentMediaItem?.mediaId }
+                try {
+                    controlOutage(outageUrl, outageToken, "pause")
+                    waitFor("network loss detected", timeoutSeconds = 30) { MusicAssistantPlayer.connectionIssue.value != null }
+                    repeat(5) {
+                        val responsive = java.util.concurrent.CountDownLatch(1)
+                        android.os.Handler(android.os.Looper.getMainLooper()).post { responsive.countDown() }
+                        assertTrue("UI must remain responsive during a lost server connection", responsive.await(2, TimeUnit.SECONDS))
+                        kotlinx.coroutines.delay(500)
+                    }
+                    assertFalse("Network loss is not file corruption", main { viewModel.showCorruptionDialog.value })
+                } finally { controlOutage(outageUrl, outageToken, "resume") }
+                waitFor("server connection recovered", timeoutSeconds = 60) {
+                    MusicAssistantPlayer.connectionIssue.value == null && MusicAssistantPlayer.nativeStatus.value.startsWith("Connected to")
+                }
+                assertFalse("Reconnect must preserve a user's pause", main { controller.playWhenReady })
+                main { controller.play() }
+                waitFor("same queue plays after network recovery") {
+                    controller.isPlaying && controller.mediaItemCount == fullLibrary.size &&
+                        controller.currentMediaItem?.mediaId == mediaIdBeforeOutage && controller.currentPosition > 1500
+                }
+                main { controller.pause() }
+                waitFor("pause after recovery") { !controller.playWhenReady }
+            }
             main {
                 streamingViewModel.refreshCurrentSession()
                 streamingViewModel.disconnectService("MUSIC_ASSISTANT")
