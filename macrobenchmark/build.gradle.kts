@@ -26,7 +26,11 @@ android {
         minSdk = 26
         targetSdk = 37
         testInstrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"
+        val suffix = if (providers.gradleProperty("isolatedBenchmark").orNull == "true") ".benchmark" else ""
+        buildConfigField("String", "TARGET_PACKAGE", "\"chromahub.rhythm.app$suffix\"")
     }
+
+    buildFeatures { buildConfig = true }
 
     // Points the test module at the :app module it instruments
     targetProjectPath = ":app"

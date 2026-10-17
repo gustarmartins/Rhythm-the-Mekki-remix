@@ -163,6 +163,13 @@ android {
             signingConfig = releaseSigning
             matchingFallbacks += listOf("release")
             isDebuggable = false
+            // Physical profiling can use production optimization without replacing
+            // the owner's installed app, preferences, queue or library database.
+            if (providers.gradleProperty("isolatedBenchmark").orNull == "true") {
+                applicationIdSuffix = ".benchmark"
+                versionNameSuffix = "-benchmark"
+                resValue("string", "app_name", "Rhythm (Benchmark)")
+            }
         }
     }
     compileOptions {

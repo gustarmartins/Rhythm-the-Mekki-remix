@@ -281,12 +281,22 @@ class PlaybackRegressionAndroidTest {
             return null
         }
         fun hasColor(red: Boolean): Boolean = main {
-            val bitmap = texture(host!!.window.decorView)?.getBitmap(1, 1) ?: return@main false
+            val bitmap = texture(host!!.window.decorView)?.getBitmap(16, 16) ?: return@main false
             try {
-                val pixel = bitmap.getPixel(0, 0)
+                val pixel = bitmap.getPixel(8, 8)
                 if (red) android.graphics.Color.red(pixel) > 200 && android.graphics.Color.blue(pixel) < 50
                 else android.graphics.Color.blue(pixel) > 200 && android.graphics.Color.red(pixel) < 50
             } finally { bitmap.recycle() }
+        }
+        fun waitForColor(red: Boolean) {
+            try { compose.waitUntil(15000) { hasColor(red) } }
+            catch (error: androidx.compose.ui.test.ComposeTimeoutException) {
+                val details = main {
+                    val view = texture(host!!.window.decorView)
+                    "available=${view?.isAvailable}, size=${view?.width}x${view?.height}, hardware=${view?.isHardwareAccelerated}"
+                }
+                throw AssertionError("Missing ${if (red) "red" else "blue"} decoded frame: $details", error)
+            }
         }
         try {
             main {
@@ -298,10 +308,10 @@ class PlaybackRegressionAndroidTest {
                 }
             }
             compose.waitForIdle()
-            compose.waitUntil(15000) { hasColor(red = true) }
+            waitForColor(red = true)
             val originalView = main { texture(host!!.window.decorView) }
             main { url.value = android.net.Uri.fromFile(files[1]).toString() }
-            compose.waitUntil(15000) { hasColor(red = false) }
+            waitForColor(red = false)
             main { assertSame("Changing artwork should retain the video view", originalView, texture(host!!.window.decorView)) }
         } finally {
             main {

@@ -196,6 +196,6 @@ class StartupBenchmarks {
     }
 
     private companion object {
-        const val APP_PACKAGE = "chromahub.rhythm.app"
+        const val APP_PACKAGE = chromahub.rhythm.app.macrobenchmark.BuildConfig.TARGET_PACKAGE
     }
 }
