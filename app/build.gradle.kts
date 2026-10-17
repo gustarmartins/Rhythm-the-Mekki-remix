@@ -180,6 +180,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        resValues = providers.gradleProperty("isolatedBenchmark").orNull == "true"
     }
 
     dependenciesInfo {
