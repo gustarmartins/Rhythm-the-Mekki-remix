@@ -66,7 +66,13 @@ jobs:
           "$ANDROID_HOME/emulator/emulator" -avd rhythm-regression -port 5554 -no-window -no-audio \
             -no-boot-anim -no-snapshot -gpu swiftshader_indirect > emulator.log 2>&1 &
           emulator_pid=$!
-          trap 'kill "$emulator_pid" || true' EXIT
+          collect_emulator_evidence() {
+            timeout 15 adb -s emulator-5554 logcat -d -v threadtime > android-runtime.log 2>&1 || true
+            timeout 15 adb -s emulator-5554 shell dumpsys activity exit-info chromahub.rhythm.app.debug > android-exit-info.txt 2>&1 || true
+            free -m > runner-memory.txt
+            kill "$emulator_pid" || true
+          }
+          trap collect_emulator_evidence EXIT
           adb -s emulator-5554 wait-for-device
           timeout 180 sh -c 'until adb -s emulator-5554 shell getprop sys.boot_completed | tr -d "\r" | grep -q 1; do sleep 2; done'
           adb -s emulator-5554 shell input keyevent 82
@@ -86,6 +92,9 @@ jobs:
             app/build/outputs/apk/
             playback-regressions.txt
             emulator.log
+            android-runtime.log
+            android-exit-info.txt
+            runner-memory.txt
           retention-days: 7
       - name: Remove signing material
         if: always()
