@@ -285,14 +285,23 @@ class PlaybackRegressionAndroidTest {
             }
         }
         compose.waitForIdle()
+        compose.waitUntil(5000) { main { state?.currentValue == SheetValue.Expanded && !state!!.isAnimationRunning } }
+        val initialOffset = main { state!!.requireOffset() }
         val node = compose.onNodeWithTag("info-header")
         node.performTouchInput { down(center); moveBy(Offset(0f, 100f), 100) }
         val before = main { state!!.requireOffset() }
+        assertTrue("The first movement must actually drag the sheet: $initialOffset -> $before", before > initialOffset)
         main { loaded.value = true }
         compose.waitForIdle()
         val after = main { state!!.requireOffset() }
         assertEquals("Loading must not move the drag anchor", before, after, 1f)
-        node.performTouchInput { moveBy(Offset(0f, 400f), 150); up() }
-        compose.waitUntil(5000) { main { dismissals == 1 } }
+        // Supply normal motion samples so VelocityTracker sees a flick, not one event after
+        // a 150 ms gap (outside its velocity history window).
+        node.performTouchInput { repeat(5) { moveBy(Offset(0f, 80f), 16) }; up() }
+        compose.waitForIdle()
+        main {
+            assertTrue("Dismissals=$dismissals, current=${state!!.currentValue}, target=${state!!.targetValue}, offset=${state!!.requireOffset()}", dismissals > 0)
+            assertEquals(SheetValue.Hidden, state!!.currentValue)
+        }
     }
 }
