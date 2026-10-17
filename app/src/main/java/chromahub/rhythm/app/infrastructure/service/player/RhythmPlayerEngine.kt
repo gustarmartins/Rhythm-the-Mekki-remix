@@ -210,7 +210,9 @@ class RhythmPlayerEngine(
 
     fun isTransitionRunning(): Boolean = transitionRunning || transitionJob?.isActive == true
 
-    fun getAudioSessionId(): Int = if (::playerA.isInitialized) playerA.audioSessionId else 0
+    // Effects initialize off Main. The listener-owned snapshot is safe to read there;
+    // querying ExoPlayer itself from that worker throws and aborts initialization.
+    fun getAudioSessionId(): Int = activeAudioSessionId.value
 
     @Volatile
     private var preferredAudioDevice: AudioDeviceInfo? = null
@@ -749,13 +751,12 @@ class RhythmPlayerEngine(
         playerA.pauseAtEndOfMediaItems = false
 
         playerA.addListener(masterPlayerListener)
+        _activeAudioSessionId.value = playerA.audioSessionId
         if (playerA.playWhenReady) {
             requestAudioFocus()
         }
 
         onPlayerSwappedListeners.forEach { it(playerA) }
-
-        _activeAudioSessionId.value = playerA.audioSessionId
 
         if (playerA.playbackState == Player.STATE_IDLE) {
             playerA.prepare()
@@ -965,6 +966,7 @@ class RhythmPlayerEngine(
             playerA.release()
         }
         if (::playerB.isInitialized) playerB.release()
+        _activeAudioSessionId.value = 0
         isReleased = true
         Log.d(TAG, "RhythmPlayerEngine released.")
     }

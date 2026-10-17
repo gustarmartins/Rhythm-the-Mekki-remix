@@ -122,6 +122,9 @@ class PlaybackRegressionAndroidTest {
             compose.waitUntil(5000) { main { engine!!.masterPlayer.playbackParameters.pitch == 1.3f } }
             main { settings.setPlaybackPitch(0.75f) }
             compose.waitUntil(5000) { main { engine!!.masterPlayer.playbackParameters.speed == 0.75f } }
+            // Match the effects worker's access: this test thread is deliberately not Main.
+            val sessionId = main { (engine!!.masterPlayer as androidx.media3.exoplayer.ExoPlayer).audioSessionId }
+            assertEquals(sessionId, engine!!.getAudioSessionId())
             main {
                 engine!!.release()
                 engine = RhythmPlayerEngine(context).also { it.initialize() }
@@ -129,6 +132,7 @@ class PlaybackRegressionAndroidTest {
                 assertEquals(0.75f, engine!!.masterPlayer.playbackParameters.pitch)
             }
         } finally { main { engine?.release() } }
+        assertEquals(0, engine!!.getAudioSessionId())
     }
 
     @Test fun reopeningUiPreservesPlayingRateAndSpeakerSessionLyrics() {
@@ -208,8 +212,12 @@ class PlaybackRegressionAndroidTest {
                     .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder()
                         .setTitle("Next title").setArtist("Regression fixture").build()).build())
                 assertEquals(1.3f, activeController.playbackParameters.speed)
-                activeController.seekToNextMediaItem()
             }
+            // MediaController receives the service's updated command availability asynchronously.
+            // An immediate Next in the same call as Add can still be unavailable and ignored.
+            compose.waitUntil(5000) { main { activeController.mediaItemCount == 2 &&
+                activeController.isCommandAvailable(androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM) } }
+            main { activeController.seekToNextMediaItem() }
             compose.waitUntil(5000) { main { activeController.currentMediaItemIndex == 1 &&
                 activeController.playbackParameters.speed == 1f } }
             main { assertEquals(0.8f, activeController.playbackParameters.pitch) }
@@ -295,6 +303,11 @@ class PlaybackRegressionAndroidTest {
                     chromahub.rhythm.app.shared.presentation.components.player.CanvasArtworkPlayer(
                         primaryUrl = url.value, fallbackUrl = null, modifier = Modifier.size(100.dp))
                 }
+            }
+            compose.waitForIdle()
+            main {
+                assertTrue("Canvas host must be resumed", chromahub.rhythm.app.util.OptionalWorkController.foreground.value)
+                assertTrue("Canvas network consent must be enabled", chromahub.rhythm.app.util.ArtworkDownloadPolicy.canvasAllowed())
             }
             compose.waitUntil(15000) { hasColor(red = true) }
             val originalView = main { texture(host!!.window.decorView) }
