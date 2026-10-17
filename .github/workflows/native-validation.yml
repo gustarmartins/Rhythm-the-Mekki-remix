@@ -13,7 +13,7 @@ permissions:
   contents: read
   actions: read
 concurrency:
-  group: native-player-validation
+  group: native-player-validation-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 jobs:
   validate:
