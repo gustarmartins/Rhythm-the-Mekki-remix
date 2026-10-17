@@ -265,11 +265,6 @@ class PlaybackRegressionAndroidTest {
     }
 
     @Test fun canvasKeepsRenderingWhenTheArtworkUrlChanges() {
-        val settings = main { AppSettings.getInstance(context) }
-        val enabled = settings.appleCanvasEnabled.value
-        val integrations = settings.integrationsEnabled.value
-        val network = settings.appleCanvasNetworkMode.value
-        val pauseCanvas = settings.batterySaverDisableCanvas.value
         val files = listOf("red", "blue").map { color ->
             java.io.File(context.cacheDir, "canvas-$color.mp4").also { file ->
                 instrumentation.context.assets.open("canvas-regression/$color.mp4").use { input ->
@@ -295,23 +290,14 @@ class PlaybackRegressionAndroidTest {
         }
         try {
             main {
-                // This isolated debug fixture represents an install that completed the
-                // first-run artwork consent; empty preferences deliberately default it off.
-                settings.completeArtworkSetup()
-                settings.setAppleCanvasEnabled(true)
-                settings.setIntegrationsEnabled(true)
-                settings.setAppleCanvasNetworkMode(chromahub.rhythm.app.shared.data.model.CanvasNetworkMode.BOTH)
-                settings.setBatterySaverDisableCanvas(false)
                 host!!.setContent {
-                    chromahub.rhythm.app.shared.presentation.components.player.CanvasArtworkPlayer(
+                    // Exercise the production renderer with local clips. Network/consent
+                    // eligibility belongs to CanvasArtworkPlayer and has separate policy tests.
+                    chromahub.rhythm.app.shared.presentation.components.player.CanvasVideoSurface(
                         primaryUrl = url.value, fallbackUrl = null, modifier = Modifier.size(100.dp))
                 }
             }
             compose.waitForIdle()
-            main {
-                assertTrue("Canvas host must be resumed", chromahub.rhythm.app.util.OptionalWorkController.foreground.value)
-                assertTrue("Canvas network consent must be enabled", chromahub.rhythm.app.util.ArtworkDownloadPolicy.canvasAllowed())
-            }
             compose.waitUntil(15000) { hasColor(red = true) }
             val originalView = main { texture(host!!.window.decorView) }
             main { url.value = android.net.Uri.fromFile(files[1]).toString() }
@@ -320,10 +306,6 @@ class PlaybackRegressionAndroidTest {
         } finally {
             main {
                 host!!.setContent { }
-                settings.setAppleCanvasEnabled(enabled)
-                settings.setIntegrationsEnabled(integrations)
-                settings.setAppleCanvasNetworkMode(network)
-                settings.setBatterySaverDisableCanvas(pauseCanvas)
             }
             files.forEach { it.delete() }
         }

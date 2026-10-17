@@ -61,6 +61,20 @@ fun CanvasArtworkPlayer(
         chromahub.rhythm.app.util.ArtworkDownloadPolicy.canvasAllowed()
     }
     if (!foreground || (saver && pauseCanvas) || !networkAllowed) return
+    CanvasVideoSurface(primaryUrl, fallbackUrl, modifier, isPlaying, alwaysPlay)
+}
+
+/** Video/surface lifetime, independent of the caller's foreground and network eligibility. */
+@OptIn(UnstableApi::class)
+@Composable
+internal fun CanvasVideoSurface(
+    primaryUrl: String?,
+    fallbackUrl: String?,
+    modifier: Modifier = Modifier,
+    isPlaying: Boolean = true,
+    alwaysPlay: Boolean = false
+) {
+    val context = LocalContext.current
     val primary = primaryUrl?.takeIf { it.isNotBlank() }
     val fallback = fallbackUrl?.takeIf { it.isNotBlank() }
     val initial = primary ?: fallback ?: return
