@@ -64,7 +64,7 @@ jobs:
           printf 'no\n' | avdmanager create avd --name rhythm-regression \
             --package 'system-images;android-36;google_apis;x86_64' --device pixel_7 --force
           "$ANDROID_HOME/emulator/emulator" -avd rhythm-regression -port 5554 -no-window -no-audio \
-            -no-boot-anim -no-snapshot -feature -Vulkan -gpu swiftshader_indirect > emulator.log 2>&1 &
+            -no-boot-anim -no-snapshot -gpu lavapipe > emulator.log 2>&1 &
           emulator_pid=$!
           collect_emulator_evidence() {
             if [ -n "${logcat_pid:-}" ]; then kill "$logcat_pid" || true; fi
