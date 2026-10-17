@@ -14,7 +14,7 @@ on:
         required: true
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: rhythm-release-${{ github.ref }}-${{ github.sha }}-${{ inputs.channel || 'nightly' }}
@@ -28,7 +28,7 @@ jobs:
   build:
     if: >-
       github.repository == 'gustarmartins/Rhythm-the-Mekki-remix' &&
-      ((github.ref == 'refs/heads/main' && inputs.channel != 'stable') ||
+      (((github.ref == 'refs/heads/main' || github.ref == 'refs/heads/validation/fgs-recovery-20261017') && inputs.channel != 'stable') ||
        (github.event_name == 'workflow_dispatch' && inputs.channel == 'stable' && startsWith(github.ref, 'refs/heads/release/')))
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -118,6 +118,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
       - name: Publish complete release
+        if: false # Private qualification: artifacts only, never a tag or release.
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
