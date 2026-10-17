@@ -126,6 +126,20 @@ jobs:
             -e class chromahub.rhythm.app.shared.presentation.PlaybackRegressionAndroidTest \
             chromahub.rhythm.app.debug.test/androidx.test.runner.AndroidJUnitRunner | tee playback-regressions.txt
           grep -q '^OK (' playback-regressions.txt
+      - name: Preserve interaction diagnostics separately from APK downloads
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: playback-regression-evidence
+          path: |
+            playback-regressions.txt
+            emulator.log
+            android-runtime.log
+            android-last-frame.png
+            android-exit-info.txt
+            runner-memory.txt
+            reused-apks.json
+          retention-days: 7
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -134,13 +148,6 @@ jobs:
             **/build/test-results/
             **/build/reports/tests/
             app/build/outputs/apk/
-            playback-regressions.txt
-            emulator.log
-            android-runtime.log
-            android-last-frame.png
-            android-exit-info.txt
-            runner-memory.txt
-            reused-apks.json
           retention-days: 7
       - name: Remove signing material
         if: always()
