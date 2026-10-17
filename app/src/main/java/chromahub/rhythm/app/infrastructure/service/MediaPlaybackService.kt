@@ -77,6 +77,7 @@ import chromahub.rhythm.app.util.GsonUtils
 import chromahub.rhythm.app.util.LyricsRomanizationPolicy
 import chromahub.rhythm.app.util.LyricsTranslationPolicy
 import chromahub.rhythm.app.util.ServiceStartPolicy
+import chromahub.rhythm.app.util.ForegroundPromotionState
 import chromahub.rhythm.app.util.hasUsableTimedRomanization
 import chromahub.rhythm.app.util.hasUsableTimedTranslation
 import chromahub.rhythm.app.shared.data.model.Playlist
@@ -97,6 +98,7 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private lateinit var preloadController: PreloadController
 
     private var controller: MediaController? = null
+    private val foregroundPromotion = ForegroundPromotionState()
     
     // Service-scoped coroutine scope for background operations
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -877,14 +879,15 @@ notificationManager.createNotificationChannel(channel)
 notificationManager.createNotificationChannel(sleepTimerChannel)
     }
     
-    private fun startForegroundWithNotification(title: String = "Rhythm Music", content: String = "Rhythm is starting.") {
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+    private fun startForegroundWithNotification(title: String = "Rhythm Music", content: String = "Rhythm is starting."): Boolean {
+        val attempt = foregroundPromotion.beginAttempt()
+        val notificationBuilder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(content)
             .setSmallIcon(chromahub.rhythm.app.R.drawable.ic_notification)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .build()
+        val notification = notificationBuilder.build()
 
         // CRITICAL: startForeground() MUST be called within 5 seconds when service is
         // started via startForegroundService(), or Android will ANR the app.
@@ -898,8 +901,10 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 super.startForeground(NOTIFICATION_ID, notification)
             }
             foregroundStartSucceeded = true
+            foregroundPromotion.completeAttempt(attempt, succeeded = true)
             Log.d(TAG, "Started foreground service: $title - $content")
         } catch (e: Exception) {
+            foregroundPromotion.completeAttempt(attempt, succeeded = false)
             Log.e(TAG, "startForeground() failed with exception: ${e.javaClass.simpleName}: ${e.message}", e)
             
             // Check if this is a background restriction issue
@@ -919,7 +924,12 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             // Attempt to show notification as fallback (will not satisfy startForegroundService contract)
             try {
                 val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                notificationManager.notify(NOTIFICATION_ID, notification)
+                val reopen = PendingIntent.getActivity(this, 0,
+                    Intent(this, MainActivity::class.java),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                notificationManager.notify(NOTIFICATION_ID, notificationBuilder
+                    .setContentText(getString(chromahub.rhythm.app.R.string.service_init_failed))
+                    .setContentIntent(reopen).build())
                 Log.w(TAG, "Posted notification as fallback. Service may experience issues on some Android versions.")
             } catch (notifyError: Exception) {
                 Log.e(TAG, "Failed to post fallback notification", notifyError)
@@ -929,6 +939,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         if (!foregroundStartSucceeded) {
             Log.w(TAG, "WARNING: startForeground() was not successfully called. This service may be terminated if it stays in background.")
         }
+        return foregroundStartSucceeded
     }
 
     private fun updateForegroundNotification(title: String, content: String) {
@@ -2276,27 +2287,17 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             }
         }
         
-        // If an external trigger (such as widget or tile) started this service via startForegroundService
-        // while playback is paused or stopped, satisfy the Android OS contract to avoid ForegroundServiceDidNotStartInTimeException.
-        if (::player.isInitialized && !player.isPlaying) {
-            when (intent?.action) {
-                ACTION_PLAY_PAUSE, ACTION_SKIP_NEXT, ACTION_SKIP_PREVIOUS,
-                ACTION_TOGGLE_FAVORITE, ACTION_TOGGLE_SHUFFLE, ACTION_TOGGLE_REPEAT -> {
-                    try {
-                        startForegroundWithNotification(
-                            getString(chromahub.rhythm.app.R.string.service_rhythm_music),
-                            getString(chromahub.rhythm.app.R.string.service_ready)
-                        )
-                        androidx.core.app.ServiceCompat.stopForeground(this, androidx.core.app.ServiceCompat.STOP_FOREGROUND_REMOVE)
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Could not satisfy foreground contract for action: ${intent.action}", e)
-                    }
-                }
-            }
+        val startResult = super.onStartCommand(intent, flags, startId)
+        // The command already attempted immediate Android foreground admission.
+        // Media3 owns retention, including BUFFERING, suppressed playback and its
+        // paused-session timeout. isPlaying=false is not permission to demote it.
+        // Explicit commands can change no Player event (for example Favorite), so
+        // reconcile once; null-action lyric/metadata wakeups remain Media3-owned.
+        if (ServiceStartPolicy.requiresManualForegroundPromotion(intent?.action)) {
+            triggerNotificationUpdate()
         }
 
-        // We make sure to call the super implementation
-        return super.onStartCommand(intent, flags, startId)
+        return startResult
     }
     
     private var libraryContinuationJob: kotlinx.coroutines.Job? = null
@@ -2655,8 +2656,11 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     }
 
     private fun promoteBeforePlayback() {
-        if (player.playWhenReady || player.mediaItemCount == 0 ||
-            appSettings.rhythmGuardTimeoutUntilMs.value > System.currentTimeMillis()) return
+        if (!foregroundPromotion.shouldAttemptBeforePlayback(
+                playWhenReady = player.playWhenReady,
+                mediaItemCount = player.mediaItemCount,
+                blockedByListeningLimit = appSettings.rhythmGuardTimeoutUntilMs.value > System.currentTimeMillis()
+            )) return
         // The engine owns audio focus and requests it synchronously on playWhenReady.
         // Android 15+ requires a foreground service before that request when the UI is hidden.
         // Do this only for playback starts, never for Media3's lyric/notification wakeups.
@@ -3418,9 +3422,31 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = mediaSession
     
     @OptIn(UnstableApi::class)
-    override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
-        // Let Media3 handle notification updates but ensure our icon is used
-        super.onUpdateNotification(session, startInForegroundRequired)
+    override fun onUpdateNotificationAsync(
+        session: MediaSession,
+        startInForegroundRequired: Boolean
+    ): ListenableFuture<Void?> {
+        // Only observe Media3's real promotion completion. Ordinary notification
+        // updates neither clear a failure nor supersede an in-flight admission.
+        val attempt = if (startInForegroundRequired) foregroundPromotion.beginAttempt() else null
+        val result = try {
+            super.onUpdateNotificationAsync(session, startInForegroundRequired)
+        } catch (error: Exception) {
+            attempt?.let { foregroundPromotion.completeAttempt(it, succeeded = false) }
+            throw error
+        }
+        if (attempt != null) result.addListener({
+            try {
+                result.get() // Completion listener: never waits for outstanding work.
+                foregroundPromotion.completeAttempt(attempt, succeeded = true)
+            } catch (error: Exception) {
+                if (error is InterruptedException) Thread.currentThread().interrupt()
+                if (foregroundPromotion.completeAttempt(attempt, succeeded = false)) {
+                    Log.w(TAG, "Media3 foreground promotion failed; the next explicit Play may retry", error)
+                }
+            }
+        }, ContextCompat.getMainExecutor(this))
+        return result
     }
 
     private inner class MediaSessionCallback : MediaLibrarySession.Callback {
