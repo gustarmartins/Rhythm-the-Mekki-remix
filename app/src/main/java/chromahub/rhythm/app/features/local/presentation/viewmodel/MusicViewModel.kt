@@ -94,7 +94,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import kotlinx.coroutines.withTimeoutOrNull
 import androidx.room.withTransaction
@@ -156,6 +155,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     companion object {
+        private val playlistWrites = chromahub.rhythm.app.util.PlaylistWriteQueue(
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + Dispatchers.IO)
+        )
         private const val TAG = "MusicViewModel"
         /**
          * Threshold above which we skip per-item moveMediaItem calls and use
@@ -3507,24 +3509,21 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     /**
-     * Ensures current playlists and favorite songs are saved to persistent storage
-     * Useful before creating a backup to ensure all data is included
+     * Enqueues the current playlists and saves favorites without blocking the UI.
+     * Await the returned save before exporting a backup; lifecycle callbacks hand it off.
      */
-    fun ensurePlaylistsSaved() {
-        try {
-            if (!isPlaylistsLoaded) {
-                Log.w(TAG, "ensurePlaylistsSaved skipped because playlists are not loaded")
-                return
-            }
-            savePlaylistsJob?.cancel()
-            runBlocking(Dispatchers.IO) {
-                savePlaylistsToRoom(_playlists.value)
-            }
-            saveFavoriteSongs()
-            Log.d(TAG, "Playlists and favorites explicitly saved to storage")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error ensuring playlists are saved", e)
+    @androidx.annotation.MainThread
+    fun ensurePlaylistsSaved(): kotlinx.coroutines.Deferred<Unit> {
+        if (!isPlaylistsLoaded) {
+            Log.w(TAG, "ensurePlaylistsSaved skipped because playlists are not loaded")
+            return kotlinx.coroutines.CompletableDeferred(Unit)
         }
+        savePlaylistsJob?.cancel()
+        val snapshot = _playlists.value
+        saveFavoriteSongs()
+        // Never block Main: an in-flight load may hold playlistLock while dispatching
+        // its result to Main. Backups await this result; lifecycle callbacks enqueue it.
+        return playlistWrites.enqueue { savePlaylistsToRoom(snapshot) }
     }
 
     private fun loadSavedPlaylists() {
@@ -3534,6 +3533,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun loadSavedPlaylistsInternal() {
+        playlistWrites.awaitPending()
         playlistLock.withLock {
             try {
                 val playlistDao = repository.playlistDao
@@ -3812,15 +3812,12 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun savePlaylists(immediate: Boolean = false) {
         savePlaylistsJob?.cancel()
-        if (immediate) {
-            savePlaylistsJob = viewModelScope.launch(Dispatchers.IO) {
-                savePlaylistsToRoom(_playlists.value)
-            }
-        } else {
-            savePlaylistsJob = viewModelScope.launch(Dispatchers.IO) {
-                delay(200) // Debounce rapid consecutive mutations
-                savePlaylistsToRoom(_playlists.value)
-            }
+        // Capture/enqueue on Main, serialized with lifecycle handoff. Disk work runs
+        // on the queue's IO scope; a cancelled debounce cannot submit an older snapshot later.
+        savePlaylistsJob = viewModelScope.launch {
+            if (!immediate) delay(200) // Debounce rapid consecutive mutations
+            val snapshot = _playlists.value
+            playlistWrites.enqueue { savePlaylistsToRoom(snapshot) }.await()
         }
     }
 
@@ -10999,7 +10996,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
         Log.d(TAG, "ViewModel clearing, cleaning up resources")
         
-        // Ensure pending playlist changes and favorites are flushed to Room before scope cancellation
+        // Hand off the final snapshot to process-owned persistence. ViewModelScope is
+        // already cancelled here, and blocking Main can deadlock an in-flight load.
         ensurePlaylistsSaved()
         
         // Unregister broadcast receiver

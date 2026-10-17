@@ -283,7 +283,7 @@ fun BackupRestoreSettingsScreen(onBackClick: () -> Unit) {
                         isCreatingBackup = true
                         HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
 
-                        musicViewModel.ensurePlaylistsSaved()
+                        musicViewModel.ensurePlaylistsSaved().await()
                         val backupJson = appSettings.createBackup(pendingBackupSections)
 
                         val outputStream = context.contentResolver.openOutputStream(uri)
