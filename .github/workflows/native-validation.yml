@@ -140,6 +140,10 @@ jobs:
           timeout 180 adb -s emulator-5554 shell cmd package compile -m speed -f chromahub.rhythm.app.debug
           timeout 120 adb -s emulator-5554 shell cmd package compile -m speed -f chromahub.rhythm.app.debug.test
           adb -s emulator-5554 shell am instrument -w -r \
+            -e class chromahub.rhythm.app.shared.presentation.CoroutineRuntimeAndroidTest \
+            chromahub.rhythm.app.debug.test/androidx.test.runner.AndroidJUnitRunner | tee coroutine-runtime-regression.txt
+          grep -q '^OK (' coroutine-runtime-regression.txt
+          adb -s emulator-5554 shell am instrument -w -r \
             -e class chromahub.rhythm.app.shared.presentation.PlaybackRegressionAndroidTest \
             chromahub.rhythm.app.debug.test/androidx.test.runner.AndroidJUnitRunner | tee playback-regressions.txt
           grep -q '^OK (' playback-regressions.txt
@@ -149,6 +153,7 @@ jobs:
         with:
           name: playback-regression-evidence
           path: |
+            coroutine-runtime-regression.txt
             playback-regressions.txt
             emulator.log
             android-runtime.log
