@@ -355,6 +355,9 @@ class AppUpdaterViewModel(
      * Check for updates by fetching the latest release from GitHub
      */
     fun checkForUpdates(force: Boolean = false) {
+        // Published APKs target the normal app, not the isolated profiling package.
+        // Update prompts and network checks also invalidate repeatable startup measurements.
+        if (BuildConfig.BUILD_TYPE == "benchmark") return
         viewModelScope.launch {
             val updatesEnabled = _appSettings.updatesEnabled.first()
             val autoCheckEnabled = _appSettings.autoCheckForUpdates.first()
@@ -1811,6 +1814,7 @@ class AppUpdaterViewModel(
      * Start periodic update checks if auto-check is enabled and updates are enabled
      */
     private fun startPeriodicUpdateChecks() {
+        if (BuildConfig.BUILD_TYPE == "benchmark") return
         viewModelScope.launch {
             // Combine both update settings
             _appSettings.updatesEnabled.collectLatest { updatesEnabled ->
