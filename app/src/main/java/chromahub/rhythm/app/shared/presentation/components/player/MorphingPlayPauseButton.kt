@@ -30,11 +30,13 @@ import androidx.compose.material3.toPath
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
@@ -61,6 +63,7 @@ fun MorphingPlayPauseButton(
     size: Dp = 56.dp,
     isMediaLoading: Boolean = false
 ) {
+    val currentOnClick by rememberUpdatedState(onClick)
     val morph = remember { Morph(MaterialShapes.Circle, MaterialShapes.Cookie9Sided) }
     val morphPath = remember { Path() }
     val matrix = remember { Matrix() }
@@ -96,14 +99,13 @@ fun MorphingPlayPauseButton(
                 scaleX = pressScale
                 scaleY = pressScale
             }
-            .pointerInput(onClick) {
+            .pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
                         isPressed = true
-                        tryAwaitRelease()
-                        isPressed = false
+                        try { tryAwaitRelease() } finally { isPressed = false }
                     },
-                    onTap = { onClick() }
+                    onTap = { currentOnClick() }
                 )
             },
         contentAlignment = Alignment.Center
@@ -124,17 +126,18 @@ fun MorphingPlayPauseButton(
                 )
             }
         } else {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                rotate(degrees = if (isPlaying) rotation else 0f) {
+            Box(modifier = Modifier.fillMaxSize()
+                .graphicsLayer { rotationZ = if (isPlaying) rotation else 0f }
+                .drawWithCache {
                     morph.toPath(progress = morphProgress, path = morphPath)
                     matrix.reset()
                     matrix.scale(this.size.width, this.size.height)
                     morphPath.transform(matrix)
                     val bounds = morphPath.getBounds()
-                    morphPath.translate(center - bounds.center)
-                    drawPath(path = morphPath, color = containerColor, style = Fill)
-                }
-            }
+                    morphPath.translate(androidx.compose.ui.geometry.Offset(this.size.width / 2f, this.size.height / 2f) - bounds.center)
+                    onDrawBehind { drawPath(path = morphPath, color = containerColor, style = Fill) }
+                })
+
             Crossfade(
                 targetState = isPlaying,
                 animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),

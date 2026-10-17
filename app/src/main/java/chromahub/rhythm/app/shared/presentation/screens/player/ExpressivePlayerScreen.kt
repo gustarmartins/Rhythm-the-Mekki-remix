@@ -77,11 +77,13 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import chromahub.rhythm.app.shared.presentation.components.player.playerEntranceMotion
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -580,10 +582,10 @@ fun ExpressivePlayerScreen(
     // Slow, smooth staggered entrance: a long linear drive so the cascade is even, with
     // per-element FastOutSlowIn motion so each piece decelerates gently into place.
     val entranceSpec = remember { tween<Float>(durationMillis = 900, easing = LinearEasing) }
-    val localEntranceFraction = if (swipeToDismissEnabled) {
+    val localEntranceProgress = if (swipeToDismissEnabled) {
         var animateEntrance by remember { mutableStateOf(false) }
         LaunchedEffect(Unit) { animateEntrance = true }
-        animateFloatAsState(targetValue = if (animateEntrance) 1f else 0f, animationSpec = entranceSpec, label = "localEntranceFraction").value
+        animateFloatAsState(targetValue = if (animateEntrance) 1f else 0f, animationSpec = entranceSpec, label = "localEntranceFraction")
     } else {
         // Sheet path: the player stays in composition from app start (the sheet hosts it
         // permanently), so an entrance keyed to composition time would play long before the
@@ -600,7 +602,7 @@ fun ExpressivePlayerScreen(
                 entranceStarted = false
             }
         }
-        val entranceValue by animateFloatAsState(
+        val entranceValue = animateFloatAsState(
             targetValue = if (entranceStarted) 1f else 0f,
             animationSpec = entranceSpec,
             label = "localEntranceFraction"
@@ -608,34 +610,11 @@ fun ExpressivePlayerScreen(
         entranceValue
     }
 
-    val line3Raw = ((localEntranceFraction - 0.00f) / 0.45f).coerceIn(0f, 1f)
-    val line2Raw = ((localEntranceFraction - 0.08f) / 0.45f).coerceIn(0f, 1f)
-    val line4Raw = ((localEntranceFraction - 0.22f) / 0.48f).coerceIn(0f, 1f)
-    val line6Raw = ((localEntranceFraction - 0.46f) / 0.54f).coerceIn(0f, 1f)
-
-    val line2Fraction = androidx.compose.animation.core.FastOutSlowInEasing.transform(line2Raw)
-    val line3Fraction = androidx.compose.animation.core.FastOutSlowInEasing.transform(line3Raw)
-    val line4Fraction = androidx.compose.animation.core.FastOutSlowInEasing.transform(line4Raw)
-    val line6Fraction = androidx.compose.animation.core.FastOutSlowInEasing.transform(line6Raw)
-
-    val entrancePopEasing = androidx.compose.animation.core.CubicBezierEasing(0.34f, 1.56f, 0.64f, 1f)
-    val popScale: (Float) -> Float = { eased ->
-        0.88f + 0.12f * eased.coerceIn(0f, 1f) + 0.45f * (eased - 1f).coerceAtLeast(0f)
-    }
-    val line2Pop = popScale(entrancePopEasing.transform(line2Raw))
-    val line3Pop = popScale(entrancePopEasing.transform(line3Raw))
-    val line4Pop = popScale(entrancePopEasing.transform(line4Raw))
-    val line6Pop = popScale(entrancePopEasing.transform(line6Raw))
-
-    val line2Alpha = line2Fraction
-    val line2TranslationY = with(LocalDensity.current) { 32.dp.toPx() * (1f - line2Fraction) }
-    val line3Alpha = line3Fraction
-    val line3TranslationY = with(LocalDensity.current) { 44.dp.toPx() * (1f - line3Fraction) }
+    val line2Entrance = Modifier.playerEntranceMotion(localEntranceProgress, 0.08f, 0.45f, 32.dp)
+    val line3Entrance = Modifier.playerEntranceMotion(localEntranceProgress, 0f, 0.45f, 44.dp)
+    val line4Entrance = Modifier.playerEntranceMotion(localEntranceProgress, 0.22f, 0.48f, 40.dp)
+    val line6Entrance = Modifier.playerEntranceMotion(localEntranceProgress, 0.46f, 0.54f, 48.dp)
     val showAlbumArt = !(showDarkBg && hasValidArtwork)
-    val line4Alpha = line4Fraction
-    val line4TranslationY = with(LocalDensity.current) { 40.dp.toPx() * (1f - line4Fraction) }
-    val line6Alpha = line6Fraction
-    val line6TranslationY = with(LocalDensity.current) { 48.dp.toPx() * (1f - line6Fraction) }
 
     val artworkClipShape = playerArtworkShape
 
@@ -1114,8 +1093,7 @@ fun ExpressivePlayerScreen(
                             modifier = (if (useHorizontalBackdrop) Modifier.fillMaxWidth(0.5f).fillMaxHeight()
                                 else Modifier.fillMaxWidth().fillMaxHeight(0.58f)).alpha(clearArtworkAlpha)
                             .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
-                            .drawWithContent {
-                                drawContent()
+                            .drawWithCache {
                                 val brush = if (useHorizontalBackdrop) Brush.horizontalGradient(
                                     0.00f to gc, 0.55f to gc, 0.70f to gc.copy(alpha = 0.65f),
                                     0.85f to gc.copy(alpha = 0.25f), 1.00f to Color.Transparent
@@ -1123,14 +1101,17 @@ fun ExpressivePlayerScreen(
                                     0.00f to gc, 0.65f to gc, 0.80f to gc.copy(alpha = 0.65f),
                                     0.90f to gc.copy(alpha = 0.25f), 1.00f to Color.Transparent
                                 )
-                                drawRect(brush = brush, blendMode = BlendMode.DstIn)
+                                onDrawWithContent {
+                                    drawContent()
+                                    drawRect(brush = brush, blendMode = BlendMode.DstIn)
+                                }
                             }
                         ) {
                             AsyncImage(model = ImageRequest.Builder(context).data(artworkUri).crossfade(150)
                                 .memoryCacheKey(artworkUri.toString()).diskCacheKey(artworkUri.toString()).build(),
                                 contentDescription = null, contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize())
-                            if (canvasArtwork?.preferredAnimationUrl != null) {
+                            if (isPlayerActive && canvasArtwork?.preferredAnimationUrl != null) {
                                 CanvasArtworkPlayer(primaryUrl = canvasArtwork.animated, fallbackUrl = canvasArtwork.videoUrl, isPlaying = isPlaying, alwaysPlay = true, modifier = Modifier.fillMaxSize())
                             }
                         }
@@ -1174,16 +1155,17 @@ fun ExpressivePlayerScreen(
         }
     }
 
-    val infiniteZoomTransition = rememberInfiniteTransition(label = "ambientInfiniteZoomTransition")
-    val ambientInfiniteScale by infiniteZoomTransition.animateFloat(
-        initialValue = 1.00f,
-        targetValue = 1.07f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 18000, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "ambientInfiniteScale"
-    )
+    val appForeground by chromahub.rhythm.app.util.OptionalWorkController.foreground.collectAsState()
+    val animateAmbientZoom = isBackdropEnabled && playerAmbientInfiniteZoom && isPlayerActive && appForeground
+    val ambientInfiniteScale = if (animateAmbientZoom) {
+        rememberInfiniteTransition(label = "ambientInfiniteZoomTransition").animateFloat(
+            initialValue = 1f, targetValue = 1.07f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 18000, easing = EaseInOutSine),
+                repeatMode = RepeatMode.Reverse
+            ), label = "ambientInfiniteScale"
+        )
+    } else remember { mutableFloatStateOf(1f) }
 
     Box(
         modifier = Modifier
@@ -1204,10 +1186,12 @@ fun ExpressivePlayerScreen(
             }
     ) {
         AnimatedVisibility(visible = showBg, enter = fadeIn(tween(600)), exit = fadeOut(tween(600))) {
-            val entranceZoom = 1f + 0.04f * (1f - localEntranceFraction)
-            val continuousZoom = if (isBackdropEnabled && playerAmbientInfiniteZoom) ambientInfiniteScale else 1f
-            val bgZoom = entranceZoom * continuousZoom
-            unifiedBackground(Modifier.fillMaxSize().graphicsLayer { scaleX = bgZoom; scaleY = bgZoom })
+            unifiedBackground(Modifier.fillMaxSize().graphicsLayer {
+                val entranceZoom = 1f + 0.04f * (1f - localEntranceProgress.value)
+                val zoom = entranceZoom * ambientInfiniteScale.value
+                scaleX = zoom
+                scaleY = zoom
+            })
         }
 
         Column(
@@ -1327,7 +1311,7 @@ fun ExpressivePlayerScreen(
                                 }
                             }
 
-                            if (canvasArtwork?.preferredAnimationUrl != null) {
+                            if (isPlayerActive && canvasArtwork?.preferredAnimationUrl != null) {
                                 CanvasArtworkPlayer(
                                     primaryUrl = canvasArtwork.animated,
                                     fallbackUrl = canvasArtwork.videoUrl,
@@ -1389,12 +1373,7 @@ fun ExpressivePlayerScreen(
                         Box(
                             Modifier
                                 .fillMaxSize()
-                                .graphicsLayer {
-                                    alpha = line2Alpha
-                                    translationY = line2TranslationY
-                                    scaleX = line2Pop
-                                    scaleY = line2Pop
-                                },
+                                .then(line2Entrance),
                             contentAlignment = Alignment.Center
                         ) {
                             AnimatedContent(
@@ -1437,7 +1416,7 @@ fun ExpressivePlayerScreen(
                     androidx.compose.animation.AnimatedVisibility(visible = showPlayerControls, enter = fadeIn() + slideInVertically { it / 2 }, exit = fadeOut() + slideOutVertically { it / 2 }) {
                         Column(Modifier.fillMaxWidth().padding(start = if (isCompactWidth) 12.dp else 24.dp, end = if (isCompactWidth) 12.dp else 24.dp, bottom = if (isCompactHeight) 8.dp else 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally) {
-                            Row(Modifier.fillMaxWidth().graphicsLayer { alpha = line3Alpha; translationY = line3TranslationY; scaleX = line3Pop; scaleY = line3Pop }.padding(bottom = if (isCompactHeight) 16.dp else 28.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(Modifier.fillMaxWidth().then(line3Entrance).padding(bottom = if (isCompactHeight) 16.dp else 28.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                                     // Track title & artist slide horizontally based on queue direction.
                                     // Driven by the debounced song so they stay stable during crossfade,
@@ -1637,12 +1616,12 @@ fun ExpressivePlayerScreen(
                             }
 
                             if (useAccentBackground) {
-                                Box(Modifier.fillMaxWidth().graphicsLayer { alpha = line4Alpha; translationY = line4TranslationY; scaleX = line4Pop; scaleY = line4Pop }) {
+                                Box(Modifier.fillMaxWidth().then(line4Entrance)) {
                                     controlsCardContent()
                                 }
                             } else {
                                 Surface(shape = RoundedCornerShape(32.dp), color = controlsContainerColor,
-                                    modifier = Modifier.fillMaxWidth().graphicsLayer { alpha = line4Alpha; translationY = line4TranslationY; scaleX = line4Pop; scaleY = line4Pop }) {
+                                    modifier = Modifier.fillMaxWidth().then(line4Entrance)) {
                                     controlsCardContent()
                                 }
                             }
@@ -1652,7 +1631,7 @@ fun ExpressivePlayerScreen(
 
                 val bottomButtonsContent = @Composable {
                     androidx.compose.animation.AnimatedVisibility(visible = showBottomButtons, enter = fadeIn() + slideInVertically { it / 2 }, exit = fadeOut() + slideOutVertically { it / 2 }) {
-                        Column(Modifier.fillMaxWidth().graphicsLayer { alpha = line6Alpha; translationY = line6TranslationY; scaleX = line6Pop; scaleY = line6Pop }
+                        Column(Modifier.fillMaxWidth().then(line6Entrance)
                             .padding(start = if (isCompactWidth) 12.dp else 24.dp, end = if (isCompactWidth) 12.dp else 24.dp, bottom = 24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally) {
                             Spacer(Modifier.height(if (isCompactHeight) 12.dp else 16.dp))

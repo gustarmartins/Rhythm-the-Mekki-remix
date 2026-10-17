@@ -993,6 +993,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             
             // Update the MediaSession to use the new player
             mediaSession?.player = wrappedNewPlayer
+            reconcileMediaDisplayLyricsLoop()
             
             // Force custom layout update for the new player
             scheduleCustomLayoutUpdate(50)
@@ -1110,7 +1111,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             }
             
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                
+                reconcileMediaDisplayLyricsLoop()
                 publishCanonicalSessionIdentity(player.currentMediaItem?.let(::convertMediaItemToSong))
                 // Broadcast status for Tasker/KWGT/automation apps
                 if (appSettings.broadcastStatusEnabled.value) {
@@ -1230,6 +1231,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             }
         }
         playerListener?.let { player.addListener(it) }
+        reconcileMediaDisplayLyricsLoop()
         
         // Initialize transition controller for crossfade scheduling
         transitionController = TransitionController(rhythmPlayerEngine, appSettings)
@@ -2707,6 +2709,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         player = wrapPlayer(musicAssistantPlayer ?: rhythmPlayerEngine.masterPlayer)
         playerListener?.let(player::addListener)
         mediaSession?.player = player
+        reconcileMediaDisplayLyricsLoop()
         pendingPlayNextTokens.clear()
         return true
     }
@@ -4192,7 +4195,11 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         Log.d(TAG, "Is playing changed: $isPlaying")
         // Update widget when play/pause state changes
         updateWidgetFromMediaItem(player.currentMediaItem)
-        if (isPlaying) startBluetoothLyricsLoop() else stopBluetoothLyricsLoop()
+    }
+
+    private fun reconcileMediaDisplayLyricsLoop() {
+        if (::player.isInitialized && player.isPlaying) startBluetoothLyricsLoop()
+        else stopBluetoothLyricsLoop()
     }
 
     /**

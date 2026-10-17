@@ -19,7 +19,7 @@ class PlaybackRateAudioTest {
         processor.setSpeed(speed)
         processor.setPitch(pitch)
         processor.configure(AudioProcessor.AudioFormat(sampleRate, 1, C.ENCODING_PCM_16BIT))
-        processor.flush()
+        processor.flush(AudioProcessor.StreamMetadata.DEFAULT)
         val input = ByteBuffer.allocateDirect(sampleRate * 2 * 2).order(ByteOrder.nativeOrder())
         repeat(sampleRate * 2) { input.putShort((sin(2 * PI * 440 * it / sampleRate) * 16000).toInt().toShort()) }
         input.flip()
