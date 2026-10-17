@@ -1,10 +1,17 @@
 name: Native Music Assistant validation
 on:
   workflow_dispatch:
+    inputs:
+      artifact_run_id:
+        description: 'Reuse signed debug APKs from a run with identical application sources'
+        type: string
+        required: false
+        default: ''
   push:
     branches: [integration/native-player]
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: native-player-validation
   cancel-in-progress: true
@@ -18,11 +25,12 @@ jobs:
         with:
           java-version: '17'
           distribution: zulu
-          cache: gradle
+          cache: ${{ inputs.artifact_run_id == '' && 'gradle' || '' }}
       - uses: android-actions/setup-android@v4
         with:
           packages: ''
       - name: Restore owner signing for device qualification
+        if: inputs.artifact_run_id == ''
         env:
           SIGNING_KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}
           SIGNING_PROPERTIES: ${{ secrets.SIGNING_PROPERTIES }}
@@ -41,6 +49,7 @@ jobs:
       # Signed release/R8 qualification runs in nightly.yml; this job supplies the
       # isolated debug app and instrumentation APK for physical-device regressions.
       - name: Compile and test native playback
+        if: inputs.artifact_run_id == ''
         env:
           GITHUB_OWNER: ${{ github.repository_owner }}
           GITHUB_REPO: ${{ github.event.repository.name }}
@@ -54,6 +63,24 @@ jobs:
             -PversionCodeOverride="$((600003001 + GITHUB_RUN_NUMBER))" \
             -PversionNameOverride="6.1.0-dev.$GITHUB_RUN_NUMBER" \
             :sendspin:testDebugUnitTest :app:testGithubDebugUnitTest :app:assembleGithubDebug :app:assembleGithubDebugAndroidTest
+      - name: Reuse verified application sources and APKs
+        if: inputs.artifact_run_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.artifact_run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
+          artifact_sha=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$BUILD_RUN" --jq .head_sha)
+          [[ "$artifact_sha" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags --depth=1 origin "$artifact_sha"
+          # Only workflow/documentation edits can reuse compiled code and its JVM results.
+          git diff --exit-code "$artifact_sha" HEAD -- . ':!.github' ':!docs'
+          gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" -n native-validation -D reused-validation
+          mkdir -p app/build/outputs
+          cp -R reused-validation/app/build/outputs/apk app/build/outputs/
+          printf '{"artifactRunId":"%s","artifactSource":"%s","checkedSource":"%s"}\n' \
+            "$BUILD_RUN" "$artifact_sha" "$GITHUB_SHA" > reused-apks.json
       - name: Run playback and sheet regressions on an emulator
         if: github.event_name == 'workflow_dispatch'
         timeout-minutes: 15
@@ -67,20 +94,34 @@ jobs:
             -no-boot-anim -no-snapshot -gpu lavapipe > emulator.log 2>&1 &
           emulator_pid=$!
           collect_emulator_evidence() {
-            if [ -n "${logcat_pid:-}" ]; then kill "$logcat_pid" || true; fi
+            if [ -n "${logcat_pid:-}" ]; then
+              kill "$logcat_pid" || true
+            else
+              timeout 15 adb -s emulator-5554 logcat -d -v threadtime > android-runtime.log 2>&1 || true
+            fi
             timeout 10 adb -s emulator-5554 exec-out screencap -p > android-last-frame.png 2>/dev/null || true
             timeout 15 adb -s emulator-5554 shell dumpsys activity exit-info chromahub.rhythm.app.debug > android-exit-info.txt 2>&1 || true
             free -m > runner-memory.txt
             kill "$emulator_pid" || true
           }
           trap collect_emulator_evidence EXIT
-          adb -s emulator-5554 wait-for-device
+          timeout 180 adb -s emulator-5554 wait-for-device
           timeout 180 sh -c 'until adb -s emulator-5554 shell getprop sys.boot_completed | tr -d "\r" | grep -q 1; do sleep 2; done'
+          timeout 120 sh -c 'until adb -s emulator-5554 shell cmd package list packages android | tr -d "\r" | grep -qx "package:android"; do sleep 2; done'
+          adb -s emulator-5554 shell input keyevent 82
+          install_test_apk() {
+            test "$#" -eq 1
+            for attempt in 1 2 3; do
+              if adb -s emulator-5554 install --no-streaming -r "$1"; then return 0; fi
+              timeout 30 adb -s emulator-5554 wait-for-device
+              sleep 3
+            done
+            return 1
+          }
+          install_test_apk app/build/outputs/apk/github/debug/*-x86_64.apk
+          install_test_apk app/build/outputs/apk/androidTest/github/debug/app-github-debug-androidTest.apk
           adb -s emulator-5554 logcat -v threadtime > android-runtime.log 2>&1 &
           logcat_pid=$!
-          adb -s emulator-5554 shell input keyevent 82
-          adb -s emulator-5554 install app/build/outputs/apk/github/debug/*-x86_64.apk
-          adb -s emulator-5554 install app/build/outputs/apk/androidTest/github/debug/app-github-debug-androidTest.apk
           adb -s emulator-5554 shell am instrument -w -r \
             -e class chromahub.rhythm.app.shared.presentation.PlaybackRegressionAndroidTest \
             chromahub.rhythm.app.debug.test/androidx.test.runner.AndroidJUnitRunner | tee playback-regressions.txt
@@ -99,6 +140,7 @@ jobs:
             android-last-frame.png
             android-exit-info.txt
             runner-memory.txt
+            reused-apks.json
           retention-days: 7
       - name: Remove signing material
         if: always()
