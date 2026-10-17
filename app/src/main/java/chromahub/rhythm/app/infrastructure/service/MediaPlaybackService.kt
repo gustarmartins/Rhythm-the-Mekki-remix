@@ -1158,7 +1158,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                     reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
                     reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
                 if (mediaItem != null && newOccurrence && !restoringSavedQueue &&
-                    !isMutatingBtVirtualQueue && appSettings.useDefaultPlaybackSpeed.value &&
+                    appSettings.useDefaultPlaybackSpeed.value &&
                     musicAssistantPlayer == null) {
                     appSettings.setPlaybackSpeed(appSettings.defaultPlaybackSpeed.value)
                     rhythmPlayerEngine.applyPlaybackRate(appSettings.playbackRate.value)

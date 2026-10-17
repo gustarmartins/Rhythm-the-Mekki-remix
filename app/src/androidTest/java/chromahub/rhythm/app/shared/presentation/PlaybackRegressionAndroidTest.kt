@@ -90,6 +90,7 @@ class PlaybackRegressionAndroidTest {
     @Test fun reopeningUiPreservesPlayingRateAndSpeakerSessionLyrics() {
         val settings = main { AppSettings.getInstance(context) }
         val savedDefault = settings.useDefaultPlaybackSpeed.value
+        val savedDefaultSpeed = settings.defaultPlaybackSpeed.value
         val savedLyrics = settings.bluetoothLyricsEnabled.value
         val savedQueue = settings.queuePersistenceEnabled.value
         val savedClose = settings.stopPlaybackOnAppClose.value
@@ -126,6 +127,10 @@ class PlaybackRegressionAndroidTest {
                 activeController.play()
             }
             compose.waitUntil(10000) { main { activeController.isPlaying } }
+            main {
+                settings.setDefaultPlaybackSpeed(1f)
+                settings.setUseDefaultPlaybackSpeed(true)
+            }
             repeat(2) {
                 val vm = main {
                     chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel(
@@ -154,7 +159,13 @@ class PlaybackRegressionAndroidTest {
                 assertEquals(1.3f, activeController.playbackParameters.speed)
                 assertEquals(0.8f, activeController.playbackParameters.pitch)
                 assertTrue(activeController.isPlaying)
+                activeController.addMediaItem(activeController.currentMediaItem!!)
+                assertEquals(1.3f, activeController.playbackParameters.speed)
+                activeController.seekToNextMediaItem()
             }
+            compose.waitUntil(5000) { main { activeController.currentMediaItemIndex == 1 &&
+                activeController.playbackParameters.speed == 1f } }
+            main { assertEquals(0.8f, activeController.playbackParameters.pitch) }
         } finally {
             main {
                 store.clear()
@@ -162,6 +173,7 @@ class PlaybackRegressionAndroidTest {
                 controller?.release()
                 context.stopService(Intent(context, chromahub.rhythm.app.infrastructure.service.MediaPlaybackService::class.java))
                 settings.setUseDefaultPlaybackSpeed(savedDefault)
+                settings.setDefaultPlaybackSpeed(savedDefaultSpeed)
                 settings.setBluetoothLyricsEnabled(savedLyrics)
                 settings.setQueuePersistenceEnabled(savedQueue)
                 settings.setStopPlaybackOnAppClose(savedClose)
