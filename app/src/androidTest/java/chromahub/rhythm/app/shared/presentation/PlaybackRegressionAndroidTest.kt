@@ -295,6 +295,9 @@ class PlaybackRegressionAndroidTest {
         }
         try {
             main {
+                // This isolated debug fixture represents an install that completed the
+                // first-run artwork consent; empty preferences deliberately default it off.
+                settings.completeArtworkSetup()
                 settings.setAppleCanvasEnabled(true)
                 settings.setIntegrationsEnabled(true)
                 settings.setAppleCanvasNetworkMode(chromahub.rhythm.app.shared.data.model.CanvasNetworkMode.BOTH)
