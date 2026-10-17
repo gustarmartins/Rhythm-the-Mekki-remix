@@ -122,6 +122,11 @@ jobs:
           install_test_apk app/build/outputs/apk/androidTest/github/debug/app-github-debug-androidTest.apk
           adb -s emulator-5554 logcat -v threadtime > android-runtime.log 2>&1 &
           logcat_pid=$!
+          # These are functional tests. Avoid debug DEX verification competing with
+          # Google APIs' first-boot work until Android kills the instrumentation at startup.
+          # Physical cold-launch/frame-time measurements remain a separate device check.
+          timeout 180 adb -s emulator-5554 shell cmd package compile -m speed -f chromahub.rhythm.app.debug
+          timeout 120 adb -s emulator-5554 shell cmd package compile -m speed -f chromahub.rhythm.app.debug.test
           adb -s emulator-5554 shell am instrument -w -r \
             -e class chromahub.rhythm.app.shared.presentation.PlaybackRegressionAndroidTest \
             chromahub.rhythm.app.debug.test/androidx.test.runner.AndroidJUnitRunner | tee playback-regressions.txt
