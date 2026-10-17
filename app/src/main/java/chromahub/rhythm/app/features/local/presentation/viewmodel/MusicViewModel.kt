@@ -7603,7 +7603,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         _playlists.value = _playlists.value.filter { it.id != playlistId }
-        viewModelScope.launch(Dispatchers.IO) {
+        // Serialize deletion after older snapshots so a surviving background flush
+        // cannot recreate the playlist after this explicit user action.
+        playlistWrites.enqueue {
             try {
                 repository.playlistDao.deletePlaylistById(playlistId)
                 repository.playlistDao.deleteSongsFromPlaylist(playlistId)
