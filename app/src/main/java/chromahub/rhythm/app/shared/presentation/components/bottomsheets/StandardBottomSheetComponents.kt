@@ -127,6 +127,7 @@ fun AdaptiveSheetScrollContainer(
     scrollState: ScrollState? = null,
     enableBlend: Boolean = true,
     enableScrollBar: Boolean = true,
+    reserveScrollBarSpace: Boolean = false,
     blendHeight: Dp = 24.dp,
     blendColor: Color = MaterialTheme.colorScheme.surfaceContainer,
     scrollBarPaddingEnd: Dp = 4.dp,
@@ -178,7 +179,7 @@ fun AdaptiveSheetScrollContainer(
             .fillMaxWidth()
     ) {
         // Main scrollable content with animated end padding
-        content(animatedEndPadding)
+        content(if (reserveScrollBarSpace && enableScrollBar) 12.dp else animatedEndPadding)
 
         if (enableBlend) {
             // Top sticky blend: visible ONLY when user scrolls down from the top

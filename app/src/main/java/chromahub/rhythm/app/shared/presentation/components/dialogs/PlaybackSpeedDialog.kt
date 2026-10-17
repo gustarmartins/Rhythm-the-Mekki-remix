@@ -22,9 +22,9 @@ fun PlaybackSpeedDialog(
         currentSpeed = currentSpeed,
         currentPitch = currentPitch,
         syncEnabled = syncEnabled,
-        onSyncChange = onSyncChange,
         onDismiss = onDismiss,
-        onSave = { speed, pitch ->
+        onSave = { speed, pitch, synced ->
+            onSyncChange(synced)
             if (onSaveBoth != null) {
                 onSaveBoth(speed, pitch)
             } else {

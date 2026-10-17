@@ -403,12 +403,9 @@ fun PlaybackBottomSheet(
             currentSpeed = playbackSpeed,
             currentPitch = playbackPitch,
             syncEnabled = syncSpeedAndPitch,
-            onSyncChange = { appSettings.setSyncSpeedAndPitch(it) },
             onDismiss = { showSpeedPitchSheet = false },
-            onSave = { speed, pitch ->
-                musicViewModel.setPlaybackSpeed(speed)
-                musicViewModel.setPlaybackPitch(pitch)
-                showSpeedPitchSheet = false
+            onSave = { speed, pitch, synced ->
+                musicViewModel.setPlaybackRate(speed, pitch, synced)
             }
         )
     }

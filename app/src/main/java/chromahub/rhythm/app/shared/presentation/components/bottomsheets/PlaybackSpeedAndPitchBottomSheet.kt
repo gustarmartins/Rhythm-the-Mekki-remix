@@ -50,9 +50,8 @@ fun PlaybackSpeedAndPitchBottomSheet(
     currentSpeed: Float,
     currentPitch: Float,
     syncEnabled: Boolean = false,
-    onSyncChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit,
-    onSave: (speed: Float, pitch: Float) -> Unit
+    onSave: (speed: Float, pitch: Float, synced: Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
@@ -66,8 +65,9 @@ fun PlaybackSpeedAndPitchBottomSheet(
     val minVal = 0.25f
     val maxVal = 3.0f
 
+    var selectedSync by remember { mutableStateOf(syncEnabled) }
     var selectedSpeed by remember { mutableFloatStateOf(currentSpeed.coerceIn(minVal, maxVal)) }
-    var selectedPitch by remember { mutableFloatStateOf(currentPitch.coerceIn(minVal, maxVal)) }
+    var selectedPitch by remember { mutableFloatStateOf((if (selectedSync) currentSpeed else currentPitch).coerceIn(minVal, maxVal)) }
 
     fun formatClean(value: Float): String {
         val formatted = String.format(Locale.US, "%.3f", value)
@@ -80,19 +80,22 @@ fun PlaybackSpeedAndPitchBottomSheet(
         val newSpeed = (selectedSpeed + delta).coerceIn(minVal, maxVal)
         val rounded = (Math.round(newSpeed * 1000.0) / 1000.0).toFloat()
         selectedSpeed = rounded
-        if (syncEnabled) selectedPitch = rounded
+        if (selectedSync) selectedPitch = rounded
     }
 
     fun adjustPitch(delta: Float) {
         val newPitch = (selectedPitch + delta).coerceIn(minVal, maxVal)
         val rounded = (Math.round(newPitch * 1000.0) / 1000.0).toFloat()
         selectedPitch = rounded
-        if (syncEnabled) selectedSpeed = rounded
+        if (selectedSync) selectedSpeed = rounded
     }
 
     fun dismissAndSave(speed: Float, pitch: Float) {
-        scope.launch { sheetState.hide() }.invokeOnCompletion {
-            onSave(speed, pitch)
+        // Commit before starting the dismiss animation. Cancellation (including task removal)
+        // must not lose an explicit Apply or commit a draft from a cancelled animation.
+        onSave(speed, pitch, selectedSync)
+        scope.launch {
+            sheetState.hide()
             onDismiss()
         }
     }
@@ -157,17 +160,17 @@ fun PlaybackSpeedAndPitchBottomSheet(
                                 },
                                 trailingContent = {
                                     TunerAnimatedSwitch(
-                                        checked = syncEnabled,
+                                        checked = selectedSync,
                                         onCheckedChange = { enabled ->
-                                            onSyncChange(enabled)
+                                            selectedSync = enabled
                                             if (enabled) selectedPitch = selectedSpeed
                                         }
                                     )
                                 },
                                 onClick = {
                                     HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                    val newSync = !syncEnabled
-                                    onSyncChange(newSync)
+                                    val newSync = !selectedSync
+                                    selectedSync = newSync
                                     if (newSync) selectedPitch = selectedSpeed
                                 }
                             )
@@ -191,7 +194,7 @@ fun PlaybackSpeedAndPitchBottomSheet(
                             onReset = {
                                 HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                                 selectedSpeed = 1.0f
-                                if (syncEnabled) selectedPitch = 1.0f
+                                if (selectedSync) selectedPitch = 1.0f
                             }
                         )
 
@@ -225,7 +228,7 @@ fun PlaybackSpeedAndPitchBottomSheet(
                                     onValueChange = { v ->
                                         val r = (Math.round(v * 1000.0) / 1000.0).toFloat()
                                         selectedSpeed = r
-                                        if (syncEnabled) selectedPitch = r
+                                        if (selectedSync) selectedPitch = r
                                     },
                                     valueRange = minVal..maxVal,
                                     step = 0.05f,
@@ -290,7 +293,7 @@ fun PlaybackSpeedAndPitchBottomSheet(
                                         selected = isSelected,
                                         onClick = {
                                             selectedSpeed = preset
-                                            if (syncEnabled) selectedPitch = preset
+                                            if (selectedSync) selectedPitch = preset
                                             HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                                         },
                                         label = {
@@ -324,7 +327,7 @@ fun PlaybackSpeedAndPitchBottomSheet(
                             onReset = {
                                 HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                                 selectedPitch = 1.0f
-                                if (syncEnabled) selectedSpeed = 1.0f
+                                if (selectedSync) selectedSpeed = 1.0f
                             }
                         )
 
@@ -358,7 +361,7 @@ fun PlaybackSpeedAndPitchBottomSheet(
                                     onValueChange = { v ->
                                         val r = (Math.round(v * 1000.0) / 1000.0).toFloat()
                                         selectedPitch = r
-                                        if (syncEnabled) selectedSpeed = r
+                                        if (selectedSync) selectedSpeed = r
                                     },
                                     valueRange = minVal..maxVal,
                                     step = 0.05f,
@@ -425,7 +428,7 @@ fun PlaybackSpeedAndPitchBottomSheet(
                                         selected = isSelected,
                                         onClick = {
                                             selectedPitch = preset
-                                            if (syncEnabled) selectedSpeed = preset
+                                            if (selectedSync) selectedSpeed = preset
                                             HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                                         },
                                         label = {

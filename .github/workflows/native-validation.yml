@@ -1,5 +1,6 @@
 name: Native Music Assistant validation
 on:
+  workflow_dispatch:
   push:
     branches: [integration/native-player]
 permissions:

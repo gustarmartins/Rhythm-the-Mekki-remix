@@ -980,6 +980,10 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             val oldPlayer = player
             val wrappedNewPlayer = wrapPlayer(newPlayer)
             player = wrappedNewPlayer
+            if (appSettings.useDefaultPlaybackSpeed.value) {
+                appSettings.setPlaybackSpeed(appSettings.defaultPlaybackSpeed.value)
+                rhythmPlayerEngine.applyPlaybackRate(appSettings.playbackRate.value)
+            }
             
             // Move the service-level player listener to the new player
             playerListener?.let { listener ->
@@ -1143,6 +1147,20 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 ) {
                     Log.d(TAG, "Ignoring metadata-only player transition for mediaId=$transitionMediaId")
                     return
+                }
+
+                // A controller reconnect and a metadata-only replacement are not new tracks.
+                // Keep this policy in the service so background Next behaves identically.
+                val entryToken = mediaItem?.mediaMetadata?.extras?.getString(PlayNextCommand.ENTRY_TOKEN)
+                val newOccurrence = transitionMediaId != lastHandledPlayerTransitionMediaId ||
+                    entryToken != lastHandledPlayerEntryToken ||
+                    reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO ||
+                    reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
+                if (mediaItem != null && newOccurrence && !restoringSavedQueue &&
+                    !isMutatingBtVirtualQueue && appSettings.useDefaultPlaybackSpeed.value &&
+                    musicAssistantPlayer == null) {
+                    appSettings.setPlaybackSpeed(appSettings.defaultPlaybackSpeed.value)
+                    rhythmPlayerEngine.applyPlaybackRate(appSettings.playbackRate.value)
                 }
 
                 if (appSettings.queuePersistenceEnabled.value) {
@@ -2708,6 +2726,24 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         override fun removeListener(listener: Player.Listener) {
             injectionListeners.remove(listener)
             super.removeListener(listener)
+        }
+
+        override fun setPlaybackParameters(playbackParameters: androidx.media3.common.PlaybackParameters) {
+            if (musicAssistantPlayer != null) {
+                super.setPlaybackParameters(playbackParameters)
+                return
+            }
+            appSettings.setPlaybackRate(playbackParameters.speed, playbackParameters.pitch)
+            rhythmPlayerEngine.applyPlaybackRate(appSettings.playbackRate.value)
+        }
+
+        override fun setPlaybackSpeed(speed: Float) {
+            if (musicAssistantPlayer != null) {
+                super.setPlaybackSpeed(speed)
+                return
+            }
+            appSettings.setPlaybackSpeed(speed)
+            rhythmPlayerEngine.applyPlaybackRate(appSettings.playbackRate.value)
         }
 
         override fun play() {

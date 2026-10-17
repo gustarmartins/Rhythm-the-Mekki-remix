@@ -792,16 +792,12 @@ fun PlayerScreen(
                 currentSpeed = playbackSpeed,
                 currentPitch = playbackPitch,
                 syncEnabled = syncSpeedAndPitch,
-                onSyncChange = { appSettings.setSyncSpeedAndPitch(it) },
                 onDismiss = {
                     showPlaybackSpeedDialog = false
                     showPlaybackPitchDialog = false
                 },
-                onSave = { speed, pitch ->
-                    musicViewModel.setPlaybackSpeed(speed)
-                    musicViewModel.setPlaybackPitch(pitch)
-                    showPlaybackSpeedDialog = false
-                    showPlaybackPitchDialog = false
+                onSave = { speed, pitch, synced ->
+                    musicViewModel.setPlaybackRate(speed, pitch, synced)
                 }
             )
         }

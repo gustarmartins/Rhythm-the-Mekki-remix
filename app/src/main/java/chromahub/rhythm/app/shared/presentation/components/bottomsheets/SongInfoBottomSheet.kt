@@ -798,11 +798,7 @@ fun SongInfoBottomSheet(
             contentColor = MaterialTheme.colorScheme.onSurface,
             tonalElevation = 0.dp
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp)
-            ) {
+            SongInfoSheetViewport {
                 // Header (Sticky at top)
                 Row(
                     modifier = Modifier
@@ -862,9 +858,10 @@ fun SongInfoBottomSheet(
 
                 AdaptiveSheetScrollContainer(
                     lazyListState = infoListState,
+                    reserveScrollBarSpace = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f, fill = false)
+                        .weight(1f)
                 ) { endPadding ->
                     LazyColumn(
                         state = infoListState,

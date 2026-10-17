@@ -4223,13 +4223,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                                 }
                             }
 
-                            // Restore saved playback speed and pitch
-                            val savedSpeed = appSettings.playbackSpeed.value
-                            val savedPitch = appSettings.playbackPitch.value
-                            Log.d(TAG, "Restoring saved playback speed: $savedSpeed, pitch: $savedPitch")
-                            if (controller.playbackParameters.speed != savedSpeed || controller.playbackParameters.pitch != savedPitch) {
-                                controller.playbackParameters = androidx.media3.common.PlaybackParameters(savedSpeed, savedPitch)
-                            }
+                            // The service restores and owns playback rate. Reattaching a UI must
+                            // never write over a player that continued after Recents removal.
 
                             Log.d(TAG, "Initial repeat mode from controller: $controllerRepeatMode (${
                             when(controllerRepeatMode) {
@@ -4555,11 +4550,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     // Update recently played
                     updateRecentlyPlayed(song)
 
-                    // Apply default playback speed if enabled for new songs
-                    if (appSettings.useDefaultPlaybackSpeed.value) {
-                        val defaultSpeed = appSettings.defaultPlaybackSpeed.value
-                        setPlaybackSpeed(defaultSpeed)
-                    }
                     
                     // Update favorite status
                     _isFavorite.value = _favoriteSongs.value.contains(song.id)
@@ -9707,12 +9697,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         appSettings.setAutoConnectDevice(enable)
     }
 
+    fun setPlaybackRate(speed: Float, pitch: Float, synced: Boolean) {
+        appSettings.setPlaybackRate(speed, pitch, synced)
+    }
+
     // Playback Speed Control
     fun setPlaybackSpeed(speed: Float) {
         Log.d(TAG, "Setting playback speed to $speed")
         appSettings.setPlaybackSpeed(speed)
-        val currentPitch = appSettings.playbackPitch.value
-        mediaController?.playbackParameters = androidx.media3.common.PlaybackParameters(speed, currentPitch)
     }
 
     fun setDefaultPlaybackSpeed(speed: Float) {
@@ -9729,8 +9721,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun setPlaybackPitch(pitch: Float) {
         Log.d(TAG, "Setting playback pitch to $pitch")
         appSettings.setPlaybackPitch(pitch)
-        val currentSpeed = appSettings.playbackSpeed.value
-        mediaController?.playbackParameters = androidx.media3.common.PlaybackParameters(currentSpeed, pitch)
     }
 
     // Enhanced play tracking with user preferences

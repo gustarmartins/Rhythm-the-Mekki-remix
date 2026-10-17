@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit
 import android.os.Build
 import androidx.media3.common.TrackSelectionParameters
 import chromahub.rhythm.app.shared.data.model.AppSettings
+import chromahub.rhythm.app.shared.data.model.PlaybackRate
 import android.net.Uri
 import chromahub.rhythm.app.features.streaming.di.StreamingMusicModule
 import kotlinx.coroutines.runBlocking
@@ -269,6 +270,8 @@ class RhythmPlayerEngine(
         playerA = buildPlayer(handleAudioFocus = false, bassProcessor = aBass, spatialProcessor = aSpatial, monoProcessor = aMono, replayGainProcessor = aReplayGain)
         playerB = buildPlayer(handleAudioFocus = false, bassProcessor = bBass, spatialProcessor = bSpatial, monoProcessor = bMono, replayGainProcessor = bReplayGain)
 
+        applyPlaybackRate(appSettings.playbackRate.value)
+
         val initVolume = if (appSettings.useSystemVolume.value) 1.0f else appSettings.appVolume.value
         userVolume = initVolume
         playerA.volume = initVolume
@@ -290,10 +293,21 @@ class RhythmPlayerEngine(
             launch { appSettings.virtualizerEnabled.collect { updateTrackSelectionParameters() } }
             launch { appSettings.monoAudioEnabled.collect { updateTrackSelectionParameters() } }
             launch { appSettings.isAudioOffloadActive.collect { updateTrackSelectionParameters() } }
-            launch { appSettings.playbackSpeed.collect { updateTrackSelectionParameters() } }
-            launch { appSettings.playbackPitch.collect { updateTrackSelectionParameters() } }
+            launch { appSettings.playbackRate.collect { applyPlaybackRate(it) } }
             launch { appSettings.gaplessPlayback.collect { updateTrackSelectionParameters() } }
             launch { appSettings.skipSilenceEnabled.collect { updateTrackSelectionParameters() } }
+        }
+    }
+
+    /** Apply both values together, including the prebuffered/crossfading player. */
+    fun applyPlaybackRate(rate: PlaybackRate) {
+        if (!::playerA.isInitialized || !::playerB.isInitialized) return
+        val settings = AppSettings.getInstance(context)
+        val parameters = PlaybackParameters(rate.speed, rate.pitch)
+        for (target in listOf(playerA, playerB)) {
+            // Disable incompatible offload before requesting software speed/pitch processing.
+            target.trackSelectionParameters = buildTrackSelectionParameters(target.trackSelectionParameters, settings)
+            if (target.playbackParameters != parameters) target.playbackParameters = parameters
         }
     }
 
@@ -830,8 +844,7 @@ class RhythmPlayerEngine(
 
         try {
             playerB.seekTo(0)
-            playerB.setPlaybackSpeed(1.0f)
-            playerB.setPlaybackParameters(playerB.playbackParameters)
+            playerB.playbackParameters = playerA.playbackParameters
         } catch (e: Exception) {
             playerB.release()
             val otherReplayGain = if (incomingReplayGain === playerAReplayGain) playerBReplayGain else playerAReplayGain

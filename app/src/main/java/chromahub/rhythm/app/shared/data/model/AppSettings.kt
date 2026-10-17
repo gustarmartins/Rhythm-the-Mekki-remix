@@ -1344,8 +1344,21 @@ class AppSettings private constructor(context: Context) {
     private val _savedRepeatMode = MutableStateFlow(prefs.getInt(KEY_SAVED_REPEAT_MODE, 0)) // 0 = OFF, 1 = ALL, 2 = ONE
     val savedRepeatMode: StateFlow<Int> = _savedRepeatMode.asStateFlow()
 
-    private val _playbackSpeed = MutableStateFlow(prefs.getFloat(KEY_PLAYBACK_SPEED, 1.0f))
-    val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
+    private val playbackRateStore = PlaybackRateStore(
+        PlaybackRate(
+            prefs.getFloat(KEY_PLAYBACK_SPEED, 1f),
+            prefs.getFloat(KEY_PLAYBACK_PITCH, 1f),
+            prefs.getBoolean(KEY_SYNC_SPEED_AND_PITCH, false)
+        )
+    ) { rate ->
+        prefs.edit {
+            putFloat(KEY_PLAYBACK_SPEED, rate.speed)
+            putFloat(KEY_PLAYBACK_PITCH, rate.pitch)
+            putBoolean(KEY_SYNC_SPEED_AND_PITCH, rate.synced)
+        }
+    }
+    val playbackRate = playbackRateStore.state
+    val playbackSpeed = playbackRateStore.speed
 
     private val _defaultPlaybackSpeed = MutableStateFlow(prefs.getFloat(KEY_DEFAULT_PLAYBACK_SPEED, 1.0f))
     val defaultPlaybackSpeed: StateFlow<Float> = _defaultPlaybackSpeed.asStateFlow()
@@ -1353,11 +1366,8 @@ class AppSettings private constructor(context: Context) {
     private val _useDefaultPlaybackSpeed = MutableStateFlow(prefs.getBoolean(KEY_USE_DEFAULT_PLAYBACK_SPEED, false))
     val useDefaultPlaybackSpeed: StateFlow<Boolean> = _useDefaultPlaybackSpeed.asStateFlow()
 
-    private val _playbackPitch = MutableStateFlow(prefs.getFloat(KEY_PLAYBACK_PITCH, 1.0f))
-    val playbackPitch: StateFlow<Float> = _playbackPitch.asStateFlow()
-
-    private val _syncSpeedAndPitch = MutableStateFlow(prefs.getBoolean(KEY_SYNC_SPEED_AND_PITCH, false))
-    val syncSpeedAndPitch: StateFlow<Boolean> = _syncSpeedAndPitch.asStateFlow()
+    val playbackPitch = playbackRateStore.pitch
+    val syncSpeedAndPitch = playbackRateStore.synced
 
     // Time Format Settings - Show hours:minutes:seconds for longer tracks (>60 min)
     private val _useHoursInTimeFormat = MutableStateFlow(prefs.getBoolean(KEY_USE_HOURS_IN_TIME_FORMAT, true))
@@ -3523,8 +3533,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
     }
 
     fun setPlaybackSpeed(speed: Float) {
-        prefs.edit { putFloat(KEY_PLAYBACK_SPEED, speed) }
-        _playbackSpeed.value = speed
+        playbackRateStore.update { it.withSpeed(speed) }
     }
 
     fun setDefaultPlaybackSpeed(speed: Float) {
@@ -3538,13 +3547,15 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
     }
 
     fun setPlaybackPitch(pitch: Float) {
-        prefs.edit { putFloat(KEY_PLAYBACK_PITCH, pitch) }
-        _playbackPitch.value = pitch
+        playbackRateStore.update { it.withPitch(pitch) }
     }
 
     fun setSyncSpeedAndPitch(sync: Boolean) {
-        prefs.edit { putBoolean(KEY_SYNC_SPEED_AND_PITCH, sync) }
-        _syncSpeedAndPitch.value = sync
+        playbackRateStore.update { it.withSync(sync) }
+    }
+
+    fun setPlaybackRate(speed: Float, pitch: Float, synced: Boolean = playbackRate.value.synced) {
+        playbackRateStore.update { PlaybackRate(speed, pitch, synced) }
     }
 
     // Time Format Settings Methods
