@@ -23,7 +23,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.AudioAttributes
@@ -75,7 +75,9 @@ fun CanvasArtworkPlayer(
     // Keep effective playing state up to date without rebuilding the player
     val currentIsPlaying by rememberUpdatedState(effectivePlaying)
 
-    val exoPlayer = remember(initial) {
+    // The AndroidView survives URL changes. Keep its attached player for that same
+    // lifetime; replacing only the player leaves the retained TextureView orphaned.
+    val exoPlayer = remember(context.applicationContext) {
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
                 /* minBufferMs = */ 2_000,
@@ -173,7 +175,7 @@ fun CanvasArtworkPlayer(
         onDispose { exoPlayer.release() }
     }
 
-    val alpha by animateFloatAsState(
+    val canvasAlpha = animateFloatAsState(
         targetValue = if (isVideoReady) 1f else 0f,
         animationSpec = tween(durationMillis = 500),
         label = "canvasAlpha"
@@ -201,6 +203,6 @@ fun CanvasArtworkPlayer(
                 view.setAspectRatio(videoAspectRatio)
             }
         },
-        modifier = modifier.alpha(alpha),
+        modifier = modifier.graphicsLayer { alpha = canvasAlpha.value },
     )
 }

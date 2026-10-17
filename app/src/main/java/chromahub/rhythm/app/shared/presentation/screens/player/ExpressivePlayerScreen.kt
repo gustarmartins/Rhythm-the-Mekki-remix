@@ -776,8 +776,6 @@ fun ExpressivePlayerScreen(
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
         label = "swipeCornerRadius"
     )
-    val clampedSwipeCornerRadius = swipeCornerRadius.coerceAtLeast(0f)
-
     val swipeMinimizeModifier = if (swipeToDismissEnabled) {
         modifier
             .graphicsLayer {
@@ -786,7 +784,7 @@ fun ExpressivePlayerScreen(
                 val scaleTarget = 1f - (swipeProgress * 0.15f)
                 scaleX = scaleTarget; scaleY = scaleTarget
                 alpha = (1f - (swipeProgress * 1.5f)).coerceIn(0f, 1f)
-                clip = true; shape = RoundedCornerShape(clampedSwipeCornerRadius.dp)
+                clip = true; shape = RoundedCornerShape(swipeCornerRadius.coerceAtLeast(0f).dp)
             }
             .pointerInput(screenHeightPx) {
                 detectVerticalDragGestures(

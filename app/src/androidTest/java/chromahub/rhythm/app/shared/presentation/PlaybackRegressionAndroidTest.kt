@@ -256,6 +256,63 @@ class PlaybackRegressionAndroidTest {
         assertEquals(initialLayouts, layouts)
     }
 
+    @Test fun canvasKeepsRenderingWhenTheArtworkUrlChanges() {
+        val settings = main { AppSettings.getInstance(context) }
+        val enabled = settings.appleCanvasEnabled.value
+        val integrations = settings.integrationsEnabled.value
+        val network = settings.appleCanvasNetworkMode.value
+        val pauseCanvas = settings.batterySaverDisableCanvas.value
+        val files = listOf("red", "blue").map { color ->
+            java.io.File(context.cacheDir, "canvas-$color.mp4").also { file ->
+                instrumentation.context.assets.open("canvas-regression/$color.mp4").use { input ->
+                    file.outputStream().use { input.copyTo(it) }
+                }
+            }
+        }
+        val url = mutableStateOf(android.net.Uri.fromFile(files[0]).toString())
+        fun texture(view: android.view.View): android.view.TextureView? {
+            if (view is android.view.TextureView) return view
+            if (view is android.view.ViewGroup) {
+                for (index in 0 until view.childCount) texture(view.getChildAt(index))?.let { return it }
+            }
+            return null
+        }
+        fun hasColor(red: Boolean): Boolean = main {
+            val bitmap = texture(host!!.window.decorView)?.getBitmap(1, 1) ?: return@main false
+            try {
+                val pixel = bitmap.getPixel(0, 0)
+                if (red) android.graphics.Color.red(pixel) > 200 && android.graphics.Color.blue(pixel) < 50
+                else android.graphics.Color.blue(pixel) > 200 && android.graphics.Color.red(pixel) < 50
+            } finally { bitmap.recycle() }
+        }
+        try {
+            main {
+                settings.setAppleCanvasEnabled(true)
+                settings.setIntegrationsEnabled(true)
+                settings.setAppleCanvasNetworkMode(chromahub.rhythm.app.shared.data.model.CanvasNetworkMode.BOTH)
+                settings.setBatterySaverDisableCanvas(false)
+                host!!.setContent {
+                    chromahub.rhythm.app.shared.presentation.components.player.CanvasArtworkPlayer(
+                        primaryUrl = url.value, fallbackUrl = null, modifier = Modifier.size(100.dp))
+                }
+            }
+            compose.waitUntil(15000) { hasColor(red = true) }
+            val originalView = main { texture(host!!.window.decorView) }
+            main { url.value = android.net.Uri.fromFile(files[1]).toString() }
+            compose.waitUntil(15000) { hasColor(red = false) }
+            main { assertSame("Changing artwork should retain the video view", originalView, texture(host!!.window.decorView)) }
+        } finally {
+            main {
+                host!!.setContent { }
+                settings.setAppleCanvasEnabled(enabled)
+                settings.setIntegrationsEnabled(integrations)
+                settings.setAppleCanvasNetworkMode(network)
+                settings.setBatterySaverDisableCanvas(pauseCanvas)
+            }
+            files.forEach { it.delete() }
+        }
+    }
+
     @Test fun firstMetadataLoadDoesNotMoveAnchorsOrRequireASecondDismissSwipe() {
         val loaded = mutableStateOf(false)
         var dismissals = 0
