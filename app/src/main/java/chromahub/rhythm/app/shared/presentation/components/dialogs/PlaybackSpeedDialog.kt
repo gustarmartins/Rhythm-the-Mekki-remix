@@ -13,6 +13,7 @@ fun PlaybackSpeedDialog(
     currentSpeed: Float,
     currentPitch: Float = currentSpeed,
     syncEnabled: Boolean = false,
+    showPitchControls: Boolean = true,
     onSyncChange: (Boolean) -> Unit = {},
     onDismiss: () -> Unit,
     onSave: (Float) -> Unit,
@@ -22,6 +23,7 @@ fun PlaybackSpeedDialog(
         currentSpeed = currentSpeed,
         currentPitch = currentPitch,
         syncEnabled = syncEnabled,
+        showPitchControls = showPitchControls,
         onDismiss = onDismiss,
         onSave = { speed, pitch, synced ->
             onSyncChange(synced)

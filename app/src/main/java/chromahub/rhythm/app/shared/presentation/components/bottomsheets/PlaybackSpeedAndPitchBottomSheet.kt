@@ -50,6 +50,7 @@ fun PlaybackSpeedAndPitchBottomSheet(
     currentSpeed: Float,
     currentPitch: Float,
     syncEnabled: Boolean = false,
+    showPitchControls: Boolean = true,
     onDismiss: () -> Unit,
     onSave: (speed: Float, pitch: Float, synced: Boolean) -> Unit
 ) {
@@ -65,7 +66,7 @@ fun PlaybackSpeedAndPitchBottomSheet(
     val minVal = 0.25f
     val maxVal = 3.0f
 
-    var selectedSync by remember { mutableStateOf(syncEnabled) }
+    var selectedSync by remember { mutableStateOf(syncEnabled && showPitchControls) }
     var selectedSpeed by remember { mutableFloatStateOf(currentSpeed.coerceIn(minVal, maxVal)) }
     var selectedPitch by remember { mutableFloatStateOf((if (selectedSync) currentSpeed else currentPitch).coerceIn(minVal, maxVal)) }
 
@@ -121,7 +122,7 @@ fun PlaybackSpeedAndPitchBottomSheet(
 
         Column(modifier = Modifier.fillMaxWidth()) {
             StandardBottomSheetHeader(
-                title = stringResource(R.string.player_speed_and_pitch),
+                title = stringResource(if (showPitchControls) R.string.player_speed_and_pitch else R.string.player_playback_speed),
                 visible = true
             )
 
@@ -138,49 +139,52 @@ fun PlaybackSpeedAndPitchBottomSheet(
                         .padding(start = 24.dp, end = 24.dp + endPadding, top = 8.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    val syncDefaultItems = buildList {
-                        add(
-                            Material3SettingsItem(
-                                icon = MaterialSymbolIcon("sync_alt", filled = true),
-                                palette = SettingsPalettes.SkyBlue,
-                                title = {
-                                    Text(
-                                        text = stringResource(R.string.player_sync_speed_pitch),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                },
-                                description = {
-                                    Text(
-                                        text = stringResource(R.string.mirror_changes_across_both),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                },
-                                trailingContent = {
-                                    TunerAnimatedSwitch(
-                                        checked = selectedSync,
-                                        onCheckedChange = { enabled ->
-                                            selectedSync = enabled
-                                            if (enabled) selectedPitch = selectedSpeed
-                                        }
-                                    )
-                                },
-                                onClick = {
-                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                    val newSync = !selectedSync
-                                    selectedSync = newSync
-                                    if (newSync) selectedPitch = selectedSpeed
-                                }
+                    if (showPitchControls) {
+                        val syncDefaultItems = buildList {
+                            add(
+                                Material3SettingsItem(
+                                    icon = MaterialSymbolIcon("sync_alt", filled = true),
+                                    palette = SettingsPalettes.SkyBlue,
+                                    title = {
+                                        Text(
+                                            text = stringResource(R.string.player_sync_speed_pitch),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    description = {
+                                        Text(
+                                            text = stringResource(R.string.mirror_changes_across_both),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    },
+                                    trailingContent = {
+                                        TunerAnimatedSwitch(
+                                            checked = selectedSync,
+                                            onCheckedChange = { enabled ->
+                                                selectedSync = enabled
+                                                if (enabled) selectedPitch = selectedSpeed
+                                            }
+                                        )
+                                    },
+                                    onClick = {
+                                        HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                        val newSync = !selectedSync
+                                        selectedSync = newSync
+                                        if (newSync) selectedPitch = selectedSpeed
+                                    }
+                                )
                             )
-                        )
-                    }
+                        }
 
-                    Material3SettingsGroup(
-                        items = syncDefaultItems,
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                    )
+                        Material3SettingsGroup(
+                            items = syncDefaultItems,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                        )
+
+                    }
 
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -315,136 +319,138 @@ fun PlaybackSpeedAndPitchBottomSheet(
                         }
                     }
 
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        SectionHeadingRow(
-                            label = context.getString(R.string.player_pitch_label),
-                            value = formatValueWithX(selectedPitch),
-                            isModified = isPitchModified,
-                            tint = MaterialTheme.colorScheme.secondary,
-                            onReset = {
-                                HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                selectedPitch = 1.0f
-                                if (selectedSync) selectedSpeed = 1.0f
-                            }
-                        )
-
+                    if (showPitchControls) {
                         Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                ExpressiveFilledTonalIconButton(
-                                    onClick = {
-                                        adjustPitch(-0.05f)
-                                        HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                    },
-                                    modifier = Modifier.size(36.dp),
-                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = MaterialSymbolIcon("remove", filled = true),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                            SectionHeadingRow(
+                                label = context.getString(R.string.player_pitch_label),
+                                value = formatValueWithX(selectedPitch),
+                                isModified = isPitchModified,
+                                tint = MaterialTheme.colorScheme.secondary,
+                                onReset = {
+                                    HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                                    selectedPitch = 1.0f
+                                    if (selectedSync) selectedSpeed = 1.0f
                                 }
-                                CookieHorizontalSlider(
-                                    value = selectedPitch,
-                                    onValueChange = { v ->
-                                        val r = (Math.round(v * 1000.0) / 1000.0).toFloat()
-                                        selectedPitch = r
-                                        if (selectedSync) selectedSpeed = r
-                                    },
-                                    valueRange = minVal..maxVal,
-                                    step = 0.05f,
-                                    activeTrackColor = MaterialTheme.colorScheme.secondary,
-                                    inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                    thumbColor = MaterialTheme.colorScheme.surface,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(36.dp)
-                                        .padding(horizontal = 8.dp)
-                                )
-                                ExpressiveFilledTonalIconButton(
-                                    onClick = {
-                                        adjustPitch(+0.05f)
-                                        HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
-                                    },
-                                    modifier = Modifier.size(36.dp),
-                                    colors = IconButtonDefaults.filledTonalIconButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                ) {
-                                    Icon(
-                                        imageVector = MaterialSymbolIcon("add", filled = true),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
+                            )
 
-                            RhythmGroupedButton(
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                size = RhythmButtonSize.Small
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                listOf(-0.01f, -0.001f, +0.001f, +0.01f).forEachIndexed { idx, step ->
-                                    val label = if (step > 0) "+${formatClean(step)}" else formatClean(step)
-                                    RhythmButtonWeighted(
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    ExpressiveFilledTonalIconButton(
                                         onClick = {
-                                            adjustPitch(step)
+                                            adjustPitch(-0.05f)
                                             HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
                                         },
-                                        weight = 1f,
-                                        isFirst = idx == 0,
-                                        isLast = idx == 3,
-                                        type = RhythmButtonType.Tonal,
-                                        text = label,
-                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
-                            }
-
-                            val pitchPresetsListState = rememberLazyListState()
-                            LazyRow(
-                                state = pitchPresetsListState,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .horizontalEdgeBlend(lazyListState = pitchPresetsListState, fadeWidth = 12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                items(pitchPresets) { preset ->
-                                    val isSelected = selectedPitch == preset
-                                    ExpressiveFilterChip(
-                                        selected = isSelected,
-                                        onClick = {
-                                            selectedPitch = preset
-                                            if (selectedSync) selectedSpeed = preset
-                                            HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
-                                        },
-                                        label = {
-                                            Text(
-                                                text = formatValueWithX(preset),
-                                                style = MaterialTheme.typography.labelLarge,
-                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                            )
-                                        },
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f),
-                                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            selectedContainerColor = MaterialTheme.colorScheme.secondary,
-                                            selectedLabelColor = MaterialTheme.colorScheme.onSecondary
+                                        modifier = Modifier.size(36.dp),
+                                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                         )
+                                    ) {
+                                        Icon(
+                                            imageVector = MaterialSymbolIcon("remove", filled = true),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    CookieHorizontalSlider(
+                                        value = selectedPitch,
+                                        onValueChange = { v ->
+                                            val r = (Math.round(v * 1000.0) / 1000.0).toFloat()
+                                            selectedPitch = r
+                                            if (selectedSync) selectedSpeed = r
+                                        },
+                                        valueRange = minVal..maxVal,
+                                        step = 0.05f,
+                                        activeTrackColor = MaterialTheme.colorScheme.secondary,
+                                        inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        thumbColor = MaterialTheme.colorScheme.surface,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(36.dp)
+                                            .padding(horizontal = 8.dp)
                                     )
+                                    ExpressiveFilledTonalIconButton(
+                                        onClick = {
+                                            adjustPitch(+0.05f)
+                                            HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                        },
+                                        modifier = Modifier.size(36.dp),
+                                        colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    ) {
+                                        Icon(
+                                            imageVector = MaterialSymbolIcon("add", filled = true),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                RhythmGroupedButton(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    size = RhythmButtonSize.Small
+                                ) {
+                                    listOf(-0.01f, -0.001f, +0.001f, +0.01f).forEachIndexed { idx, step ->
+                                        val label = if (step > 0) "+${formatClean(step)}" else formatClean(step)
+                                        RhythmButtonWeighted(
+                                            onClick = {
+                                                adjustPitch(step)
+                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                            },
+                                            weight = 1f,
+                                            isFirst = idx == 0,
+                                            isLast = idx == 3,
+                                            type = RhythmButtonType.Tonal,
+                                            text = label,
+                                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    }
+                                }
+
+                                val pitchPresetsListState = rememberLazyListState()
+                                LazyRow(
+                                    state = pitchPresetsListState,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalEdgeBlend(lazyListState = pitchPresetsListState, fadeWidth = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(pitchPresets) { preset ->
+                                        val isSelected = selectedPitch == preset
+                                        ExpressiveFilterChip(
+                                            selected = isSelected,
+                                            onClick = {
+                                                selectedPitch = preset
+                                                if (selectedSync) selectedSpeed = preset
+                                                HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
+                                            },
+                                            label = {
+                                                Text(
+                                                    text = formatValueWithX(preset),
+                                                    style = MaterialTheme.typography.labelLarge,
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                                )
+                                            },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f),
+                                                labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                selectedContainerColor = MaterialTheme.colorScheme.secondary,
+                                                selectedLabelColor = MaterialTheme.colorScheme.onSecondary
+                                            )
+                                        )
+                                    }
                                 }
                             }
                         }

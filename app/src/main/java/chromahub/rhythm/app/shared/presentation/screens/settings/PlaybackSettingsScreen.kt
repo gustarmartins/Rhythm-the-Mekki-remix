@@ -374,10 +374,10 @@ fun PlaybackSettingsScreen(
             PlaybackSpeedDialog(
                 currentSpeed = defaultPlaybackSpeed,
                 syncEnabled = false,
+                showPitchControls = false,
                 onDismiss = { showDefaultSpeedDialog = false },
                 onSave = { speed ->
                     appSettings.setDefaultPlaybackSpeed(speed)
-                    showDefaultSpeedDialog = false
                 }
             )
         }

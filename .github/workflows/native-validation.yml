@@ -63,16 +63,16 @@ jobs:
           sdkmanager 'emulator' 'system-images;android-35;google_apis;x86_64'
           printf 'no\n' | avdmanager create avd --name rhythm-regression \
             --package 'system-images;android-35;google_apis;x86_64' --device pixel_7 --force
-          "$ANDROID_HOME/emulator/emulator" -avd rhythm-regression -no-window -no-audio \
+          "$ANDROID_HOME/emulator/emulator" -avd rhythm-regression -port 5554 -no-window -no-audio \
             -no-boot-anim -no-snapshot -gpu swiftshader_indirect > emulator.log 2>&1 &
           emulator_pid=$!
           trap 'kill "$emulator_pid" || true' EXIT
-          adb wait-for-device
-          timeout 180 sh -c 'until adb shell getprop sys.boot_completed | tr -d "\r" | grep -q 1; do sleep 2; done'
-          adb shell input keyevent 82
-          adb install app/build/outputs/apk/github/debug/*-x86_64.apk
-          adb install app/build/outputs/apk/androidTest/github/debug/app-github-debug-androidTest.apk
-          adb shell am instrument -w -r \
+          adb -s emulator-5554 wait-for-device
+          timeout 180 sh -c 'until adb -s emulator-5554 shell getprop sys.boot_completed | tr -d "\r" | grep -q 1; do sleep 2; done'
+          adb -s emulator-5554 shell input keyevent 82
+          adb -s emulator-5554 install app/build/outputs/apk/github/debug/*-x86_64.apk
+          adb -s emulator-5554 install app/build/outputs/apk/androidTest/github/debug/app-github-debug-androidTest.apk
+          adb -s emulator-5554 shell am instrument -w -r \
             -e class chromahub.rhythm.app.shared.presentation.PlaybackRegressionAndroidTest \
             chromahub.rhythm.app.debug.test/androidx.test.runner.AndroidJUnitRunner | tee playback-regressions.txt
           grep -q '^OK (' playback-regressions.txt

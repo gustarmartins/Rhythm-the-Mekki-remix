@@ -64,6 +64,50 @@ class PlaybackRegressionAndroidTest {
         main { restoreSettings(); host?.finishAndRemoveTask() }
     }
 
+    private fun showRateSheet(showPitch: Boolean = true, save: (Float, Float, Boolean) -> Unit) {
+        main {
+            host!!.setContent {
+                MaterialTheme {
+                    var visible by remember { mutableStateOf(true) }
+                    if (visible) PlaybackSpeedAndPitchBottomSheet(
+                        currentSpeed = 1.25f, currentPitch = 0.8f,
+                        showPitchControls = showPitch,
+                        onSave = save, onDismiss = { visible = false }
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+    }
+
+    @Test fun syncToggleAndPresetApplyOneLinkedPair() {
+        var saved: chromahub.rhythm.app.shared.data.model.PlaybackRate? = null
+        showRateSheet { speed, pitch, synced ->
+            saved = chromahub.rhythm.app.shared.data.model.PlaybackRate(speed, pitch, synced)
+        }
+        compose.onNodeWithText(context.getString(chromahub.rhythm.app.R.string.player_sync_speed_pitch)).performClick()
+        compose.onAllNodesWithText("0.5x")[0].performScrollTo().performClick()
+        assertNull("Draft edits must wait for Apply", saved)
+        compose.onNodeWithText(context.getString(chromahub.rhythm.app.R.string.ui_apply)).performClick()
+        assertEquals(chromahub.rhythm.app.shared.data.model.PlaybackRate(0.5f, 0.5f, true), saved)
+    }
+
+    @Test fun unlinkedPitchPresetDoesNotChangeTempo() {
+        var saved: chromahub.rhythm.app.shared.data.model.PlaybackRate? = null
+        showRateSheet { speed, pitch, synced ->
+            saved = chromahub.rhythm.app.shared.data.model.PlaybackRate(speed, pitch, synced)
+        }
+        compose.onAllNodesWithText("0.5x")[1].performScrollTo().performClick()
+        compose.onNodeWithText(context.getString(chromahub.rhythm.app.R.string.ui_apply)).performClick()
+        assertEquals(chromahub.rhythm.app.shared.data.model.PlaybackRate(1.25f, 0.5f, false), saved)
+    }
+
+    @Test fun defaultSpeedEditorDoesNotOfferUnsavedPitchOrSyncControls() {
+        showRateSheet(showPitch = false) { _, _, _ -> }
+        compose.onNodeWithText(context.getString(chromahub.rhythm.app.R.string.player_sync_speed_pitch)).assertDoesNotExist()
+        compose.onNodeWithText(context.getString(chromahub.rhythm.app.R.string.player_pitch_label)).assertDoesNotExist()
+    }
+
     @Test fun serviceEngineRestoresAndObservesBothRatesWithoutAViewModel() {
         val settings = main { AppSettings.getInstance(context) }
         var engine: RhythmPlayerEngine? = null
@@ -159,7 +203,10 @@ class PlaybackRegressionAndroidTest {
                 assertEquals(1.3f, activeController.playbackParameters.speed)
                 assertEquals(0.8f, activeController.playbackParameters.pitch)
                 assertTrue(activeController.isPlaying)
-                activeController.addMediaItem(activeController.currentMediaItem!!)
+                activeController.addMediaItem(androidx.media3.common.MediaItem.Builder()
+                    .setMediaId("rate-regression-next").setUri(android.net.Uri.fromFile(file))
+                    .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder()
+                        .setTitle("Next title").setArtist("Regression fixture").build()).build())
                 assertEquals(1.3f, activeController.playbackParameters.speed)
                 activeController.seekToNextMediaItem()
             }
