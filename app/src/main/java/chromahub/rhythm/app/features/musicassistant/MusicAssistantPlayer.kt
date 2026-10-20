@@ -103,7 +103,12 @@ internal class MusicAssistantPlayer(
             receiver.events.collect { event ->
                 if (event is PlayerEvent.PlaybackStopped && (targetId == null || targetId == localPlayerId) &&
                     event.cause in listOf(StopCause.FocusLost, StopCause.SinkFailed)) {
-                    submit { queue?.let { client.api().playerAction(target(), MusicAssistantApi.PlayerAction.PAUSE) } }
+                    submit {
+                        // Output selection may have completed while this event waited for a command.
+                        if (targetId == null || targetId == localPlayerId) {
+                            queue?.let { client.api().playerAction(target(), MusicAssistantApi.PlayerAction.PAUSE) }
+                        }
+                    }
                 }
                 if (event is PlayerEvent.PlaybackStarted) android.util.Log.i("RhythmMA", "Native PCM playback started; session=$sessionId")
             }
