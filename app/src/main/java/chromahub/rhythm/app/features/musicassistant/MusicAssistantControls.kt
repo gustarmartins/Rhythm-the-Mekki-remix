@@ -34,7 +34,7 @@ fun MusicAssistantControls(modifier: Modifier = Modifier) {
     var busy by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf(false) }
     suspend fun refresh() {
-        outputs = client.api().players().filter { it.available && it.id != player?.phoneOutputId() }
+        outputs = client.api().players().filter { it.available }
         selected = player?.preferredOutputId() ?: client.account.outputId
     }
     fun perform(action: suspend () -> Unit) {
@@ -75,13 +75,22 @@ fun MusicAssistantControls(modifier: Modifier = Modifier) {
                             RadioButton(selected = selected == null, onClick = { select(null) }, enabled = !busy)
                             Text(stringResource(R.string.ma_this_phone), Modifier.padding(top = 12.dp))
                         }
+                        outputs.firstOrNull { it.id == player?.phoneOutputId() }?.let { phone ->
+                            phone.volume?.let { level ->
+                                var volume by remember(phone.id, level) { mutableFloatStateOf(level.toFloat()) }
+                                Slider(value = volume, onValueChange = { volume = it }, valueRange = 0f..100f,
+                                    enabled = !busy, onValueChangeFinished = {
+                                        perform { client.api().volume(phone.id, volume.toInt()) }
+                                    })
+                            }
+                        }
                         if (player != null && selected != null) {
                             TextButton(enabled = !busy, onClick = {
                                 perform { player!!.selectOutput(null, true).awaitCompletion() }
                             }) { Text(stringResource(R.string.ma_transfer)) }
                         }
                     }
-                    items(outputs, key = { it.id }) { output ->
+                    items(outputs.filter { it.id != player?.phoneOutputId() }, key = { it.id }) { output ->
                         Column {
                             Row {
                                 RadioButton(selected = selected == output.id, onClick = { select(output.id) }, enabled = !busy)
