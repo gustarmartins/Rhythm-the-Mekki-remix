@@ -90,7 +90,9 @@ internal class MusicAssistantApi(private val transport: MusicAssistantTransport)
             check(loaded.size == uris.size && loaded.map { it.occurrenceId }.toSet().size == loaded.size) {
                 "Server queue changed while selecting a track; refresh and retry"
             }
-            check(orderMusicAssistantAdditions(uris, loaded).map { it.occurrenceId } == loaded.map { it.occurrenceId }) {
+            check(uris.indices.all { index ->
+                loaded[index].track?.let { it.uri == uris[index] || uris[index] in it.providerUris } == true
+            }) {
                 "Server queue order changed while selecting a track; refresh and retry"
             }
             transport.command("player_queues/play_index", args("queue_id" to queueId,
