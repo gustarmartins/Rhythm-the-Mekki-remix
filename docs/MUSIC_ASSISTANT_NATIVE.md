@@ -230,3 +230,31 @@ registered its queue. Queue commands await that registration with cancellable,
 bounded read-only polling. A Play following an explicit selection is allowed
 only after that selection succeeds; failed or superseded selections cannot
 resume the previous server context. Queue mutations are never blindly retried.
+
+## October 19 provider search and output selection
+
+Choose **Music Assistant outputs** in Go settings before the first Play. **This
+phone** uses Sendspin; a selected server player uses its server queue without
+requiring the phone receiver to connect. Selection is saved for this account,
+cleared when changing accounts, and never silently falls back to another player.
+Selecting an output observes its queue; **Move playback here** is the separate
+transfer action and preserves the server's pause behavior.
+
+Search explicitly includes non-library providers. Song, album, artist and
+playlist categories publish independently, and a failed MA request is reported
+without discarding successful categories. Search playlists load their tracks
+when opened, with loading and retry UI. A custom YouTube Music provider that
+resolves audio with yt-dlp still owns that download on the server: Rhythm keeps
+its opaque provider URI and does not substitute a preview or local downloader.
+
+Stream-start commands, including play_index and Play/Next, allow the same bounded
+90-second resolution wait as play_media. Queue mutations remain one-shot, with
+readback after failures. Explicit selection checks returned track identities and
+order as well as occurrence counts before starting the requested track.
+
+Focused regressions cover partial search, stale cancelled results, remote output
+selection without connecting the phone, explicit grouped transfers, opaque custom
+YouTube provider IDs, library aliases and rejection of a different returned track.
+These fixtures do not establish compatibility with an unavailable private provider
+implementation or physical remote-speaker/Bluetooth playback. The friend's
+custom yt-dlp provider and server have not been exercised directly.

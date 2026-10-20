@@ -3056,9 +3056,27 @@ private fun LocalNavigationContent(
                             .firstOrNull { it.id == playlistId }
                     }
 
-                    val playlistTracks = remember(selectedPlaylist) {
-                        selectedPlaylist?.getTracks().orEmpty()
+                    var resolvedPlaylist by remember(selectedPlaylist) { mutableStateOf(selectedPlaylist) }
+                    var playlistLoading by remember(selectedPlaylist) { mutableStateOf(false) }
+                    var playlistLoadFailed by remember(selectedPlaylist) { mutableStateOf(false) }
+                    var playlistLoadAttempt by remember(playlistId) { mutableIntStateOf(0) }
+                    LaunchedEffect(selectedPlaylist, playlistLoadAttempt) {
+                        val selected = selectedPlaylist ?: return@LaunchedEffect
+                        if (!selected.tracksLoaded) {
+                            playlistLoading = true
+                            playlistLoadFailed = false
+                            try {
+                                resolvedPlaylist = streamingMusicViewModel.resolvePlaylist(selected)
+                            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                playlistLoadFailed = true
+                            } finally {
+                                playlistLoading = false
+                            }
+                        }
                     }
+                    val playlistTracks = resolvedPlaylist?.getTracks().orEmpty()
                     val playlistTracksById = remember(playlistTracks) {
                         playlistTracks.associateBy { it.id }
                     }
@@ -3075,6 +3093,7 @@ private fun LocalNavigationContent(
                     }
                     val scope = rememberCoroutineScope()
 
+                    Box(Modifier.fillMaxSize()) {
                     PlaylistDetailScreen(
                         musicViewModel = viewModel,
                         playlist = localPlaylist,
@@ -3251,6 +3270,21 @@ private fun LocalNavigationContent(
                             }
                         }
                     )
+                    if (playlistLoading) {
+                        androidx.compose.material3.LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth().padding(top = 64.dp))
+                    }
+                    if (playlistLoadFailed) {
+                        Surface(modifier = Modifier.align(Alignment.Center), tonalElevation = 6.dp) {
+                            Column(Modifier.padding(16.dp)) {
+                                Text(stringResource(R.string.ma_playlist_load_failed))
+                                TextButton(onClick = { playlistLoadAttempt++ }) {
+                                    Text(stringResource(R.string.ma_refresh))
+                                }
+                            }
+                        }
+                    }
+                    }
                 }
 
                 composable(

@@ -34,6 +34,9 @@ interface StreamingMusicRepository : MusicRepository {
      * Get the current streaming service source type.
      */
     val currentService: SourceType
+
+    /** Resolve a search result's tracks only when its playlist is opened. */
+    suspend fun resolvePlaylist(playlist: StreamingPlaylist): StreamingPlaylist = playlist
     
     /**
      * Check if the user is authenticated with the current service.

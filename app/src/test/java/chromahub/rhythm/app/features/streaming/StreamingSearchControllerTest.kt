@@ -1,5 +1,6 @@
 package chromahub.rhythm.app.features.streaming
 
+import chromahub.rhythm.app.features.streaming.domain.searchStreamingSections
 import chromahub.rhythm.app.features.streaming.domain.StreamingSearchController
 import chromahub.rhythm.app.features.streaming.domain.streamingSearchEnabled
 import kotlinx.coroutines.CompletableDeferred
@@ -29,7 +30,7 @@ class StreamingSearchControllerTest {
         var results = emptyList<String>()
         var loading = false
         val controller = StreamingSearchController(scope, session::enabled, emptyList(),
-            { requests += it; search(it) }, { results = it }, { loading = it }, { errors += it }, debounce)
+            { query, _ -> requests += query; search(query) }, { results = it }, { loading = it }, { errors += it }, debounce)
     }
 
     @Test fun typingWithRhythmGoNeverEnabledDoesNotContactProviderOrPrompt() = runBlocking {
@@ -118,4 +119,48 @@ class StreamingSearchControllerTest {
             assertEquals(listOf("Twice"), h.requests)
         }
     }
+    @Test fun songsPublishBeforeSlowCategoriesAndSurviveUnsupportedCategory() = runBlocking {
+        withTimeout(5_000) {
+            val release = CompletableDeferred<Unit>()
+            val songsPublished = CompletableDeferred<Unit>()
+            var results = emptyList<String>()
+            var loading = false
+            val errors = mutableListOf<Exception>()
+            val controller = StreamingSearchController(this, { true }, emptyList<String>(),
+                search = { _, publish ->
+                    searchStreamingSections(emptyList(), listOf(
+                        { val update: (List<String>) -> List<String> = { it + "DUN DUN" }; update },
+                        { release.await(); throw java.io.IOException("albums unavailable") }
+                    ), publish)
+                },
+                onResults = { results = it; if (it.isNotEmpty()) songsPublished.complete(Unit) },
+                onLoading = { loading = it }, onError = { errors += it }, debounceMillis = 0)
+            controller.submit("EVERGLOW")
+            songsPublished.await()
+            assertEquals(listOf("DUN DUN"), results)
+            assertTrue(loading)
+            release.complete(Unit)
+            while (loading) yield()
+            assertEquals(listOf("DUN DUN"), results)
+            assertEquals("albums unavailable", errors.single().message)
+        }
+    }
+
+    @Test fun cancelledPartialSearchCannotPublishIntoNewQuery() = runBlocking {
+        withTimeout(5_000) {
+            val release = CompletableDeferred<Unit>()
+            var results = emptyList<String>()
+            val controller = StreamingSearchController(this, { true }, emptyList<String>(),
+                search = { query, publish ->
+                    if (query == "old") withContext(NonCancellable) { release.await(); publish(listOf("stale")) }
+                    listOf(query)
+                }, onResults = { results = it }, onLoading = {}, onError = { throw it }, debounceMillis = 0)
+            controller.submit("old"); yield()
+            controller.submit("new"); yield()
+            assertEquals(listOf("new"), results)
+            release.complete(Unit); yield(); yield()
+            assertEquals(listOf("new"), results)
+        }
+    }
+
 }

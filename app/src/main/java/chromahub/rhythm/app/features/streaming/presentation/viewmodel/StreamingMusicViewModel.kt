@@ -16,6 +16,7 @@ import chromahub.rhythm.app.features.streaming.data.repository.StreamingMusicRep
 import chromahub.rhythm.app.features.streaming.data.repository.StreamingServiceSession
 import chromahub.rhythm.app.features.streaming.data.repository.StreamingServiceSessionRepository
 import chromahub.rhythm.app.features.streaming.di.StreamingMusicModule
+import chromahub.rhythm.app.features.streaming.domain.searchStreamingSections
 import chromahub.rhythm.app.features.streaming.domain.StreamingSearchController
 import chromahub.rhythm.app.features.streaming.domain.streamingSearchEnabled
 import chromahub.rhythm.app.features.streaming.domain.model.BrowseCategory
@@ -325,6 +326,8 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
 
+    suspend fun resolvePlaylist(playlist: StreamingPlaylist): StreamingPlaylist = repository.resolvePlaylist(playlist)
+
     private val searchController = StreamingSearchController(
         scope = viewModelScope,
         isEnabled = {
@@ -334,16 +337,32 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
             ) && NetworkUtils.canStream(getApplication(), appSettings.allowCellularStreaming.value)
         },
         emptyResults = StreamingSearchResults(),
-        search = { query ->
+        search = { query, publish ->
             if (!checkAndSyncAuthentication()) {
                 StreamingSearchResults()
             } else {
-                StreamingSearchResults(
-                    songs = repository.searchSongs(query).filterIsInstance<StreamingSong>(),
-                    albums = repository.searchAlbums(query).filterIsInstance<StreamingAlbum>(),
-                    artists = repository.searchArtists(query).filterIsInstance<StreamingArtist>(),
-                    playlists = repository.searchPlaylists(query).filterIsInstance<StreamingPlaylist>()
-                )
+                searchStreamingSections(StreamingSearchResults(), listOf(
+                    {
+                        val songs = repository.searchSongs(query).filterIsInstance<StreamingSong>()
+                        val update: (StreamingSearchResults) -> StreamingSearchResults = { it.copy(songs = songs) }
+                        update
+                    },
+                    {
+                        val albums = repository.searchAlbums(query).filterIsInstance<StreamingAlbum>()
+                        val update: (StreamingSearchResults) -> StreamingSearchResults = { it.copy(albums = albums) }
+                        update
+                    },
+                    {
+                        val artists = repository.searchArtists(query).filterIsInstance<StreamingArtist>()
+                        val update: (StreamingSearchResults) -> StreamingSearchResults = { it.copy(artists = artists) }
+                        update
+                    },
+                    {
+                        val playlists = repository.searchPlaylists(query).filterIsInstance<StreamingPlaylist>()
+                        val update: (StreamingSearchResults) -> StreamingSearchResults = { it.copy(playlists = playlists) }
+                        update
+                    }
+                ), publish)
             }
         },
         onResults = { _searchResults.value = it },

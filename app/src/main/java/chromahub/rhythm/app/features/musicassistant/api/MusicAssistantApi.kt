@@ -28,13 +28,18 @@ internal class MusicAssistantApi(private val transport: MusicAssistantTransport)
     }
 
     suspend fun searchTracks(query: String, limit: Int = 50, libraryOnly: Boolean = false): List<MusicAssistantTrack> {
+        return searchItems("track", query, limit, libraryOnly).map(MusicAssistantTrack::fromJson)
+    }
+
+    suspend fun searchItems(type: String, query: String, limit: Int = 50, libraryOnly: Boolean = false): List<JsonObject> {
+        require(type in listOf("track", "album", "artist", "playlist"))
         require(query.isNotBlank())
         require(limit in 1..500)
         val result = transport.command("music/search", args(
-            "search_query" to query, "media_types" to listOf("track"),
+            "search_query" to query, "media_types" to listOf(type),
             "limit" to limit, "library_only" to libraryOnly,
         )).objectOrFail()
-        return (result.get("tracks") ?: invalidResponse()).itemsOrFail().map(MusicAssistantTrack::fromJson)
+        return (result.get("${type}s") ?: invalidResponse()).itemsOrFail()
     }
 
     suspend fun track(uri: String): MusicAssistantTrack = MusicAssistantTrack.fromJson(
@@ -84,6 +89,9 @@ internal class MusicAssistantApi(private val transport: MusicAssistantTransport)
             }
             check(loaded.size == uris.size && loaded.map { it.occurrenceId }.toSet().size == loaded.size) {
                 "Server queue changed while selecting a track; refresh and retry"
+            }
+            check(orderMusicAssistantAdditions(uris, loaded).map { it.occurrenceId } == loaded.map { it.occurrenceId }) {
+                "Server queue order changed while selecting a track; refresh and retry"
             }
             transport.command("player_queues/play_index", args("queue_id" to queueId,
                 "index" to loaded[startIndex].occurrenceId, "seek_position" to positionSeconds))

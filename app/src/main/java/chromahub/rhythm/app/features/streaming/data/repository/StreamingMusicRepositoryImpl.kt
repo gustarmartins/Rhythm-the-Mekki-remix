@@ -1494,7 +1494,7 @@ class StreamingMusicRepositoryImpl(
             else -> Result.success(emptyList())
         }
 
-        val mappedSongs = providerResult.getOrElse { emptyList() }
+        val mappedSongs = providerResult.getOrElse { if (it is CancellationException || serviceId == StreamingServiceId.MUSIC_ASSISTANT) throw it else emptyList() }
             .map { mapProviderSong(serviceId, it) }
 
         mergeCatalog(mappedSongs, generation)
@@ -1518,7 +1518,7 @@ class StreamingMusicRepositoryImpl(
             StreamingServiceId.JELLYFIN -> jellyfinClient.searchAlbums(query, SEARCH_LIMIT)
             else -> Result.success(emptyList())
         }
-        return providerResult.getOrElse { emptyList() }.map { 
+        return providerResult.getOrElse { if (it is CancellationException || serviceId == StreamingServiceId.MUSIC_ASSISTANT) throw it else emptyList() }.map {
             mapProviderAlbum(serviceId, it)
         }
     }
@@ -1538,7 +1538,7 @@ class StreamingMusicRepositoryImpl(
             StreamingServiceId.MUSIC_ASSISTANT -> musicAssistantClient.searchArtists(query)
             StreamingServiceId.JELLYFIN -> jellyfinClient.searchArtists(query)
             else -> Result.success(emptyList())
-        }.getOrElse { emptyList() }
+        }.getOrElse { if (it is CancellationException || serviceId == StreamingServiceId.MUSIC_ASSISTANT) throw it else emptyList() }
 
         if (providerArtists.isNotEmpty()) {
             return mapProviderArtists(serviceId, providerArtists)
@@ -1564,11 +1564,27 @@ class StreamingMusicRepositoryImpl(
             else -> Result.success(emptyList())
         }
 
-        return result.getOrElse { emptyList() }
+        return result.getOrElse { if (it is CancellationException || serviceId == StreamingServiceId.MUSIC_ASSISTANT) throw it else emptyList() }
             .map { providerPlaylist ->
-                val tracks = fetchPlaylistTracks(serviceId, providerPlaylist.providerId)
-                mapProviderPlaylist(serviceId, providerPlaylist, tracks)
+                if (serviceId == StreamingServiceId.MUSIC_ASSISTANT) {
+                    mapProviderPlaylist(serviceId, providerPlaylist).copy(tracksLoaded = false)
+                } else {
+                    val tracks = fetchPlaylistTracks(serviceId, providerPlaylist.providerId)
+                    mapProviderPlaylist(serviceId, providerPlaylist, tracks)
+                }
             }
+    }
+
+    override suspend fun resolvePlaylist(playlist: StreamingPlaylist): StreamingPlaylist {
+        if (playlist.tracksLoaded || playlist.sourceType != SourceType.MUSIC_ASSISTANT) return playlist
+        val generation = currentCatalogGeneration()
+        catalogSession.requireCurrent(generation)
+        val (service, id) = requireNotNull(decodePlaylistId(playlist.id))
+        check(service == activeServiceId() && service == StreamingServiceId.MUSIC_ASSISTANT)
+        val tracks = mapProviderSongs(service, musicAssistantClient.getPlaylistSongs(id).getOrThrow())
+        catalogSession.requireCurrent(generation)
+        mergeCatalog(tracks, generation)
+        return playlist.copy(tracks = tracks, tracksLoaded = true, songCount = tracks.size)
     }
 
     override fun getSongs(): Flow<List<PlayableItem>> = songsFlow.asStateFlow()

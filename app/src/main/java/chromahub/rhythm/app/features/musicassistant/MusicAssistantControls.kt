@@ -30,12 +30,12 @@ fun MusicAssistantControls(modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val client = remember(context) { MusicAssistantProviderClient(context) }
     var outputs by remember { mutableStateOf(emptyList<Output>()) }
-    var selected by remember { mutableStateOf(player?.selectedOutputId()) }
+    var selected by remember { mutableStateOf(player?.preferredOutputId() ?: client.account.outputId) }
     var busy by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf(false) }
     suspend fun refresh() {
-        outputs = client.api().players().filter { it.available }
-        selected = player?.selectedOutputId()
+        outputs = client.api().players().filter { it.available && it.id != player?.phoneOutputId() }
+        selected = player?.preferredOutputId() ?: client.account.outputId
     }
     fun perform(action: suspend () -> Unit) {
         scope.launch {
@@ -46,21 +46,45 @@ fun MusicAssistantControls(modifier: Modifier = Modifier) {
             finally { busy = false }
         }
     }
+    fun select(id: String?) = perform {
+        val active = player
+        if (active != null) active.selectOutput(id, false).awaitCompletion()
+        else {
+            // Choose the next Play destination without starting any audio or media service.
+            if (id != null) check(client.api().activeQueue(id) != null) { "Output has no queue" }
+            client.account.outputId = id
+        }
+    }
     LaunchedEffect(player) {
-        try { refresh() } catch (_: Exception) { failure = true }
+        try { refresh() }
+        catch (cancelled: CancellationException) { throw cancelled }
+        catch (_: Exception) { failure = true }
     }
     AlertDialog(onDismissRequest = { show = false }, title = { Text(stringResource(R.string.ma_outputs)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (player == null) stringResource(R.string.ma_start_song) else status)
+                Text(stringResource(R.string.ma_output_selection_help))
+                if (player != null) Text(status)
                 if (failure) Text(stringResource(R.string.ma_output_failed), color = MaterialTheme.colorScheme.error)
+                if (selected != null && outputs.none { it.id == selected }) {
+                    Text(stringResource(R.string.ma_selected_output_unavailable), color = MaterialTheme.colorScheme.error)
+                }
                 LazyColumn(Modifier.heightIn(max = 400.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    item(key = "rhythm-this-phone") {
+                        Row {
+                            RadioButton(selected = selected == null, onClick = { select(null) }, enabled = !busy)
+                            Text(stringResource(R.string.ma_this_phone), Modifier.padding(top = 12.dp))
+                        }
+                        if (player != null && selected != null) {
+                            TextButton(enabled = !busy, onClick = {
+                                perform { player!!.selectOutput(null, true).awaitCompletion() }
+                            }) { Text(stringResource(R.string.ma_transfer)) }
+                        }
+                    }
                     items(outputs, key = { it.id }) { output ->
                         Column {
                             Row {
-                                RadioButton(selected = selected == output.id, onClick = {
-                                    player?.let { perform { it.selectOutput(output.id, false).awaitCompletion() } }
-                                }, enabled = player != null && !busy)
+                                RadioButton(selected = selected == output.id, onClick = { select(output.id) }, enabled = !busy)
                                 Text(output.name, Modifier.padding(top = 12.dp))
                             }
                             if (output.volume != null) {
@@ -75,7 +99,8 @@ fun MusicAssistantControls(modifier: Modifier = Modifier) {
                                     TextButton(enabled = !busy, onClick = { perform { player!!.selectOutput(output.id, true).awaitCompletion() } }) {
                                         Text(stringResource(R.string.ma_transfer))
                                     }
-                                    val grouped = outputs.firstOrNull { it.id == selected }?.groupMembers?.contains(output.id) == true || output.syncedTo == selected
+                                    val activeId = player?.selectedOutputId()
+                                    val grouped = outputs.firstOrNull { it.id == activeId }?.groupMembers?.contains(output.id) == true || (activeId != null && output.syncedTo == activeId)
                                     TextButton(enabled = !busy, onClick = { perform { player!!.setMember(output.id, !grouped).awaitCompletion() } }) {
                                         Text(stringResource(if (grouped) R.string.ma_ungroup else R.string.ma_group))
                                     }

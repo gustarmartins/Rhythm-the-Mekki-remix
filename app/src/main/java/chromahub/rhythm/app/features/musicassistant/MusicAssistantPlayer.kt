@@ -30,6 +30,7 @@ internal class MusicAssistantPlayer(
     private val foreground: () -> Unit,
     private val audioSession: (Int, Boolean) -> Unit,
 ) : SimpleBasePlayer(Looper.getMainLooper()) {
+    private val appContext = context.applicationContext
     private val client = MusicAssistantProviderClient(context)
     private val playerJob = SupervisorJob()
     private val scope = CoroutineScope(playerJob + Dispatchers.Main.immediate)
@@ -68,15 +69,16 @@ internal class MusicAssistantPlayer(
     private var localPlayerId: String? = null
     private var error: PlaybackException? = null
     private var released = false
-    private var targetId: String? = null
+    private var targetId: String? = client.account.outputId
     private val pendingManual = mutableListOf<String>()
     private val metadata = mutableMapOf<String, MediaItem>()
 
     init {
         active.value = this
+        publishConnectionStatus()
         scope.launch {
             receiver.state.collect { state ->
-                publishConnectionStatus()
+                if (targetId == null || targetId == localPlayerId) publishConnectionStatus()
                 if (state is PlayerState.Connected) localPlayerId = state.playerId
                 val audio = when (state) {
                     is PlayerState.Connected -> state.audio
@@ -85,7 +87,7 @@ internal class MusicAssistantPlayer(
                 }
                 val ready = audio?.phase == AudioPhase.Playing && !audio.starved
                 if (ready != localAudioReady) { localAudioReady = ready; invalidateState() }
-                if (state is PlayerState.Failed) {
+                if (state is PlayerState.Failed && (targetId == null || targetId == localPlayerId)) {
                     error = PlaybackException(nativeStatus.value, null, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
                     invalidateState()
                 }
@@ -99,7 +101,8 @@ internal class MusicAssistantPlayer(
         }
         scope.launch {
             receiver.events.collect { event ->
-                if (event is PlayerEvent.PlaybackStopped && event.cause in listOf(StopCause.FocusLost, StopCause.SinkFailed)) {
+                if (event is PlayerEvent.PlaybackStopped && (targetId == null || targetId == localPlayerId) &&
+                    event.cause in listOf(StopCause.FocusLost, StopCause.SinkFailed)) {
                     submit { queue?.let { client.api().playerAction(target(), MusicAssistantApi.PlayerAction.PAUSE) } }
                 }
                 if (event is PlayerEvent.PlaybackStarted) android.util.Log.i("RhythmMA", "Native PCM playback started; session=$sessionId")
@@ -112,7 +115,12 @@ internal class MusicAssistantPlayer(
                     catch (cancelled: CancellationException) { throw cancelled }
                     // This HTTP request may predate a successful WebSocket reconnect.
                     // Connection status belongs to the current receiver, not that old request.
-                    catch (_: Exception) { publishConnectionStatus() }
+                    catch (_: Exception) {
+                        publishConnectionStatus()
+                        if (targetId != null && targetId != localPlayerId) {
+                            connectionIssue.value = appContext.getString(chromahub.rhythm.app.R.string.ma_remote_unavailable)
+                        }
+                    }
                 }
                 delay(1000)
             }
@@ -120,6 +128,11 @@ internal class MusicAssistantPlayer(
     }
     private fun publishConnectionStatus() {
         if (released || active.value !== this) return
+        if (targetId != null && targetId != localPlayerId) {
+            nativeStatus.value = appContext.getString(chromahub.rhythm.app.R.string.ma_remote_control)
+            connectionIssue.value = null
+            return
+        }
         val current = receiver.state.value
         nativeStatus.value = when (current) {
             is PlayerState.Connected -> "Connected to ${current.serverName}"
@@ -142,6 +155,9 @@ internal class MusicAssistantPlayer(
     }
     private suspend fun target(): String {
         targetId?.let { return it }
+        return phoneTarget()
+    }
+    private suspend fun phoneTarget(): String {
         connect()
         val state = withTimeout(30000) { receiver.state.first { it is PlayerState.Connected || it is PlayerState.Failed } }
         check(state is PlayerState.Connected) { "Music Assistant audio connection failed" }
@@ -255,7 +271,12 @@ internal class MusicAssistantPlayer(
                 // A timeout may have committed a mutation. Reconcile, never blindly replay it.
                 withTimeoutOrNull(5000) { runCatching { operations.withLock { refresh() } } }
                 if (released || active.value !== this@MusicAssistantPlayer) { future.cancel(false); return@launch }
-                val message = "Music Assistant command failed. Refresh the server connection."
+                val message = appContext.getString(when ((failure as? MusicAssistantApiException)?.failure) {
+                    MusicAssistantFailure.AUTHENTICATION -> chromahub.rhythm.app.R.string.ma_auth_failed
+                    MusicAssistantFailure.PERMISSION -> chromahub.rhythm.app.R.string.ma_permission_failed
+                    MusicAssistantFailure.NETWORK -> chromahub.rhythm.app.R.string.ma_network_failed
+                    else -> chromahub.rhythm.app.R.string.ma_playback_failed
+                })
                 if (rows.isEmpty()) error = PlaybackException(message, null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
                 else commandFailure.value = message
                 publishConnectionStatus()
@@ -295,7 +316,7 @@ internal class MusicAssistantPlayer(
             client.api().playerAction(target(), if (playWhenReady) MusicAssistantApi.PlayerAction.PLAY else MusicAssistantApi.PlayerAction.PAUSE)
         }
     }
-    override fun handlePrepare() = submit { connect() }
+    override fun handlePrepare() = submit { if (targetId == null) connect() }
     override fun handleStop() = submit { client.api().playerAction(target(), MusicAssistantApi.PlayerAction.STOP) }
     override fun handleSeek(mediaItemIndex: Int, positionMs: Long, seekCommand: Int) = submit {
         val qid = queueId()
@@ -381,12 +402,22 @@ internal class MusicAssistantPlayer(
         pendingManual.clear()
     }
     fun selectedOutputId(): String? = targetId ?: (receiver.state.value as? PlayerState.Connected)?.playerId
-    fun selectOutput(id: String, transfer: Boolean) = submit {
-        val source = queueId()
-        val targetQueue = client.api().activeQueue(id)?.id ?: error("Output has no queue")
-        if (transfer && source != targetQueue) client.api().transfer(source, targetQueue)
-        targetId = id
-        pendingManual.clear()
+    fun phoneOutputId(): String? = localPlayerId
+    fun preferredOutputId(): String? = targetId
+    fun selectOutput(id: String?, transfer: Boolean): ListenableFuture<Void> {
+        val selection = queueSelection.beginReplacement()
+        return submit {
+            val destination = id ?: phoneTarget()
+            // Observing a remote output must not first connect this phone's receiver.
+            selectMusicAssistantOutput(destination, transfer,
+                sourceQueue = { queueId() },
+                destinationQueue = { awaitMusicAssistantQueue { client.api().activeQueue(destination)?.id } },
+                transferQueue = { source, target -> client.api().transfer(source, target) })
+            targetId = id
+            client.account.outputId = id
+            pendingManual.clear()
+            queueSelection.confirmReplacement(selection, true)
+        }
     }
     fun setOutputVolume(id: String, volume: Int) = submit { client.api().volume(id, volume) }
     fun setMember(id: String, enabled: Boolean) = submit {

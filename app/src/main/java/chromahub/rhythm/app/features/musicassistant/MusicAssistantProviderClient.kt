@@ -55,8 +55,8 @@ internal class MusicAssistantProviderClient(context: Context) {
     private suspend fun library(type: String, limit: Int, search: String? = null, order: String = "name") = command(
         "music/$type/library_items", "limit" to limit.coerceIn(1, 500), "offset" to 0, "search" to search, "order_by" to order
     ).itemsOrFail()
-    private suspend fun search(type: String, query: String, limit: Int) = command("music/search", "search_query" to query,
-        "media_types" to listOf(type), "limit" to limit.coerceIn(1, 500)).objectOrFail().get("${type}s").itemsOrFail()
+    private suspend fun search(type: String, query: String, limit: Int) =
+        api().searchItems(type, query, limit.coerceIn(1, 500), libraryOnly = false)
     private suspend fun children(command: String, uri: String): List<JsonObject> {
         val parent = item(uri)
         return command(command, "item_id" to parent.requiredText("item_id"), "provider_instance_id_or_domain" to parent.requiredText("provider")).itemsOrFail()
