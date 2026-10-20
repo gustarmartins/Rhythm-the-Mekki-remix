@@ -70,31 +70,27 @@ fun MusicAssistantControls(modifier: Modifier = Modifier) {
                     Text(stringResource(R.string.ma_selected_output_unavailable), color = MaterialTheme.colorScheme.error)
                 }
                 LazyColumn(Modifier.heightIn(max = 400.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    item(key = "rhythm-this-phone") {
-                        Row {
-                            RadioButton(selected = selected == null, onClick = { select(null) }, enabled = !busy)
-                            Text(stringResource(R.string.ma_this_phone), Modifier.padding(top = 12.dp))
-                        }
-                        outputs.firstOrNull { it.id == player?.phoneOutputId() }?.let { phone ->
-                            phone.volume?.let { level ->
-                                var volume by remember(phone.id, level) { mutableFloatStateOf(level.toFloat()) }
-                                Slider(value = volume, onValueChange = { volume = it }, valueRange = 0f..100f,
-                                    enabled = !busy, onValueChangeFinished = {
-                                        perform { client.api().volume(phone.id, volume.toInt()) }
-                                    })
+                    if (outputs.none { it.id == player?.phoneOutputId() }) {
+                        item(key = "rhythm-this-phone") {
+                            Row {
+                                RadioButton(selected = selected == null, onClick = { select(null) }, enabled = !busy)
+                                Text(stringResource(R.string.ma_this_phone), Modifier.padding(top = 12.dp))
+                            }
+                            if (player != null && selected != null) {
+                                TextButton(enabled = !busy, onClick = {
+                                    perform { player!!.selectOutput(null, true).awaitCompletion() }
+                                }) { Text(stringResource(R.string.ma_transfer)) }
                             }
                         }
-                        if (player != null && selected != null) {
-                            TextButton(enabled = !busy, onClick = {
-                                perform { player!!.selectOutput(null, true).awaitCompletion() }
-                            }) { Text(stringResource(R.string.ma_transfer)) }
-                        }
                     }
-                    items(outputs.filter { it.id != player?.phoneOutputId() }, key = { it.id }) { output ->
+                    items(outputs, key = { it.id }) { output ->
+                        // The registered phone keeps all normal volume/group controls. Save null
+                        // for it so the next launch reconnects Sendspin instead of treating it as remote.
+                        val selectionId = output.id.takeUnless { it == player?.phoneOutputId() }
                         Column {
                             Row {
-                                RadioButton(selected = selected == output.id, onClick = { select(output.id) }, enabled = !busy)
-                                Text(output.name, Modifier.padding(top = 12.dp))
+                                RadioButton(selected = selected == selectionId, onClick = { select(selectionId) }, enabled = !busy)
+                                Text(if (selectionId == null) stringResource(R.string.ma_this_phone) else output.name, Modifier.padding(top = 12.dp))
                             }
                             if (output.volume != null) {
                                 var volume by remember(output.id, output.volume) { mutableFloatStateOf(output.volume.toFloat()) }
@@ -103,9 +99,9 @@ fun MusicAssistantControls(modifier: Modifier = Modifier) {
                                         perform { client.api().volume(output.id, volume.toInt()) }
                                     })
                             }
-                            if (player != null && selected != output.id) {
+                            if (player != null && selected != selectionId) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    TextButton(enabled = !busy, onClick = { perform { player!!.selectOutput(output.id, true).awaitCompletion() } }) {
+                                    TextButton(enabled = !busy, onClick = { perform { player!!.selectOutput(selectionId, true).awaitCompletion() } }) {
                                         Text(stringResource(R.string.ma_transfer))
                                     }
                                     val activeId = player?.selectedOutputId()
