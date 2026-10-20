@@ -32,7 +32,7 @@
     <string name="music_assistant_cancel">Cancel</string>
     <string name="ma_outputs">Music Assistant outputs</string>
     <string name="ma_start_song">Play a Music Assistant song in Rhythm to connect this phone.</string>
-    <string name="ma_output_failed">The server could not complete this change. Refresh and check that the players support grouping.</string>
+    <string name="ma_output_failed">Could not load or change the output. Check the server connection and player availability.</string>
     <string name="ma_transfer">Move playback here</string>
     <string name="ma_group">Join group</string>
     <string name="ma_ungroup">Leave group</string>
@@ -40,4 +40,14 @@
     <string name="ma_admin">Server administration</string>
     <string name="ma_native_open">Open in Rhythm Go</string>
     <string name="ma_admin_description">Configure music providers and server settings in the server’s web interface.</string>
+    <string name="ma_this_phone">This phone</string>
+    <string name="ma_output_selection_help">Choose where the next song plays. Selecting an output does not move or start its queue. Use Move playback here to transfer the current queue.</string>
+    <string name="ma_playlist_load_failed">Could not load this playlist from Music Assistant. Check the provider and try again.</string>
+    <string name="ma_remote_control">Controlling the selected Music Assistant output</string>
+    <string name="ma_remote_unavailable">Cannot refresh the selected Music Assistant output. Check the server connection.</string>
+    <string name="ma_auth_failed">Sign in to Music Assistant again.</string>
+    <string name="ma_permission_failed">Your Music Assistant account cannot control this player. Check its permissions on the server.</string>
+    <string name="ma_network_failed">Music Assistant did not respond in time. Check the connection and the selected output before trying again.</string>
+    <string name="ma_playback_failed">Music Assistant could not complete this selection. Check the provider and selected output in Server administration, then select the music again.</string>
+    <string name="ma_selected_output_unavailable">The saved output is unavailable. Select another output to play there.</string>
 </resources>

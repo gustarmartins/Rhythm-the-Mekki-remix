@@ -7,6 +7,11 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 fun streamingSearchEnabled(
     appMode: String,
@@ -20,7 +25,7 @@ internal class StreamingSearchController<T>(
     private val scope: CoroutineScope,
     private val isEnabled: () -> Boolean,
     private val emptyResults: T,
-    private val search: suspend (String) -> T,
+    private val search: suspend (String, (T) -> Unit) -> T,
     private val onResults: (T) -> Unit,
     private val onLoading: (Boolean) -> Unit,
     private val onError: (Exception) -> Unit,
@@ -33,8 +38,8 @@ internal class StreamingSearchController<T>(
         val request = ++generation
         job?.cancel()
         onLoading(false)
+        onResults(emptyResults)
         if (query.isBlank() || !isEnabled()) {
-            onResults(emptyResults)
             return
         }
         job = scope.launch {
@@ -42,7 +47,10 @@ internal class StreamingSearchController<T>(
             if (!isEnabled()) return@launch
             onLoading(true)
             try {
-                val results = search(query)
+                val requestJob = currentCoroutineContext()[Job]
+                val results = search(query) { partial ->
+                    if (requestJob?.isActive == true && request == generation && isEnabled()) onResults(partial)
+                }
                 currentCoroutineContext().ensureActive()
                 if (request == generation && isEnabled()) onResults(results)
             } catch (e: CancellationException) {
@@ -54,4 +62,33 @@ internal class StreamingSearchController<T>(
             }
         }
     }
+}
+
+/** Publish each finished category without waiting for a slow or unsupported provider category. */
+internal suspend fun <T> searchStreamingSections(
+    initial: T,
+    sections: List<suspend () -> (T) -> T>,
+    publish: (T) -> Unit,
+): T = coroutineScope {
+    var results = initial
+    val updates = Mutex()
+    val failures = sections.map { section ->
+        async {
+            try {
+                val update = section()
+                updates.withLock {
+                    results = update(results)
+                    publish(results)
+                }
+                null
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                failure
+            }
+        }
+    }.awaitAll().filterNotNull()
+    // Preserve already published results while reporting that part of the search failed.
+    failures.firstOrNull()?.let { throw it }
+    results
 }

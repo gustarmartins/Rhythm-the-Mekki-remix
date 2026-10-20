@@ -32,7 +32,7 @@
     <string name="music_assistant_native_description">Sua biblioteca do servidor no Rhythm, com reprodução sincronizada e filas compartilhadas.</string>
     <string name="ma_outputs">Saídas do Music Assistant</string>
     <string name="ma_start_song">Reproduza uma música do Music Assistant no Rhythm para conectar este celular.</string>
-    <string name="ma_output_failed">O servidor não concluiu a alteração. Atualize e verifique se os reprodutores permitem agrupamento.</string>
+    <string name="ma_output_failed">Não foi possível carregar ou alterar a saída. Verifique a conexão com o servidor e a disponibilidade do player.</string>
     <string name="ma_transfer">Mover reprodução para cá</string>
     <string name="ma_group">Entrar no grupo</string>
     <string name="ma_ungroup">Sair do grupo</string>
@@ -41,4 +41,14 @@
     <string name="local_network_access_required">Permita o acesso à rede local para conectar ao seu servidor de música.</string>
     <string name="ma_native_open">Abrir no Rhythm Go</string>
     <string name="ma_admin_description">Configure os provedores de música e os ajustes do servidor na interface web.</string>
+    <string name="ma_this_phone">Este telefone</string>
+    <string name="ma_output_selection_help">Escolha onde a próxima música vai tocar. Selecionar uma saída não move nem inicia a fila. Use Mover reprodução para cá para transferir a fila atual.</string>
+    <string name="ma_playlist_load_failed">Não foi possível carregar esta playlist do Music Assistant. Verifique o provedor e tente novamente.</string>
+    <string name="ma_remote_control">Controlando a saída selecionada do Music Assistant</string>
+    <string name="ma_remote_unavailable">Não foi possível atualizar a saída selecionada do Music Assistant. Verifique a conexão com o servidor.</string>
+    <string name="ma_auth_failed">Entre novamente no Music Assistant.</string>
+    <string name="ma_permission_failed">Sua conta do Music Assistant não pode controlar este player. Verifique as permissões no servidor.</string>
+    <string name="ma_network_failed">O Music Assistant não respondeu a tempo. Verifique a conexão e a saída selecionada antes de tentar novamente.</string>
+    <string name="ma_playback_failed">O Music Assistant não conseguiu concluir esta seleção. Verifique o provedor e a saída selecionada na Administração do servidor e selecione a música novamente.</string>
+    <string name="ma_selected_output_unavailable">A saída salva está indisponível. Selecione outra saída para reproduzir nela.</string>
 </resources>

@@ -348,6 +348,65 @@ class MusicAssistantApiTest {
         assertEquals(0, server.requestCount)
     }
 
+    @Test fun customYoutubeProviderSearchKeepsOpaqueIdentityAndSearchesOutsideLibrary() = runBlocking {
+        val providerTrack = JsonParser.parseString(TRACK).asJsonObject.apply {
+            addProperty("uri", "ytmusic--zXC6g8aF://track/R_ab-c123")
+            addProperty("provider", "ytmusic--zXC6g8aF")
+            addProperty("item_id", "R_ab-c123")
+        }
+        respond("""{"tracks":[$providerTrack]}""")
+        val result = api.searchTracks("EVERGLOW DUN DUN").single()
+        assertEquals("ytmusic--zXC6g8aF://track/R_ab-c123", result.toProviderSong().providerId)
+        val args = body()["args"].asJsonObject
+        assertFalse(args["library_only"].asBoolean)
+        assertFalse(args.has("providers"))
+        assertEquals(listOf("track"), args["media_types"].asJsonArray.map { it.asString })
+    }
+
+    @Test fun customProviderCanResolveToLibraryTrackBeforePlayingExactOccurrence() = runBlocking {
+        val track = JsonParser.parseString(TRACK).asJsonObject.apply {
+            add("provider_mappings", JsonParser.parseString("""[{
+                "provider_domain":"ytmusic", "provider_instance":"ytmusic--custom",
+                "item_id":"R_ab-c123", "available":true}]"""))
+        }
+        val calls = mutableListOf<Pair<String, JsonObject>>()
+        val recording = MusicAssistantApi(MusicAssistantTransport { command, args ->
+            calls += command to args
+            if (command == "player_queues/items") JsonParser.parseString(
+                """[{"queue_item_id":"custom-occurrence","media_item":$track}]""")
+            else com.google.gson.JsonNull.INSTANCE
+        })
+        recording.replaceQueueAndSelect("spinners", listOf("ytmusic--custom://track/R_ab-c123"), 0)
+        assertEquals("ytmusic--custom://track/R_ab-c123", calls.first { it.first == "player_queues/play_media" }.second["media"].asJsonArray.single().asString)
+        assertEquals("custom-occurrence", calls.last().second["index"].asString)
+        assertEquals(1, calls.count { it.first == "player_queues/play_index" })
+    }
+
+    @Test fun sameCountWrongProviderTrackNeverStartsOrRetriesPlayback() = runBlocking {
+        val commands = mutableListOf<String>()
+        val recording = MusicAssistantApi(MusicAssistantTransport { command, _ ->
+            commands += command
+            if (command == "player_queues/items") JsonParser.parseString(
+                """[{"queue_item_id":"wrong","media_item":$TRACK}]""")
+            else com.google.gson.JsonNull.INSTANCE
+        })
+        try {
+            recording.replaceQueueAndSelect("spinners", listOf("ytmusic--custom://track/requested"), 0)
+            fail("A different track must never be started")
+        } catch (_: IllegalStateException) { }
+        assertFalse(commands.contains("player_queues/play_index"))
+        assertEquals(1, commands.count { it == "player_queues/play_media" })
+    }
+
+    @Test fun coldProviderResolutionHasBoundedWaitAtActualPlaybackStart() {
+        for (command in listOf("player_queues/play_media", "player_queues/play_index", "players/cmd/play", "player_queues/next")) {
+            assertEquals(command, 90L, musicAssistantCommandTimeoutSeconds(command))
+        }
+        for (command in listOf("music/search", "players/all", "player_queues/get_active_queue", "players/cmd/pause")) {
+            assertEquals(command, 30L, musicAssistantCommandTimeoutSeconds(command))
+        }
+    }
+
     companion object {
         private const val TRACK = """{"uri":"library://track/42","item_id":"42","provider":"library","media_type":"track","name":"Song","duration":123.456,"artists":[{"name":"Artist A"},{"name":"Artist B"}],"album":{"name":"Album","uri":"library://album/7"},"favorite":true,"metadata":{"lyrics":"Hello","lrc_lyrics":"[00:01.00]Hello"},"provider_mappings":[{"available":true,"audio_format":{"content_type":"flac","sample_rate":96000,"channels":2}}]}"""
     }

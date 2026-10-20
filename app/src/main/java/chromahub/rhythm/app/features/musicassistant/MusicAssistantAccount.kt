@@ -17,6 +17,10 @@ internal class MusicAssistantAccount(context: Context) {
     private val legacy = context.getSharedPreferences("music_assistant", Context.MODE_PRIVATE)
     val server: String get() = prefs.getString("server", null) ?: legacy.getString("server", "").orEmpty()
     val username: String get() = prefs.getString("username", "").orEmpty()
+    // Null means this phone. A remote selection is scoped to this server/account.
+    var outputId: String?
+        get() = prefs.getString("output_id", null)
+        set(value) { prefs.edit().putString("output_id", value).apply() }
     // This is a configuration check, not authentication. Never decrypt in UI predicates.
     val hasCredentials: Boolean get() = server.isNotBlank() &&
         !prefs.getString("secret.token", null).isNullOrBlank()
@@ -27,7 +31,9 @@ internal class MusicAssistantAccount(context: Context) {
         // Commit the server and encrypted token together: never send a new account's
         // bearer to the previous server during a concurrent catalog request.
         val encrypted = encrypt("token", token.toByteArray())
-        check(prefs.edit().putString("server", server).putString("username", username)
+        val editor = prefs.edit()
+        if (this.server != server || this.username != username) editor.remove("output_id")
+        check(editor.putString("server", server).putString("username", username)
             .putString("secret.token", encrypted).commit())
         legacy.edit().putString("server", server).apply()
     }

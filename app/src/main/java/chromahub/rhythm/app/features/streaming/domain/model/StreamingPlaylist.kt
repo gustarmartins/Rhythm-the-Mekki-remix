@@ -26,7 +26,8 @@ data class StreamingPlaylist(
     val isCollaborative: Boolean = false,
     val followers: Long? = null,
     val snapshotId: String? = null, // For Spotify change tracking
-    private val tracks: List<StreamingSong> = emptyList()
+    private val tracks: List<StreamingSong> = emptyList(),
+    val tracksLoaded: Boolean = true,
 ) : PlaylistItem {
     
     override suspend fun getSongs(): List<PlayableItem> = tracks

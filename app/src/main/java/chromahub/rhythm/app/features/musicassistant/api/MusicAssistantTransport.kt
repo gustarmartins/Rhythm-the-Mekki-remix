@@ -73,11 +73,7 @@ internal class MusicAssistantHttpTransport(
             addProperty("command", command)
             add("args", args.deepCopy())
         }
-        val timeoutSeconds = when (command) {
-            "player_queues/play_media", "player_queues/transfer" -> 90L
-            else -> 30L
-        }
-        return post("api", payload, token, timeoutSeconds)
+        return post("api", payload, token, musicAssistantCommandTimeoutSeconds(command))
     }
 
     /** Passwords are sent once to the selected server and are not persisted by this adapter. */
@@ -178,6 +174,14 @@ internal class MusicAssistantHttpTransport(
     companion object {
         internal const val MAX_RESPONSE_BYTES = 8L * 1024 * 1024
     }
+}
+
+/** Stream resolution can occur at play_index/Play/Next, after play_media has only staged the queue. */
+internal fun musicAssistantCommandTimeoutSeconds(command: String): Long = when (command) {
+    "player_queues/play_media", "player_queues/transfer", "player_queues/play_index",
+    "player_queues/next", "player_queues/previous", "players/cmd/play",
+    "players/cmd/next", "players/cmd/previous" -> 90L
+    else -> 30L
 }
 
 internal fun invalidResponse(): Nothing =
