@@ -17,6 +17,7 @@ internal object NewUserDefaults {
             "player_theme_id" to "EXPRESSIVE",
             "miniplayer_theme_id" to "MATERIAL", // Rhythm mini player.
             "player_ambient_backdrop_enabled" to true,
+            "player_accent_background_enabled" to false,
             "player_ambient_backdrop_intensity" to 0.35f,
             "player_ambient_infinite_zoom" to true,
             "enable_album_editing" to false,

@@ -20,6 +20,7 @@ class NewUserDefaultsTest {
         assertEquals("EXPRESSIVE", values["player_theme_id"])
         assertEquals("MATERIAL", values["miniplayer_theme_id"])
         assertEquals(true, values["player_ambient_backdrop_enabled"])
+        assertEquals(false, values["player_accent_background_enabled"])
         assertEquals(0.35f, values["player_ambient_backdrop_intensity"])
         assertEquals(true, values["player_ambient_infinite_zoom"])
         assertEquals(false, values["enable_album_editing"])
