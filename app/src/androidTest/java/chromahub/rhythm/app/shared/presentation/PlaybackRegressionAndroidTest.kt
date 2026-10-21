@@ -1,6 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 package chromahub.rhythm.app.shared.presentation
 
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.foundation.background
+import chromahub.rhythm.app.shared.presentation.components.player.MiniPlayerProgressBackground
 import android.app.ActivityOptions
 import android.content.Intent
 import androidx.activity.ComponentActivity
@@ -78,6 +82,53 @@ class PlaybackRegressionAndroidTest {
             }
         }
         compose.waitForIdle()
+    }
+
+    @Test fun progressFillUpdatesPixelsWithoutRemeasuringContent() {
+        val progress = mutableFloatStateOf(0f)
+        var measures = 0
+        var compositions = 0
+        main {
+            host!!.setContent {
+                SideEffect { compositions++ }
+                MiniPlayerProgressBackground(
+                    progress = { progress.floatValue },
+                    color = Color.Red,
+                    modifier = Modifier.size(200.dp, 40.dp).background(Color.Blue)
+                        .testTag("progress-fill")
+                        .layout { measurable, constraints ->
+                            measures++
+                            val child = measurable.measure(constraints)
+                            layout(child.width, child.height) { child.place(0, 0) }
+                        }
+                )
+            }
+        }
+        compose.waitForIdle()
+        val initialMeasures = main { measures }
+        val initialCompositions = main { compositions }
+        fun assertPixel(fraction: Float, expected: Color) {
+            val pixels = compose.onNodeWithTag("progress-fill").captureToImage().toPixelMap()
+            val actual = pixels[(pixels.width * fraction).toInt(), pixels.height / 2]
+            assertEquals(expected.red, actual.red, 0.01f)
+            assertEquals(expected.blue, actual.blue, 0.01f)
+        }
+        assertPixel(0.1f, Color.Blue)
+        main { progress.floatValue = 0.25f }
+        compose.waitForIdle()
+        assertPixel(0.1f, Color.Red)
+        assertPixel(0.5f, Color.Blue)
+        main { progress.floatValue = 0.75f }
+        compose.waitForIdle()
+        assertPixel(0.5f, Color.Red)
+        assertPixel(0.9f, Color.Blue)
+        main { progress.floatValue = 0f }
+        compose.waitForIdle()
+        assertPixel(0.1f, Color.Blue)
+        main {
+            assertEquals("Progress must not trigger layout", initialMeasures, measures)
+            assertEquals("Progress must not recompose content", initialCompositions, compositions)
+        }
     }
 
     @Test fun syncToggleAndPresetApplyOneLinkedPair() {

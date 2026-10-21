@@ -36,7 +36,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -53,7 +52,6 @@ import chromahub.rhythm.app.shared.data.model.AppSettings
 import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.shared.presentation.components.common.AutoScrollingTextOnDemand
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeTarget
-import chromahub.rhythm.app.shared.presentation.components.common.ShimmerBox
 import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShapeFor
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
@@ -225,7 +223,11 @@ fun ExpressiveMiniPlayer(
             .height(84.dp)
             .padding(horizontal = 14.dp, vertical = 6.dp)
     })
-        .scale(scale * songBounceScale * initialAppearanceBounceScale * dragScale)
+        .graphicsLayer {
+            val combinedScale = scale * songBounceScale * initialAppearanceBounceScale * dragScale
+            scaleX = combinedScale
+            scaleY = combinedScale
+        }
         .graphicsLayer {
             translationY = translationOffsetY
             translationX = translationOffsetX
@@ -401,15 +403,11 @@ fun ExpressiveMiniPlayer(
                     fallbackShape = RoundedCornerShape(miniPlayerCornerRadius.dp)
                 )
                 Box(modifier = Modifier.fillMaxSize()) {
-                    if (animatedProgress > 0f) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(fraction = animatedProgress.coerceIn(0.001f, 1f))
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f))
-                        )
-                    }
+                    MiniPlayerProgressBackground(
+                        progress = { animatedProgress },
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                        modifier = Modifier.matchParentSize()
+                    )
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
@@ -429,7 +427,6 @@ fun ExpressiveMiniPlayer(
                                 ) {
                                     Box(modifier = Modifier.fillMaxSize()) {
                                         if (song != null) {
-                                            ShimmerBox(modifier = Modifier.fillMaxSize())
                                             M3ImageUtils.TrackImage(
                                                 imageUrl = song.artworkUri,
                                                 trackName = song.title,
@@ -560,15 +557,11 @@ fun ExpressiveMiniPlayer(
         } else {
                 // Phone layout (Original)
                 Box(modifier = Modifier.fillMaxSize()) {
-                    if (animatedProgress > 0f) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(fraction = animatedProgress.coerceIn(0.001f, 1f))
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer)
-                        )
-                    }
+                    MiniPlayerProgressBackground(
+                        progress = { animatedProgress },
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.matchParentSize()
+                    )
 
                     Row(
                         modifier = Modifier
@@ -594,7 +587,6 @@ fun ExpressiveMiniPlayer(
                                 color = MaterialTheme.colorScheme.surfaceVariant
                             ) {
                                 if (song != null) {
-                                    ShimmerBox(modifier = Modifier.fillMaxSize())
                                     M3ImageUtils.TrackImage(
                                         imageUrl = song.artworkUri,
                                         trackName = song.title,
