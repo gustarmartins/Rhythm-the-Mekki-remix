@@ -6,6 +6,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 
@@ -25,6 +27,7 @@ internal fun MiniPlayerProgressBackground(
             drawRoundRect(
                 color = color,
                 size = Size(width, size.height),
+                topLeft = Offset(if (layoutDirection == LayoutDirection.Rtl) size.width - width else 0f, 0f),
                 cornerRadius = CornerRadius(radius, radius)
             )
         }

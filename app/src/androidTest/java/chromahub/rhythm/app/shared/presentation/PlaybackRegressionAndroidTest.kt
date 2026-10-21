@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 package chromahub.rhythm.app.shared.presentation
 
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.foundation.background
@@ -86,10 +88,12 @@ class PlaybackRegressionAndroidTest {
 
     @Test fun progressFillUpdatesPixelsWithoutRemeasuringContent() {
         val progress = mutableFloatStateOf(0f)
+        val direction = mutableStateOf(LayoutDirection.Ltr)
         var measures = 0
         var compositions = 0
         main {
             host!!.setContent {
+                CompositionLocalProvider(LocalLayoutDirection provides direction.value) {
                 SideEffect { compositions++ }
                 MiniPlayerProgressBackground(
                     progress = { progress.floatValue },
@@ -102,6 +106,7 @@ class PlaybackRegressionAndroidTest {
                             layout(child.width, child.height) { child.place(0, 0) }
                         }
                 )
+                }
             }
         }
         compose.waitForIdle()
@@ -128,7 +133,12 @@ class PlaybackRegressionAndroidTest {
         main {
             assertEquals("Progress must not trigger layout", initialMeasures, measures)
             assertEquals("Progress must not recompose content", initialCompositions, compositions)
+            direction.value = LayoutDirection.Rtl
+            progress.floatValue = 0.25f
         }
+        compose.waitForIdle()
+        assertPixel(0.9f, Color.Red)
+        assertPixel(0.1f, Color.Blue)
     }
 
     @Test fun syncToggleAndPresetApplyOneLinkedPair() {
