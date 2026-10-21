@@ -190,6 +190,12 @@ android {
         includeInBundle = false
     }
 
+    // Font.Builder runs during first text layout. Store fonts so Android can map
+    // them directly instead of inflating the 10 MB icon font on the UI thread.
+    androidResources {
+        noCompress += listOf("ttf", "otf")
+    }
+
     packaging {
         resources {
             merges += "/META-INF/INDEX.LIST"
