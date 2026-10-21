@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 package chromahub.rhythm.app.shared.presentation.components.player
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -18,8 +21,15 @@ internal fun MiniPlayerProgressBackground(
     color: Color,
     modifier: Modifier = Modifier
 ) {
+    // Observe the target here, so even the lower-frequency playback position updates
+    // do not recompose the parent mini-player, its artwork, or either text label.
+    val animatedProgress = animateFloatAsState(
+        targetValue = progress(),
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "miniPlayerProgress"
+    )
     Box(modifier.drawBehind {
-        val fraction = progress()
+        val fraction = animatedProgress.value
         if (fraction > 0f) {
             val width = size.width * fraction.coerceIn(0.001f, 1f)
             // Match the old fractional-width Box clipped to CircleShape, including small fills.

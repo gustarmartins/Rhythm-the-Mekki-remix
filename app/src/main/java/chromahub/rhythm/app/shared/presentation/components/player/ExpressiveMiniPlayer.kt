@@ -96,11 +96,7 @@ fun ExpressiveMiniPlayer(
     val miniPlayerShowArtwork by appSettings.miniPlayerShowArtwork.collectAsState()
 
     
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress(),
-        animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "progress"
-    )
+
 
     
     val interactionSource = remember { MutableInteractionSource() }
@@ -404,7 +400,7 @@ fun ExpressiveMiniPlayer(
                 )
                 Box(modifier = Modifier.fillMaxSize()) {
                     MiniPlayerProgressBackground(
-                        progress = { animatedProgress },
+                        progress = progress,
                         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
                         modifier = Modifier.matchParentSize()
                     )
@@ -558,7 +554,7 @@ fun ExpressiveMiniPlayer(
                 // Phone layout (Original)
                 Box(modifier = Modifier.fillMaxSize()) {
                     MiniPlayerProgressBackground(
-                        progress = { animatedProgress },
+                        progress = progress,
                         color = MaterialTheme.colorScheme.primaryContainer,
                         modifier = Modifier.matchParentSize()
                     )
