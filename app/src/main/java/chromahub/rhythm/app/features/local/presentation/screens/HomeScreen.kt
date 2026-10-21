@@ -299,6 +299,16 @@ fun HomeScreen(
     val isLandscapeTablet = isTablet && windowScreenWidthDp() > windowScreenHeightDp()
     val appSettings = remember { AppSettings.getInstance(context) }
 
+    val listeningDevice by appSettings.currentBluetoothDisplayDevice.collectAsState()
+    val listeningRoute by appSettings.currentExternalAudioRoute.collectAsState()
+    var showListeningControls by remember { mutableStateOf(false) }
+    if (showListeningControls) {
+        chromahub.rhythm.app.shared.presentation.screens.settings.ListeningControlsDialog(
+            appSettings = appSettings,
+            onDismiss = { showListeningControls = false }
+        )
+    }
+
     // Home header customization
     val headerDisplayMode by appSettings.homeHeaderDisplayMode.collectAsState()
     val showAppIcon by appSettings.homeShowAppIcon.collectAsState()
@@ -565,6 +575,17 @@ fun HomeScreen(
         showAppIcon = showAppIcon,
         iconVisibilityMode = iconVisibilityMode,
         headerActions = buildList {
+            add(HeaderAction(
+                icon = MaterialSymbolIcon(when {
+                    listeningDevice != null -> "bluetooth"
+                    listeningRoute?.startsWith("wired:11:") == true ||
+                        listeningRoute?.startsWith("wired:22:") == true -> "usb"
+                    listeningRoute != null -> "headphones"
+                    else -> "speaker"
+                }),
+                contentDescription = context.getString(R.string.home_listening_controls),
+                onClick = { showListeningControls = true }
+            ))
             val showReorder = !isLandscapeTablet
             val showSettings = !isTablet && floatingNavigationBar
 

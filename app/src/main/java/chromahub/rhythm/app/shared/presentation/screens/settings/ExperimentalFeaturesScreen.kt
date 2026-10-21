@@ -586,7 +586,7 @@ internal fun BluetoothLyricsTextModeDialog(
 
 
 @Composable
-private fun BluetoothLyricsTuningDialog(
+internal fun BluetoothLyricsTuningDialog(
     currentOffsetMs: Int,
     deviceLabel: String?,
     currentMaxChunkChars: Int,
@@ -594,7 +594,8 @@ private fun BluetoothLyricsTuningDialog(
     currentMinChunkHoldMs: Int,
     currentMetadataUpdateIntervalMs: Int,
     onApply: (Int, Int, Int, Int, Int) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    quickControls: @Composable () -> Unit = {}
 ) {
     var draftOffsetMs by remember(currentOffsetMs) { mutableIntStateOf(currentOffsetMs) }
     var draftMaxChunkChars by remember(currentMaxChunkChars) { mutableIntStateOf(currentMaxChunkChars) }
@@ -673,6 +674,7 @@ private fun BluetoothLyricsTuningDialog(
                     )
                 }
 
+                quickControls()
                 BluetoothLyricsGuidance()
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

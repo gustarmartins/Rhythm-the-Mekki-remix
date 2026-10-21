@@ -49,6 +49,31 @@ class PlaybackRegressionAndroidTest {
         return result!!.getOrThrow()
     }
 
+    @Test fun listeningControlsExposeLyricsAndPreserveChoiceAfterDismissal() {
+        val settings = AppSettings.getInstance(context)
+        val original = settings.bluetoothLyricsEnabled.value
+        try {
+            main {
+                settings.setBluetoothLyricsEnabled(true)
+                host!!.setContent {
+                    MaterialTheme {
+                        var visible by remember { mutableStateOf(true) }
+                        if (visible) chromahub.rhythm.app.shared.presentation.screens.settings.ListeningControlsDialog(
+                            settings, onDismiss = { visible = false })
+                    }
+                }
+            }
+            compose.onNodeWithText(context.getString(chromahub.rhythm.app.R.string.bluetooth_lyrics_enabled))
+                .performScrollTo().performClick()
+            compose.runOnIdle { assertFalse(settings.bluetoothLyricsEnabled.value) }
+            // Quick switches apply immediately; closing the tuning editor must not revert them.
+            compose.onNodeWithText(context.getString(chromahub.rhythm.app.R.string.ui_cancel)).performClick()
+            compose.runOnIdle { assertFalse(settings.bluetoothLyricsEnabled.value) }
+        } finally {
+            main { settings.setBluetoothLyricsEnabled(original) }
+        }
+    }
+
     @Before fun startHost() {
         require(context.packageName.endsWith(".debug"))
         val display = InstrumentationRegistry.getArguments().getString("displayId")?.toInt()
