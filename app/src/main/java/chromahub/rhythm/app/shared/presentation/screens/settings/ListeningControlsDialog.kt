@@ -36,6 +36,7 @@ internal fun ListeningControlsDialog(appSettings: AppSettings, onDismiss: () -> 
             ))
         },
         onDismiss = onDismiss,
+        title = stringResource(R.string.home_listening_controls),
         quickControls = {
             ListeningToggle(stringResource(R.string.bluetooth_lyrics_enabled), displayLyrics,
                 appSettings::setBluetoothLyricsEnabled)
