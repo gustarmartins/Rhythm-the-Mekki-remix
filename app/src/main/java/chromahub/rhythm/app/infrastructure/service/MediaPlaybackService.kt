@@ -1691,6 +1691,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                             commandButton.sessionCommand?.let { builder.add(it) }
                         }
                         builder.add(SessionCommand(PlayNextCommand.ACTION, Bundle.EMPTY))
+                        builder.add(SessionCommand(PlayNextCommand.GET_QUEUE, Bundle.EMPTY))
+                        builder.add(SessionCommand(PlayNextCommand.CLEAR_EXCEPT_CURRENT, Bundle.EMPTY))
+                        builder.add(SessionCommand(QueueEntryCommand.ACTION, Bundle.EMPTY))
                         builder.add(SessionCommand("UPDATE_ACTIVE_LYRIC", Bundle.EMPTY))
                         builder.add(SessionCommand("UPDATE_LYRICS_DATA", Bundle.EMPTY))
                         builder.add(SessionCommand(SESSION_COMMAND_BT_VIRTUAL_SKIP_NEXT, Bundle.EMPTY))
@@ -2343,6 +2346,85 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             queueSnapshotRevision++
         }
         return PlaybackQueueSnapshot(items, current, queueSnapshotRevision)
+    }
+
+    private fun editQueueEntry(token: String, operation: String, target: String?): Bundle {
+        val snapshot = playbackQueueSnapshot()
+        val tokens = snapshot.items.map { it.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN).orEmpty() }
+        val plan = planQueueEntryEdit(tokens, snapshot.currentIndex, pendingPlayNextTokens, token, operation, target)
+        val byToken = tokens.zip(snapshot.items).toMap()
+        pendingPlayNextTokens.clear()
+        pendingPlayNextTokens.addAll(plan.pending)
+        if (btVirtualOriginalQueue != null) {
+            // Rebase the virtual indices in traversal order. No player rebuild for an edit.
+            val edited = plan.order.map { byToken.getValue(it) }
+            val changedCurrent = tokens.getOrNull(snapshot.currentIndex) != plan.order[plan.currentIndex]
+            isMutatingBtVirtualQueue = true
+            try {
+                btVirtualOriginalQueue = edited
+                btVirtualCurrentOriginalIndex = plan.currentIndex
+                btVirtualHistory.clear()
+                btVirtualHistory.addAll(edited.take(plan.currentIndex).mapIndexed { i, item -> BtVirtualQueueItem(item, i) })
+                btVirtualUpcoming.clear()
+                btVirtualUpcoming.addAll(edited.drop(plan.currentIndex + 1).mapIndexed { i, item ->
+                    BtVirtualQueueItem(item, i + plan.currentIndex + 1)
+                })
+                if (operation == QueueEntryCommand.PLAY) {
+                    if (changedCurrent) {
+                        lastBtVirtualQueueMoveMs = 0L
+                        player.setMediaItem(withVirtualQueuePosition(edited[plan.currentIndex], plan.currentIndex))
+                    }
+                    player.prepare()
+                    player.play()
+                }
+            } finally { isMutatingBtVirtualQueue = false }
+            publishVirtualQueueState()
+        } else {
+            val physical = MutableList(player.mediaItemCount) {
+                player.getMediaItemAt(it).mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN).orEmpty()
+            }
+            if (operation == QueueEntryCommand.PLAY) {
+                val index = physical.indexOf(token)
+                require(index >= 0)
+                if (index != player.currentMediaItemIndex) player.seekToDefaultPosition(index)
+                player.prepare()
+                player.play()
+            } else {
+                isMutatingBtVirtualQueue = true
+                try {
+                    if (operation == QueueEntryCommand.REMOVE) {
+                        val index = physical.indexOf(token)
+                        require(index >= 0)
+                        player.removeMediaItem(index)
+                        physical.removeAt(index)
+                    }
+                    if (player.shuffleModeEnabled) {
+                        val positions = physical.withIndex().associate { it.value to it.index }
+                        (rhythmPlayerEngine.masterPlayer as ExoPlayer).setShuffleOrder(
+                            chromahub.rhythm.app.infrastructure.service.player.RhythmShuffleOrder(
+                                plan.order.map { positions.getValue(it) }.toIntArray()))
+                    } else {
+                        if (operation == QueueEntryCommand.NEXT || operation == QueueEntryCommand.MOVE) {
+                            val from = physical.indexOf(token)
+                            val to = plan.order.indexOf(token)
+                            if (from != to) {
+                                player.moveMediaItem(from, to)
+                                physical.add(to, physical.removeAt(from))
+                            }
+                        }
+                        plan.order.forEachIndexed { destination, entry ->
+                            if (physical[destination] != entry) {
+                                val from = physical.indexOf(entry)
+                                player.moveMediaItem(from, destination)
+                                physical.add(destination, physical.removeAt(from))
+                            }
+                        }
+                    }
+                } finally { isMutatingBtVirtualQueue = false }
+            }
+        }
+        persistServiceQueue()
+        return Bundle.EMPTY
     }
 
     private fun persistServiceQueue() {
@@ -3507,6 +3589,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             if (controller.packageName == packageName) {
                 availableCommands.add(SessionCommand(PlayNextCommand.ACTION, Bundle.EMPTY))
                 availableCommands.add(SessionCommand(PlayNextCommand.GET_QUEUE, Bundle.EMPTY))
+                availableCommands.add(SessionCommand(QueueEntryCommand.ACTION, Bundle.EMPTY))
                 availableCommands.add(SessionCommand(PlayNextCommand.CLEAR_EXCEPT_CURRENT, Bundle.EMPTY))
             }
             availableCommands.add(SessionCommand("UPDATE_ACTIVE_LYRIC", Bundle.EMPTY))
@@ -3528,6 +3611,37 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             customCommand: SessionCommand,
             args: Bundle
         ): ListenableFuture<SessionResult> {
+            if (customCommand.customAction == QueueEntryCommand.ACTION) {
+                if (controller.packageName != packageName || !::player.isInitialized) {
+                    return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
+                }
+                val token = args.getString(PlayNextCommand.ENTRY_TOKEN).orEmpty()
+                val requested = args.getString(QueueEntryCommand.OPERATION)
+                val operation = if (requested == QueueEntryCommand.SELECT) {
+                    if (appSettings.listQueueActionBehavior.value == "play_next" &&
+                        player.currentMediaItem != null && player.playbackState != Player.STATE_ENDED)
+                        QueueEntryCommand.NEXT else QueueEntryCommand.PLAY
+                } else requested.orEmpty()
+                val target = args.getString(QueueEntryCommand.TARGET)
+                musicAssistantPlayer?.let { native ->
+                    val result = com.google.common.util.concurrent.SettableFuture.create<SessionResult>()
+                    val edit = native.editQueueEntry(token, operation, target)
+                    edit.addListener({
+                        try { edit.get(); result.set(SessionResult(SessionResult.RESULT_SUCCESS)) }
+                        catch (e: Exception) {
+                            Log.w(TAG, "Server queue edit rejected", e)
+                            result.set(SessionResult(SessionError.ERROR_INVALID_STATE))
+                        }
+                    }, androidx.core.content.ContextCompat.getMainExecutor(this@MediaPlaybackService))
+                    return result
+                }
+                return try {
+                    Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS, editQueueEntry(token, operation, target)))
+                } catch (e: Exception) {
+                    Log.w(TAG, "Queue edit rejected; refresh the queue", e)
+                    Futures.immediateFuture(SessionResult(SessionError.ERROR_BAD_VALUE))
+                }
+            }
             if (customCommand.customAction == PlayNextCommand.CLEAR_EXCEPT_CURRENT) {
                 if (controller.packageName != packageName || !::player.isInitialized) {
                     return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
@@ -3553,6 +3667,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 val limit = args.getInt(PlayNextCommand.LIMIT, 200).coerceIn(1, 200)
                 val result = Bundle().apply {
                     putStringArrayList(PlayNextCommand.IDS, ArrayList(snapshot.items.drop(offset).take(limit).map { it.mediaId }))
+                    putStringArrayList(QueueEntryCommand.TOKENS, ArrayList(snapshot.items.drop(offset).take(limit).map {
+                        it.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN).orEmpty()
+                    }))
                     putInt(PlayNextCommand.TOTAL, snapshot.items.size)
                     putInt(PlayNextCommand.CURRENT_INDEX, snapshot.currentIndex)
                     putLong(PlayNextCommand.REVISION, snapshot.revision)
@@ -4113,19 +4230,16 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             Log.d(TAG, "Legacy car mode: ignored duplicate previous command")
             return true
         }
-        if (btVirtualHistory.isEmpty() && btVirtualOriginalRepeatMode == Player.REPEAT_MODE_ALL) {
-            btVirtualHistory.addAll(btVirtualUpcoming)
-            btVirtualUpcoming.clear()
-            player.currentMediaItem?.let {
-                btVirtualUpcoming.add(BtVirtualQueueItem(it, btVirtualCurrentOriginalIndex))
-            }
-        }
-        if (btVirtualHistory.isEmpty()) return false
+        val current = player.currentMediaItem?.let { BtVirtualQueueItem(it, btVirtualCurrentOriginalIndex) }
+            ?: return false
+        val plan = planLegacyPrevious(btVirtualHistory.toList(), current, btVirtualUpcoming.toList(),
+            btVirtualOriginalRepeatMode == Player.REPEAT_MODE_ALL) ?: return false
         lastBtVirtualQueueMoveMs = now
-        val prev = btVirtualHistory.removeAt(btVirtualHistory.size - 1)
-        player.currentMediaItem?.let {
-            btVirtualUpcoming.add(0, BtVirtualQueueItem(it, btVirtualCurrentOriginalIndex))
-        }
+        val prev = plan.current
+        btVirtualHistory.clear()
+        btVirtualHistory.addAll(plan.history)
+        btVirtualUpcoming.clear()
+        btVirtualUpcoming.addAll(plan.upcoming)
         isMutatingBtVirtualQueue = true
         try {
             val playWhenReady = player.playWhenReady

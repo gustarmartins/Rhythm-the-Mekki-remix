@@ -280,10 +280,11 @@ fun MaterialPlayerScreen(
     onSaveLyrics: (String, String) -> Unit = { _, _ -> },
     playlists: List<Playlist> = emptyList(),
     queue: List<Song> = emptyList(),
+    queueEntryTokens: List<String> = emptyList(),
     onSongClick: (Song) -> Unit = {},
-    onSongClickAtIndex: (Int) -> Unit = { _ -> },
-    onRemoveFromQueueAtIndex: (Int) -> Unit = { _ -> },
-    onMoveQueueItem: (Int, Int) -> Unit = { _, _ -> },
+    onQueueEntryClick: (String) -> Unit = { _ -> },
+    onRemoveQueueEntry: (String) -> Unit = { _ -> },
+    onMoveQueueItem: (String, String) -> Unit = { _, _ -> },
     onAddSongsToQueue: () -> Unit = {},
     onNavigateToLibrary: (LibraryTab) -> Unit = {},
     showAddToPlaylistSheet: Boolean = false,
@@ -1088,20 +1089,17 @@ fun MaterialPlayerScreen(
         QueueBottomSheet(
             currentSong = song,
             queue = queue,
+            queueEntryTokens = queueEntryTokens,
             currentQueueIndex = queuePosition - 1,
             isShuffleEnabled = isShuffleEnabled,
             repeatMode = repeatMode,
-            onSongClick = { selectedSong ->
-                onSongClick(selectedSong)
-                showQueueSheet = false
-            },
-            onSongClickAtIndex = { index ->
-                onSongClickAtIndex(index)
+            onQueueEntryClick = { index ->
+                onQueueEntryClick(index)
                 showQueueSheet = false
             },
             onDismiss = { showQueueSheet = false },
-            onRemoveSongAtIndex = { indexToRemove ->
-                onRemoveFromQueueAtIndex(indexToRemove)
+            onRemoveQueueEntry = { indexToRemove ->
+                onRemoveQueueEntry(indexToRemove)
             },
             onMoveQueueItem = { fromIndex, toIndex ->
                 onMoveQueueItem(fromIndex, toIndex)

@@ -146,10 +146,11 @@ fun PlayerScreen(
     onSaveLyrics: (String, String) -> Unit = { _, _ -> },
     playlists: List<Playlist> = emptyList(),
     queue: List<Song> = emptyList(),
+    queueEntryTokens: List<String> = emptyList(),
     onSongClick: (Song) -> Unit = {},
-    onSongClickAtIndex: (Int) -> Unit = { _ -> },
-    onRemoveFromQueueAtIndex: (Int) -> Unit = { _ -> },
-    onMoveQueueItem: (Int, Int) -> Unit = { _, _ -> },
+    onQueueEntryClick: (String) -> Unit = { _ -> },
+    onRemoveQueueEntry: (String) -> Unit = { _ -> },
+    onMoveQueueItem: (String, String) -> Unit = { _, _ -> },
     onAddSongsToQueue: () -> Unit = {},
     onNavigateToLibrary: (LibraryTab) -> Unit = {},
     showAddToPlaylistSheet: Boolean = false,
@@ -574,19 +575,16 @@ fun PlayerScreen(
             QueueBottomSheet(
                 currentSong = song,
                 queue = queue,
+                queueEntryTokens = queueEntryTokens,
                 currentQueueIndex = queuePosition - 1,
                 isShuffleEnabled = isShuffleEnabled,
                 repeatMode = repeatMode,
-                onSongClick = { selectedSong ->
-                    onSongClick(selectedSong)
-                    showQueueSheet = false
-                },
-                onSongClickAtIndex = { index ->
-                    onSongClickAtIndex(index)
+                onQueueEntryClick = { index ->
+                    onQueueEntryClick(index)
                     showQueueSheet = false
                 },
                 onDismiss = { showQueueSheet = false },
-                onRemoveSongAtIndex = onRemoveFromQueueAtIndex,
+                onRemoveQueueEntry = onRemoveQueueEntry,
                 onMoveQueueItem = onMoveQueueItem,
                 onAddSongsClick = {
                     showQueueSheet = false
@@ -875,9 +873,10 @@ fun PlayerScreen(
             onSaveLyrics = onSaveLyrics,
             playlists = playlists,
             queue = queue,
+            queueEntryTokens = queueEntryTokens,
             onSongClick = onSongClick,
-            onSongClickAtIndex = onSongClickAtIndex,
-            onRemoveFromQueueAtIndex = onRemoveFromQueueAtIndex,
+            onQueueEntryClick = onQueueEntryClick,
+            onRemoveQueueEntry = onRemoveQueueEntry,
             onMoveQueueItem = onMoveQueueItem,
             onAddSongsToQueue = onAddSongsToQueue,
             onNavigateToLibrary = onNavigateToLibrary,

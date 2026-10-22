@@ -149,7 +149,8 @@ private data class QueueSongRow(
     val song: Song,
     val isPlayed: Boolean,
     val corners: QueueItemCorners,
-    val stableKey: String
+    val stableKey: String,
+    val entryToken: String
 )
 
 private sealed interface QueueListRow {
@@ -165,10 +166,11 @@ private fun queueListRowKey(row: QueueListRow): String = when (row) {
 private fun buildQueueListRows(
     visibleQueue: List<Pair<Int, Song>>,
     queue: List<Song>,
+    queueEntryTokens: List<String>,
     currentSongIndex: Int,
     showPlayedSongs: Boolean
 ): List<QueueListRow> = buildList {
-    val occurrenceKeys = chromahub.rhythm.app.util.queueOccurrenceKeys(queue.map { it.id })
+    val occurrenceKeys = queue.indices.map { queueEntryTokens.getOrNull(it)?.takeIf(String::isNotBlank) ?: "unavailable_$it" }
     val played = visibleQueue.filter { it.first < currentSongIndex }
     val upcoming = visibleQueue.filter { it.first > currentSongIndex }
 
@@ -177,7 +179,7 @@ private fun buildQueueListRows(
         played.forEachIndexed { index, (position, song) ->
             add(
                 QueueListRow.Song(
-                    QueueSongRow(position, 0, song, true, groupedQueueItemCorners(index, played.size), occurrenceKeys[position])
+                    QueueSongRow(position, 0, song, true, groupedQueueItemCorners(index, played.size), occurrenceKeys[position], queueEntryTokens.getOrNull(position).orEmpty())
                 )
             )
         }
@@ -187,7 +189,7 @@ private fun buildQueueListRows(
         upcoming.forEachIndexed { index, (position, song) ->
             add(
                 QueueListRow.Song(
-                    QueueSongRow(position, index + 1, song, false, groupedQueueItemCorners(index, upcoming.size), occurrenceKeys[position])
+                    QueueSongRow(position, index + 1, song, false, groupedQueueItemCorners(index, upcoming.size), occurrenceKeys[position], queueEntryTokens.getOrNull(position).orEmpty())
                 )
             )
         }
@@ -199,14 +201,14 @@ private fun buildQueueListRows(
 fun QueueBottomSheet(
     currentSong: Song?,
     queue: List<Song>,
+    queueEntryTokens: List<String>,
     currentQueueIndex: Int = 0,
     isShuffleEnabled: Boolean = false,
     repeatMode: Int = Player.REPEAT_MODE_OFF,
-    onSongClick: (Song) -> Unit,
-    onSongClickAtIndex: (Int) -> Unit = { _ -> },
+    onQueueEntryClick: (String) -> Unit = { _ -> },
     onDismiss: () -> Unit,
-    onRemoveSongAtIndex: (Int) -> Unit = {},
-    onMoveQueueItem: (Int, Int) -> Unit = { _, _ -> },
+    onRemoveQueueEntry: (String) -> Unit = {},
+    onMoveQueueItem: (String, String) -> Unit = { _, _ -> },
     onAddSongsClick: () -> Unit = {},
     onClearQueue: () -> Unit = {},
     onToggleShuffle: () -> Unit = {},
@@ -243,28 +245,8 @@ fun QueueBottomSheet(
         }
     }
 
-    // Use the queue directly for display, create mutable version only for reordering operations
+    // Display the authoritative queue; edits return through the service snapshot.
     val displayQueue = queue
-    val mutableQueue = remember { mutableStateListOf<Song>() }
-    
-    // Update mutableQueue when displayQueue changes
-    LaunchedEffect(displayQueue) {
-        mutableQueue.clear()
-        mutableQueue.addAll(displayQueue)
-        Log.d("QueueBottomSheet", "Updated displayQueue with ${displayQueue.size} songs")
-        Log.d("QueueBottomSheet", "First 5 songs in displayQueue:")
-        displayQueue.take(5).forEachIndexed { idx, song ->
-            Log.d("QueueBottomSheet", "  $idx: ${song.title} by ${song.artist}")
-        }
-    }
-
-    fun removeQueueSong(song: Song) {
-        val position = mutableQueue.indexOfFirst { it.id == song.id }
-        if (position < 0 || position >= mutableQueue.size) return
-        mutableQueue.removeAt(position)
-        onRemoveSongAtIndex(position)
-    }
-
     LaunchedEffect(clearRequested) {
         if (clearRequested) {
             if (displayQueue.isNotEmpty()) {
@@ -355,7 +337,7 @@ fun QueueBottomSheet(
                 currentSong?.let { song ->
                     NowPlayingCard(
                         song = song,
-                        onClick = { onSongClick(song) },
+                        onClick = { onQueueEntryClick(queueEntryTokens.getOrNull(currentQueueIndex).orEmpty()) },
                         modifier = Modifier.graphicsLayer { alpha = clearFadeAlpha }
                     )
                 }
@@ -377,8 +359,8 @@ fun QueueBottomSheet(
                         if (index == currentSongIndexInQueue) null else index to song
                     }
                 }
-                val queueListRows = remember(visibleQueue, displayQueue, currentSongIndexInQueue, showAlreadyPlayedSongsInQueue) {
-                    buildQueueListRows(visibleQueue, displayQueue, currentSongIndexInQueue, showAlreadyPlayedSongsInQueue)
+                val queueListRows = remember(visibleQueue, displayQueue, queueEntryTokens, currentSongIndexInQueue, showAlreadyPlayedSongsInQueue) {
+                    buildQueueListRows(visibleQueue, displayQueue, queueEntryTokens, currentSongIndexInQueue, showAlreadyPlayedSongsInQueue)
                 }
                 val hasPlayedSection = queueListRows.any {
                     it is QueueListRow.Section && it.label == QueueSectionLabel.PLAYED
@@ -445,9 +427,9 @@ fun QueueBottomSheet(
                                         endPadding = rowEndPadding,
                                         isRemoving = { key -> removingQueueKeys[key] == true },
                                         enableSwipeToRemove = gestureQueueSwipeToRemove,
-                                        onSongClickAtIndex = onSongClickAtIndex,
+                                        onQueueEntryClick = onQueueEntryClick,
                                         onRequestRemove = { songRow, itemKey ->
-                                            dismissQueueRow(itemKey) { removeQueueSong(songRow.song) }
+                                            dismissQueueRow(itemKey) { onRemoveQueueEntry(songRow.entryToken) }
                                         },
                                         modifier = Modifier.animateItem(
                                             fadeInSpec = tween(0),
@@ -469,7 +451,7 @@ fun QueueBottomSheet(
                                 onMove = { fromIndex, toIndex ->
                                     val fromRow = (queueListRows[fromIndex] as QueueListRow.Song).row
                                     val toRow = (queueListRows[toIndex] as QueueListRow.Song).row
-                                    onMoveQueueItem(fromRow.position, toRow.position)
+                                    onMoveQueueItem(fromRow.entryToken, toRow.entryToken)
                                 },
                                 itemKey = { row -> queueListRowKey(row) },
                                 isReorderableItem = { row ->
@@ -489,9 +471,9 @@ fun QueueBottomSheet(
                                     endPadding = rowEndPadding,
                                     isRemoving = { key -> removingQueueKeys[key] == true },
                                     enableSwipeToRemove = gestureQueueSwipeToRemove,
-                                    onSongClickAtIndex = onSongClickAtIndex,
+                                    onQueueEntryClick = onQueueEntryClick,
                                     onRequestRemove = { songRow, itemKey ->
-                                        dismissQueueRow(itemKey) { removeQueueSong(songRow.song) }
+                                        dismissQueueRow(itemKey) { onRemoveQueueEntry(songRow.entryToken) }
                                     }
                                 )
                             }
@@ -1017,7 +999,7 @@ private fun QueueItem(
 @Composable
 private fun DismissibleQueueItem(
     song: Song,
-    queuePosition: Int,
+    entryToken: String,
     displayNumber: Int,
     isPlayed: Boolean,
     isDragging: Boolean,
@@ -1026,7 +1008,7 @@ private fun DismissibleQueueItem(
     corners: QueueItemCorners,
     endPadding: Dp,
     isRemoving: Boolean,
-    onSongClickAtIndex: (Int) -> Unit,
+    onQueueEntryClick: (String) -> Unit,
     onRequestRemove: () -> Unit,
     modifier: Modifier = Modifier,
     enableSwipeToRemove: Boolean = true
@@ -1094,7 +1076,7 @@ private fun DismissibleQueueItem(
                     isPlayed = isPlayed,
                     isDragging = isDragging,
                     onSongClick = {
-                        onSongClickAtIndex(queuePosition)
+                        onQueueEntryClick(entryToken)
                     },
                     onRemove = onRequestRemove,
                     showDragHandle = showDragHandle
@@ -1111,7 +1093,7 @@ private fun QueueListRowContent(
     reorderSupported: Boolean,
     endPadding: Dp,
     isRemoving: (String) -> Boolean,
-    onSongClickAtIndex: (Int) -> Unit,
+    onQueueEntryClick: (String) -> Unit,
     onRequestRemove: (QueueSongRow, String) -> Unit,
     modifier: Modifier = Modifier,
     enableSwipeToRemove: Boolean = true
@@ -1128,7 +1110,7 @@ private fun QueueListRowContent(
             val itemKey = queueListRowKey(row)
             DismissibleQueueItem(
                 song = songRow.song,
-                queuePosition = songRow.position,
+                entryToken = songRow.entryToken,
                 displayNumber = songRow.displayNumber,
                 isPlayed = songRow.isPlayed,
                 isDragging = isDragging,
@@ -1137,7 +1119,7 @@ private fun QueueListRowContent(
                 corners = songRow.corners,
                 endPadding = endPadding,
                 isRemoving = isRemoving(itemKey),
-                onSongClickAtIndex = onSongClickAtIndex,
+                onQueueEntryClick = onQueueEntryClick,
                 onRequestRemove = { onRequestRemove(songRow, itemKey) },
                 enableSwipeToRemove = enableSwipeToRemove,
                 modifier = modifier

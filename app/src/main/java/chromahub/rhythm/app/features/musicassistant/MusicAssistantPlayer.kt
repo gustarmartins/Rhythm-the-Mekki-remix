@@ -9,6 +9,8 @@ import android.os.SystemClock
 import androidx.media3.common.*
 import androidx.media3.common.util.UnstableApi
 import chromahub.rhythm.app.features.musicassistant.api.*
+import chromahub.rhythm.app.infrastructure.service.QueueEntryCommand
+import chromahub.rhythm.app.infrastructure.service.planQueueEntryEdit
 import chromahub.rhythm.app.infrastructure.service.PlayNextCommand
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
@@ -336,6 +338,38 @@ internal class MusicAssistantPlayer(
     }
     override fun handleSetRepeatMode(repeatMode: Int) = submit { client.command("player_queues/repeat", "queue_id" to queueId(), "repeat_mode" to when (repeatMode) { REPEAT_MODE_ONE -> "one"; REPEAT_MODE_ALL -> "all"; else -> "off" }); Unit }
     override fun handleSetShuffleModeEnabled(shuffleModeEnabled: Boolean) = submit { client.command("player_queues/shuffle", "queue_id" to queueId(), "shuffle_enabled" to shuffleModeEnabled); Unit }
+    fun editQueueEntry(token: String, operation: String, targetToken: String?): ListenableFuture<Void> = submit {
+        refresh()
+        val id = queueId()
+        val before = rows.map { it.occurrenceId }
+        val current = before.indexOf(queue?.currentOccurrenceId)
+        val plan = planQueueEntryEdit(before, current, pendingManual, token, operation, targetToken)
+        when (operation) {
+            QueueEntryCommand.PLAY -> {
+                if (before[current] != token) client.command("player_queues/play_index", "queue_id" to id, "index" to token)
+                foreground()
+                client.api().playerAction(target(), MusicAssistantApi.PlayerAction.PLAY)
+            }
+            QueueEntryCommand.REMOVE -> client.command("player_queues/delete_item", "queue_id" to id, "item_id_or_index" to token)
+            else -> if (before != plan.order) {
+                check(plan.order.take(current + 1) == before.take(current + 1)) { "Server cannot reorder played songs" }
+                val now = readItems(id, before.size).map { it.occurrenceId }
+                check(now == before && client.api().activeQueue(target())?.currentOccurrenceId == before[current]) {
+                    "Playback advanced; refresh the queue"
+                }
+                // Move the requested occurrence, never its neighbour (which may be buffered).
+                val destination = plan.order.indexOf(token)
+                client.command("player_queues/move_item", "queue_id" to id, "queue_item_id" to token,
+                    "pos_shift" to destination - before.indexOf(token))
+            }
+        }
+        if (operation != QueueEntryCommand.PLAY) {
+            check(readItems(id, plan.order.size).map { it.occurrenceId } == plan.order) { "Server did not accept the queue edit; refresh the queue" }
+        }
+        pendingManual.clear()
+        pendingManual.addAll(plan.pending)
+    }
+
     fun enqueueNext(items: List<MediaItem>): ListenableFuture<Void> = submit {
         refresh()
         val current = rows.indexOfFirst { it.occurrenceId == queue?.currentOccurrenceId }

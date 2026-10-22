@@ -99,6 +99,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import androidx.room.withTransaction
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import chromahub.rhythm.app.infrastructure.service.QueueEntryCommand
 import chromahub.rhythm.app.infrastructure.service.PlayNextCommand
 import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionCommand
@@ -5237,50 +5238,48 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * Play a song from the queue at a specific index
-     * Use this when clicking a song from the queue UI to avoid issues with duplicate songs
-     */
-    fun playSongAtIndex(index: Int) {
-        if (index < 0 || index >= _currentQueue.value.songs.size) {
-            Log.e(TAG, "Invalid queue index: $index (queue size: ${_currentQueue.value.songs.size})")
-            return
-        }
+    /** Row callbacks capture the service occurrence token at composition time. */
+    fun selectQueueEntry(token: String) {
+        if (!queuesNewSelections() && !canStartPlayback("selectQueueEntry")) return
+        editQueueEntry(token, QueueEntryCommand.SELECT)
+    }
 
-        if (!canStartPlayback("playSongAtIndex")) {
-            return
-        }
+    fun removeQueueEntry(token: String) = editQueueEntry(token, QueueEntryCommand.REMOVE)
 
-        if (!ensureControllerReadyForPlayback("playSongAtIndex") { playSongAtIndex(index) }) {
-            return
-        }
+    fun moveQueueEntry(token: String, target: String) = editQueueEntry(token, QueueEntryCommand.MOVE, target)
 
-        val song = _currentQueue.value.songs[index]
-        Log.d(TAG, "Playing song at index $index: ${song.title}")
-
-        mediaController?.let { controller ->
-            val targetControllerIndex = resolveControllerIndexForQueueSelection(song, index)
-                ?: index.coerceIn(0, (controller.mediaItemCount - 1).coerceAtLeast(0))
-
-            controller.seekToDefaultPosition(targetControllerIndex)
-            _currentQueue.value = _currentQueue.value.copy(currentIndex = index)
-            _currentSong.value = song
-            _isFavorite.value = _favoriteSongs.value.contains(song.id)
-
-            Log.d(
-                TAG,
-                "Queue selection seek mapped queueIndex=$index to controllerIndex=$targetControllerIndex for mediaId=${song.id}"
-            )
-
-            controller.prepare()
-            if (!canStartPlayback("playSongAtIndex.prepare")) return@let
-            controller.play()
-            _isPlaying.value = true
-            startProgressUpdates()
-
-            // Track song play for statistics
-            updateRecentlyPlayed(song)
-            updateListeningStats(song)
+    private fun editQueueEntry(token: String, operation: String, target: String? = null) {
+        viewModelScope.launch {
+            // Shares reservations with unresolved streaming additions, preserving click order.
+            playNextRequests.withLock {
+                _queueOperationError.value = null
+                val controller = mediaController
+                try {
+                    check(controller != null) { "Playback service is unavailable" }
+                    val result = suspendCancellableCoroutine<SessionResult> { continuation ->
+                        val args = Bundle().apply {
+                            putString(PlayNextCommand.ENTRY_TOKEN, token)
+                            putString(QueueEntryCommand.OPERATION, operation)
+                            putString(QueueEntryCommand.TARGET, target)
+                        }
+                        val future = controller.sendCustomCommand(SessionCommand(QueueEntryCommand.ACTION, Bundle.EMPTY), args)
+                        future.addListener({
+                            if (continuation.isActive) {
+                                try { continuation.resume(future.get()) }
+                                catch (_: Exception) { continuation.resume(SessionResult(androidx.media3.session.SessionError.ERROR_UNKNOWN)) }
+                            }
+                        }, androidx.core.content.ContextCompat.getMainExecutor(getApplication()))
+                        continuation.invokeOnCancellation { future.cancel(false) }
+                    }
+                    check(result.resultCode == SessionResult.RESULT_SUCCESS) { "Queue changed or this item cannot be edited. Please try again." }
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (e: Exception) {
+                    Log.w(TAG, "Queue entry edit failed", e)
+                    _queueOperationError.value = e.message
+                } finally {
+                    controller?.let(::syncServiceOwnedQueue)
+                }
+            }
         }
     }
 
@@ -9082,20 +9081,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                             }, androidx.core.content.ContextCompat.getMainExecutor(getApplication()))
                         }
                         check(result.resultCode == SessionResult.RESULT_SUCCESS) { "Playback service rejected queue addition (${result.resultCode})" }
-                        val cached = _currentQueue.value
-                        val updated = cached.songs.toMutableList()
-                        val insertion = result.extras.getInt(PlayNextCommand.INSERTION_INDEX)
-                            .coerceIn(0, updated.size)
-                        // Timeline events can already have synced the normal queue before the reply.
-                        // In car mode there are no full-timeline updates, so update its cached view here.
-                        if (result.extras.getBoolean(PlayNextCommand.VIRTUAL_QUEUE)) {
-                            updated.addAll(insertion, batch)
-                            _currentQueue.value = Queue(updated, result.extras.getInt(PlayNextCommand.CURRENT_INDEX))
-                            syncServiceOwnedQueue(controller)
-                        } else {
-                            syncQueueWithMediaController()
-                        }
-                        saveQueueToPersistence()
+                        syncServiceOwnedQueue(controller)
                     }
                     val context = getApplication<android.app.Application>().applicationContext
                     android.widget.Toast.makeText(context, context.getString(R.string.playing_next_simple, songs.first().title), android.widget.Toast.LENGTH_SHORT).show()
@@ -9127,200 +9113,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun removeFromQueueAtIndex(songIndex: Int) {
-        // Clear any previous error
-        _queueOperationError.value = null
-
-        val currentQueue = _currentQueue.value
-
-        if (songIndex < 0 || songIndex >= currentQueue.songs.size) {
-            val errorMsg = "Cannot remove song - invalid queue index: $songIndex"
-            Log.e(TAG, errorMsg)
-            _queueOperationError.value = errorMsg
-            return
-        }
-
-        val song = currentQueue.songs[songIndex]
-        Log.d(TAG, "Removing song from queue at index $songIndex: ${song.title}")
-
-        mediaController?.let { controller ->
-            try {
-                val controllerCurrentIndex = controller.currentMediaItemIndex
-                val currentIndexForGuard = if (
-                    controllerCurrentIndex != C.INDEX_UNSET &&
-                    controllerCurrentIndex < currentQueue.songs.size
-                ) {
-                    controllerCurrentIndex
-                } else {
-                    currentQueue.currentIndex
-                }
-
-                // Don't remove the currently playing song occurrence.
-                if (songIndex == currentIndexForGuard) {
-                    Log.d(TAG, "Cannot remove currently playing song at index: $songIndex")
-                    _queueOperationError.value = "Cannot remove the currently playing song"
-                    return@let
-                }
-
-                val controllerIndex = if (controller.shuffleModeEnabled) {
-                    val occurrence = resolveQueueOccurrenceInList(
-                        queueSongs = currentQueue.songs,
-                        songId = song.id,
-                        queueIndex = songIndex
-                    )
-                    findControllerIndexForSong(song.id, occurrence) ?: songIndex
-                } else {
-                    songIndex
-                }
-
-                // Check if the controller has this media item
-                if (controllerIndex < controller.mediaItemCount) {
-                    // Remove from the media controller
-                    Log.d(TAG, "Removing media item at position $controllerIndex (original songIndex=$songIndex)")
-                    controller.removeMediaItem(controllerIndex)
-                } else {
-                    throw IndexOutOfBoundsException("Media item index out of bounds: $controllerIndex, controller has ${controller.mediaItemCount} items")
-                }
-
-                // Update the local queue state - this ensures UI is still updated even if controller fails
-                val updatedSongs = currentQueue.songs.toMutableList().apply {
-                    removeAt(songIndex)
-                }
-
-                // Adjust current index if needed
-                val newIndex = when {
-                    songIndex < currentQueue.currentIndex -> currentQueue.currentIndex - 1
-                    songIndex == currentQueue.currentIndex -> currentQueue.currentIndex // Should not happen (can't remove current)
-                    else -> currentQueue.currentIndex
-                }.coerceIn(0, updatedSongs.size - 1)
-
-                _currentQueue.value = Queue(updatedSongs, newIndex)
-
-                // Save queue to persistence
-                saveQueueToPersistence()
-
-                Log.d(TAG, "Successfully removed '${song.title}'. Queue now has ${updatedSongs.size} songs, current index: $newIndex")
-
-                // Verify sync with MediaController
-                if (controller.mediaItemCount != updatedSongs.size) {
-                    Log.w(TAG, "Queue size mismatch after remove - MediaController: ${controller.mediaItemCount}, ViewModel: ${updatedSongs.size}")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error removing song from queue", e)
-                _queueOperationError.value = "Failed to remove '${song.title}' from queue: ${e.message}"
-            }
-        } ?: run {
-            val errorMsg = "Cannot remove song - media controller is null"
-            Log.e(TAG, errorMsg)
-            _queueOperationError.value = errorMsg
-        }
-    }
-
-    /**
-     * Move a song in the queue from one position to another
-     */
-    fun moveQueueItem(fromIndex: Int, toIndex: Int) {
-        Log.d(TAG, "Moving queue item from $fromIndex to $toIndex")
-
-        // Clear any previous error
-        _queueOperationError.value = null
-
-        if (_isShuffleEnabled.value) {
-            val errorMsg = "Cannot move queue item while shuffle is enabled"
-            Log.w(TAG, errorMsg)
-            _queueOperationError.value = errorMsg
-            return
-        }
-
-        val currentQueue = _currentQueue.value
-        val songs = currentQueue.songs.toMutableList()
-
-        // Input validation to prevent index out of bounds
-        if (fromIndex < 0 || fromIndex >= songs.size || toIndex < 0 || toIndex >= songs.size) {
-            val errorMsg = "Cannot move queue item - invalid indices: from=$fromIndex, to=$toIndex, size=${songs.size}"
-            Log.e(TAG, errorMsg)
-            _queueOperationError.value = errorMsg
-            return
-        }
-
-        // Additional validation for edge cases
-        if (fromIndex == toIndex) {
-            Log.d(TAG, "Moving queue item to same position, ignoring")
-            return
-        }
-
-        // Safely update local state first
-        try {
-            // Store original state for rollback
-            val originalSongs = songs.toList()
-            val originalCurrentIndex = currentQueue.currentIndex
-
-            // Apply the move in the local queue
-            val song = songs.removeAt(fromIndex)
-            songs.add(toIndex, song)
-
-            // Calculate new current index with better logic
-            val newCurrentIndex = when {
-                // If we moved the current song
-                fromIndex == currentQueue.currentIndex -> toIndex
-                // If we moved a song from before the current song to after it
-                fromIndex < currentQueue.currentIndex && toIndex >= currentQueue.currentIndex ->
-                    currentQueue.currentIndex - 1
-                // If we moved a song from after the current song to before it
-                fromIndex > currentQueue.currentIndex && toIndex <= currentQueue.currentIndex ->
-                    currentQueue.currentIndex + 1
-                // Otherwise, current index doesn't change
-                else -> currentQueue.currentIndex
-            }.coerceIn(0, songs.size - 1) // Ensure index is always valid
-
-            // Update local state optimistically
-            _currentQueue.value = Queue(songs, newCurrentIndex)
-
-            // Save queue to persistence
-            saveQueueToPersistence()
-
-            // Also move it in the MediaController with proper error handling
-            mediaController?.let { controller ->
-                try {
-                    // Validate controller state
-                    if (controller.mediaItemCount != originalSongs.size) {
-                        Log.w(TAG, "MediaController item count mismatch: expected ${originalSongs.size}, got ${controller.mediaItemCount}")
-                    }
-
-                    if (fromIndex < controller.mediaItemCount && toIndex < controller.mediaItemCount) {
-                        Log.d(TAG, "Moving media item in controller from $fromIndex to $toIndex")
-                        controller.moveMediaItem(fromIndex, toIndex)
-
-                        // If shuffle is enabled, sync the queue to get the correct order
-                        if (controller.shuffleModeEnabled) {
-                            viewModelScope.launch {
-                                delay(50) // Small delay to let MediaController update
-                                syncQueueWithMediaController()
-                            }
-                        }
-
-                        Log.d(TAG, "Successfully moved queue item from $fromIndex to $toIndex, new current index: $newCurrentIndex")
-                    } else {
-                        throw IndexOutOfBoundsException("Cannot move media item - index out of bounds in controller: from=$fromIndex, to=$toIndex, count=${controller.mediaItemCount}")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error moving media item in controller, rolling back UI state", e)
-                    // Rollback to original state
-                    _currentQueue.value = Queue(originalSongs, originalCurrentIndex)
-                    _queueOperationError.value = "Failed to move queue item: ${e.message}"
-                    return
-                }
-            } ?: run {
-                Log.e(TAG, "Cannot move queue item - media controller is null, rolling back UI state")
-                // Rollback to original state
-                _currentQueue.value = Queue(originalSongs, originalCurrentIndex)
-                _queueOperationError.value = "Cannot move queue item - media controller is null"
-                return
-            }
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Error moving queue item", e)
-            _queueOperationError.value = "Failed to move queue item: ${e.message}"
-        }
+        val token = _currentQueue.value.entryTokens.getOrNull(songIndex).orEmpty()
+        removeQueueEntry(token)
     }
 
     /**
@@ -9415,28 +9209,28 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         if (clearQueueJob?.isActive == true) return
         _queueOperationError.value = null
         clearQueueJob = viewModelScope.launch {
-            val controller = mediaController ?: return@launch
-            try {
-                val result = suspendCancellableCoroutine<SessionResult> { continuation ->
-                    val future = controller.sendCustomCommand(
-                        SessionCommand(PlayNextCommand.CLEAR_EXCEPT_CURRENT, Bundle.EMPTY), Bundle.EMPTY)
-                    future.addListener({
-                        if (continuation.isActive) {
-                            try { continuation.resume(future.get()) }
-                            catch (_: Exception) { continuation.resume(SessionResult(androidx.media3.session.SessionError.ERROR_UNKNOWN)) }
-                        }
-                    }, androidx.core.content.ContextCompat.getMainExecutor(getApplication()))
-                    continuation.invokeOnCancellation { future.cancel(false) }
+            playNextRequests.withLock {
+                val controller = mediaController ?: return@launch
+                try {
+                    val result = suspendCancellableCoroutine<SessionResult> { continuation ->
+                        val future = controller.sendCustomCommand(
+                            SessionCommand(PlayNextCommand.CLEAR_EXCEPT_CURRENT, Bundle.EMPTY), Bundle.EMPTY)
+                        future.addListener({
+                            if (continuation.isActive) {
+                                try { continuation.resume(future.get()) }
+                                catch (_: Exception) { continuation.resume(SessionResult(androidx.media3.session.SessionError.ERROR_UNKNOWN)) }
+                            }
+                        }, androidx.core.content.ContextCompat.getMainExecutor(getApplication()))
+                        continuation.invokeOnCancellation { future.cancel(false) }
+                    }
+                    check(result.resultCode == SessionResult.RESULT_SUCCESS) { "Playback service rejected queue clear" }
+                    queueStateHolder.clearOriginalQueue()
+                    syncServiceOwnedQueue(controller)
+                } catch (cancelled: CancellationException) { throw cancelled }
+                catch (e: Exception) {
+                    Log.e(TAG, "Error clearing queue", e)
+                    _queueOperationError.value = "Failed to clear queue: ${e.message}"
                 }
-                check(result.resultCode == SessionResult.RESULT_SUCCESS) { "Playback service rejected queue clear" }
-                queueStateHolder.clearOriginalQueue()
-                serviceQueueSyncJob?.cancel()
-                serviceQueueSyncJob = null
-                syncServiceOwnedQueue(controller)
-            } catch (cancelled: CancellationException) { throw cancelled }
-            catch (e: Exception) {
-                Log.e(TAG, "Error clearing queue", e)
-                _queueOperationError.value = "Failed to clear queue: ${e.message}"
             }
         }
     }
@@ -9971,6 +9765,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private var serviceQueueSyncJob: Job? = null
+    private var serviceQueueSyncRequested = false
 
     private suspend fun readServiceQueue(controller: MediaController, args: Bundle): SessionResult =
         suspendCancellableCoroutine { continuation ->
@@ -9985,11 +9780,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
 
     private fun syncServiceOwnedQueue(controller: MediaController) {
-        if (serviceQueueSyncJob?.isActive == true) return
+        if (serviceQueueSyncJob?.isActive == true) {
+            serviceQueueSyncRequested = true
+            return
+        }
+        serviceQueueSyncRequested = false
         serviceQueueSyncJob = viewModelScope.launch {
             try {
-                repeat(2) {
+                repeat(3) {
                     val ids = mutableListOf<String>()
+                    val tokens = mutableListOf<String>()
                     var version: Long? = null
                     var total = 0
                     var index = -1
@@ -10011,7 +9811,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         source = extras.getString(PlayNextCommand.SOURCE)
                         val chunk = extras.getStringArrayList(PlayNextCommand.IDS).orEmpty()
                         if (chunk.isEmpty() && ids.size < total) return@launch
+                        val chunkTokens = extras.getStringArrayList(QueueEntryCommand.TOKENS).orEmpty()
+                        if (chunkTokens.size != chunk.size) return@launch
                         ids.addAll(chunk)
+                        tokens.addAll(chunkTokens)
                     } while (ids.size < total)
                     if (changed) return@repeat
                     val known = (_currentQueue.value.songs + _songs.value).associateBy { it.id }.toMutableMap()
@@ -10041,20 +9844,28 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                             artworkUri = bundle.getString("artwork")?.toUri())
                     }
                     if (changed) return@repeat
+                    // Database/metadata reads may suspend while playback or the queue changes.
+                    val confirmed = readServiceQueue(controller, Bundle().apply { putInt(PlayNextCommand.LIMIT, 1) })
+                    if (confirmed.resultCode != SessionResult.RESULT_SUCCESS || confirmed.extras.getLong(PlayNextCommand.REVISION) != version) return@repeat
+                    if (mediaController !== controller) return@launch
                     val resolved = ids.map { known.getValue(it) }
                     _currentQueue.value = _currentQueue.value.copy(songs = resolved,
-                        currentIndex = index.takeIf { it in resolved.indices } ?: -1)
+                        currentIndex = index.takeIf { it in resolved.indices } ?: -1, entryTokens = tokens)
                     source?.let(queueStateHolder::setQueueSourceName)
-                    resolved.getOrNull(index)?.let { song ->
-                        _currentSong.value = song
-                        _isFavorite.value = song.id in _favoriteSongs.value
-                    }
+                    _currentSong.value = resolved.getOrNull(index)
+                    _isFavorite.value = _currentSong.value?.id in _favoriteSongs.value
                     Log.d(TAG, "Synced complete service queue: ${resolved.size} occurrences, index=$index")
                     return@launch
                 }
                 Log.d(TAG, "Queue changed during snapshot; keeping prior queue until next update")
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (e: Exception) { Log.w(TAG, "Unable to synchronize full service queue; keeping prior state", e) }
+            finally {
+                serviceQueueSyncJob = null
+                if (serviceQueueSyncRequested && mediaController === controller && kotlinx.coroutines.currentCoroutineContext().isActive) {
+                    syncServiceOwnedQueue(controller)
+                }
+            }
         }
     }
 
@@ -10105,13 +9916,18 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     songsById[mediaItem.mediaId] ?: mediaItemToTransientSong(mediaItem)
                 }
 
+                if (mediaItemSongs.size != mediaItems.size) {
+                    syncServiceOwnedQueue(controller)
+                    return
+                }
                 val rawCurrentMediaIndex = currentDisplayIndex.coerceAtLeast(0)
                 val currentMediaIndex = if (mediaItemSongs.isEmpty()) {
                     -1
                 } else {
                     rawCurrentMediaIndex.coerceIn(0, mediaItemSongs.lastIndex)
                 }
-                _currentQueue.value = _currentQueue.value.copy(songs = mediaItemSongs, currentIndex = currentMediaIndex)
+                _currentQueue.value = _currentQueue.value.copy(songs = mediaItemSongs, currentIndex = currentMediaIndex,
+                    entryTokens = mediaItems.map { it.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN).orEmpty() })
                 if (mediaItems.any { it.mediaMetadata.extras?.getBoolean("library_continuation") == true }) {
                     queueStateHolder.setQueueSourceName(getApplication<Application>().getString(R.string.queue_library_continuation))
                 }
