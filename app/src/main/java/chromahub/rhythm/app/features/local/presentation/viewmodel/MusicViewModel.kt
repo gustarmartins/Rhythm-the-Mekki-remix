@@ -4411,6 +4411,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     // Set when the service skips a missing local item; the next playlist change prunes it from the UI queue.
     private var pendingMissingItemQueueSync = false
 
+    private var lastTransitionMediaId: String? = null
+    private var lastTransitionEntryToken: String? = null
+
     private val playerListener = object : Player.Listener {
         override fun onPlayerError(error: PlaybackException) {
             if (error.errorCode == PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND &&
@@ -4510,6 +4513,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             Log.d(TAG, "Media item transition: ${mediaItem?.mediaId}, reason: $reason")
+            val entryToken = mediaItem?.mediaMetadata?.extras?.getString(PlayNextCommand.ENTRY_TOKEN)
+            val metadataOnly = chromahub.rhythm.app.infrastructure.service.isUnchangedOccurrenceAutoTransition(
+                reason, mediaItem?.mediaId, entryToken, lastTransitionMediaId, lastTransitionEntryToken)
+            lastTransitionMediaId = mediaItem?.mediaId
+            lastTransitionEntryToken = entryToken
+            if (metadataOnly) {
+                Log.d(TAG, "Ignoring same-occurrence metadata transition")
+                return
+            }
             // Even a repeat or queue replacement containing the same song is a new attempt.
             playbackStallWatchdog.reset()
             checkPlaybackWatchdogState()

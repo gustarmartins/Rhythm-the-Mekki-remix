@@ -6,6 +6,9 @@ import java.util.Locale
 
 /** A missing cover never authorizes using an arbitrary adjacent personal image. */
 internal object ArtworkSourcePolicy {
+    // Unicode property compilation is expensive on Android; matchers remain per-call.
+    private val combiningMarks = Regex("\\p{M}+")
+    private val nonLettersOrDigits = Regex("[^\\p{L}\\p{N}]+")
     private val sharedFolders = setOf("music", "download", "downloads", "pictures", "dcim", "camera", "screenshots", "0")
     private val coverNames = listOf("cover", "folder", "front", "albumart")
     private val extensions = setOf("jpg", "jpeg", "png", "webp", "bmp", "tif", "tiff")
@@ -20,8 +23,8 @@ internal object ArtworkSourcePolicy {
     }
 
     private fun normalized(value: String) = Normalizer.normalize(value, Normalizer.Form.NFKD)
-        .replace(Regex("\\p{M}+"), "").lowercase(Locale.ROOT)
-        .replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
+        .replace(combiningMarks, "").lowercase(Locale.ROOT)
+        .replace(nonLettersOrDigits, " ").trim()
 
     fun identity(title: String, artist: String, album: String): String =
         listOf(title, artist, album).joinToString(" | ") { normalized(it) }
@@ -29,7 +32,8 @@ internal object ArtworkSourcePolicy {
     fun matches(expectedTitle: String, expectedArtist: String, title: String?, artist: String?): Boolean {
         val wantedArtist = normalized(expectedArtist)
         if (wantedArtist in setOf("", "unknown", "unknown artist", "various artists")) return false
-        return normalized(expectedTitle).isNotBlank() && normalized(expectedTitle) == normalized(title.orEmpty()) &&
+        val wantedTitle = normalized(expectedTitle)
+        return wantedTitle.isNotBlank() && wantedTitle == normalized(title.orEmpty()) &&
             wantedArtist == normalized(artist.orEmpty())
     }
 }
