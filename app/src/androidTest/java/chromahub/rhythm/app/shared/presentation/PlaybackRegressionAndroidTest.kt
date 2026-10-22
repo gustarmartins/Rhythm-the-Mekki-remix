@@ -278,17 +278,36 @@ class PlaybackRegressionAndroidTest {
                     store.clear()
                 }
             }
-            val lyrics = android.os.Bundle().apply {
-                putString("song_id", "rate-regression")
-                putStringArrayList("lyric_texts", arrayListOf("Speaker lyric"))
-                putLongArray("lyric_timestamps", longArrayOf(0L))
+            // Keep a UI controller alive as it is when the owner backgrounds the app.
+            val liveVm = main {
+                chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel(
+                    context.applicationContext as android.app.Application).also { store.put("player", it) }
             }
-            val result = main {
-                activeController.sendCustomCommand(androidx.media3.session.SessionCommand(
-                    "UPDATE_LYRICS_DATA", android.os.Bundle.EMPTY), lyrics)
-            }.get(10, java.util.concurrent.TimeUnit.SECONDS)
-            assertEquals(androidx.media3.session.SessionResult.RESULT_SUCCESS, result.resultCode)
-            compose.waitUntil(10000) { main { activeController.mediaMetadata.title.toString() == "Speaker lyric" } }
+            compose.waitUntil(10000) { liveVm.serviceConnected.value }
+            android.os.SystemClock.sleep(1000)
+            val historyTimestamp = main { settings.lastPlayedTimestamp.value }
+            repeat(3) { line ->
+                val text = "Speaker lyric $line"
+                val lyrics = android.os.Bundle().apply {
+                    putString("song_id", "rate-regression")
+                    putStringArrayList("lyric_texts", arrayListOf(text))
+                    putLongArray("lyric_timestamps", longArrayOf(0L))
+                }
+                val result = main {
+                    activeController.sendCustomCommand(androidx.media3.session.SessionCommand(
+                        "UPDATE_LYRICS_DATA", android.os.Bundle.EMPTY), lyrics)
+                }.get(10, java.util.concurrent.TimeUnit.SECONDS)
+                assertEquals(androidx.media3.session.SessionResult.RESULT_SUCCESS, result.resultCode)
+                compose.waitUntil(10000) { main { activeController.mediaMetadata.title.toString() == text } }
+                // Let asynchronous timeline/transition callbacks run before asserting stability.
+                android.os.SystemClock.sleep(1200)
+                main {
+                    assertEquals(1.3f, activeController.playbackParameters.speed)
+                    assertEquals(0.8f, activeController.playbackParameters.pitch)
+                    assertEquals(historyTimestamp, settings.lastPlayedTimestamp.value)
+                    assertTrue(activeController.isPlaying)
+                }
+            }
             main {
                 assertEquals(1.3f, activeController.playbackParameters.speed)
                 assertEquals(0.8f, activeController.playbackParameters.pitch)
