@@ -13,6 +13,28 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ArtworkColorRequestsTest {
+    @Test fun returningToSameArtworkDoesNotReviveItsCancelledRequest() = runBlocking {
+        val scope = CoroutineScope(Dispatchers.Unconfined + Job())
+        try {
+            val firstDecode = CompletableDeferred<Unit>()
+            var aLoads = 0
+            val published = mutableListOf<String?>()
+            val requests = ArtworkColorRequests(scope, { key ->
+                val version = if (key == "A") ++aLoads else 1
+                if (key == "A" && version == 1) {
+                    withContext(NonCancellable) { firstDecode.await() }
+                }
+                "$key-$version"
+            }, published::add)
+            requests.submit("A")
+            requests.submit("B")
+            requests.submit("A")
+            firstDecode.complete(Unit)
+            scope.coroutineContext[Job]!!.children.toList().joinAll()
+            assertEquals(listOf("B-1", "A-2"), published)
+        } finally { scope.cancel() }
+    }
+
     @Test fun olderDecodeCannotOverwriteNewSong() = runBlocking {
         val scope = CoroutineScope(Dispatchers.Unconfined + Job())
         try {
