@@ -93,6 +93,7 @@ import androidx.paging.cachedIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.yield
 import kotlinx.coroutines.withTimeoutOrNull
@@ -1268,6 +1269,18 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         PAUSE, STOP, FADE_OUT
     }
 
+    private val artworkColorRequests by lazy {
+        chromahub.rhythm.app.util.ArtworkColorRequests(
+            scope = viewModelScope,
+            load = ::loadArtworkColors,
+            publish = { colors ->
+                if (appSettings.colorSource.value == "ALBUM_ART") {
+                    appSettings.setExtractedAlbumColors(colors)
+                }
+            },
+        )
+    }
+
     init {
         Log.d(TAG, "Initializing MusicViewModel")
         startLibrarySetupCompletionMonitor()
@@ -1585,8 +1598,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     } else {
                         lastExtractedUri = null
-                        appSettings.setExtractedAlbumColors(null)
+                        artworkColorRequests.submit(null)
                     }
+                } else {
+                    lastExtractedUri = null
+                    artworkColorRequests.cancel()
                 }
             }
         }
@@ -5853,43 +5869,25 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      * Extract colors from album artwork and update theme if color source is set to ALBUM_ART
      */
     private fun extractColorsFromAlbumArt(song: Song) {
-        // Only extract if color source is set to ALBUM_ART
-        if (appSettings.colorSource.value != "ALBUM_ART") {
-            return
-        }
-
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val artworkUri = song.artworkUri
-                if (artworkUri == null) {
-                    Log.d(TAG, "No artwork URI for song: ${song.title}")
-                    appSettings.setExtractedAlbumColors(null)
-                    return@launch
-                }
-                
-                val context = getApplication<Application>().applicationContext
-                val bitmap = ImageUtils.loadArtworkBitmap(context, artworkUri, 512)
-                
-                if (bitmap == null) {
-                    Log.d(TAG, "Could not decode bitmap for song: ${song.title}")
-                    return@launch
-                }
-
-                // Extract colors using ColorExtractor utility
-                val extractedColors = ColorExtractor.extractColorsFromBitmap(bitmap)
-                
-                if (extractedColors != null) {
-                    // Convert to JSON and save to settings
-                    val colorsJson = ColorExtractor.colorsToJson(extractedColors)
-                    appSettings.setExtractedAlbumColors(colorsJson)
-                    Log.d(TAG, "Successfully extracted and saved colors from: ${song.title}")
-                } else {
-                    Log.w(TAG, "Failed to extract colors from: ${song.title}")
-                }
-
-            } catch (e: Exception) {
-                Log.e(TAG, "Error extracting colors from album art", e)
+        viewModelScope.launch {
+            if (appSettings.colorSource.value == "ALBUM_ART") {
+                artworkColorRequests.submit(song.artworkUri?.toString())
             }
+        }
+    }
+
+    private suspend fun loadArtworkColors(artworkUri: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val context = getApplication<Application>().applicationContext
+            val bitmap = ImageUtils.loadArtworkBitmap(context, Uri.parse(artworkUri), 512)
+                ?: return@withContext null
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
+            ColorExtractor.extractColorsFromBitmap(bitmap)?.let(ColorExtractor::colorsToJson)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Log.e(TAG, "Error extracting colors from album art", error)
+            null
         }
     }
 
