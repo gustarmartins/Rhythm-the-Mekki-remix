@@ -210,7 +210,8 @@ data class Playlist(
 @Immutable
 data class Queue(
     val songs: List<Song>,
-    val currentIndex: Int = 0
+    val currentIndex: Int = 0,
+    val entryTokens: List<String> = emptyList()
 )
 
 // Represents a location in the app (for the "Living room" feature)

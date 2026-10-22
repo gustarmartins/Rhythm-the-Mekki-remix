@@ -665,6 +665,14 @@ fun LocalNavigation(
     )
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val queueOperationError by viewModel.queueOperationError.collectAsState()
+    LaunchedEffect(queueOperationError) {
+        queueOperationError?.let { message ->
+            snackbarHostState.showSnackbar(message, withDismissAction = true)
+            viewModel.clearQueueOperationError()
+        }
+    }
+
     val playbackError by viewModel.playbackError.collectAsState()
     LaunchedEffect(playbackError) {
         playbackError?.let { message ->
@@ -1397,17 +1405,18 @@ private fun LocalNavigationContent(
                         },
                         playlists = playlists,
                         queue = viewModel.currentQueue.collectAsState().value.songs,
+                        queueEntryTokens = viewModel.currentQueue.collectAsState().value.entryTokens,
                         onSongClick = { song ->
                             viewModel.playSong(song)
                         },
-                        onSongClickAtIndex = { index ->
-                            viewModel.playSongAtIndex(index)
+                        onQueueEntryClick = { token ->
+                            viewModel.selectQueueEntry(token)
                         },
-                        onRemoveFromQueueAtIndex = { index ->
-                            viewModel.removeFromQueueAtIndex(index)
+                        onRemoveQueueEntry = { token ->
+                            viewModel.removeQueueEntry(token)
                         },
-                        onMoveQueueItem = { fromIndex, toIndex ->
-                            viewModel.moveQueueItem(fromIndex, toIndex)
+                        onMoveQueueItem = { token, target ->
+                            viewModel.moveQueueEntry(token, target)
                         },
                         onAddSongsToQueue = {
                             viewModel.addSongsToQueue()
