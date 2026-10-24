@@ -2804,17 +2804,23 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
 
     private inner class RhythmForwardingPlayer(rawPlayer: Player) : ForwardingPlayer(rawPlayer) {
         private val injectionListeners = java.util.concurrent.CopyOnWriteArrayList<Player.Listener>()
+        private val metadataListenerBridges = java.util.IdentityHashMap<Player.Listener, Player.Listener>()
+        private var ownedMetadataReplacement: OwnedMetadataReplacement? = null
         @Volatile private var injectedTitle: CharSequence? = null
         @Volatile private var injectedArtist: CharSequence? = null
 
         override fun addListener(listener: Player.Listener) {
-            injectionListeners.add(listener)
-            super.addListener(listener)
+            if (metadataListenerBridges.containsKey(listener)) return
+            injectionListeners.addIfAbsent(listener)
+            val bridge = OwnedMetadataListener(listener, super.getCurrentTimeline(),
+                { ownedMetadataReplacement }, { this })
+            metadataListenerBridges[listener] = bridge
+            super.addListener(bridge)
         }
 
         override fun removeListener(listener: Player.Listener) {
             injectionListeners.remove(listener)
-            super.removeListener(listener)
+            super.removeListener(metadataListenerBridges.remove(listener) ?: listener)
         }
 
         override fun setPlaybackParameters(playbackParameters: androidx.media3.common.PlaybackParameters) {
@@ -2921,7 +2927,12 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
          * edits while legacy car mode exposes its temporary single-item queue.
          */
         fun replaceLyricMetadata(index: Int, mediaItem: MediaItem) {
-            super.replaceMediaItem(index, tokenizedQueueItem(mediaItem))
+            val updated = tokenizedQueueItem(mediaItem)
+            ownedMetadataReplacement = OwnedMetadataReplacement(index, super.getMediaItemAt(index), updated)
+            // Keep the Android16 metadata replacement used by AVRCP. Its public
+            // metadata callback still fires, but it must not republish a full
+            // multi-thousand-item queue to SystemUI for each lyric line.
+            super.replaceMediaItem(index, updated)
         }
 
         /**
