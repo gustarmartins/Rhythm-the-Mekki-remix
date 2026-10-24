@@ -3,7 +3,7 @@ package chromahub.rhythm.app.infrastructure.service
 
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
-import androidx.media3.common.util.FlagSet
+import androidx.media3.common.FlagSet
 import androidx.media3.common.util.UnstableApi
 
 /** Keeps normal metadata notifications while excluding an owned display edit from queue events. */
