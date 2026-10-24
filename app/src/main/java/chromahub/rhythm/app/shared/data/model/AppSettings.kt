@@ -720,6 +720,8 @@ class AppSettings private constructor(context: Context) {
             defaults.forEach { (key, value) -> when (value) {
                 is Boolean -> putBoolean(key, value)
                 is Int -> putInt(key, value)
+                is Float -> putFloat(key, value)
+                is String -> putString(key, value)
                 else -> error("Unsupported new-user preference type for $key")
             } }
         }

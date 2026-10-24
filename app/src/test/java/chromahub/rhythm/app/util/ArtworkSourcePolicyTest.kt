@@ -7,6 +7,14 @@ import org.junit.rules.TemporaryFolder
 
 class ArtworkSourcePolicyTest {
     @get:Rule val temp = TemporaryFolder()
+    @Test fun unicodeIdentityKeepsAccentAndCompatibilityNormalization() {
+        assertEquals(ArtworkSourcePolicy.identity("Café—Live", "Björk", "Ｆｕｌｌ"),
+            ArtworkSourcePolicy.identity("Cafe Live", "Bjork", "Full"))
+        assertTrue(ArtworkSourcePolicy.matches("東京", "宇多田ヒカル", "東京", "宇多田ヒカル"))
+        assertFalse(ArtworkSourcePolicy.matches("東京", "宇多田ヒカル", "大阪", "宇多田ヒカル"))
+        assertFalse(ArtworkSourcePolicy.matches("!!!", "Artist", "!!!", "Artist"))
+    }
+
     @Test fun arbitraryPersonalImagesAreNeverCovers() {
         val folder = temp.newFolder("album")
         listOf("holiday.jpg", "private.png", "Screenshot_123.webp").forEach { folder.resolve(it).writeText("image") }

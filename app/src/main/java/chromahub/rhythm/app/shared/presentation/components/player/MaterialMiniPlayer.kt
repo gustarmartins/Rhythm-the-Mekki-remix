@@ -110,7 +110,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
-import chromahub.rhythm.app.shared.presentation.components.common.ShimmerBox
 import chromahub.rhythm.app.shared.presentation.components.common.StyledProgressBar
 import chromahub.rhythm.app.shared.presentation.components.common.ProgressStyle
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -172,11 +171,6 @@ fun MaterialMiniPlayer(
     
     val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress(),
-        animationSpec = spring(stiffness = Spring.StiffnessLow),
-        label = "progress"
-    )
     
     // Animation for tap feedback
     val interactionSource = remember { MutableInteractionSource() }
@@ -586,8 +580,8 @@ fun MaterialMiniPlayer(
 
                 // Mini player progress bar (phone)
                 if (song != null && miniPlayerShowProgress && !useTabletLayout) {
-                    StyledProgressBar(
-                        progress = animatedProgress,
+                    MiniPlayerStyledProgress(
+                        progress = progress,
                         style = try {
                             ProgressStyle.valueOf(miniPlayerProgressStyle)
                         } catch (e: Exception) {
@@ -634,7 +628,6 @@ fun MaterialMiniPlayer(
                                 ) {
                                     Box {
                                         if (song != null) {
-                                            ShimmerBox(modifier = Modifier.fillMaxSize())
                                             M3ImageUtils.TrackImage(
                                                 imageUrl = song.artworkUri,
                                                 trackName = song.title,
@@ -701,8 +694,8 @@ fun MaterialMiniPlayer(
 
                                 if (miniPlayerShowProgress) {
                                     Spacer(modifier = Modifier.height(6.dp))
-                                    StyledProgressBar(
-                                        progress = animatedProgress,
+                                    MiniPlayerStyledProgress(
+                                        progress = progress,
                                         style = try {
                                             ProgressStyle.valueOf(miniPlayerProgressStyle)
                                         } catch (e: Exception) {
@@ -803,11 +796,6 @@ fun MaterialMiniPlayer(
                             ) {
                                 Box {
                                     if (song != null) {
-                                        // Show shimmer while loading artwork
-                                        ShimmerBox(
-                                            modifier = Modifier.fillMaxSize()
-                                        )
-
                                         M3ImageUtils.TrackImage(
                                             imageUrl = song.artworkUri,
                                             trackName = song.title,
@@ -1119,4 +1107,32 @@ fun MaterialMiniPlayer(
             }
         }
     }
+}
+
+/** Isolate progress updates from the mini-player artwork, text and gesture composition. */
+@Composable
+private fun MiniPlayerStyledProgress(
+    progress: () -> Float,
+    style: ProgressStyle,
+    modifier: Modifier,
+    progressColor: androidx.compose.ui.graphics.Color,
+    trackColor: androidx.compose.ui.graphics.Color,
+    isPlaying: Boolean,
+    height: androidx.compose.ui.unit.Dp,
+    waveAmplitudeWhenPlaying: androidx.compose.ui.unit.Dp,
+    waveLength: androidx.compose.ui.unit.Dp
+) {
+    val foreground by chromahub.rhythm.app.util.OptionalWorkController.foreground.collectAsState()
+    val target = progress()
+    val value = if (foreground) animateFloatAsState(
+        targetValue = target,
+        animationSpec = spring(stiffness = Spring.StiffnessLow),
+        label = "miniPlayerProgress"
+    ) else androidx.compose.runtime.rememberUpdatedState(target)
+    StyledProgressBar(
+        progress = value.value, style = style, modifier = modifier,
+        progressColor = progressColor, trackColor = trackColor,
+        isPlaying = isPlaying && foreground, animated = foreground,
+        height = height, waveAmplitudeWhenPlaying = waveAmplitudeWhenPlaying, waveLength = waveLength
+    )
 }

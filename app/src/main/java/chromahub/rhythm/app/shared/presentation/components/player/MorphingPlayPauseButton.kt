@@ -28,6 +28,8 @@ import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.toPath
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
@@ -79,16 +81,19 @@ fun MorphingPlayPauseButton(
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
         label = "pressScale"
     )
-    val infiniteTransition = rememberInfiniteTransition(label = "morphRotation")
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 15000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "rotation"
-    )
+    val foreground by chromahub.rhythm.app.util.OptionalWorkController.foreground.collectAsState()
+    // No frame-clock subscription for a hidden, paused, or loading button.
+    val rotation = if (isPlaying && foreground && !isMediaLoading) {
+        rememberInfiniteTransition(label = "morphRotation").animateFloat(
+            initialValue = 0f,
+            targetValue = 360f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 15000, easing = LinearEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "rotation"
+        )
+    } else remember { mutableFloatStateOf(0f) }
     val containerColor = MaterialTheme.colorScheme.primary
     val contentColor = MaterialTheme.colorScheme.onPrimary
 
@@ -127,7 +132,7 @@ fun MorphingPlayPauseButton(
             }
         } else {
             Box(modifier = Modifier.fillMaxSize()
-                .graphicsLayer { rotationZ = if (isPlaying) rotation else 0f }
+                .graphicsLayer { rotationZ = rotation.value }
                 .drawWithCache {
                     morph.toPath(progress = morphProgress, path = morphPath)
                     matrix.reset()

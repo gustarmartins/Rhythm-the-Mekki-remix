@@ -4382,6 +4382,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         val mediaId = mediaItem?.mediaId ?: return false
         val token = mediaItem.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN)
         if (token != lastHandledToken) return false
+        if (isUnchangedOccurrenceAutoTransition(reason, mediaId, token, lastHandledMediaId, lastHandledToken)) {
+            return true
+        }
         val isMetadataReason =
             reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK ||
                 reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED

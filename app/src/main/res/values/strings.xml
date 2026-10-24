@@ -2989,4 +2989,5 @@
     <string name="music_assistant_native_description">Your server library in Rhythm, with synchronized playback and shared queues.</string>
     <string name="music_assistant_title">Music Assistant</string>
     <string name="local_network_access_required">Allow nearby devices access to connect to your music server.</string>
+    <string name="home_listening_controls">Listening and lyrics controls</string>
 </resources>

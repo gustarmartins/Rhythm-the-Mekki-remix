@@ -1,6 +1,12 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 package chromahub.rhythm.app.shared.presentation
 
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.foundation.background
+import chromahub.rhythm.app.shared.presentation.components.player.MiniPlayerProgressBackground
 import android.app.ActivityOptions
 import android.content.Intent
 import androidx.activity.ComponentActivity
@@ -43,6 +49,31 @@ class PlaybackRegressionAndroidTest {
         return result!!.getOrThrow()
     }
 
+    @Test fun listeningControlsExposeLyricsAndPreserveChoiceAfterDismissal() {
+        val settings = AppSettings.getInstance(context)
+        val original = settings.bluetoothLyricsEnabled.value
+        try {
+            main {
+                settings.setBluetoothLyricsEnabled(true)
+                host!!.setContent {
+                    MaterialTheme {
+                        var visible by remember { mutableStateOf(true) }
+                        if (visible) chromahub.rhythm.app.shared.presentation.screens.settings.ListeningControlsDialog(
+                            settings, onDismiss = { visible = false })
+                    }
+                }
+            }
+            compose.onNodeWithText(context.getString(chromahub.rhythm.app.R.string.bluetooth_lyrics_enabled))
+                .performScrollTo().performClick()
+            compose.runOnIdle { assertFalse(settings.bluetoothLyricsEnabled.value) }
+            // Quick switches apply immediately; closing the tuning editor must not revert them.
+            compose.onNodeWithText(context.getString(chromahub.rhythm.app.R.string.ui_cancel)).performClick()
+            compose.runOnIdle { assertFalse(settings.bluetoothLyricsEnabled.value) }
+        } finally {
+            main { settings.setBluetoothLyricsEnabled(original) }
+        }
+    }
+
     @Before fun startHost() {
         require(context.packageName.endsWith(".debug"))
         val display = InstrumentationRegistry.getArguments().getString("displayId")?.toInt()
@@ -78,6 +109,61 @@ class PlaybackRegressionAndroidTest {
             }
         }
         compose.waitForIdle()
+    }
+
+    @Test fun progressFillUpdatesPixelsWithoutRemeasuringContent() {
+        val progress = mutableFloatStateOf(0f)
+        val direction = mutableStateOf(LayoutDirection.Ltr)
+        var measures = 0
+        var compositions = 0
+        main {
+            host!!.setContent {
+                CompositionLocalProvider(LocalLayoutDirection provides direction.value) {
+                SideEffect { compositions++ }
+                MiniPlayerProgressBackground(
+                    progress = { progress.floatValue },
+                    color = Color.Red,
+                    modifier = Modifier.size(200.dp, 40.dp).background(Color.Blue)
+                        .testTag("progress-fill")
+                        .layout { measurable, constraints ->
+                            measures++
+                            val child = measurable.measure(constraints)
+                            layout(child.width, child.height) { child.place(0, 0) }
+                        }
+                )
+                }
+            }
+        }
+        compose.waitForIdle()
+        val initialMeasures = main { measures }
+        val initialCompositions = main { compositions }
+        fun assertPixel(fraction: Float, expected: Color) {
+            val pixels = compose.onNodeWithTag("progress-fill").captureToImage().toPixelMap()
+            val actual = pixels[(pixels.width * fraction).toInt(), pixels.height / 2]
+            assertEquals(expected.red, actual.red, 0.01f)
+            assertEquals(expected.blue, actual.blue, 0.01f)
+        }
+        assertPixel(0.1f, Color.Blue)
+        main { progress.floatValue = 0.25f }
+        compose.waitForIdle()
+        assertPixel(0.1f, Color.Red)
+        assertPixel(0.5f, Color.Blue)
+        main { progress.floatValue = 0.75f }
+        compose.waitForIdle()
+        assertPixel(0.5f, Color.Red)
+        assertPixel(0.9f, Color.Blue)
+        main { progress.floatValue = 0f }
+        compose.waitForIdle()
+        assertPixel(0.1f, Color.Blue)
+        main {
+            assertEquals("Progress must not trigger layout", initialMeasures, measures)
+            assertEquals("Progress must not recompose content", initialCompositions, compositions)
+            direction.value = LayoutDirection.Rtl
+            progress.floatValue = 0.25f
+        }
+        compose.waitForIdle()
+        assertPixel(0.9f, Color.Red)
+        assertPixel(0.1f, Color.Blue)
     }
 
     @Test fun syncToggleAndPresetApplyOneLinkedPair() {
@@ -192,17 +278,36 @@ class PlaybackRegressionAndroidTest {
                     store.clear()
                 }
             }
-            val lyrics = android.os.Bundle().apply {
-                putString("song_id", "rate-regression")
-                putStringArrayList("lyric_texts", arrayListOf("Speaker lyric"))
-                putLongArray("lyric_timestamps", longArrayOf(0L))
+            // Keep a UI controller alive as it is when the owner backgrounds the app.
+            val liveVm = main {
+                chromahub.rhythm.app.features.local.presentation.viewmodel.MusicViewModel(
+                    context.applicationContext as android.app.Application).also { store.put("player", it) }
             }
-            val result = main {
-                activeController.sendCustomCommand(androidx.media3.session.SessionCommand(
-                    "UPDATE_LYRICS_DATA", android.os.Bundle.EMPTY), lyrics)
-            }.get(10, java.util.concurrent.TimeUnit.SECONDS)
-            assertEquals(androidx.media3.session.SessionResult.RESULT_SUCCESS, result.resultCode)
-            compose.waitUntil(10000) { main { activeController.mediaMetadata.title.toString() == "Speaker lyric" } }
+            compose.waitUntil(10000) { liveVm.serviceConnected.value }
+            android.os.SystemClock.sleep(1000)
+            val historyTimestamp = main { settings.lastPlayedTimestamp.value }
+            repeat(3) { line ->
+                val text = "Speaker lyric $line"
+                val lyrics = android.os.Bundle().apply {
+                    putString("song_id", "rate-regression")
+                    putStringArrayList("lyric_texts", arrayListOf(text))
+                    putLongArray("lyric_timestamps", longArrayOf(0L))
+                }
+                val result = main {
+                    activeController.sendCustomCommand(androidx.media3.session.SessionCommand(
+                        "UPDATE_LYRICS_DATA", android.os.Bundle.EMPTY), lyrics)
+                }.get(10, java.util.concurrent.TimeUnit.SECONDS)
+                assertEquals(androidx.media3.session.SessionResult.RESULT_SUCCESS, result.resultCode)
+                compose.waitUntil(10000) { main { activeController.mediaMetadata.title.toString() == text } }
+                // Let asynchronous timeline/transition callbacks run before asserting stability.
+                android.os.SystemClock.sleep(1200)
+                main {
+                    assertEquals(1.3f, activeController.playbackParameters.speed)
+                    assertEquals(0.8f, activeController.playbackParameters.pitch)
+                    assertEquals(historyTimestamp, settings.lastPlayedTimestamp.value)
+                    assertTrue(activeController.isPlaying)
+                }
+            }
             main {
                 assertEquals(1.3f, activeController.playbackParameters.speed)
                 assertEquals(0.8f, activeController.playbackParameters.pitch)

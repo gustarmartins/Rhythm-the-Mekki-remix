@@ -7,8 +7,18 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import zipfile
 
 EXPECTED_SIGNER = 'e627f9a94ddce07a35d98c3e9a603d15d61c83d3e9283e1513c08dbedc801822'
+
+
+def verify_font_storage(apk):
+    with zipfile.ZipFile(apk) as archive:
+        fonts = [entry for entry in archive.infolist()
+                 if entry.filename.lower().endswith(('.ttf', '.otf'))]
+        assert fonts, 'Bundled fonts missing from APK'
+        assert all(entry.compress_type == zipfile.ZIP_STORED for entry in fonts), \
+            'Compressed fonts would restore UI-thread decompression during startup'
 
 
 def verify():
@@ -35,6 +45,7 @@ def verify():
             if manifest['channel'] == 'stable':
                 compiled_manifest = subprocess.check_output([str(build_tools / 'aapt'), 'dump', 'xmltree', str(apk), 'AndroidManifest.xml'], text=True)
                 assert 'musicassistant' not in compiled_manifest.lower(), 'Stable APK contains Music Assistant'
+            verify_font_storage(apk)
             digest = hashlib.sha256(apk.read_bytes()).hexdigest()
             shutil.copy2(apk, destination / apk.name)
             manifest['apks'].append({'name': apk.name, 'sha256': digest, 'flavor': flavor,

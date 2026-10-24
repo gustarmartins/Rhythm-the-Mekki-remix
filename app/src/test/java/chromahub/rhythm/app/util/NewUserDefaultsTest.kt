@@ -6,15 +6,24 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NewUserDefaultsTest {
-    @Test fun cleanInstallHasReadableLyricsAndOnlineFallbackWithNoMobileArtworkConsent() {
+    @Test fun cleanInstallHasOnlineLyricsAndOwnerPlayerDefaultsWithoutLibraryWriteConsent() {
         val values = NewUserDefaults.forEmptyPreferences(emptyMap<String, Any>(), mapOf("lrclib_api_enabled" to true))
         assertEquals(true, values["bluetooth_lyrics_enabled"])
         assertEquals(20, values["bluetooth_lyrics_max_chunk_chars"])
         assertEquals(0, values["bluetooth_lyrics_offset_ms"])
         assertEquals(0, values["bluetooth_lyrics_scroll_chars_per_second"])
         assertEquals(600, values["bluetooth_lyrics_metadata_update_interval_ms"])
-        assertEquals(LyricsSourcePreference.LOCAL_FIRST.ordinal, values["lyrics_source_preference"])
+        assertEquals(LyricsSourcePreference.API_FIRST.ordinal, values["lyrics_source_preference"])
         assertEquals(true, values["integrations_enabled"])
+        assertEquals(true, values["show_lyrics"])
+        assertEquals(true, values["broadcast_status_enabled"])
+        assertEquals("EXPRESSIVE", values["player_theme_id"])
+        assertEquals("MATERIAL", values["miniplayer_theme_id"])
+        assertEquals(true, values["player_ambient_backdrop_enabled"])
+        assertEquals(false, values["player_accent_background_enabled"])
+        assertEquals(0.35f, values["player_ambient_backdrop_intensity"])
+        assertEquals(true, values["player_ambient_infinite_zoom"])
+        assertEquals(false, values["enable_album_editing"])
         assertEquals(true, values["lrclib_api_enabled"])
         assertEquals(false, values["artwork_allow_mobile_data"])
         assertEquals(false, values["artwork_setup_completed"])

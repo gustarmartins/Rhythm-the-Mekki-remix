@@ -411,9 +411,9 @@ fun StyledProgressBar(
     val renderedNormalizedProgress = remember { mutableFloatStateOf(normalizedProgress) }
     var lastProgressUpdateNanos by remember { mutableLongStateOf(0L) }
 
-    LaunchedEffect(normalizedProgress, effectiveInteracting, enabled) {
+    LaunchedEffect(normalizedProgress, effectiveInteracting, enabled, onSeek != null, animated) {
         val target = normalizedProgress
-        if (!enabled || effectiveInteracting) {
+        if (!enabled || effectiveInteracting || onSeek == null || !animated) {
             renderedNormalizedProgress.floatValue = target
             lastProgressUpdateNanos = System.nanoTime()
             return@LaunchedEffect
