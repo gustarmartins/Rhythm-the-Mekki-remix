@@ -77,6 +77,14 @@ class OwnedMetadataReplacementTest {
     private fun events(vararg flags: Int): Player.Events = Player.Events(
         FlagSet.Builder().apply { flags.forEach { add(it) } }.build())
 
+    @Test fun everyListenerCallbackHasAnExplicitForwarder() {
+        for (method in Player.Listener::class.java.methods.filter { it.name.startsWith("on") }) {
+            assertEquals("Default callback would discard ${method.name}",
+                OwnedMetadataListener::class.java,
+                OwnedMetadataListener::class.java.getMethod(method.name, *method.parameterTypes).declaringClass)
+        }
+    }
+
     @Test fun metadataAndOtherEventsSurviveWithoutAQueueNotification() {
         val original = item("song")
         val changed = item("song", "lyric")
