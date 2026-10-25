@@ -334,7 +334,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val minimumDuration = appSettings.minimumDuration
 
     // Search history
-    private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
+    private val _searchHistory = MutableStateFlow(readSearchHistory())
     val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
 
     // Lyrics
@@ -1727,13 +1727,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             loadSettings()
         } catch (e: Exception) {
             Log.e(TAG, "Error loading app settings", e)
-            allSuccess = false
-        }
-
-        try {
-            loadSearchHistory()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error loading search history", e)
             allSuccess = false
         }
 
@@ -5317,7 +5310,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun queuesNewSelections(): Boolean {
         val controller = mediaController ?: return false
         return appSettings.listQueueActionBehavior.value == "play_next" &&
-            controller.currentMediaItem != null && controller.playbackState != Player.STATE_ENDED
+            controller.currentMediaItem != null && controller.playbackState != Player.STATE_ENDED &&
+            !appSettings.shouldResumeOnSongSelection(controller.isPlaying, controller.playWhenReady)
     }
 
     fun enqueueSelectionIfRequested(songs: List<Song>): Boolean {
@@ -6014,7 +6008,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         val queueRule = appSettings.listQueueActionBehavior.value
         val keepShuffle = appSettings.keepShuffleOnSelection.value && _isShuffleEnabled.value
 
-        if (!hasExistingQueue || queueRule == "replace") {
+        val resumeSelection = queueRule == "play_next" && mediaController?.let {
+            appSettings.shouldResumeOnSongSelection(it.isPlaying, it.playWhenReady)
+        } == true
+        if (!hasExistingQueue || queueRule == "replace" || resumeSelection) {
             playQueue(
                 songs = songs,
                 enableShuffle = keepShuffle,
@@ -9254,17 +9251,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Search history methods
-    private fun loadSearchHistory() {
-        val searchHistoryJson = appSettings.searchHistory.value
-        if (searchHistoryJson != null) {
-            try {
-                val type = object : TypeToken<List<String>>() {}.type
-                val history = GsonUtils.gson.fromJson<List<String>>(searchHistoryJson, type)
-                _searchHistory.value = history
-            } catch (e: Exception) {
-                Log.e(TAG, "Error loading search history", e)
-                _searchHistory.value = emptyList()
-            }
+    private fun readSearchHistory(): List<String> {
+        val json = appSettings.searchHistory.value ?: return emptyList()
+        return try {
+            val type = object : TypeToken<List<String>>() {}.type
+            GsonUtils.gson.fromJson<List<String>?>(json, type).orEmpty()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading search history", e)
+            emptyList()
         }
     }
 
@@ -9448,26 +9442,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     // Search history methods
     fun addSearchQuery(query: String) {
-        if (query.isBlank()) return
-
-        viewModelScope.launch {
-            val currentHistory = _searchHistory.value.toMutableList()
-
-            // Remove the query if it already exists to avoid duplicates
-            currentHistory.remove(query)
-
-            // Add the new query at the beginning
-            currentHistory.add(0, query)
-
-            // Limit history to 10 items
-            val limitedHistory = currentHistory.take(10)
-
-            // Update the state
-            _searchHistory.value = limitedHistory
-
-            // Save to SharedPreferences
-            saveSearchHistory()
-        }
+        val updated = chromahub.rhythm.app.util.updatedSearchHistory(_searchHistory.value, query)
+        if (updated == _searchHistory.value) return
+        // Synchronous state/prefs update also works while the search composition is disposing.
+        _searchHistory.value = updated
+        saveSearchHistory()
     }
 
     fun removeSearchQuery(query: String) {

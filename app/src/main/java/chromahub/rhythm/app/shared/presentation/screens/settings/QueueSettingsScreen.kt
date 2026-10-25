@@ -12,6 +12,10 @@ import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAd
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.StandardBottomSheetHeader
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.groupedBottomSheetItemShape
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import chromahub.rhythm.app.util.SongSelectionResumePolicy
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 
@@ -82,6 +86,16 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
     val showQueueDialog by appSettings.showQueueDialog.collectAsState()
     val listQueueActionBehavior by appSettings.listQueueActionBehavior.collectAsState(initial = "replace")
     val queuePersistenceEnabled by appSettings.queuePersistenceEnabled.collectAsState()
+    val resumeOnSelection by appSettings.resumeOnSongSelection.collectAsState()
+    val pauseSeconds by appSettings.selectionPauseSeconds.collectAsState()
+    val idleSeconds by appSettings.selectionIdleSeconds.collectAsState()
+    var editingResumeThreshold by rememberSaveable { mutableStateOf<String?>(null) }
+    fun thresholdSummary(value: Long): String = when (value) {
+        -1L -> context.getString(R.string.selection_resume_never)
+        0L -> context.getString(R.string.selection_resume_immediately)
+        else -> context.getString(R.string.selection_resume_after_seconds, value)
+    }
+
 
     var showListQueueBehaviorDialog by remember { mutableStateOf(false) }
     var showQueueDialogSettingDialog by remember { mutableStateOf(false) }
@@ -118,6 +132,29 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                             onClick = { showListQueueBehaviorDialog = true }
                         )
                     )
+                    add(
+                        SettingItem(
+                            RhythmIcons.Play,
+                            context.getString(R.string.selection_resume_title),
+                            context.getString(R.string.selection_resume_desc),
+                            toggleState = resumeOnSelection,
+                            onToggleChange = { appSettings.setResumeOnSongSelection(it) }
+                        )
+                    )
+                    if (resumeOnSelection) {
+                        add(SettingItem(
+                            MaterialSymbolIcon("timer"),
+                            context.getString(R.string.selection_resume_pause_title),
+                            thresholdSummary(pauseSeconds),
+                            onClick = { editingResumeThreshold = "pause" }
+                        ))
+                        add(SettingItem(
+                            MaterialSymbolIcon("history"),
+                            context.getString(R.string.selection_resume_idle_title),
+                            thresholdSummary(idleSeconds),
+                            onClick = { editingResumeThreshold = "idle" }
+                        ))
+                    }
                     add(
                         SettingItem(
                             MaterialSymbolIcon("help", filled = true),
@@ -319,6 +356,20 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
 
             item(key = "queue_bottom_spacer") { Spacer(modifier = Modifier.height(100.dp)) }
         }
+    }
+
+    editingResumeThreshold?.let { threshold ->
+        SelectionResumeThresholdDialog(
+            title = stringResource(if (threshold == "pause") R.string.selection_resume_pause_title else R.string.selection_resume_idle_title),
+            description = stringResource(if (threshold == "pause") R.string.selection_resume_pause_desc else R.string.selection_resume_idle_desc),
+            initialValue = if (threshold == "pause") pauseSeconds else idleSeconds,
+            onDismiss = { editingResumeThreshold = null },
+            onSave = { seconds ->
+                if (threshold == "pause") appSettings.setSelectionPauseSeconds(seconds)
+                else appSettings.setSelectionIdleSeconds(seconds)
+                editingResumeThreshold = null
+            }
+        )
     }
 
     if (showContextPrefBottomSheet) {
@@ -639,4 +690,48 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
             }
         }
     }
+}
+
+
+@Composable
+private fun SelectionResumeThresholdDialog(
+    title: String,
+    description: String,
+    initialValue: Long,
+    onDismiss: () -> Unit,
+    onSave: (Long) -> Unit
+) {
+    var enabled by rememberSaveable { mutableStateOf(initialValue >= 0) }
+    var seconds by rememberSaveable { mutableStateOf(initialValue.coerceAtLeast(0).toString()) }
+    val value = seconds.toLongOrNull()
+    val valid = value != null && value in 0..SongSelectionResumePolicy.MAX_SECONDS
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(description)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = enabled, onCheckedChange = { enabled = it })
+                    Text(stringResource(R.string.selection_resume_threshold_enabled))
+                }
+                OutlinedTextField(
+                    value = seconds,
+                    onValueChange = { seconds = it },
+                    label = { Text(stringResource(R.string.selection_resume_seconds)) },
+                    supportingText = { Text(stringResource(R.string.selection_resume_seconds_hint)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    enabled = enabled,
+                    isError = enabled && !valid
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !enabled || valid, onClick = { onSave(if (enabled) value!! else -1L) }) {
+                Text(stringResource(R.string.ui_save))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_cancel)) } }
+    )
 }

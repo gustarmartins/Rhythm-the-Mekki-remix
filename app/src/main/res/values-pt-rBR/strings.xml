@@ -3171,4 +3171,18 @@
     <string name="service_starting">Rhythm está começando.</string>
     <string name="exp_third_party_integrations">Integrações de terceiros</string>
     <string name="settings_song_artwork_restart_required">Modo de arte alterado. Reinicie o aplicativo para limpar os caches e executar uma nova verificação completa da mídia com fontes de arte atualizadas.</string>
-    </resources>
+
+    <!-- Optional immediate selection after a pause or an inactive session. -->
+    <string name="selection_resume_title">Retomar com a música que eu tocar</string>
+    <string name="selection_resume_desc">Com Tocar a próxima selecionado, toca a música escolhida imediatamente se um dos prazos tiver passado sem reprodução ativa. Durante a reprodução, mantém Tocar a próxima.</string>
+    <string name="selection_resume_pause_title">Tempo de pausa</string>
+    <string name="selection_resume_pause_desc">Por quanto tempo a reprodução deve ficar pausada na sessão atual para que um toque reproduza a música escolhida.</string>
+    <string name="selection_resume_idle_title">Tempo sem reprodução</string>
+    <string name="selection_resume_idle_desc">Também permite tocar a música escolhida após este tempo sem ouvir, inclusive ao reabrir o Rhythm. Não se aplica à reprodução ativa nem ao carregamento.</string>
+    <string name="selection_resume_never">Desativado</string>
+    <string name="selection_resume_immediately">Imediatamente</string>
+    <string name="selection_resume_after_seconds">Após %1$d segundos</string>
+    <string name="selection_resume_threshold_enabled">Usar este limite</string>
+    <string name="selection_resume_seconds">Segundos</string>
+    <string name="selection_resume_seconds_hint">0 significa imediatamente. Digite até 31536000 segundos (365 dias) ou desative este limite.</string>
+</resources>

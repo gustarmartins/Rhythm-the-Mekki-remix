@@ -8,6 +8,9 @@ package chromahub.rhythm.app.shared.data.model
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
+import android.os.SystemClock
+import chromahub.rhythm.app.util.SongSelectionResumePolicy
+import chromahub.rhythm.app.util.SongSelectionPlaybackActivity
 import android.util.Log
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -511,6 +514,10 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_HIDE_PLAYED_SONGS_IN_QUEUE = "hide_played_songs_in_queue"
         private const val KEY_SHOW_QUEUE_DIALOG = "show_queue_dialog"
         private const val KEY_LIST_QUEUE_ACTION_BEHAVIOR = "list_queue_action_behavior" // "replace", "ask", "play_next", "add_to_end"
+        private const val KEY_RESUME_ON_SONG_SELECTION = "resume_on_song_selection"
+        private const val KEY_SELECTION_PAUSE_SECONDS = "selection_pause_seconds"
+        private const val KEY_SELECTION_IDLE_SECONDS = "selection_idle_seconds"
+        private const val KEY_SELECTION_LAST_PLAYBACK_MS = "selection_last_playback_ms"
         private const val KEY_REPEAT_MODE_PERSISTENCE = "repeat_mode_persistence"
         private const val KEY_SHUFFLE_MODE_PERSISTENCE = "shuffle_mode_persistence"
         private const val KEY_KEEP_SHUFFLE_ON_SELECTION = "keep_shuffle_on_selection"
@@ -1327,6 +1334,18 @@ class AppSettings private constructor(context: Context) {
         prefs.getString(KEY_LIST_QUEUE_ACTION_BEHAVIOR, "play_next") ?: "play_next"
     )
     val listQueueActionBehavior: StateFlow<String> = _listQueueActionBehavior.asStateFlow()
+
+    private val _resumeOnSongSelection = MutableStateFlow(prefs.getBoolean(KEY_RESUME_ON_SONG_SELECTION, false))
+    val resumeOnSongSelection: StateFlow<Boolean> = _resumeOnSongSelection.asStateFlow()
+    private val _selectionPauseSeconds = MutableStateFlow(safeLong(KEY_SELECTION_PAUSE_SECONDS, 0L).coerceIn(-1L, SongSelectionResumePolicy.MAX_SECONDS))
+    val selectionPauseSeconds: StateFlow<Long> = _selectionPauseSeconds.asStateFlow()
+    private val _selectionIdleSeconds = MutableStateFlow(safeLong(KEY_SELECTION_IDLE_SECONDS, 1800L).coerceIn(-1L, SongSelectionResumePolicy.MAX_SECONDS))
+    val selectionIdleSeconds: StateFlow<Long> = _selectionIdleSeconds.asStateFlow()
+    private val selectionPlaybackActivity = SongSelectionPlaybackActivity(
+        SystemClock.elapsedRealtime(), safeLong(KEY_SELECTION_LAST_PLAYBACK_MS, 0L).takeIf { it > 0 }
+    )
+
+    private var lastSelectionPlaybackCheckpointElapsedMs = -30_000L
 
     private val _hidePlayedQueueSongs = MutableStateFlow(initialHidePlayedQueueValue)
     val hidePlayedQueueSongs: StateFlow<Boolean> = _hidePlayedQueueSongs.asStateFlow()
@@ -3493,6 +3512,44 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         _showQueueDialog.value = show
     }
 
+    fun setResumeOnSongSelection(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_RESUME_ON_SONG_SELECTION, enabled) }
+        _resumeOnSongSelection.value = enabled
+    }
+
+    fun setSelectionPauseSeconds(seconds: Long) {
+        val value = seconds.coerceIn(-1L, SongSelectionResumePolicy.MAX_SECONDS)
+        prefs.edit { putLong(KEY_SELECTION_PAUSE_SECONDS, value) }
+        _selectionPauseSeconds.value = value
+    }
+
+    fun setSelectionIdleSeconds(seconds: Long) {
+        val value = seconds.coerceIn(-1L, SongSelectionResumePolicy.MAX_SECONDS)
+        prefs.edit { putLong(KEY_SELECTION_IDLE_SECONDS, value) }
+        _selectionIdleSeconds.value = value
+    }
+
+    fun recordSelectionPlaybackIntent(playWhenReady: Boolean) {
+        selectionPlaybackActivity.onPlaybackIntent(playWhenReady, SystemClock.elapsedRealtime())
+    }
+
+    fun recordSelectionPlaybackActivity(isPlaying: Boolean) {
+        val changed = selectionPlaybackActivity.onPlayingChanged(isPlaying, System.currentTimeMillis())
+        val elapsed = SystemClock.elapsedRealtime()
+        if (changed && (!isPlaying || elapsed - lastSelectionPlaybackCheckpointElapsedMs >= 30_000L)) {
+            prefs.edit { putLong(KEY_SELECTION_LAST_PLAYBACK_MS, selectionPlaybackActivity.lastPlaybackAtMs!!) }
+            lastSelectionPlaybackCheckpointElapsedMs = elapsed
+        }
+    }
+
+    fun shouldResumeOnSongSelection(isPlaying: Boolean, playWhenReady: Boolean): Boolean =
+        SongSelectionResumePolicy.shouldResume(
+            _resumeOnSongSelection.value, isPlaying, playWhenReady,
+            selectionPlaybackActivity.pausedAtElapsedMs, selectionPlaybackActivity.lastPlaybackAtMs,
+            _selectionPauseSeconds.value, _selectionIdleSeconds.value,
+            SystemClock.elapsedRealtime(), System.currentTimeMillis()
+        )
+
     fun setListQueueActionBehavior(behavior: String) {
         if (behavior in listOf("replace", "ask", "play_next", "add_to_end")) {
             prefs.edit { putString(KEY_LIST_QUEUE_ACTION_BEHAVIOR, behavior) }
@@ -5122,7 +5179,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
             return false
         }
 
-        return key == KEY_LAST_PLAYED_TIMESTAMP ||
+        return key == KEY_LAST_PLAYED_TIMESTAMP || key == KEY_SELECTION_LAST_PLAYBACK_MS ||
             key == KEY_RECENTLY_PLAYED ||
             key == KEY_LISTENING_TIME ||
             key == KEY_SONGS_PLAYED ||
@@ -5812,6 +5869,10 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
      * Refreshes all StateFlows to reflect current SharedPreferences values
      */
     private fun refreshAllStateFlows() {
+        _resumeOnSongSelection.value = prefs.getBoolean(KEY_RESUME_ON_SONG_SELECTION, false)
+        _selectionPauseSeconds.value = safeLong(KEY_SELECTION_PAUSE_SECONDS, 0L).coerceIn(-1L, SongSelectionResumePolicy.MAX_SECONDS)
+        _selectionIdleSeconds.value = safeLong(KEY_SELECTION_IDLE_SECONDS, 1800L).coerceIn(-1L, SongSelectionResumePolicy.MAX_SECONDS)
+
         seedNewUserDefaults()
         // Playback Settings
         _gaplessPlayback.value = prefs.getBoolean(KEY_GAPLESS_PLAYBACK, true)

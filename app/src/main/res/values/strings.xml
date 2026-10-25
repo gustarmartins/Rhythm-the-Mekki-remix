@@ -2990,4 +2990,18 @@
     <string name="music_assistant_title">Music Assistant</string>
     <string name="local_network_access_required">Allow nearby devices access to connect to your music server.</string>
     <string name="home_listening_controls">Listening and lyrics controls</string>
+
+    <!-- Optional immediate selection after a pause or an inactive session. -->
+    <string name="selection_resume_title">Resume with the song I tap</string>
+    <string name="selection_resume_desc">When Play Next is selected, play the tapped song immediately if either delay has passed while playback is inactive. Active playback keeps using Play Next.</string>
+    <string name="selection_resume_pause_title">Paused playback delay</string>
+    <string name="selection_resume_pause_desc">How long playback must be paused in the current app session before a tap plays the selected song.</string>
+    <string name="selection_resume_idle_title">Time without playback</string>
+    <string name="selection_resume_idle_desc">Also allow a tap to play immediately after this much time without listening, including after reopening Rhythm. Active playback and buffering are excluded.</string>
+    <string name="selection_resume_never">Disabled</string>
+    <string name="selection_resume_immediately">Immediately</string>
+    <string name="selection_resume_after_seconds">After %1$d seconds</string>
+    <string name="selection_resume_threshold_enabled">Use this threshold</string>
+    <string name="selection_resume_seconds">Seconds</string>
+    <string name="selection_resume_seconds_hint">0 means immediately. Enter up to 31536000 seconds (365 days), or disable this threshold.</string>
 </resources>

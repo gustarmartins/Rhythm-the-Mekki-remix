@@ -2093,6 +2093,15 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             settingKey = "listQueueActionBehavior"
         ))
         add(SearchableSettingItem(
+            id = "selection_resume",
+            title = context.getString(R.string.selection_resume_title),
+            description = context.getString(R.string.selection_resume_desc),
+            keywords = listOf("resume", "paused", "idle", "afk", "inactivity", "threshold", "tap song", "play next"),
+            icon = RhythmIcons.Play,
+            route = SettingsRoutes.QUEUE,
+            parentScreen = context.getString(R.string.settings_queue_title)
+        ))
+        add(SearchableSettingItem(
             id = "queue_context_persistence",
             title = context.getString(R.string.settings_context_queue_persistence),
             description = context.getString(R.string.settings_context_queue_persistence_desc),

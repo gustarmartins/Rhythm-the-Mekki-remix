@@ -37,6 +37,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -136,11 +138,12 @@ fun UniversalSearchScreen(
     val isLandscapeTablet = isTablet && windowScreenWidthDp() > windowScreenHeightDp()
     val horizontalPadding = if (isTablet) 32.dp else 24.dp
 
-    var query by remember { mutableStateOf("") }
+    val searchSession = rememberSaveable(saver = SearchSessionState.Saver) { SearchSessionState() }
+    var query by searchSession::query
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
-        if (showKeyboardOnSearchOpen) {
+        if (showKeyboardOnSearchOpen && query.isBlank()) {
             delay(300)
             try {
                 focusRequester.requestFocus()
@@ -150,17 +153,17 @@ fun UniversalSearchScreen(
         }
     }
 
-    var showFilters by remember { mutableStateOf(false) }
-    var filterSongs by remember { mutableStateOf(true) }
-    var filterAlbums by remember { mutableStateOf(true) }
-    var filterArtists by remember { mutableStateOf(true) }
-    var filterPlaylists by remember { mutableStateOf(true) }
+    var showFilters by searchSession::showFilters
+    var filterSongs by searchSession::filterSongs
+    var filterAlbums by searchSession::filterAlbums
+    var filterArtists by searchSession::filterArtists
+    var filterPlaylists by searchSession::filterPlaylists
 
     var showSwitchDialog by remember { mutableStateOf(false) }
     var pendingAction: (() -> Unit)? by remember { mutableStateOf(null) }
     var targetModeForPendingAction by remember { mutableStateOf("") }
 
-    var showAllSongsPage by remember { mutableStateOf(false) }
+    var showAllSongsPage by searchSession::showAllSongs
     var showSongOptionsSheet by remember { mutableStateOf(false) }
     var selectedSongForOptions by remember { mutableStateOf<Any?>(null) }
 
@@ -272,7 +275,29 @@ fun UniversalSearchScreen(
             matchedLocalArtists.isNotEmpty() || matchedStreamingArtists.isNotEmpty() ||
             matchedLocalPlaylists.isNotEmpty() || matchedStreamingPlaylists.isNotEmpty()
 
+    // Save completed typing even without an IME action or a result click. Flush on navigation
+    // as well, so a quick tap or opening the player cannot drop the latest query.
+    val latestQuery by rememberUpdatedState(query)
+    LaunchedEffect(query) {
+        if (query.isNotBlank()) {
+            delay(750)
+            localViewModel.addSearchQuery(query)
+        }
+    }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(localViewModel, lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) localViewModel.addSearchQuery(latestQuery)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            localViewModel.addSearchQuery(latestQuery)
+        }
+    }
+
     val handleAction = { itemMode: String, action: () -> Unit ->
+        localViewModel.addSearchQuery(query)
         if (itemMode == appMode) {
             action()
         } else {
@@ -286,6 +311,7 @@ fun UniversalSearchScreen(
         if (showAllSongsPage) {
             showAllSongsPage = false
         } else if (query.isNotEmpty() || showFilters) {
+            localViewModel.addSearchQuery(query)
             query = ""
             showFilters = false
             focusManager.clearFocus()
@@ -660,6 +686,7 @@ fun UniversalSearchScreen(
                     ) {
                         // Left Column (Songs + Playlists)
                         LazyColumn(
+                            state = searchSession.songResults,
                             modifier = Modifier
                                 .weight(1.1f)
                                 .fillMaxHeight(),
@@ -817,6 +844,7 @@ fun UniversalSearchScreen(
 
                         // Right Column (Albums + Artists)
                         LazyColumn(
+                            state = searchSession.otherResults,
                             modifier = Modifier
                                 .weight(0.9f)
                                 .fillMaxHeight(),
@@ -845,7 +873,7 @@ fun UniversalSearchScreen(
                                     Text(stringResource(R.string.settings_tab_albums), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp).animateItem())
                                 }
                                 item(key = "albums_grid") {
-                                    val searchAlbumsRowState = rememberLazyListState()
+                                    val searchAlbumsRowState = searchSession.albums
                                     LazyRow(
                                         state = searchAlbumsRowState,
                                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -879,7 +907,7 @@ fun UniversalSearchScreen(
                                     Text(stringResource(R.string.settings_tab_artists), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp).animateItem())
                                 }
                                 item(key = "artists_grid") {
-                                    val searchArtistsRowState = rememberLazyListState()
+                                    val searchArtistsRowState = searchSession.artists
                                     LazyRow(
                                         state = searchArtistsRowState,
                                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -908,6 +936,7 @@ fun UniversalSearchScreen(
                     }
                 } else {
                     LazyColumn(
+                        state = searchSession.results,
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = horizontalPadding),
@@ -1044,7 +1073,7 @@ fun UniversalSearchScreen(
                                     Text(stringResource(R.string.settings_tab_albums), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp).animateItem())
                                 }
                                 item(key = "albums_grid") {
-                                    val searchAlbumsRowState = rememberLazyListState()
+                                    val searchAlbumsRowState = searchSession.albums
                                     LazyRow(
                                         state = searchAlbumsRowState,
                                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1078,7 +1107,7 @@ fun UniversalSearchScreen(
                                     Text(stringResource(R.string.settings_tab_artists), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 8.dp).animateItem())
                                 }
                                 item(key = "artists_grid") {
-                                    val searchArtistsRowState = rememberLazyListState()
+                                    val searchArtistsRowState = searchSession.artists
                                     LazyRow(
                                         state = searchArtistsRowState,
                                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1208,7 +1237,17 @@ fun UniversalSearchScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         BasicTextField(
                             value = query,
-                            onValueChange = { query = it },
+                            onValueChange = { value ->
+                                if (value.isEmpty()) localViewModel.addSearchQuery(query)
+                                query = value
+                            },
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                imeAction = androidx.compose.ui.text.input.ImeAction.Search
+                            ),
+                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {
+                                localViewModel.addSearchQuery(query)
+                                focusManager.clearFocus()
+                            }),
                             modifier = Modifier.weight(1f).focusRequester(focusRequester),
                             textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Medium),
                             singleLine = true,
@@ -1225,6 +1264,7 @@ fun UniversalSearchScreen(
                         if (query.isNotEmpty()) {
                             IconButton(onClick = {
                                 HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
+                                localViewModel.addSearchQuery(query)
                                 query = ""
                             }, modifier = Modifier.size(32.dp)) {
                                 Icon(MaterialSymbolIcon("clear", filled = true), contentDescription = stringResource(R.string.ui_clear), modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1416,6 +1456,7 @@ fun UniversalSearchScreen(
             )
         ) {
             UniversalAllSongsPage(
+                listState = searchSession.allSongs,
                 localSongs = matchedLocalSongs,
                 streamingSongs = matchedStreamingSongs,
                 onBack = { showAllSongsPage = false },
@@ -2017,7 +2058,8 @@ fun UniversalAllSongsPage(
     onOptionsClick: (Any) -> Unit,
     onLocalSongClick: (Song) -> Unit,
     onStreamingSongClick: (StreamingSong) -> Unit,
-    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    listState: LazyListState = rememberLazyListState()
 ) {
     val context = LocalContext.current
     val allSongs = buildList {
@@ -2037,6 +2079,7 @@ fun UniversalAllSongsPage(
         containerColor = MaterialTheme.colorScheme.background
     ) { modifier ->
         LazyColumn(
+            state = listState,
             modifier = modifier,
             contentPadding = PaddingValues(
                 start = horizontalPadding,

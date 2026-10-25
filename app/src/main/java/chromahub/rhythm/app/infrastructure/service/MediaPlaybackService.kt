@@ -699,6 +699,9 @@ btProxy = chromahub.rhythm.app.util.BtCodecInfo.getCodec(this) { info ->
                 val statsRepository = PlaybackStatsRepository.getInstance(applicationContext)
                 while (isActive) {
                     try {
+                        // Checkpoint actual listening for process-death recovery. Writes are
+                        // throttled; a pause always persists its exact timestamp immediately.
+                        if (player.isPlaying) appSettings.recordSelectionPlaybackActivity(true)
                         val mode = appSettings.rhythmGuardMode.value
                         if (mode != AppSettings.RHYTHM_GUARD_MODE_OFF) {
                             val now = System.currentTimeMillis()
@@ -1088,6 +1091,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                appSettings.recordSelectionPlaybackIntent(playWhenReady)
                 Log.i("RhythmPlayback", "playWhenReady=$playWhenReady reason=$reason state=${player.playbackState}")
                 if (playWhenReady) {
                     val now = System.currentTimeMillis()
@@ -1122,6 +1126,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             }
             
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                appSettings.recordSelectionPlaybackActivity(isPlaying)
                 reconcileMediaDisplayLyricsLoop()
                 publishCanonicalSessionIdentity(player.currentMediaItem?.let(::convertMediaItemToSong))
                 // Broadcast status for Tasker/KWGT/automation apps
@@ -1242,6 +1247,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             }
         }
         playerListener?.let { player.addListener(it) }
+        appSettings.recordSelectionPlaybackIntent(player.playWhenReady)
+        appSettings.recordSelectionPlaybackActivity(player.isPlaying)
         reconcileMediaDisplayLyricsLoop()
         
         // Initialize transition controller for crossfade scheduling
@@ -2794,6 +2801,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
         player = wrapPlayer(musicAssistantPlayer ?: rhythmPlayerEngine.masterPlayer)
         playerListener?.let(player::addListener)
+        appSettings.recordSelectionPlaybackIntent(player.playWhenReady)
+        appSettings.recordSelectionPlaybackActivity(player.isPlaying)
         mediaSession?.player = player
         reconcileMediaDisplayLyricsLoop()
         pendingPlayNextTokens.clear()
@@ -3434,6 +3443,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     override fun onDestroy() {
         instanceForWidgetAndLyricsOnly = null
         Log.d(TAG, "Service being destroyed")
+        appSettings.recordSelectionPlaybackActivity(false)
+
 
         // Persist final playback position and index on destroy
         if (::player.isInitialized && appSettings.queuePersistenceEnabled.value) {
@@ -3630,7 +3641,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 val requested = args.getString(QueueEntryCommand.OPERATION)
                 val operation = if (requested == QueueEntryCommand.SELECT) {
                     if (appSettings.listQueueActionBehavior.value == "play_next" &&
-                        player.currentMediaItem != null && player.playbackState != Player.STATE_ENDED)
+                        player.currentMediaItem != null && player.playbackState != Player.STATE_ENDED &&
+                        !appSettings.shouldResumeOnSongSelection(player.isPlaying, player.playWhenReady))
                         QueueEntryCommand.NEXT else QueueEntryCommand.PLAY
                 } else requested.orEmpty()
                 val target = args.getString(QueueEntryCommand.TARGET)
