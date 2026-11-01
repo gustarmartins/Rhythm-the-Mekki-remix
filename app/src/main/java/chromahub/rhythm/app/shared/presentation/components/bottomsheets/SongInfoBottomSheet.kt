@@ -94,15 +94,15 @@ import chromahub.rhythm.app.util.MediaUtils
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.util.HapticType
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.Locale
 import chromahub.rhythm.app.network.NetworkClient
-import chromahub.rhythm.app.network.YTMusicSearchRequest
-import chromahub.rhythm.app.network.YTMusicContext
-import chromahub.rhythm.app.network.YTMusicClient
-import chromahub.rhythm.app.network.extractAlbumImageUrl
+import chromahub.rhythm.app.network.findOnlineSongArtwork
+import chromahub.rhythm.app.util.downloadArtworkPreview
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import chromahub.rhythm.app.util.windowScreenWidthDp
@@ -1514,7 +1514,18 @@ private fun EditSongSheet(
     val haptics = LocalHapticFeedback.current
     var showWarningDialog by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
-    var isFetchingOnlineArt by remember { mutableStateOf(false) }
+    var isFetchingOnlineArt by remember(song.id) { mutableStateOf(false) }
+    var artworkFetchJob by remember(song.id) { mutableStateOf<Job?>(null) }
+    var artworkRequestGeneration by remember(song.id) { mutableIntStateOf(0) }
+    val cancelOnlineArtwork = {
+        artworkRequestGeneration++
+        artworkFetchJob?.cancel()
+        artworkFetchJob = null
+        isFetchingOnlineArt = false
+    }
+    DisposableEffect(song.id) {
+        onDispose { artworkFetchJob?.cancel() }
+    }
     val coroutineScope = rememberCoroutineScope()
     var resolvedSongArtworkUri by remember(song.id, song.artworkUri, song.uri) {
         mutableStateOf(song.artworkUri)
@@ -1527,6 +1538,7 @@ private fun EditSongSheet(
     }
     
     val resetToOriginal = {
+        cancelOnlineArtwork()
         title = originalTitle
         artist = originalArtist
         album = originalAlbum
@@ -1542,91 +1554,62 @@ private fun EditSongSheet(
     }
 
     val fetchOnlineArtwork: () -> Unit = {
-        if (!isFetchingOnlineArt && title.isNotBlank() && artist.isNotBlank()) {
+        if (!isFetchingOnlineArt && !isSaving && !showWarningDialog && title.isNotBlank() && artist.isNotBlank()) {
+            // Capture one request identity before leaving the main thread.
+            val requestTitle = title
+            val requestArtist = artist
+            val requestAlbum = album
+            val generation = ++artworkRequestGeneration
             isFetchingOnlineArt = true
-            coroutineScope.launch(Dispatchers.IO) {
+            artworkFetchJob = coroutineScope.launch {
+                var tempFile: File? = null
+                var accepted = false
                 try {
-                    var imageUrl: String? = null
-
-                    if (NetworkClient.isDeezerApiEnabled()) {
-                        val deezerApi = NetworkClient.deezerApiService
-                        if (deezerApi != null) {
-                            try {
-                                val query = if (artist.isNotBlank() && !artist.equals("Unknown", ignoreCase = true)) {
-                                    "${title.trim()} ${artist.trim()}"
-                                } else title.trim()
-                                val response = deezerApi.searchAlbums(query)
-                                val albumList = response.data
-                                if (!albumList.isNullOrEmpty()) {
-                                    val best = albumList.firstOrNull { albumItem ->
-                                        (album.isNotBlank() && albumItem.title.contains(album, ignoreCase = true)) ||
-                                        albumItem.artist?.name?.contains(artist, ignoreCase = true) == true
-                                    } ?: albumList.firstOrNull()
-                                    imageUrl = best?.coverXl ?: best?.coverBig ?: best?.coverMedium ?: best?.cover
-                                }
-                            } catch (e: Exception) {
-                                Log.w("SongInfoBottomSheet", "Deezer album search failed: ${e.message}")
-                            }
+                    val imageUrl = withContext(Dispatchers.IO) {
+                        findOnlineSongArtwork(
+                            title = requestTitle,
+                            artist = requestArtist,
+                            album = requestAlbum,
+                            deezer = NetworkClient.deezerApiService.takeIf { NetworkClient.isDeezerApiEnabled() },
+                            youtube = NetworkClient.ytmusicApiService.takeIf { NetworkClient.isYTMusicApiEnabled() }
+                        ) { provider, error ->
+                            Log.w("SongInfoBottomSheet", "$provider track artwork search failed: ${error.message}")
                         }
                     }
-
-                    if (imageUrl.isNullOrEmpty() && NetworkClient.isYTMusicApiEnabled()) {
-                        val apiService = NetworkClient.ytmusicApiService
-                        if (apiService != null) {
-                            try {
-                                val searchQuery = "${title.trim()} ${artist.trim()}"
-                                val searchRequest = YTMusicSearchRequest(
-                                    context = YTMusicContext(YTMusicClient()),
-                                    query = searchQuery,
-                                    params = "EgWKAQIIAWoKEAoQAxAEEAkQBQ%3D%3D"
-                                )
-                                val response = apiService.search(request = searchRequest)
-                                if (response.isSuccessful) {
-                                    imageUrl = response.body()?.extractAlbumImageUrl()
-                                } else {
-                                    Log.w("SongInfoBottomSheet", "YTMusic search unsuccessful: ${response.code()}")
-                                }
-                            } catch (e: Exception) {
-                                Log.w("SongInfoBottomSheet", "YTMusic album search failed: ${e.message}")
-                            }
-                        }
-                    }
-
-                    if (!imageUrl.isNullOrEmpty()) {
-                        val okRequest = okhttp3.Request.Builder().url(imageUrl).build()
-                        val okResponse = NetworkClient.genericHttpClient.newCall(okRequest).execute()
-                        if (okResponse.isSuccessful) {
-                            val bytes = okResponse.body.bytes()
-                            val tempFile = File(context.cacheDir, "temp_artwork_fetched_${song.id}.jpg")
-                            tempFile.writeBytes(bytes)
-                            withContext(Dispatchers.Main) {
-                                selectedImageUri = Uri.fromFile(tempFile)
-                                removeArtwork = false
-                                Toast.makeText(context, R.string.songinfobottomsheet_artwork_fetched_successfully_click, Toast.LENGTH_SHORT).show()
-                            }
-                        } else {
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(context, R.string.songinfobottomsheet_failed_to_download_artwork_1, Toast.LENGTH_SHORT).show()
-                            }
-                        }
+                    if (imageUrl == null) {
+                        Toast.makeText(context, R.string.songinfobottomsheet_no_artwork_found_for, Toast.LENGTH_SHORT).show()
                     } else {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, R.string.songinfobottomsheet_no_artwork_found_for, Toast.LENGTH_SHORT).show()
+                        // A fresh path also prevents Coil from showing a previously fetched cover.
+                        val candidate = File.createTempFile("artwork_preview_", ".jpg", context.cacheDir)
+                        tempFile = candidate
+                        withContext(Dispatchers.IO) {
+                            downloadArtworkPreview(NetworkClient.genericHttpClient, imageUrl, candidate)
+                        }
+                        if (generation == artworkRequestGeneration && title == requestTitle &&
+                            artist == requestArtist && album == requestAlbum && !isSaving && !showWarningDialog) {
+                            selectedImageUri = Uri.fromFile(candidate)
+                            removeArtwork = false
+                            accepted = true
+                            Toast.makeText(context, R.string.songinfobottomsheet_artwork_fetched_successfully_click, Toast.LENGTH_SHORT).show()
                         }
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
+                    if (generation == artworkRequestGeneration) {
                         Toast.makeText(context, context.getString(R.string.error_fetching_artwork, e.message ?: ""), Toast.LENGTH_LONG).show()
                     }
                 } finally {
-                    withContext(Dispatchers.Main) {
+                    if (!accepted) tempFile?.delete()
+                    if (generation == artworkRequestGeneration) {
                         isFetchingOnlineArt = false
+                        artworkFetchJob = null
                     }
                 }
             }
         }
     }
-    
+
     val proceedWithSave = { 
         val yearInt = year.toIntOrNull() ?: 0
         val trackInt = trackNumber.toIntOrNull() ?: 0
@@ -1687,8 +1670,9 @@ private fun EditSongSheet(
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
-        selectedImageUri = uri
         if (uri != null) {
+            cancelOnlineArtwork()
+            selectedImageUri = uri
             removeArtwork = false
         }
     }
@@ -1721,6 +1705,7 @@ private fun EditSongSheet(
     
     fun handleSave() {
         if (isSaving) return
+        cancelOnlineArtwork()
         HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
         showWarningDialog = true
     }
@@ -1886,6 +1871,7 @@ private fun EditSongSheet(
 
                                         RhythmDetailActionButton(
                                             onClick = {
+                                                cancelOnlineArtwork()
                                                 selectedImageUri = null
                                                 removeArtwork = true
                                             },
@@ -1981,7 +1967,7 @@ private fun EditSongSheet(
                                     ) {
                                         OutlinedTextField(
                                             value = title,
-                                            onValueChange = { title = it },
+                                            onValueChange = { cancelOnlineArtwork(); title = it },
                                             label = { Text(stringResource(R.string.bottomsheet_title), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                             leadingIcon = {
                                                 Icon(
@@ -1996,7 +1982,7 @@ private fun EditSongSheet(
 
                                         OutlinedTextField(
                                             value = artist,
-                                            onValueChange = { artist = it },
+                                            onValueChange = { cancelOnlineArtwork(); artist = it },
                                             label = { Text(stringResource(R.string.player_chip_artist), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                             leadingIcon = {
                                                 Icon(
@@ -2011,7 +1997,7 @@ private fun EditSongSheet(
 
                                         OutlinedTextField(
                                             value = album,
-                                            onValueChange = { album = it },
+                                            onValueChange = { cancelOnlineArtwork(); album = it },
                                             label = { Text(stringResource(R.string.player_chip_album), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                             leadingIcon = {
                                                 Icon(
@@ -2402,6 +2388,7 @@ private fun EditSongSheet(
 
                             RhythmDetailActionButton(
                                 onClick = {
+                                    cancelOnlineArtwork()
                                     selectedImageUri = null
                                     removeArtwork = true
                                 },
@@ -2455,7 +2442,7 @@ private fun EditSongSheet(
 
                     OutlinedTextField(
                         value = title,
-                        onValueChange = { title = it },
+                        onValueChange = { cancelOnlineArtwork(); title = it },
                         label = { Text(stringResource(R.string.bottomsheet_title), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         leadingIcon = {
                             Icon(
@@ -2470,7 +2457,7 @@ private fun EditSongSheet(
 
                     OutlinedTextField(
                         value = artist,
-                        onValueChange = { artist = it },
+                        onValueChange = { cancelOnlineArtwork(); artist = it },
                         label = { Text(stringResource(R.string.player_chip_artist), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         leadingIcon = {
                             Icon(
@@ -2485,7 +2472,7 @@ private fun EditSongSheet(
 
                     OutlinedTextField(
                         value = album,
-                        onValueChange = { album = it },
+                        onValueChange = { cancelOnlineArtwork(); album = it },
                         label = { Text(stringResource(R.string.player_chip_album), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         leadingIcon = {
                             Icon(

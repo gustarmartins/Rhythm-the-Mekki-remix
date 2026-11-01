@@ -43,7 +43,7 @@ import chromahub.rhythm.app.network.YTMusicContext
 import chromahub.rhythm.app.network.YTMusicClient
 import chromahub.rhythm.app.network.YTMusicBrowseRequest
 import chromahub.rhythm.app.network.extractArtistImageUrl
-import chromahub.rhythm.app.network.extractAlbumImageUrl
+import chromahub.rhythm.app.network.findOnlineSongArtwork
 import chromahub.rhythm.app.network.extractVerifiedArtwork
 import chromahub.rhythm.app.network.extractArtistBrowseId
 import chromahub.rhythm.app.network.extractAlbumBrowseId
@@ -6227,49 +6227,15 @@ class MusicRepository(context: Context) {
                 updatedSongs.add(song)
                 return@run
             }
-            var fetchedUri: Uri? = null
-
-            // 1. Try Deezer search first (Deezer returns high resolution album/track artwork)
-            if (NetworkClient.isDeezerApiEnabled() && deezerApiService != null) {
-            try {
-                    val query = if (song.artist.isNotBlank() && !song.artist.equals("Unknown", ignoreCase = true)) {
-                        "${song.title} ${song.artist}"
-                    } else song.title
-                    val response = deezerApiService.searchAlbums(query)
-                    val bestMatch = findBestAlbumMatch(response.data, song.album.ifBlank { song.title }, song.artist)
-                    val imgUrl = bestMatch?.coverXl ?: bestMatch?.coverBig ?: bestMatch?.coverMedium
-                    if (!imgUrl.isNullOrEmpty() && imgUrl.startsWith("http")) {
-                        fetchedUri = imgUrl.toUri()
-                        Log.d(TAG, "Found Deezer artwork for track: ${song.title}, URL: $imgUrl")
-                    }
-                } catch (e: Exception) {
-                    if (e is CancellationException) throw e
-                    Log.w(TAG, "Deezer track search failed for ${song.title}: ${e.message}")
-                }
-                }
-
-            // 2. YTMusic fallback if Deezer didn't return an image
-            if (fetchedUri == null && NetworkClient.isYTMusicApiEnabled() && ytmusicApiService != null) {
-                try {
-                    val query = "${song.title} ${song.artist}".trim()
-                val searchRequest = YTMusicSearchRequest(
-                    context = YTMusicContext(YTMusicClient()),
-                        query = query,
-                        params = "EgWKAQIIAWoKEAoQAxAEEAkQBQ%3D%3D"
-                )
-                val searchResponse = ytmusicApiService.search(request = searchRequest)
-                if (searchResponse.isSuccessful) {
-                        val imageUrl = searchResponse.body()?.extractVerifiedArtwork(song.title, song.artist)
-                    if (!imageUrl.isNullOrEmpty()) {
-                            fetchedUri = imageUrl.toUri()
-                        Log.d(TAG, "Found YTMusic track image for ${song.title}: $imageUrl")
-                    }
-                }
-            } catch (e: Exception) {
-                    if (e is CancellationException) throw e
-                    Log.w(TAG, "YTMusic track search failed for ${song.title}: ${e.message}")
-            }
-        }
+            val fetchedUri = findOnlineSongArtwork(
+                title = song.title,
+                artist = song.artist,
+                album = song.album,
+                deezer = deezerApiService.takeIf { NetworkClient.isDeezerApiEnabled() },
+                youtube = ytmusicApiService.takeIf { NetworkClient.isYTMusicApiEnabled() }
+            ) { provider, error ->
+                Log.w(TAG, "$provider track artwork search failed for ${song.title}: ${error.message}")
+            }?.toUri()
 
             artworkPrefs.edit { putLong(attemptedKey, System.currentTimeMillis()) }
             if (fetchedUri != null) {

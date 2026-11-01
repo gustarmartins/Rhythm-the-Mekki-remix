@@ -109,5 +109,9 @@ data class DeezerTrackArtist(
 
 data class DeezerTrackAlbum(
     val id: Long,
-    val title: String
+    val title: String,
+    val cover: String? = null,
+    @SerializedName("cover_medium") val coverMedium: String? = null,
+    @SerializedName("cover_big") val coverBig: String? = null,
+    @SerializedName("cover_xl") val coverXl: String? = null
 )

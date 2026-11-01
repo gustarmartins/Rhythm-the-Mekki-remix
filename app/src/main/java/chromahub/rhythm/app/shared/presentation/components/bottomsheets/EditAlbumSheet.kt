@@ -55,7 +55,7 @@ import chromahub.rhythm.app.network.NetworkClient
 import chromahub.rhythm.app.network.YTMusicSearchRequest
 import chromahub.rhythm.app.network.YTMusicContext
 import chromahub.rhythm.app.network.YTMusicClient
-import chromahub.rhythm.app.network.extractAlbumImageUrl
+import chromahub.rhythm.app.network.extractVerifiedArtwork
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
@@ -343,7 +343,7 @@ fun EditAlbumSheet(
                                                         val searchQuery = "${albumTitle.trim()} ${albumArtist.trim()}"
                                                         var imageUrl: String? = null
                                                         
-                                                        // Try searching with Album filter first
+                                                        // Only a matching album and artist can supply artwork for this edit.
                                                         val albumSearchRequest = YTMusicSearchRequest(
                                                             context = YTMusicContext(YTMusicClient()),
                                                             query = searchQuery,
@@ -351,22 +351,9 @@ fun EditAlbumSheet(
                                                         )
                                                         val albumResponse = apiService.search(request = albumSearchRequest)
                                                         if (albumResponse.isSuccessful) {
-                                                            imageUrl = albumResponse.body()?.extractAlbumImageUrl()
+                                                            imageUrl = albumResponse.body()?.extractVerifiedArtwork(albumTitle, albumArtist)
                                                         }
                                                         
-                                                        // Fallback to Song filter if album filter yielded nothing
-                                                        if (imageUrl.isNullOrEmpty()) {
-                                                            val songSearchRequest = YTMusicSearchRequest(
-                                                                context = YTMusicContext(YTMusicClient()),
-                                                                query = searchQuery,
-                                                                params = "EgWKAQIIAWoKEAoQAxAEEAkQBQ%3D%3D"
-                                                            )
-                                                            val songResponse = apiService.search(request = songSearchRequest)
-                                                            if (songResponse.isSuccessful) {
-                                                                imageUrl = songResponse.body()?.extractAlbumImageUrl()
-                                                            }
-                                                        }
-
                                                         if (!imageUrl.isNullOrEmpty()) {
                                                             val okRequest = okhttp3.Request.Builder().url(imageUrl).build()
                                                                 val okResponse = NetworkClient.genericHttpClient.newCall(okRequest).execute()
@@ -763,7 +750,7 @@ fun EditAlbumSheet(
                                                         val searchQuery = "${albumTitle.trim()} ${albumArtist.trim()}"
                                                         var imageUrl: String? = null
                                                         
-                                                        // Try searching with Album filter first
+                                                        // Only a matching album and artist can supply artwork for this edit.
                                                         val albumSearchRequest = YTMusicSearchRequest(
                                                             context = YTMusicContext(YTMusicClient()),
                                                             query = searchQuery,
@@ -771,22 +758,9 @@ fun EditAlbumSheet(
                                                         )
                                                         val albumResponse = apiService.search(request = albumSearchRequest)
                                                         if (albumResponse.isSuccessful) {
-                                                            imageUrl = albumResponse.body()?.extractAlbumImageUrl()
+                                                            imageUrl = albumResponse.body()?.extractVerifiedArtwork(albumTitle, albumArtist)
                                                         }
                                                         
-                                                        // Fallback to Song filter if album filter yielded nothing
-                                                        if (imageUrl.isNullOrEmpty()) {
-                                                            val songSearchRequest = YTMusicSearchRequest(
-                                                                context = YTMusicContext(YTMusicClient()),
-                                                                query = searchQuery,
-                                                                params = "EgWKAQIIAWoKEAoQAxAEEAkQBQ%3D%3D"
-                                                            )
-                                                            val songResponse = apiService.search(request = songSearchRequest)
-                                                            if (songResponse.isSuccessful) {
-                                                                imageUrl = songResponse.body()?.extractAlbumImageUrl()
-                                                            }
-                                                        }
-
                                                         if (!imageUrl.isNullOrEmpty()) {
                                                             val okRequest = okhttp3.Request.Builder().url(imageUrl).build()
                                                                 val okResponse = NetworkClient.genericHttpClient.newCall(okRequest).execute()
