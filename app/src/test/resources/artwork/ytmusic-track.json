@@ -1,0 +1,111 @@
+{
+  "contents": {
+    "tabbedSearchResultsRenderer": {
+      "tabs": [
+        {
+          "tabRenderer": {
+            "content": {
+              "sectionListRenderer": {
+                "contents": [
+                  {
+                    "musicShelfRenderer": {
+                      "contents": [
+                        {
+                          "musicResponsiveListItemRenderer": {
+                            "thumbnail": {
+                              "musicThumbnailRenderer": {
+                                "thumbnail": {
+                                  "thumbnails": [
+                                    {
+                                      "url": "https://covers.test/no-gravity.jpg",
+                                      "width": 60,
+                                      "height": 60
+                                    },
+                                    {
+                                      "url": "https://covers.test/no-gravity.jpg",
+                                      "width": 120,
+                                      "height": 120
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "flexColumns": [
+                              {
+                                "musicResponsiveListItemFlexColumnRenderer": {
+                                  "text": {
+                                    "runs": [
+                                      {
+                                        "text": "Impossible",
+                                        "navigationEndpoint": {
+                                          "watchEndpoint": {
+                                            "watchEndpointMusicSupportedConfigs": {
+                                              "watchEndpointMusicConfig": {
+                                                "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              {
+                                "musicResponsiveListItemFlexColumnRenderer": {
+                                  "text": {
+                                    "runs": [
+                                      {
+                                        "text": "Shontelle"
+                                      },
+                                      {
+                                        "text": " • "
+                                      },
+                                      {
+                                        "text": "No Gravity"
+                                      },
+                                      {
+                                        "text": " • "
+                                      },
+                                      {
+                                        "text": "3:47"
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              {
+                                "musicResponsiveListItemFlexColumnRenderer": {
+                                  "text": {
+                                    "runs": [
+                                      {
+                                        "text": "450M plays"
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            ],
+                            "navigationEndpoint": {
+                              "watchEndpoint": {
+                                "watchEndpointMusicSupportedConfigs": {
+                                  "watchEndpointMusicConfig": {
+                                    "musicVideoType": "MUSIC_VIDEO_TYPE_ATV"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

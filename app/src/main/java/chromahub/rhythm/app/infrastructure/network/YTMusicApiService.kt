@@ -138,7 +138,20 @@ data class YTMusicTextRun(
 )
 
 data class YTMusicNavigationEndpoint(
-    val browseEndpoint: YTMusicBrowseEndpoint?
+    val browseEndpoint: YTMusicBrowseEndpoint?,
+    val watchEndpoint: YTMusicWatchEndpoint? = null
+)
+
+data class YTMusicWatchEndpoint(
+    val watchEndpointMusicSupportedConfigs: YTMusicWatchConfigs?
+)
+
+data class YTMusicWatchConfigs(
+    val watchEndpointMusicConfig: YTMusicWatchConfig?
+)
+
+data class YTMusicWatchConfig(
+    val musicVideoType: String?
 )
 
 data class YTMusicBrowseEndpoint(
@@ -291,7 +304,7 @@ fun YTMusicSearchResponse.extractArtistImageUrl(): String? {
     return null
 }
 
-/** Match a title and a linked artist; album names and other metadata are not artist identities. */
+/** Match the artist field, never an album name or arbitrary secondary metadata. */
 fun YTMusicSearchResponse.extractVerifiedArtwork(expectedTitle: String, expectedArtist: String): String? {
     val items = contents?.tabbedSearchResultsRenderer?.tabs.orEmpty().flatMap { tab ->
         tab.tabRenderer?.content?.sectionListRenderer?.contents.orEmpty().flatMap { section ->
@@ -303,13 +316,26 @@ fun YTMusicSearchResponse.extractVerifiedArtwork(expectedTitle: String, expected
             column.musicResponsiveListItemFlexColumnRenderer?.text?.runs.orEmpty()
         }
         val title = columns.firstOrNull().orEmpty().joinToString("") { it.text.orEmpty() }
-        val matches = columns.drop(1).flatten().any { run ->
+        val metadata = columns.getOrNull(1).orEmpty()
+        val linkedArtistMatches = metadata.any { run ->
             run.navigationEndpoint?.browseEndpoint?.browseId?.startsWith("UC") == true &&
                 chromahub.rhythm.app.util.ArtworkSourcePolicy.matches(
                     expectedTitle, expectedArtist, title, run.text
                 )
         }
-        if (!matches) continue
+        // Current song results may omit artist links. For catalog audio (ATV),
+        // the first metadata group is the artist; the album and duration follow bullets.
+        // Do not treat an uploader or an arbitrary unlinked album row as an artist.
+        val isCatalogTrack = (listOfNotNull(item.navigationEndpoint) +
+            columns.firstOrNull().orEmpty().mapNotNull { it.navigationEndpoint }).any {
+            it.watchEndpoint?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType == "MUSIC_VIDEO_TYPE_ATV"
+        }
+        val trackArtist = metadata.takeWhile { it.text?.trim() != "•" }
+            .joinToString("") { it.text.orEmpty() }
+        val catalogArtistMatches = isCatalogTrack && chromahub.rhythm.app.util.ArtworkSourcePolicy.matches(
+            expectedTitle, expectedArtist, title, trackArtist
+        )
+        if (!linkedArtistMatches && !catalogArtistMatches) continue
         val image = item.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails.orEmpty()
             .filter { !it.url.isNullOrBlank() }.maxByOrNull { it.width ?: 0 }?.url
         if (image != null) return image

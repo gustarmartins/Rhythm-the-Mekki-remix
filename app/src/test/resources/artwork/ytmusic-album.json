@@ -1,0 +1,102 @@
+{
+  "contents": {
+    "tabbedSearchResultsRenderer": {
+      "tabs": [
+        {
+          "tabRenderer": {
+            "content": {
+              "sectionListRenderer": {
+                "contents": [
+                  {
+                    "musicShelfRenderer": {
+                      "contents": [
+                        {
+                          "musicResponsiveListItemRenderer": {
+                            "thumbnail": {
+                              "musicThumbnailRenderer": {
+                                "thumbnail": {
+                                  "thumbnails": [
+                                    {
+                                      "url": "https://covers.test/no-gravity.jpg",
+                                      "width": 60,
+                                      "height": 60
+                                    },
+                                    {
+                                      "url": "https://covers.test/no-gravity.jpg",
+                                      "width": 120,
+                                      "height": 120
+                                    },
+                                    {
+                                      "url": "https://covers.test/no-gravity.jpg",
+                                      "width": 226,
+                                      "height": 226
+                                    },
+                                    {
+                                      "url": "https://covers.test/no-gravity.jpg",
+                                      "width": 544,
+                                      "height": 544
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "flexColumns": [
+                              {
+                                "musicResponsiveListItemFlexColumnRenderer": {
+                                  "text": {
+                                    "runs": [
+                                      {
+                                        "text": "No Gravity"
+                                      }
+                                    ]
+                                  }
+                                }
+                              },
+                              {
+                                "musicResponsiveListItemFlexColumnRenderer": {
+                                  "text": {
+                                    "runs": [
+                                      {
+                                        "text": "Album"
+                                      },
+                                      {
+                                        "text": " • "
+                                      },
+                                      {
+                                        "text": "Shontelle",
+                                        "navigationEndpoint": {
+                                          "browseEndpoint": {
+                                            "browseId": "UCLGXXbs2ux7_sPj_uRI7BQQ"
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "text": " • "
+                                      },
+                                      {
+                                        "text": "2010"
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            ],
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "MPREb_8PDyDLHkbCA"
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

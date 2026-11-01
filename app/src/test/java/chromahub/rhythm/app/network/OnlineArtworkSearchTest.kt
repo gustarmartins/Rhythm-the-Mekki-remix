@@ -126,6 +126,21 @@ class OnlineArtworkSearchTest {
         assertEquals(correct, result.extractVerifiedArtwork("Impossible", "Shontelle", "Nightcore Mix"))
     }
 
+    private fun recordedYoutube(kind: String): YTMusicSearchResponse =
+        checkNotNull(javaClass.getResourceAsStream("/artwork/ytmusic-$kind.json"))
+            .bufferedReader().use { Gson().fromJson(it, YTMusicSearchResponse::class.java) }
+
+    @Test fun recordedSongResponseParsesThroughTheRealProviderStructure() {
+        // Public response captured 2026-11-01; tracking fields removed and image URLs replaced.
+        assertEquals(correct, recordedYoutube("track").extractVerifiedArtwork("Impossible", "Shontelle"))
+        assertNull(recordedYoutube("track").extractVerifiedArtwork("Impossible", "Other Artist"))
+    }
+
+    @Test fun recordedAlbumResponseParsesThroughTheRealProviderStructure() {
+        assertEquals(correct, recordedYoutube("album").extractVerifiedArtwork("No Gravity", "Shontelle"))
+        assertNull(recordedYoutube("album").extractVerifiedArtwork("Nightcore Mix", "Shontelle"))
+    }
+
     @Test fun verifiedDeezerMatchDoesNotContactYoutube() = runBlocking {
         val youtube = Youtube(response(item()))
         assertEquals(correct, findOnlineSongArtwork("Impossible", "Shontelle", "", Deezer(listOf(track())), youtube))
@@ -168,6 +183,25 @@ class OnlineArtworkSearchTest {
         assertNull(response(item(artist = "Other Artist", album = "Shontelle")).extractVerifiedArtwork("Impossible", "Shontelle"))
         assertNull(response(item(artistId = null)).extractVerifiedArtwork("Impossible", "Shontelle"))
         assertNull(response(item(artistId = "MPREalbum")).extractVerifiedArtwork("Impossible", "Shontelle"))
+    }
+
+    @Test fun liveCatalogSongLayoutCanIdentifyTheUnlinkedArtist() {
+        val endpoint = Gson().fromJson("""{"watchEndpoint":{"videoId":"catalog-track",
+            "watchEndpointMusicSupportedConfigs":{"watchEndpointMusicConfig":{
+            "musicVideoType":"MUSIC_VIDEO_TYPE_ATV"}}}}""", YTMusicNavigationEndpoint::class.java)
+        val catalogTrack = item(artistId = null).copy(navigationEndpoint = endpoint)
+        assertEquals(correct, response(catalogTrack).extractVerifiedArtwork("Impossible", "Shontelle"))
+        val wrongArtist = item(artist = "Shontelle Layne", artistId = null, album = "Shontelle")
+            .copy(navigationEndpoint = endpoint)
+        assertNull(response(wrongArtist).extractVerifiedArtwork("Impossible", "Shontelle"))
+    }
+
+    @Test fun unlinkedVideoUploadersAreNotCatalogArtists() {
+        val endpoint = YTMusicNavigationEndpoint(null, YTMusicWatchEndpoint(YTMusicWatchConfigs(
+            YTMusicWatchConfig("MUSIC_VIDEO_TYPE_UGC")
+        )))
+        assertNull(response(item(artistId = null).copy(navigationEndpoint = endpoint))
+            .extractVerifiedArtwork("Impossible", "Shontelle"))
     }
 
     @Test fun youtubeRejectsCoversRemixesAndUnrelatedFirstResults() {
