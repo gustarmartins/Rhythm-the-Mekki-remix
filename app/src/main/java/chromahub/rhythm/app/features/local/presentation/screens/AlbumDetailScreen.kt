@@ -193,6 +193,7 @@ fun AlbumDetailScreen(
     onPlayAll: (List<Song>) -> Unit,
     onShufflePlay: (List<Song>) -> Unit,
     onAddToQueue: (Song) -> Unit,
+    onAddSongsToQueue: (List<Song>) -> Unit,
     onAddSongToPlaylist: (Song) -> Unit,
     onPlayerClick: () -> Unit,
     onPlayNext: (Song) -> Unit = {},
@@ -1075,7 +1076,7 @@ fun AlbumDetailScreen(
                                             onClick = {
                                                 HapticUtils.performHapticFeedback(context, haptics, HapticType.HEAVY)
                                                 addToQueuePressed = true
-                                                displaySongs.forEach { onAddToQueue(it) }
+                                                onAddSongsToQueue(displaySongs)
                                             },
                                             modifier = Modifier
                                                 .fillMaxWidth()

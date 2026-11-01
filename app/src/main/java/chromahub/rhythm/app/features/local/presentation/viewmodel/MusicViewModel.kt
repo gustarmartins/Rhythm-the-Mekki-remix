@@ -9190,11 +9190,21 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                         Log.d(TAG, "Successfully added ${songs.size} songs. Queue now has ${currentQueueSongs.size} songs, current index: $currentIndex")
                     }
 
+                    val context = getApplication<Application>().applicationContext
+                    val message = if (songs.size == 1) {
+                        context.getString(R.string.added_to_queue_simple, songs.single().title)
+                    } else {
+                        context.resources.getQuantityString(R.plurals.songs_added_to_queue, songs.size, songs.size)
+                    }
+                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+
                     // Verify sync
                     kotlinx.coroutines.delay(200)
                     if (controller.mediaItemCount != _currentQueue.value.songs.size) {
                         Log.w(TAG, "Queue size mismatch after addSongsToQueue - MediaController: ${controller.mediaItemCount}, ViewModel: ${_currentQueue.value.songs.size}")
                     }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Error adding songs to queue", e)
                     _queueOperationError.value = "Failed to add ${songs.size} songs to queue: ${e.message}"

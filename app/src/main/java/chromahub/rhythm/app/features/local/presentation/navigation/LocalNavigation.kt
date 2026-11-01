@@ -2643,6 +2643,11 @@ private fun LocalNavigationContent(
                                 )
                             }
                         },
+                        onAddSongsToQueue = { songs ->
+                            streamingMusicViewModel.addSongsToQueue(
+                                songs.mapNotNull { albumSongsById[it.id] }, viewModel
+                            )
+                        },
                         onAddToQueue = { localSong ->
                             albumSongsById[localSong.id]?.let { streamingSong ->
                                 streamingMusicViewModel.addSongToQueue(streamingSong, viewModel)
@@ -3575,6 +3580,15 @@ private fun LocalNavigationContent(
                         }, // Added onRefreshClick
                         sortOrder = sortOrder,
                         onSkipNext = onSkipNext,
+                        onAddSongsToQueue = { songs ->
+                            if (isStreamingMode) {
+                                streamingMusicViewModel.addSongsToQueue(
+                                    songs.mapNotNull { streamingSongById[it.id] }, viewModel
+                                )
+                            } else {
+                                viewModel.addSongsToQueue(songs)
+                            }
+                        },
                         onAddToQueue = { song ->
                             // Add song to queue
                             viewModel.addSongToQueue(song)
@@ -4188,6 +4202,7 @@ private fun LocalNavigationContent(
                                 viewModel.playShuffled(songs)
                             }
                         },
+                        onAddSongsToQueue = { songs -> viewModel.addSongsToQueue(songs) },
                         onAddToQueue = { song ->
                             viewModel.addSongToQueue(song)
                         },

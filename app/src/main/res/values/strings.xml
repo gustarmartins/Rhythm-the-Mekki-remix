@@ -3004,4 +3004,8 @@
     <string name="selection_resume_threshold_enabled">Use this threshold</string>
     <string name="selection_resume_seconds">Seconds</string>
     <string name="selection_resume_seconds_hint">0 means immediately. Enter up to 31536000 seconds (365 days), or disable this threshold.</string>
+    <plurals name="songs_added_to_queue">
+        <item quantity="one">Added %1$d song to queue</item>
+        <item quantity="other">Added %1$d songs to queue</item>
+    </plurals>
 </resources>

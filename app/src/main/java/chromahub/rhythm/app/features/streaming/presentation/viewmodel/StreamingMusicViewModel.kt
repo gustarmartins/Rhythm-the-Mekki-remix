@@ -2305,40 +2305,40 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     /**
      * Add the streaming song to the end of the active local playback queue.
      */
-    fun addSongToQueue(song: StreamingSong, localViewModel: MusicViewModel) {
+    fun addSongToQueue(song: StreamingSong, localViewModel: MusicViewModel) =
+        addSongsToQueue(listOf(song), localViewModel)
+
+    /** Resolve the entire ordered selection before submitting one queue operation. */
+    fun addSongsToQueue(songs: List<StreamingSong>, localViewModel: MusicViewModel) {
+        if (songs.isEmpty()) return
         viewModelScope.launch {
             try {
-                val isDownloadedSong = isSongDownloaded(song.id) || repository.isDownloaded(song.id)
-                if (!isDownloadedSong && !checkAndSyncAuthentication()) {
-                    _error.value = "Connect to a streaming service first"
-                    return@launch
-                }
-                val resolvedUrl = repository.getStreamingUrl(song.id)
-                    ?: song.streamingUrl
-                    ?: song.previewUrl
-
-                val updatedSong = if (resolvedUrl.isNullOrBlank()) {
-                    song
-                } else {
+                val resolved = songs.map { song ->
+                    val isDownloadedSong = isSongDownloaded(song.id) || repository.isDownloaded(song.id)
+                    if (!isDownloadedSong && !checkAndSyncAuthentication()) {
+                        _error.value = "Connect to a streaming service first"
+                        return@launch
+                    }
+                    val resolvedUrl = repository.getStreamingUrl(song.id)
+                        ?: song.streamingUrl
+                        ?: song.previewUrl
+                    if (resolvedUrl.isNullOrBlank()) {
+                        _error.value = "Unable to resolve stream URL for '${song.title}'"
+                        android.widget.Toast.makeText(getApplication(), R.string.streamingmusicviewmodel_failed_to_add_to, android.widget.Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
                     song.copy(streamingUrl = resolvedUrl)
                 }
-
-                if (updatedSong.streamingUrl.isNullOrBlank()) {
-                    _error.value = "Unable to resolve stream URL for this song"
-                    android.widget.Toast.makeText(getApplication(), R.string.streamingmusicviewmodel_failed_to_add_to, android.widget.Toast.LENGTH_SHORT).show()
-                    return@launch
+                _queue.value = _queue.value + resolved
+                if (resolved.size == 1) {
+                    localViewModel.addSongToQueue(resolved.single().toLocalSong())
+                } else {
+                    localViewModel.addSongsToQueue(resolved.map { it.toLocalSong() })
                 }
-
-                // Sync VM queue state flow representation if needed
-                val currentQueue = _queue.value.toMutableList()
-                currentQueue.add(updatedSong)
-                _queue.value = currentQueue
-
-                // Delegate to localViewModel
-                val localSong = updatedSong.toLocalSong()
-                localViewModel.addSongToQueue(localSong)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
-                android.util.Log.e("StreamingMusicViewModel", "Error in addSongToQueue for streaming song", e)
+                android.util.Log.e("StreamingMusicViewModel", "Error adding streaming songs to queue", e)
                 _error.value = "Failed to add to queue: ${e.message}"
             }
         }

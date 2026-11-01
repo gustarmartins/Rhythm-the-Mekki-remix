@@ -337,6 +337,7 @@ fun LibraryScreen(
     sortOrder: MusicViewModel.SortOrder = MusicViewModel.SortOrder.TITLE_ASC,
     onSkipNext: () -> Unit = {},
     onAddToQueue: (Song) -> Unit,
+    onAddSongsToQueue: (List<Song>) -> Unit,
     initialTab: LibraryTab = LibraryTab.SONGS,
     musicViewModel: MusicViewModel,
     onExportAllPlaylists: ((PlaylistImportExportUtils.PlaylistExportFormat, Boolean, Uri?, (Result<String>) -> Unit) -> Unit)? = null,
@@ -903,7 +904,7 @@ fun LibraryScreen(
                 multiSelectionState.clearSelection()
             },
             onAddToQueue = {
-                selectedSongs.forEach { song -> onAddToQueue(song) }
+                onAddSongsToQueue(selectedSongs)
                 multiSelectionState.clearSelection()
             },
             onPlayNext = if (isStreamingMode) null else {

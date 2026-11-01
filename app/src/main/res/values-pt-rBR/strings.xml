@@ -3185,4 +3185,8 @@
     <string name="selection_resume_threshold_enabled">Usar este limite</string>
     <string name="selection_resume_seconds">Segundos</string>
     <string name="selection_resume_seconds_hint">0 significa imediatamente. Digite até 31536000 segundos (365 dias) ou desative este limite.</string>
+    <plurals name="songs_added_to_queue">
+        <item quantity="one">%1$d música adicionada à fila</item>
+        <item quantity="other">%1$d músicas adicionadas à fila</item>
+    </plurals>
 </resources>
