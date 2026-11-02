@@ -365,6 +365,19 @@ private val rtl =
     )
 
 fun applyAutoWordSync(syncedLyrics: SemanticLyrics.SyncedLyrics) {
+    val observedCharRates = syncedLyrics.text.mapNotNull { line ->
+        val chars = line.text.trim().length
+        val spanMs = if (line.end > line.start) (line.end - line.start).toLong() else 0L
+        if (chars >= 8 && spanMs in 400L..4500L && !LrcUtils.isInstrumentalLine(line.text)) {
+            spanMs / chars
+        } else null
+    }.sorted()
+    val adaptiveMsPerChar = if (observedCharRates.size >= 3) {
+        observedCharRates[observedCharRates.size / 2].coerceIn(65L, 120L)
+    } else {
+        120L
+    }
+
     syncedLyrics.text.forEach { line ->
         if (line.words != null) return@forEach
         if (line.text.isBlank()) return@forEach
@@ -376,11 +389,11 @@ fun applyAutoWordSync(syncedLyrics: SemanticLyrics.SyncedLyrics) {
 
         // When the end time is implicit (= next line's start), the line duration includes
         // silence/gaps. Cap it to a realistic singing duration so word timings don't bleed
-        // into what should be a gap. Heuristic: ~120 ms per character, capped at 8 s.
+        // into what should be a gap.
         val implicitEnd = line.end
         val effectiveEnd: ULong = if (line.endIsImplicit) {
             val totalChars = line.text.trim().length
-            val estimatedMs = (totalChars * 120L).coerceIn(500L, 8000L)
+            val estimatedMs = (totalChars * adaptiveMsPerChar).coerceIn(350L, 8000L)
             val estimated = line.start + estimatedMs.toULong()
             // Never exceed the actual implicit end
             minOf(estimated, implicitEnd)
