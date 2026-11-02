@@ -5,6 +5,7 @@
 
 package chromahub.rhythm.app.features.local.data.repository
 import chromahub.rhythm.app.util.LyricsOrigin
+import chromahub.rhythm.app.util.LyricsTimingPolicy
 import chromahub.rhythm.app.util.firstAvailableLyrics
 import chromahub.rhythm.app.shared.data.model.ScanProgress
 import chromahub.rhythm.app.core.domain.scan.LibraryScanJournal
