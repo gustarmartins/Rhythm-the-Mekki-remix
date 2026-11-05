@@ -89,7 +89,7 @@ import chromahub.rhythm.app.shared.presentation.components.common.CollapsibleHea
 import chromahub.rhythm.app.shared.presentation.components.common.HeaderAction
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmGroupedMenuContent
 import chromahub.rhythm.app.shared.presentation.components.common.RhythmMenuItem
-import chromahub.rhythm.app.shared.presentation.components.common.ArcProgressSlider
+import chromahub.rhythm.app.shared.presentation.components.common.AudioEffectStrengthControl
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.StandardBottomSheetHeader
 import chromahub.rhythm.app.shared.presentation.components.common.StyledProgressBar
 import chromahub.rhythm.app.shared.presentation.components.common.ProgressStyle
@@ -1122,17 +1122,16 @@ fun EqualizerScreen(
                         title = stringResource(R.string.settings_bass_boost),
                         icon = RhythmIcons.SpeakerFilled,
                         value = bassBoostStrength,
-                        valueRange = 0f..1000f,
                         isEnabled = if (isOffloadEnforced || isBitPerfectActive) false else (isBassBoostEnabled && isBassBoostAvailableState),
                         isAvailable = if (isOffloadEnforced || isBitPerfectActive) false else isBassBoostAvailableState,
                         activeColor = MaterialTheme.colorScheme.secondary,
                         activeContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                         onActiveContainerColor = MaterialTheme.colorScheme.onSecondaryContainer,
                         onValueChange = { strength ->
-                            if (!isOffloadEnforced && !isBitPerfectActive) {
+                            if (!isOffloadEnforced && !isBitPerfectActive && isBassBoostEnabled && isBassBoostAvailableState) {
                                 HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
                                 bassBoostStrength = strength
-                                viewModel.setBassBoost(true, strength.toInt().toShort())
+                                viewModel.setBassBoost(isBassBoostEnabled, strength.toInt().toShort())
                             }
                         },
                         onEnabledChange = { enabled ->
@@ -1159,17 +1158,16 @@ fun EqualizerScreen(
                         title = stringResource(R.string.virtualizer),
                         icon = RhythmIcons.HeadphonesFilled,
                         value = virtualizerStrength,
-                        valueRange = 0f..1000f,
                         isEnabled = if (isOffloadEnforced || isBitPerfectActive) false else (isVirtualizerEnabled && isSpatializationAvailable),
                         isAvailable = if (isOffloadEnforced || isBitPerfectActive) false else isSpatializationAvailable,
                         activeColor = MaterialTheme.colorScheme.tertiary,
                         activeContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
                         onActiveContainerColor = MaterialTheme.colorScheme.onTertiaryContainer,
                         onValueChange = { strength ->
-                            if (!isOffloadEnforced && !isBitPerfectActive) {
+                            if (!isOffloadEnforced && !isBitPerfectActive && isVirtualizerEnabled && isSpatializationAvailable) {
                                 HapticUtils.performHapticFeedback(context, haptics, HapticType.LIGHT)
                                 virtualizerStrength = strength
-                                viewModel.setVirtualizer(true, strength.toInt().toShort())
+                                viewModel.setVirtualizer(isVirtualizerEnabled, strength.toInt().toShort())
                             }
                         },
                         onEnabledChange = { enabled ->
@@ -1357,7 +1355,6 @@ private fun ExpressiveEffectCard(
     title: String,
     icon: MaterialSymbolIcon,
     value: Float,
-    valueRange: ClosedFloatingPointRange<Float>,
     isEnabled: Boolean,
     isAvailable: Boolean,
     activeColor: Color,
@@ -1407,30 +1404,14 @@ private fun ExpressiveEffectCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.size(110.dp)
-            ) {
-                ArcProgressSlider(
-                    value = value,
-                    onValueChange = onValueChange,
-                    modifier = Modifier.fillMaxSize(),
-                    enabled = isEnabled,
-                    valueRange = valueRange,
-                    activeTrackColor = if (isEnabled) activeColor else MaterialTheme.colorScheme.outlineVariant,
-                    inactiveTrackColor = if (isEnabled) activeColor.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceContainerHighest,
-                    thumbColor = if (isEnabled) activeColor else MaterialTheme.colorScheme.outline,
-                    waveAmplitude = 2.dp
-                )
-
-                val percentage = ((value - valueRange.start) / (valueRange.endInclusive - valueRange.start) * 100).toInt()
-                Text(
-                    text = "$percentage%",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = contentColor
-                )
-            }
+            AudioEffectStrengthControl(
+                title = title,
+                strength = value.toInt(),
+                enabled = isEnabled && isAvailable,
+                onStrengthChange = { onValueChange(it.toFloat()) },
+                activeColor = activeColor,
+                contentColor = contentColor
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
 

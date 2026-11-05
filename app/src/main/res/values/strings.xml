@@ -3008,4 +3008,10 @@
         <item quantity="one">Added %1$d song to queue</item>
         <item quantity="other">Added %1$d songs to queue</item>
     </plurals>
+
+    <!-- Deliberate adjustment of live audio effects. -->
+    <string name="audio_effect_strength_value">%1$s: %2$d%%</string>
+    <string name="audio_effect_decrease">Decrease %1$s by 1%%</string>
+    <string name="audio_effect_increase">Increase %1$s by 1%%</string>
+    <string name="audio_effect_step_hint">1% per tap</string>
 </resources>
