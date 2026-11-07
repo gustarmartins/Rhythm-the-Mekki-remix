@@ -10,7 +10,8 @@ internal data class LibraryContinuationPlan(val songIds: List<String>, val start
 /**
  * Draw from the whole library, without replacement. [queuedIds] is the selected context or
  * pending queue, not retained playback history. Only actually visited songs enter [playedIds].
- * Context builders cannot reset the cycle: the service does so once playback reaches its end.
+ * Context builders permit a new cycle only after all available songs were actually visited;
+ * merely including the remaining songs in a selected list does not exhaust that cycle.
  */
 internal fun planLibraryContinuation(
     libraryIds: List<String>,

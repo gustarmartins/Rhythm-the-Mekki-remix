@@ -44,12 +44,17 @@ class LastFmRecommendationsTest {
     }
 
     @Test fun blankKeyOrUnknownArtistNeverMakesARequest() = runBlocking {
+        var calls = 0
         val recommendations = LastFmRecommendations(object : LastFmApi {
-            override suspend fun similarArtists(key: String, artist: String): JsonObject = error("No request expected")
+            override suspend fun similarArtists(key: String, artist: String): JsonObject {
+                calls++
+                return parsed()
+            }
         })
         assertTrue(recommendations.similarArtists("", "Artist").isEmpty())
         assertTrue(recommendations.similarArtists("key", "<unknown>").isEmpty())
         assertTrue(recommendations.similarArtists("key", "  ").isEmpty())
+        assertEquals(0, calls)
     }
 
     @Test fun apiErrorsBackOffInsteadOfRetryingOnEveryTransition() = runBlocking {

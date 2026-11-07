@@ -5522,14 +5522,21 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             else -> emptyList()
         }.mapTo(HashSet()) { it.id }
         val byId = library.associateBy { it.id }
-        return chromahub.rhythm.app.infrastructure.service.planLibraryContinuation(
+        val cyclePlayed = appSettings.libraryCyclePlayedIds.value
+        // An explicit fresh selection can begin another fully heard cycle even when
+        // endless continuation is disabled. Unplayed context items never exhaust it.
+        val exhausted = library.isNotEmpty() && library.all { it.id in cyclePlayed }
+        val baseIds = baseSongs.mapTo(HashSet()) { it.id }
+        val plan = chromahub.rhythm.app.infrastructure.service.planLibraryContinuation(
             libraryIds = library.map { it.id },
             queuedIds = baseSongs.map { it.id },
             currentId = seed.id,
-            playedIds = appSettings.libraryCyclePlayedIds.value + _recentlyPlayed.value.map { it.id },
+            playedIds = cyclePlayed + _recentlyPlayed.value.map { it.id },
             preferredIds = preferred,
-            allowNewCycle = false
-        ).songIds.take(remaining).mapNotNull(byId::get)
+            allowNewCycle = exhausted && library.any { it.id !in baseIds }
+        )
+        if (plan.startsNewCycle) appSettings.setLibraryCyclePlayedIds(emptySet())
+        return plan.songIds.take(remaining).mapNotNull(byId::get)
     }
 
     /** Plays an explicit list, optionally followed by a contextual continuation. */
