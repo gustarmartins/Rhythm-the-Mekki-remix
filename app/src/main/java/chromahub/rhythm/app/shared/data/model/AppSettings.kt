@@ -845,16 +845,30 @@ class AppSettings private constructor(context: Context) {
     val lyricsTranslationLanguage: StateFlow<String> =
         _lyricsTranslationLanguage.asStateFlow()
 
+    private fun configuredLyricsFolders(): Set<String> =
+        prefs.getString(KEY_LYRICS_FOLDER_TREE_URIS, null).orEmpty().lineSequence()
+            .map(String::trim).filter(String::isNotBlank).toSet()
+
+    private fun readableLyricsFolderGrants(): Set<String> = runCatching<Set<String>> {
+        context.contentResolver.persistedUriPermissions.filter { it.isReadPermission }
+            .mapTo(HashSet()) { it.uri.toString() }
+    }.getOrDefault(emptySet())
+
     private val _lyricsFolderTreeUris = MutableStateFlow(
-        prefs.getString(KEY_LYRICS_FOLDER_TREE_URIS, null)
-            ?.lineSequence()
-            ?.map(String::trim)
-            ?.filter(String::isNotBlank)
-            ?.toSet()
-            ?: emptySet()
-    )
+        chromahub.rhythm.app.util.readableLyricsFolders(configuredLyricsFolders(), readableLyricsFolderGrants()))
     val lyricsFolderTreeUris: StateFlow<Set<String>> =
         _lyricsFolderTreeUris.asStateFlow()
+    private val _lyricsFolderAccessRevision = MutableStateFlow(0L)
+    val lyricsFolderAccessRevision: StateFlow<Long> = _lyricsFolderAccessRevision.asStateFlow()
+
+    fun refreshLyricsFolderAccess() {
+        val readable = chromahub.rhythm.app.util.readableLyricsFolders(
+            configuredLyricsFolders(), readableLyricsFolderGrants())
+        if (_lyricsFolderTreeUris.value != readable) {
+            _lyricsFolderTreeUris.value = readable
+            _lyricsFolderAccessRevision.value++
+        }
+    }
 
     private val _showLyricsRomanization = MutableStateFlow(prefs.getBoolean(KEY_SHOW_LYRICS_ROMANIZATION, true))
     val showLyricsRomanization: StateFlow<Boolean> = _showLyricsRomanization.asStateFlow()
@@ -2789,14 +2803,19 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
     }
 
     fun addLyricsFolderTreeUri(uri: Uri) {
-        val updated = _lyricsFolderTreeUris.value + uri.toString()
+        check(uri.toString() in readableLyricsFolderGrants()) { "Android did not persist read access to this folder" }
+        val updated = configuredLyricsFolders() + uri.toString()
         prefs.edit().putString(KEY_LYRICS_FOLDER_TREE_URIS, updated.joinToString("\n")).apply()
-        _lyricsFolderTreeUris.value = updated
+        val previousRevision = _lyricsFolderAccessRevision.value
+        refreshLyricsFolderAccess()
+        // Reselecting an existing grant is also an explicit request to retry local lyrics.
+        if (_lyricsFolderAccessRevision.value == previousRevision) _lyricsFolderAccessRevision.value++
     }
 
     fun clearLyricsFolderTreeUris() {
         prefs.edit().remove(KEY_LYRICS_FOLDER_TREE_URIS).apply()
         _lyricsFolderTreeUris.value = emptySet()
+        _lyricsFolderAccessRevision.value++
     }
 
     fun setShowLyricsRomanization(show: Boolean) {
@@ -5996,12 +6015,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
             prefs.getString(KEY_LYRICS_TRANSLATION_LANGUAGE, "en")
                 ?.takeIf { it.isNotBlank() }
                 ?: "en"
-        _lyricsFolderTreeUris.value = prefs.getString(KEY_LYRICS_FOLDER_TREE_URIS, null)
-            ?.lineSequence()
-            ?.map(String::trim)
-            ?.filter(String::isNotBlank)
-            ?.toSet()
-            ?: emptySet()
+        refreshLyricsFolderAccess()
         _searchHistory.value = prefs.getString(KEY_SEARCH_HISTORY, null)
         _showKeyboardOnSearchOpen.value = prefs.getBoolean(KEY_SHOW_KEYBOARD_ON_SEARCH_OPEN, true)
         _playlists.value = prefs.getString(KEY_PLAYLISTS, null)

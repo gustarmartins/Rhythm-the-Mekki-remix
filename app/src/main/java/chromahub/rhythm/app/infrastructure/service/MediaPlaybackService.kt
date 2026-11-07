@@ -1351,6 +1351,22 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             }
         }
 
+        serviceScope.launch {
+            var previous = appSettings.lyricsFolderAccessRevision.value
+            appSettings.lyricsFolderAccessRevision.collect { revision ->
+                if (revision == previous) return@collect
+                previous = revision
+                val currentId = player.currentMediaItem?.mediaId
+                val song = serviceBtCanonicalSong?.takeIf { it.id == currentId }
+                    ?: player.currentMediaItem?.let(::convertMediaItemToSong)
+                clearLyricsState()
+                serviceBtCanonicalSong = song
+                lastServiceBtLyricLine = null
+                bluetoothMetadataRateLimiter.reset()
+                song?.let { ensureServiceLyricsLoaded(it, initialDelayMs = 0L) }
+            }
+        }
+
         // Car text mode is independent from the phone lyric display.
         serviceScope.launch {
             var previous = appSettings.effectiveBluetoothLyricsProfile().textMode

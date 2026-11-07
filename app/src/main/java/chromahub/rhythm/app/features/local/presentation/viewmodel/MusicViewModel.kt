@@ -1330,6 +1330,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
+        viewModelScope.launch {
+            var previous = appSettings.lyricsFolderAccessRevision.value
+            appSettings.lyricsFolderAccessRevision.collect { revision ->
+                if (revision == previous) return@collect
+                previous = revision
+                resetBluetoothLyricsBroadcastState(clearLastBroadcast = true)
+                if (currentSong.value != null && showLyrics.value) fetchLyricsForCurrentSong(forceRefresh = true)
+            }
+        }
+
         // Dynamically update library artwork when preferSongArtwork or isLosslessArtworkActive changes.
         viewModelScope.launch {
             var previousState = Pair(

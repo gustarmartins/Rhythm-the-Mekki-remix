@@ -172,6 +172,9 @@ import chromahub.rhythm.app.shared.presentation.screens.settings.SettingGroup
 fun LyricsSettingsScreen(onBackClick: () -> Unit) {
     val context = LocalContext.current
     val appSettings = AppSettings.getInstance(context)
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        appSettings.refreshLyricsFolderAccess()
+    }
     val hapticFeedback = LocalHapticFeedback.current
 
     val lyricsSourcePreference by appSettings.lyricsSourcePreference.collectAsState()

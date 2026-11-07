@@ -4451,6 +4451,7 @@ class MusicRepository(context: Context) {
         durationMs: Long? = null
     ): LyricsData? {
         val appSettings = AppSettings.getInstance(context)
+        appSettings.refreshLyricsFolderAccess()
         val songSpecificPreference = songId?.let(appSettings::getSongLyricsPreference)
         val effectiveSourcePreference = when (songSpecificPreference) {
             "online" -> LyricsSourcePreference.API_FIRST
@@ -4470,6 +4471,7 @@ class MusicRepository(context: Context) {
             album.orEmpty(),
             durationMs.toString(),
             effectiveSourcePreference.name,
+            appSettings.lyricsFolderAccessRevision.value.toString(),
             forceRefresh.toString(),
             requireRomanization.toString(),
             requireTranslation.toString()
@@ -4526,7 +4528,8 @@ class MusicRepository(context: Context) {
             "$artist:$title$durationKeySuffix".lowercase()
         }
         // Keep results from different source policies isolated.
-        val baseCacheKey = "$lyricsIdentityKey:source:${sourcePreference.name}"
+        val folderRevision = AppSettings.getInstance(context).lyricsFolderAccessRevision.value
+        val baseCacheKey = "$lyricsIdentityKey:source:${sourcePreference.name}:folders:$folderRevision"
         val requirementsSuffix = buildString {
             if (requireRomanization) append(":romanized")
             if (requireTranslation) append(":translated")
@@ -5775,34 +5778,12 @@ class MusicRepository(context: Context) {
             try {
                 val treeUri = Uri.parse(treeString)
                 val treeDocumentId = DocumentsContract.getTreeDocumentId(treeUri)
-                val volume = treeDocumentId.substringBefore(':')
-                val treeRelativePath = treeDocumentId.substringAfter(':', "").trim('/')
-                val songRelativePath = when {
-                    volume.equals("primary", ignoreCase = true) &&
-                        songPath.startsWith("/storage/emulated/0/") ->
-                        songPath.removePrefix("/storage/emulated/0/")
-
-                    songPath.startsWith("/storage/$volume/") ->
-                        songPath.removePrefix("/storage/$volume/")
-
-                    else -> null
-                } ?: continue
-                val songDirectory = songRelativePath.substringBeforeLast('/', "")
-                if (
-                    treeRelativePath.isNotEmpty() &&
-                    songDirectory != treeRelativePath &&
-                    !songDirectory.startsWith("$treeRelativePath/")
-                ) {
-                    continue
-                }
+                val pathBelowTree = chromahub.rhythm.app.util.lyricsDirectoryBelowTree(
+                    songPath, treeDocumentId, android.os.Environment.getExternalStorageDirectory().absolutePath
+                ) ?: continue
 
                 var directory: DocumentFile? = DocumentFile.fromTreeUri(context, treeUri)
-                val pathBelowTree = if (treeRelativePath.isEmpty()) {
-                    songDirectory
-                } else {
-                    songDirectory.removePrefix(treeRelativePath).trim('/')
-                }
-                for (segment in pathBelowTree.split('/').filter(String::isNotBlank)) {
+                for (segment in pathBelowTree) {
                     directory = directory?.findFile(segment)
                         ?.takeIf(DocumentFile::isDirectory)
                 }
