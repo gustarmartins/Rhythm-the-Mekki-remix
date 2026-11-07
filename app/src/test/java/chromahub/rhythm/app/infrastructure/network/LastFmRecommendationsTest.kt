@@ -20,6 +20,7 @@ class LastFmRecommendationsTest {
 
     @Test fun officialLookupEncodesArtistAndUsesCachedNormalizedResults() = runBlocking {
         MockWebServer().use { server ->
+            server.start()
             server.enqueue(MockResponse.Builder().body(response).build())
             val client = OkHttpClient()
             try {
