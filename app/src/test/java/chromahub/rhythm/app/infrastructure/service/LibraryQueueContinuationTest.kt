@@ -128,4 +128,21 @@ class LibraryQueueContinuationTest {
             playedIds = setOf("selected", "last"))
         assertEquals(setOf("first", "second"), plan.songIds.toSet())
     }
+
+    @Test fun staleCachedRowsCannotBringExcludedFoldersBackIntoAutomaticPlayback() {
+        val scope = chromahub.rhythm.app.core.domain.scan.MediaScanScope(
+            "WHITELIST", setOf("flac", "mp3"), 30_000L,
+            setOf("/storage/emulated/0/Music"), emptySet(), emptySet(), setOf("hidden"))
+        val rows = listOf(
+            Triple("playing", "/sdcard/Music/current.flac", 180_000L),
+            Triple("next", "/sdcard/Music/next.mp3", 180_000L),
+            Triple("recording", "/sdcard/Recordings/voice.mp3", 180_000L),
+            Triple("hidden", "/sdcard/Music/hidden.mp3", 180_000L),
+            Triple("short", "/sdcard/Music/short.mp3", 2_000L),
+            Triple("format", "/sdcard/Music/other.wav", 180_000L))
+        val library = rows.filter { (id, path, duration) -> scope.includes(id, path, duration) }.map { it.first }
+        assertEquals(listOf("next"), planLibraryContinuation(library, listOf("playing"), "playing").songIds)
+        val emptyScope = scope.copy(whitelistedFolders = emptySet())
+        assertTrue(rows.none { (id, path, duration) -> emptyScope.includes(id, path, duration) })
+    }
 }

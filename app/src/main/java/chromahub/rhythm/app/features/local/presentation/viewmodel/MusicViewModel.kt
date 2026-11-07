@@ -5478,7 +5478,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         // playSong() records the selected song before reaching this method, so treating any
         // recent match as context would replay the user's history after every song selection.
         // Prefer the selected song's album when it provides a real context.
-        val albumSongs = _songs.value.filter { it.album == song.album && it.artist == song.artist }
+        val albumSongs = automaticQueueLibrary().filter { it.album == song.album && it.artist == song.artist }
         if (appSettings.respectAlbumOnPlay.value && albumSongs.size > 1) {
             val sortedAlbumSongs = albumSongs.sortedWith { a, b -> compareByDiscThenTrack(a, b) }
             val reordered = listOf(song) + sortedAlbumSongs.filter { it.id != song.id }
@@ -5505,6 +5505,18 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         return queue
     }
 
+    /** Cached library rows can outlive a filter change; automatic additions use the current scope. */
+    private fun automaticQueueLibrary(): List<Song> {
+        val scope = chromahub.rhythm.app.core.domain.scan.MediaScanScope(
+            appSettings.mediaScanMode.value.name, appSettings.allowedFormats.value,
+            appSettings.minimumDuration.value, appSettings.whitelistedFolders.value.toSet(),
+            appSettings.whitelistedSongs.value.toSet(), appSettings.blacklistedFolders.value.toSet(),
+            appSettings.blacklistedSongs.value.toSet(), android.os.Environment.getExternalStorageDirectory().absolutePath)
+        return _songs.value.filter {
+            scope.includes(it.id, it.path, it.duration) && it.uri.scheme in listOf("content", "file")
+        }
+    }
+
     /** Draw from the entire unvisited library, with optional artist/genre hints, never popularity. */
     private fun buildContinuationTail(baseSongs: List<Song>, seed: Song): List<Song> {
         val maxTotal = appSettings.contextQueueSize.value.coerceAtLeast(1)
@@ -5512,7 +5524,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         if (remaining <= 0) return emptyList()
 
         val pref = appSettings.contextQueuePreference.value
-        val library = _songs.value.filterNot { it.id in appSettings.blacklistedSongs.value }
+        val library = automaticQueueLibrary()
         val seedGenres = GenreUtils.splitGenres(seed.genre).map { it.lowercase(java.util.Locale.ROOT) }.toSet()
         val preferred = when (pref) {
             "ARTIST_FIRST" -> library.filter { it.artist.equals(seed.artist, ignoreCase = true) }
