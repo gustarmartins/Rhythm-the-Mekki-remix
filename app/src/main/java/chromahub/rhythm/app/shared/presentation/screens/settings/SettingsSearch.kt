@@ -2115,11 +2115,20 @@ fun buildSettingsSearchIndex(context: Context): List<SearchableSettingItem> {
             id = "queue_context_preference",
             title = context.getString(R.string.settings_context_queue_preference),
             description = context.getString(R.string.settings_context_queue_preference_desc),
-            keywords = listOf("auto add", "similar", "related", "artist", "genre", "preference", "match"),
+            keywords = listOf("auto add", "similar", "related", "artist", "genre", "random", "library", "preference", "match"),
             icon = MaterialSymbolIcon("tune", filled = true),
             route = SettingsRoutes.QUEUE,
             parentScreen = context.getString(R.string.settings_queue_title),
             settingKey = "contextQueuePreference"
+        ))
+        add(SearchableSettingItem(
+            id = "queue_lastfm_recommendations",
+            title = context.getString(R.string.settings_lastfm_recommendations),
+            description = context.getString(R.string.settings_lastfm_recommendations_desc),
+            keywords = listOf("last.fm", "lastfm", "recommendations", "similar", "api key", "radio"),
+            icon = MaterialSymbolIcon("explore"),
+            route = SettingsRoutes.QUEUE,
+            parentScreen = context.getString(R.string.settings_queue_title)
         ))
         add(SearchableSettingItem(
             id = "queue_repeat_persistence",

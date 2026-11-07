@@ -77,12 +77,14 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
     val hidePlayedQueueSongs by appSettings.hidePlayedQueueSongs.collectAsState()
     val contextQueuePreference by appSettings.contextQueuePreference.collectAsState()
     val contextQueuePersistenceRaw by appSettings.contextQueuePersistence.collectAsState()
+    val continueWithLibrary by appSettings.continueWithDeviceLibrary.collectAsState()
+    val lastFmEnabled by appSettings.lastFmRecommendationsEnabled.collectAsState()
+    val lastFmKey by appSettings.lastFmApiKey.collectAsState()
+    var showLastFmKeyDialog by remember { mutableStateOf(false) }
     val showAlreadyPlayedSongsInQueue = !hidePlayedQueueSongs
-    val effectiveContextQueuePreference = if (contextQueuePreference == "GENRE_FIRST") {
-        "GENRE_FIRST"
-    } else {
-        "ARTIST_FIRST"
-    }
+    val effectiveContextQueuePreference = contextQueuePreference.takeIf {
+        it in setOf("ARTIST_FIRST", "GENRE_FIRST")
+    } ?: "RANDOM"
     val showQueueDialog by appSettings.showQueueDialog.collectAsState()
     val listQueueActionBehavior by appSettings.listQueueActionBehavior.collectAsState(initial = "replace")
     val queuePersistenceEnabled by appSettings.queuePersistenceEnabled.collectAsState()
@@ -215,7 +217,8 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                             context.getString(R.string.settings_context_queue_preference),
                             when (effectiveContextQueuePreference) {
                                 "ARTIST_FIRST" -> context.getString(R.string.settings_context_pref_artist_first)
-                                else -> context.getString(R.string.settings_context_pref_genre_first)
+                                "GENRE_FIRST" -> context.getString(R.string.settings_context_pref_genre_first)
+                                else -> context.getString(R.string.settings_context_pref_random)
                             },
                             onClick = { showContextPrefBottomSheet = true },
                             enabled = autoAddToQueue
@@ -230,6 +233,28 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
                             enabled = autoAddToQueue
                         )
                     )
+                    add(SettingItem(
+                        RhythmIcons.Shuffle,
+                        context.getString(R.string.settings_continue_with_device_library),
+                        context.getString(R.string.settings_continue_with_device_library_desc),
+                        toggleState = continueWithLibrary,
+                        onToggleChange = { appSettings.setContinueWithDeviceLibrary(it) }
+                    ))
+                    add(SettingItem(
+                        MaterialSymbolIcon("explore"),
+                        context.getString(R.string.settings_lastfm_recommendations),
+                        context.getString(R.string.settings_lastfm_recommendations_desc),
+                        toggleState = lastFmEnabled,
+                        onToggleChange = { enabled ->
+                            if (enabled && lastFmKey.isBlank()) showLastFmKeyDialog = true
+                            else appSettings.setLastFmRecommendationsEnabled(enabled)
+                        }
+                    ))
+                    if (lastFmEnabled) add(SettingItem(
+                        MaterialSymbolIcon("key"),
+                        context.getString(R.string.settings_lastfm_api_key),
+                        onClick = { showLastFmKeyDialog = true }
+                    ))
                 }
             ),
             SettingGroup(
@@ -356,6 +381,43 @@ fun QueueSettingsScreen(onBackClick: () -> Unit) {
 
             item(key = "queue_bottom_spacer") { Spacer(modifier = Modifier.height(100.dp)) }
         }
+    }
+
+    if (showLastFmKeyDialog) {
+        var editedKey by remember { mutableStateOf(lastFmKey) }
+        AlertDialog(
+            onDismissRequest = { showLastFmKeyDialog = false },
+            title = { Text(stringResource(R.string.settings_lastfm_api_key)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(stringResource(R.string.settings_lastfm_key_desc))
+                    OutlinedTextField(
+                        value = editedKey,
+                        onValueChange = { editedKey = it },
+                        singleLine = true,
+                        label = { Text(stringResource(R.string.settings_lastfm_api_key)) },
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                    )
+                    TextButton(onClick = {
+                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse("https://www.last.fm/api/account/create")))
+                    }) { Text(stringResource(R.string.settings_lastfm_get_key)) }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    appSettings.setLastFmApiKey(editedKey)
+                    appSettings.setLastFmRecommendationsEnabled(editedKey.isNotBlank())
+                    showLastFmKeyDialog = false
+                }) { Text(stringResource(R.string.ui_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLastFmKeyDialog = false }) {
+                    Text(stringResource(R.string.ui_cancel))
+                }
+            }
+        )
     }
 
     editingResumeThreshold?.let { threshold ->

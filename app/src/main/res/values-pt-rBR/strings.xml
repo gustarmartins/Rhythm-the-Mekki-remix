@@ -49,9 +49,15 @@
     <string name="settings_use_exoplayer_shuffle">Modo aleatório do player</string>
     <string name="settings_use_exoplayer_shuffle_desc">Deixe o modo aleatório ser controlado pelo player em vez do app.</string>
     <string name="settings_auto_queue">Adicionar automaticamente</string>
-    <string name="settings_auto_queue_desc">Ao reproduzir uma música, adicionar músicas semelhantes na sequência.</string>
-    <string name="settings_context_queue_preference">Músicas semelhantes de</string>
-    <string name="settings_context_queue_preference_desc">Escolha o que é considerado música semelhante.</string>
+    <string name="settings_auto_queue_desc">Adicionar uma nova mistura da biblioteca após as músicas selecionadas.</string>
+    <string name="settings_context_queue_preference">Mistura automática</string>
+    <string name="settings_context_queue_preference_desc">Explore toda a biblioteca, incluindo opcionalmente músicas do mesmo artista ou gênero.</string>
+    <string name="settings_context_pref_random">Biblioteca em ordem aleatória</string>
+    <string name="settings_lastfm_recommendations">Sugestões do Last.fm</string>
+    <string name="settings_lastfm_recommendations_desc">Quando a fila terminar, misturar artistas semelhantes na reprodução da biblioteca. Reproduz apenas músicas deste dispositivo.</string>
+    <string name="settings_lastfm_api_key">Chave de API do Last.fm</string>
+    <string name="settings_lastfm_key_desc">Use sua chave de API do Last.fm para buscar artistas semelhantes. Envia o artista atual ao Last.fm; não exige login nem histórico de reprodução. A reprodução offline sempre funciona.</string>
+    <string name="settings_lastfm_get_key">Obter uma chave de API do Last.fm</string>
     <string name="settings_context_pref_artist_first">Artista</string>
     <string name="settings_context_pref_genre_first">Gênero</string>
     <string name="settings_context_queue_persistence">Manter após fechar</string>
@@ -3165,7 +3171,7 @@
     <string name="settings_bluetooth_lyrics_tuning">Sincronização do visor BT</string>
     <string name="settings_bluetooth_lyrics_tuning_desc">Ajuste o atraso e o ritmo do texto no visor do dispositivo Bluetooth.</string>
     <string name="settings_continue_with_device_library">Continuar com a biblioteca do dispositivo</string>
-    <string name="settings_continue_with_device_library_desc">Quando as músicas selecionadas terminarem, continue com músicas deste dispositivo. As opções de repetição e ordem aleatória são respeitadas. Desativar mantém as músicas já enfileiradas.</string>
+    <string name="settings_continue_with_device_library_desc">Após as músicas selecionadas, explorar a biblioteca em ordem aleatória, priorizando músicas ainda não ouvidas. Repetir uma e repetir todas continuam tendo prioridade. Desativar mantém as músicas já enfileiradas.</string>
     <string name="queue_library_continuation">Continuação da biblioteca do dispositivo</string>
     <string name="bluetooth_display_connect_to_configure">Conecte um dispositivo Bluetooth para configurar a compatibilidade do visor.</string>
     <string name="service_starting">Rhythm está começando.</string>

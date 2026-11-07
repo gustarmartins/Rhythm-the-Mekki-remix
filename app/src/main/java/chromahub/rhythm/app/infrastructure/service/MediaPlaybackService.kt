@@ -1127,6 +1127,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 appSettings.recordSelectionPlaybackActivity(isPlaying)
+                if (isPlaying) recordLibraryCyclePlayback()
                 reconcileMediaDisplayLyricsLoop()
                 publishCanonicalSessionIdentity(player.currentMediaItem?.let(::convertMediaItemToSong))
                 // Broadcast status for Tasker/KWGT/automation apps
@@ -1165,6 +1166,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                     Log.d(TAG, "Ignoring metadata-only player transition for mediaId=$transitionMediaId")
                     return
                 }
+
+                if (player.isPlaying) recordLibraryCyclePlayback()
 
                 // A controller reconnect and a metadata-only replacement are not new tracks.
                 // Keep this policy in the service so background Next behaves identically.
@@ -2460,6 +2463,14 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         persistServiceQueue()
     }
 
+    private fun recordLibraryCyclePlayback() {
+        if (musicAssistantPlayer != null || restoringSavedQueue) return
+        val item = player.currentMediaItem ?: return
+        if (item.localConfiguration?.uri?.scheme in listOf("content", "file")) {
+            appSettings.recordLibrarySongPlayed(item.mediaId)
+        }
+    }
+
     private fun maybeContinueWithDeviceLibrary() {
         if (musicAssistantPlayer != null) return
         if (!::player.isInitialized || queueClearedByUser || !appSettings.continueWithDeviceLibrary.value ||
@@ -2484,19 +2495,35 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                             scope.includes(row.id, row.path, row.duration) &&
                                 (row.path == null || java.io.File(row.path).isFile) &&
                                 android.net.Uri.parse(row.uri).scheme in listOf("content", "file")
-                        }.sortedBy { it.title.lowercase(java.util.Locale.ROOT) }
+                        }
                 }
-                if (!appSettings.continueWithDeviceLibrary.value || player.currentMediaItem
+                val relatedArtists = if (appSettings.lastFmRecommendationsEnabled.value) {
+                    // Display metadata may contain Bluetooth lyrics; use the canonical artist.
+                    val artist = rows.firstOrNull { it.id == currentItem.mediaId }?.artist
+                        ?: serviceBtCanonicalSong?.takeIf { it.id == currentItem.mediaId }?.artist
+                        ?: currentItem.mediaMetadata.artist?.toString().orEmpty()
+                    chromahub.rhythm.app.infrastructure.network.LastFmRecommendations.shared.similarArtists(
+                        appSettings.lastFmApiKey.value, artist)
+                } else emptySet()
+                if (musicAssistantPlayer != null || !appSettings.continueWithDeviceLibrary.value || queueClearedByUser || isMutatingBtVirtualQueue || player.currentMediaItem
                         ?.mediaMetadata?.extras?.getString(PlayNextCommand.ENTRY_TOKEN) != currentToken) return@launch
                 val currentRepeat = if (btVirtualOriginalQueue != null) btVirtualOriginalRepeatMode else player.repeatMode
                 if (currentRepeat != Player.REPEAT_MODE_OFF) return@launch
-                val source = btVirtualOriginalQueue ?: List(player.mediaItemCount) { player.getMediaItemAt(it) }
-                val plan = planLibraryContinuation(rows.map { it.id }, source.map { it.mediaId }, player.currentMediaItem?.mediaId)
+                // A manual request may have arrived during the database/network read. Let it
+                // play first, then retry at its tail, using the current service-owned queue.
+                if (if (btVirtualOriginalQueue != null) btVirtualUpcoming.isNotEmpty() else player.hasNextMediaItem()) return@launch
+                val snapshot = playbackQueueSnapshot()
+                val libraryIds = rows.map { it.id }.toSet()
+                val played = appSettings.libraryCyclePlayedIds.value.intersect(libraryIds)
+                val preferredIds = if (appSettings.lastFmRecommendationsEnabled.value) rows.filter {
+                    chromahub.rhythm.app.infrastructure.network.recommendationArtistKey(it.artist) in relatedArtists
+                }.mapTo(HashSet()) { it.id } else emptySet()
+                val plan = planLibraryContinuation(
+                    rows.map { it.id }, snapshot.items.drop(snapshot.currentIndex.coerceAtLeast(0)).map { it.mediaId },
+                    player.currentMediaItem?.mediaId, playedIds = played, preferredIds = preferredIds)
                 if (plan.songIds.isEmpty()) return@launch
                 val rowsById = rows.associateBy { it.id }
-                val ids = if (appSettings.savedShuffleState.value || player.shuffleModeEnabled || btVirtualOriginalShuffleMode)
-                    plan.songIds.shuffled() else plan.songIds
-                val additions = ids.mapNotNull { id -> rowsById[id]?.let { row ->
+                val additions = plan.songIds.mapNotNull { id -> rowsById[id]?.let { row ->
                     val mime = when (row.path?.substringAfterLast('.')?.lowercase()) {
                         "opus", "opa", "ogg", "oga" -> "audio/ogg"
                         "mka", "mkv" -> "audio/x-matroska"
@@ -2516,6 +2543,10 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                             .build()).build())
                 } }
                 if (additions.isEmpty()) return@launch
+                // Commit cycle progress only when usable additions exist. Queue restores,
+                // paused selections and merely offered tracks do not count as listening.
+                val nextPlayed = if (plan.startsNewCycle)
+                    setOfNotNull(player.currentMediaItem?.mediaId).intersect(libraryIds) else played
                 val resumeAtEnd = player.playbackState == Player.STATE_ENDED && player.playWhenReady
                 if (btVirtualOriginalQueue != null) {
                     if (plan.startsNewCycle && btVirtualHistory.size > 50) {
@@ -2532,6 +2563,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                     val existing = btVirtualOriginalQueue.orEmpty()
                     btVirtualOriginalQueue = existing + additions
                     btVirtualUpcoming.addAll(additions.mapIndexed { i, item -> BtVirtualQueueItem(item, existing.size + i) })
+                    appSettings.setLibraryCyclePlayedIds(nextPlayed)
                     publishVirtualQueueState()
                     if (resumeAtEnd) btVirtualAdvance()
                 } else {
@@ -2565,6 +2597,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                             chromahub.rhythm.app.infrastructure.service.player.RhythmShuffleOrder(
                                 (oldOrder + (insertion until insertion + additions.size)).toIntArray()))
                     }
+                    appSettings.setLibraryCyclePlayedIds(nextPlayed)
                     if (resumeAtEnd) {
                         player.seekToNextMediaItem()
                         player.prepare()

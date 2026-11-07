@@ -1423,8 +1423,46 @@ class AppSettings private constructor(context: Context) {
     val queuePersistenceEnabled: StateFlow<Boolean> = _queuePersistenceEnabled.asStateFlow()
 
     // Context queue preferences
-    private val _contextQueuePreference = MutableStateFlow(prefs.getString(KEY_CONTEXT_QUEUE_PREFERENCE, "ARTIST_FIRST")!!)
+    private val _contextQueuePreference = MutableStateFlow(prefs.getString(KEY_CONTEXT_QUEUE_PREFERENCE, "RANDOM")!!)
     val contextQueuePreference: StateFlow<String> = _contextQueuePreference.asStateFlow()
+
+    // Independent of the retained queue: replacing a search or compacting history must not
+    // make automatically selected songs eligible again before the library cycle is complete.
+    private val _libraryCyclePlayedIds = MutableStateFlow(
+        prefs.getStringSet("library_cycle_played_ids", null)?.toSet() ?: runCatching {
+            // Seed upgrades from the known listening history, never the unplayed saved tail.
+            Gson().fromJson<List<String>>(prefs.getString(KEY_RECENTLY_PLAYED, "[]"),
+                object : TypeToken<List<String>>() {}.type).orEmpty().toSet()
+        }.getOrDefault(emptySet()))
+    val libraryCyclePlayedIds: StateFlow<Set<String>> = _libraryCyclePlayedIds.asStateFlow()
+
+    fun recordLibrarySongPlayed(id: String) {
+        if (id.isBlank() || id in _libraryCyclePlayedIds.value) return
+        setLibraryCyclePlayedIds(_libraryCyclePlayedIds.value + id)
+    }
+
+    fun setLibraryCyclePlayedIds(ids: Set<String>) {
+        if (ids == _libraryCyclePlayedIds.value) return
+        val copy = ids.toSet()
+        _libraryCyclePlayedIds.value = copy
+        prefs.edit { putStringSet("library_cycle_played_ids", copy) }
+    }
+
+    private val _lastFmRecommendationsEnabled = MutableStateFlow(prefs.getBoolean("lastfm_recommendations_enabled", false))
+    val lastFmRecommendationsEnabled: StateFlow<Boolean> = _lastFmRecommendationsEnabled.asStateFlow()
+    private val _lastFmApiKey = MutableStateFlow(prefs.getString("lastfm_api_key", "").orEmpty())
+    val lastFmApiKey: StateFlow<String> = _lastFmApiKey.asStateFlow()
+
+    fun setLastFmRecommendationsEnabled(enabled: Boolean) {
+        prefs.edit { putBoolean("lastfm_recommendations_enabled", enabled) }
+        _lastFmRecommendationsEnabled.value = enabled
+    }
+
+    fun setLastFmApiKey(key: String) {
+        val value = key.trim()
+        prefs.edit { putString("lastfm_api_key", value) }
+        _lastFmApiKey.value = value
+    }
 
     private val _contextQueuePersistence = MutableStateFlow(prefs.getString(KEY_CONTEXT_QUEUE_PERSISTENCE, "EPHEMERAL")!!)
     val contextQueuePersistence: StateFlow<String> = _contextQueuePersistence.asStateFlow()
@@ -5209,6 +5247,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         key: String,
         sections: BackupRestoreSections
     ): Boolean {
+        if (key == "lastfm_api_key") return false
         if (isRhythmGuardTransientRuntimeKey(key)) {
             return false
         }

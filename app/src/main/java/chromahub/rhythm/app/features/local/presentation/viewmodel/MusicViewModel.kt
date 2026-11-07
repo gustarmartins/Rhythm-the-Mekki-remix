@@ -5505,53 +5505,31 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         return queue
     }
 
-    /** Builds a scored local-library continuation without repeating base or recent songs. */
+    /** Draw from the entire unvisited library, with optional artist/genre hints, never popularity. */
     private fun buildContinuationTail(baseSongs: List<Song>, seed: Song): List<Song> {
         val maxTotal = appSettings.contextQueueSize.value.coerceAtLeast(1)
         val remaining = maxTotal - baseSongs.size
         if (remaining <= 0) return emptyList()
 
-        val baseIds = baseSongs.mapTo(HashSet()) { it.id }
         val pref = appSettings.contextQueuePreference.value
-
-        val recentlyIds = _recentlyPlayed.value.map { it.id }.toSet()
-        val excludedIds = baseIds + recentlyIds
-
-        val artistPool = _songs.value
-            .filter { it.artist == seed.artist && it.id !in excludedIds }
-            .distinctBy { it.id }
-
-        val seedGenres = GenreUtils.splitGenres(seed.genre ?: "").map { it.lowercase() }.toSet()
-        val genrePool = if (seedGenres.isNotEmpty()) {
-            _songs.value.filter { other ->
-                other.id !in excludedIds &&
-                    GenreUtils.splitGenres(other.genre ?: "").any { it.lowercase() in seedGenres }
-            }.distinctBy { it.id }
-        } else emptyList()
-
-        val recommended = getRecommendedSongs().filter { it.id !in excludedIds }
-
-        val playCounts = _songPlayCounts.value
-        val favorites = _favoriteSongs.value
-        val recommendedIds = recommended.map { it.id }.toSet()
-
-        fun score(s: Song): Int {
-            var sc = (playCounts[s.id] ?: 0) * 2
-            if (favorites.contains(s.id)) sc += 50
-            if (recommendedIds.contains(s.id)) sc += 20
-            return sc
-        }
-
-        val combined = when (pref) {
-            "GENRE_FIRST" -> genrePool + artistPool + recommended
-            else -> artistPool + genrePool + recommended
-        }
-
-        return combined
-            .distinctBy { it.id }
-            .filter { it.id !in excludedIds }
-            .sortedByDescending { score(it) }
-            .take(remaining)
+        val library = _songs.value.filterNot { it.id in appSettings.blacklistedSongs.value }
+        val seedGenres = GenreUtils.splitGenres(seed.genre).map { it.lowercase(java.util.Locale.ROOT) }.toSet()
+        val preferred = when (pref) {
+            "ARTIST_FIRST" -> library.filter { it.artist.equals(seed.artist, ignoreCase = true) }
+            "GENRE_FIRST" -> library.filter { other ->
+                GenreUtils.splitGenres(other.genre).any { it.lowercase(java.util.Locale.ROOT) in seedGenres }
+            }
+            else -> emptyList()
+        }.mapTo(HashSet()) { it.id }
+        val byId = library.associateBy { it.id }
+        return chromahub.rhythm.app.infrastructure.service.planLibraryContinuation(
+            libraryIds = library.map { it.id },
+            queuedIds = baseSongs.map { it.id },
+            currentId = seed.id,
+            playedIds = appSettings.libraryCyclePlayedIds.value + _recentlyPlayed.value.map { it.id },
+            preferredIds = preferred,
+            allowNewCycle = false
+        ).songIds.take(remaining).mapNotNull(byId::get)
     }
 
     /** Plays an explicit list, optionally followed by a contextual continuation. */

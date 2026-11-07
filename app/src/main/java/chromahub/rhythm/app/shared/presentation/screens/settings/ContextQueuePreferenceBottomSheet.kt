@@ -178,6 +178,7 @@ fun ContextQueuePreferenceBottomSheet(
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val options = listOf(
+        "RANDOM" to context.getString(R.string.settings_context_pref_random),
         "ARTIST_FIRST" to context.getString(R.string.settings_context_pref_artist_first),
         "GENRE_FIRST" to context.getString(R.string.settings_context_pref_genre_first)
     )
