@@ -1120,6 +1120,7 @@ fun EqualizerScreen(
                 val bassBoostCard: @Composable (Modifier) -> Unit = { cardModifier ->
                     ExpressiveEffectCard(
                         title = stringResource(R.string.settings_bass_boost),
+                        increaseHoldLimit = 750,
                         icon = RhythmIcons.SpeakerFilled,
                         value = bassBoostStrength,
                         isEnabled = if (isOffloadEnforced || isBitPerfectActive) false else (isBassBoostEnabled && isBassBoostAvailableState),
@@ -1363,6 +1364,7 @@ private fun ExpressiveEffectCard(
     onValueChange: (Float) -> Unit,
     onEnabledChange: (Boolean) -> Unit,
     statusText: String,
+    increaseHoldLimit: Int = 1000,
     modifier: Modifier = Modifier
 ) {
     val containerColor by animateColorAsState(
@@ -1410,7 +1412,8 @@ private fun ExpressiveEffectCard(
                 enabled = isEnabled && isAvailable,
                 onStrengthChange = { onValueChange(it.toFloat()) },
                 activeColor = activeColor,
-                contentColor = contentColor
+                contentColor = contentColor,
+                increaseHoldLimit = increaseHoldLimit
             )
 
             Spacer(modifier = Modifier.height(16.dp))

@@ -15,11 +15,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -41,19 +41,21 @@ class AudioEffectStrengthControlTest {
     @get:Rule val compose = createComposeRule()
     private val strength = mutableIntStateOf(0)
     private val enabled = mutableStateOf(true)
+    private val visible = mutableStateOf(true)
     private val changes = mutableListOf<Int>()
 
-    private fun show(initial: Int = 0, active: Boolean = true) {
+    private fun show(initial: Int = 0, active: Boolean = true, holdLimit: Int = 750) {
         strength.intValue = initial
         enabled.value = active
         compose.setContent {
             MaterialTheme {
-                AudioEffectStrengthControl(
+                if (visible.value) AudioEffectStrengthControl(
                     title = "Bass Boost",
                     strength = strength.intValue,
                     enabled = enabled.value,
                     onStrengthChange = { changes += it; strength.intValue = it },
-                    modifier = Modifier.width(160.dp)
+                    modifier = Modifier.width(160.dp),
+                    increaseHoldLimit = holdLimit
                 )
             }
         }
@@ -62,6 +64,16 @@ class AudioEffectStrengthControlTest {
     private fun dial() = compose.onNodeWithContentDescription("Bass Boost: ${strength.intValue / 10}%")
     private fun increase() = compose.onNodeWithContentDescription("Increase Bass Boost by 1%")
     private fun decrease() = compose.onNodeWithContentDescription("Decrease Bass Boost by 1%")
+
+    private fun hold(button: SemanticsNodeInteraction, duration: Long = 1500L) {
+        compose.mainClock.autoAdvance = false
+        try {
+            button.performTouchInput { down(center) }
+            compose.mainClock.advanceTimeBy(duration)
+            button.performTouchInput { up() }
+        } finally { compose.mainClock.autoAdvance = true }
+        compose.waitForIdle()
+    }
 
     @Test fun touchingTheCenterAndMaximumEndOfTheDialDoesNotChangeGain() {
         show()
@@ -93,10 +105,76 @@ class AudioEffectStrengthControlTest {
         compose.runOnIdle { assertEquals(listOf(10, 20, 30, 20), changes) }
     }
 
-    @Test fun holdingIncreaseDoesNotRepeat() {
+    @Test fun holdingBassIncreaseStopsAtSeventyFiveWithoutAReleaseClick() {
         show()
-        increase().performTouchInput { longClick(durationMillis = 3000) }
-        compose.runOnIdle { assertEquals(listOf(10), changes) }
+        hold(increase(), 6500L)
+        compose.runOnIdle {
+            assertEquals(750, strength.intValue)
+            assertEquals((10..750 step 10).toList(), changes)
+        }
+        increase().performTouchInput { click() }
+        compose.runOnIdle { assertEquals(760, strength.intValue) }
+    }
+
+    @Test fun aHoldStartingAboveSeventyFiveDoesNothingButATapStillIncreases() {
+        show(900)
+        hold(increase())
+        compose.runOnIdle { assertTrue(changes.isEmpty()); assertEquals(900, strength.intValue) }
+        increase().performTouchInput { click() }
+        compose.runOnIdle { assertEquals(listOf(910), changes) }
+    }
+
+    @Test fun holdingDecreaseFromMaximumWorksAcrossTheCapDownToZero() {
+        show(1000)
+        hold(decrease(), 7500L)
+        compose.runOnIdle { assertEquals((990 downTo 0 step 10).toList(), changes) }
+        decrease().assertIsNotEnabled()
+    }
+
+    @Test fun spatialEffectCanStillBeHeldAllTheWayUp() {
+        show(900, holdLimit = 1000)
+        hold(increase(), 2000L)
+        compose.runOnIdle { assertEquals((910..1000 step 10).toList(), changes) }
+        increase().assertIsNotEnabled()
+    }
+
+    @Test fun releasingOrDraggingOffStopsRepeatsWithoutAnExtraStep() {
+        show(200)
+        compose.mainClock.autoAdvance = false
+        increase().performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(850L)
+        increase().performTouchInput { moveTo(Offset(-width * 2f, -height * 2f)) }
+        var afterCancel = 0
+        compose.runOnIdle { afterCancel = changes.size; assertTrue(afterCancel > 1) }
+        compose.mainClock.advanceTimeBy(1000L)
+        increase().performTouchInput { up() }
+        compose.mainClock.autoAdvance = true
+        compose.runOnIdle { assertEquals(afterCancel, changes.size) }
+    }
+
+    @Test fun disablingDuringARepeatStopsFurtherChanges() {
+        show(200)
+        compose.mainClock.autoAdvance = false
+        increase().performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(850L)
+        var beforeDisable = 0
+        compose.runOnIdle { beforeDisable = changes.size; assertTrue(beforeDisable > 1); enabled.value = false }
+        compose.mainClock.advanceTimeBy(1000L)
+        increase().performTouchInput { up() }
+        compose.mainClock.autoAdvance = true
+        compose.runOnIdle { assertEquals(beforeDisable, changes.size) }
+    }
+
+    @Test fun leavingTheScreenCancelsTheRepeater() {
+        show(200)
+        compose.mainClock.autoAdvance = false
+        increase().performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(850L)
+        var beforeLeaving = 0
+        compose.runOnIdle { beforeLeaving = changes.size; assertTrue(beforeLeaving > 1); visible.value = false }
+        compose.mainClock.advanceTimeBy(1000L)
+        compose.mainClock.autoAdvance = true
+        compose.runOnIdle { assertEquals(beforeLeaving, changes.size) }
     }
 
     @Test fun cancelledPressDoesNotApplyAChange() {
