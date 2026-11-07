@@ -141,6 +141,10 @@ private fun RepeatingEffectButton(
                         // produce an extra click on release (especially above the bass ceiling).
                         val down = awaitFirstDown(pass = PointerEventPass.Initial)
                         down.consume()
+                        // Finish this down event's Main pass before waiting for a new event.
+                        // Otherwise waitForUpOrCancellation sees our own consumed down and
+                        // immediately cancels both the tap and the repeat job.
+                        awaitPointerEvent(PointerEventPass.Main)
                         val press = PressInteraction.Press(down.position)
                         interactions.tryEmit(press)
                         var held = false

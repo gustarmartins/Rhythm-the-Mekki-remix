@@ -22,6 +22,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.swipeUp
@@ -99,8 +100,8 @@ class AudioEffectStrengthControlTest {
     @Test fun eachTapOrAccessibilityClickChangesOnlyOnePercentagePoint() {
         show()
         increase().performTouchInput { click() }
-        increase().performClick()
-        increase().performClick()
+        increase().performSemanticsAction(SemanticsActions.OnClick) { it() }
+        increase().performSemanticsAction(SemanticsActions.OnClick) { it() }
         decrease().performClick()
         compose.runOnIdle { assertEquals(listOf(10, 20, 30, 20), changes) }
     }
