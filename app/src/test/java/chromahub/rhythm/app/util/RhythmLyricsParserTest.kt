@@ -6,6 +6,36 @@ import org.junit.Test
 class RhythmLyricsParserTest {
 
     @Test
+    fun longRadioTimelinePreservesEveryLineBeyondOneHour() {
+        val lrc = (0 until 1_000).joinToString("\n") { index ->
+            val seconds = index * 4
+            "[%02d:%02d.00]Radio line %d".format(java.util.Locale.ROOT,
+                seconds / 60, seconds % 60, index)
+        }
+        val parsed = LyricsParser.parseLyrics(lrc)
+        assertEquals(1_000, parsed.size)
+        assertEquals(3_996_000L, parsed.last().timestamp)
+        assertEquals("Radio line 999", parsed.last().text)
+    }
+
+    @Test
+    fun longEnhancedRadioTimelineKeepsWordTimingAndLineOnlyFallbacks() {
+        fun timestamp(milliseconds: Int): String = "%02d:%02d.%02d".format(
+            java.util.Locale.ROOT, milliseconds / 60_000,
+            milliseconds / 1_000 % 60, milliseconds % 1_000 / 10)
+        val lrc = (0 until 1_000).joinToString("\n") { index ->
+            val start = index * 4_000
+            if (index % 10 == 0) "[${timestamp(start)}]Radio line $index"
+            else "[${timestamp(start)}]<${timestamp(start)}>Radio <${timestamp(start + 500)}>line $index<${timestamp(start + 1_000)}>"
+        }
+        val parsed = LyricsParser.parseEnhancedLRC(lrc)
+        assertEquals(1_000, parsed.size)
+        assertEquals(3_996_000L, parsed.last().lineTimestamp)
+        assertEquals(listOf("Radio", "line 999"), parsed.last().words.map { it.text })
+        assertEquals("Radio line 990", parsed[990].words.single().text)
+    }
+
+    @Test
     fun neteasePartFlags_doNotRemoveSpacesBetweenFullLatinWords() {
         val line = WordByWordLyricLine(
             words = listOf(

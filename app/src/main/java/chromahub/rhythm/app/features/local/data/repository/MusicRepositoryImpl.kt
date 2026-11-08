@@ -7,6 +7,10 @@ package chromahub.rhythm.app.features.local.data.repository
 import chromahub.rhythm.app.util.LyricsOrigin
 import chromahub.rhythm.app.util.LyricsTimingPolicy
 import chromahub.rhythm.app.util.firstAvailableLyrics
+import chromahub.rhythm.app.util.boundedLyricsLookup
+import chromahub.rhythm.app.util.firstAvailableLyricsProvider
+import chromahub.rhythm.app.util.LYRICS_LOOKUP_TIMEOUT_MS
+import chromahub.rhythm.app.network.awaitLyricsBody
 import chromahub.rhythm.app.shared.data.model.ScanProgress
 import chromahub.rhythm.app.core.domain.scan.LibraryScanJournal
 import chromahub.rhythm.app.core.domain.scan.librarySnapshotNeedsRefresh
@@ -688,7 +692,6 @@ class MusicRepository(context: Context) {
         private const val MAX_ARTIST_CACHE_SIZE = 100
         private const val MAX_ALBUM_CACHE_SIZE = 200
         private const val MAX_LYRICS_CACHE_SIZE = 150
-        private const val LYRICS_LOOKUP_TIMEOUT_MS = 20_000L
         private const val LYRICS_CACHE_VERSION = 2
 
         private val sharedLyricsScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -4572,8 +4575,10 @@ class MusicRepository(context: Context) {
             if (isStreaming) {
                 try {
                     val streamingRepo = chromahub.rhythm.app.features.streaming.di.StreamingMusicModule.provideStreamingMusicRepository(context)
-                    val streamingLyrics = OptionalWorkController.run(OptionalWork.LYRICS) {
-                        streamingRepo.getLyrics(songId.orEmpty(), artist, title)
+                    val streamingLyrics = boundedLyricsLookup {
+                        OptionalWorkController.run(OptionalWork.LYRICS) {
+                            streamingRepo.getLyrics(songId.orEmpty(), artist, title)
+                        }
                     }
                     if (streamingLyrics != null && streamingLyrics.hasLyrics()) {
                         Log.d(TAG, "Found lyrics from streaming provider for: $artist - $title (source=${streamingLyrics.source})")
@@ -4620,17 +4625,17 @@ class MusicRepository(context: Context) {
             }
             fetchedApiRequirements += requirements
             if (isNetworkAvailable()) {
-                val result = OptionalWorkController.run(OptionalWork.LYRICS) {
-                  withTimeoutOrNull(LYRICS_LOOKUP_TIMEOUT_MS) {
-                    fetchLyricsFromAPIs(
-                        artist = artist,
-                        title = title,
-                        requireRomanization = wantRomanization,
-                        requireTranslation = wantTranslation,
-                        album = album,
-                        durationMs = durationMs
-                    )
-                  }
+                val result = boundedLyricsLookup {
+                    OptionalWorkController.run(OptionalWork.LYRICS) {
+                        fetchLyricsFromAPIs(
+                            artist = artist,
+                            title = title,
+                            requireRomanization = wantRomanization,
+                            requireTranslation = wantTranslation,
+                            album = album,
+                            durationMs = durationMs
+                        )
+                    }
                 }
                 if (result == null) {
                     Log.d(
@@ -4817,9 +4822,6 @@ class MusicRepository(context: Context) {
         val cleanArtist = sanitizeSearchQuery(artist)
         val cleanTitle = sanitizeSearchQuery(title)
 
-        var lyricallyBackup: LyricsData? = null
-        var lrclibPlainBackup: LyricsData? = null
-
         val appSettings = AppSettings.getInstance(context)
 
         // Try Better Lyrics first (high quality syllable/TTML synced lyrics)
@@ -4881,7 +4883,7 @@ class MusicRepository(context: Context) {
                     ): List<Pair<String, LyricsData>> = coroutineScope {
                         sources.map { source ->
                             async {
-                                val result = withTimeoutOrNull(7_500L) {
+                                val result = withTimeoutOrNull(3_500L) {
                                     fetchSourceLyrics(
                                         source = source,
                                         artist = artist,
@@ -4937,34 +4939,10 @@ class MusicRepository(context: Context) {
                         return@fetchLyrically accumulated
                     }
 
-                    val appleCandidate = if ("APPLE_MUSIC" in activeSources) {
-                        withTimeoutOrNull(3_500L) {
-                            fetchSourceLyrics(
-                                source = "APPLE_MUSIC",
-                                artist = artist,
-                                title = title,
-                                cleanArtist = cleanArtist,
-                                cleanTitle = cleanTitle,
-                                preferWordByWord = true
-                            )
-                        }
-                    } else {
-                        null
-                    }
-                    if (!appleCandidate?.wordByWordLyrics.isNullOrBlank()) {
-                        Log.d(TAG, "Lyrically API: selected fast Apple Music word-by-word lyrics")
-                        return@fetchLyrically appleCandidate
-                    }
-
-                    val candidates = buildList {
-                        if (appleCandidate != null) add("APPLE_MUSIC" to appleCandidate)
-                        addAll(
-                            fetchActiveSources(
-                                activeSources.filter { it != "APPLE_MUSIC" },
-                                requestTranslation = false
-                            )
-                        )
-                    }
+                    // Apple keeps its word-timing preference, but never delays other sources.
+                    val sourceOrder = (listOf("APPLE_MUSIC") + activeSources)
+                        .distinct().filter { it in activeSources }
+                    val candidates = fetchActiveSources(sourceOrder, requestTranslation = false)
                     val selected = candidates.firstOrNull { (_, lyrics) ->
                         !lyrics.wordByWordLyrics.isNullOrBlank()
                     } ?: candidates.firstOrNull { (_, lyrics) -> lyrics.hasSyncedLyrics() }
@@ -5038,8 +5016,7 @@ class MusicRepository(context: Context) {
                             rawLyrics.copy(sourceDurationMs = resolvedDuration)
                         } else if (plainLyrics != null) {
                             Log.d(TAG, "LRCLib: Plain lyrics found, caching as fallback")
-                            lrclibPlainBackup = LyricsData(plainLyrics, null, null, "LRCLib")
-                            null
+                            LyricsData(plainLyrics, null, null, "LRCLib")
                         } else null
                     }
                 } catch (e: Exception) {
@@ -5061,55 +5038,21 @@ class MusicRepository(context: Context) {
             return fetchLyrically()
         }
 
-        if (!isPrioritySet || apiPriority == LyricsApiPriority.BETTERLYRICS_FIRST) {
-            // Default first: Better Lyrics -> Lyrically -> LRCLib
-            val betterLyricsResult = fetchBetterLyrics()
-            if (betterLyricsResult != null) return betterLyricsResult
-            
-            val lyricallyResult = fetchLyrically()
-            if (lyricallyResult != null) return lyricallyResult
-            
-            val lrcResult = fetchLrcLib()
-            if (lrcResult != null) return lrcResult
-        } else {
-            // User explicitly set priority
-        if (apiPriority == LyricsApiPriority.LYRICALLY_FIRST) {
-            val lyricallyResult = fetchLyrically()
-            if (lyricallyResult != null) return lyricallyResult
-
-            if (fallbackRetry) {
-                    val betterLyricsResult = fetchBetterLyrics()
-                    if (betterLyricsResult != null) return betterLyricsResult
-                    
-                val lrcResult = fetchLrcLib()
-                if (lrcResult != null) return lrcResult
-            }
-            } else { // LRCLIB_FIRST
-            val lrcResult = fetchLrcLib()
-            if (lrcResult != null) return lrcResult
-
-            if (fallbackRetry) {
-                    val betterLyricsResult = fetchBetterLyrics()
-                    if (betterLyricsResult != null) return betterLyricsResult
-                    
-                val lyricallyResult = fetchLyrically()
-                if (lyricallyResult != null) return lyricallyResult
-            }
+        val providers = when {
+            !isPrioritySet || apiPriority == LyricsApiPriority.BETTERLYRICS_FIRST ->
+                listOf(fetchBetterLyrics, fetchLyrically, fetchLrcLib)
+            apiPriority == LyricsApiPriority.LYRICALLY_FIRST ->
+                if (fallbackRetry) listOf(fetchLyrically, fetchBetterLyrics, fetchLrcLib)
+                else listOf(fetchLyrically)
+            else ->
+                if (fallbackRetry) listOf(fetchLrcLib, fetchBetterLyrics, fetchLyrically)
+                else listOf(fetchLrcLib)
         }
-        }
-
-        if (lrclibPlainBackup != null) {
-            Log.d(TAG, "Fallback Chain: Returning cached LRCLib plain lyrics")
-            return lrclibPlainBackup
-        }
-
-        if (lyricallyBackup != null) {
-            Log.d(TAG, "Fallback Chain: Returning cached Lyrically line-synced or plain lyrics")
-            return lyricallyBackup
-        }
-
-        // No lyrics found from APIs
-        return null
+        return firstAvailableLyricsProvider(
+            providers = providers,
+            // A plain LRCLib result remains a backup when another provider has timed lyrics.
+            preferred = { it.source != "LRCLib" || it.hasSyncedLyrics() }
+        )
     }
 
     private suspend fun fetchSourceLyrics(
@@ -5361,10 +5304,7 @@ class MusicRepository(context: Context) {
                 .url("https://genius.com/api/search/multi?q=$encodedTerm")
                 .header("Accept", "application/json")
                 .build()
-            val searchPayload = genericHttpClient.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return null
-                response.body.string()
-            }
+            val searchPayload = genericHttpClient.newCall(request).awaitLyricsBody() ?: return null
             val sections = JsonParser.parseString(searchPayload)
                 .asJsonObject
                 .getAsJsonObject("response")
