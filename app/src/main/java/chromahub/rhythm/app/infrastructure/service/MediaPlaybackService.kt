@@ -979,7 +979,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         if (appSettings.shuffleModePersistence.value) {
             val savedShuffle = appSettings.savedShuffleState.value
             val useExoPlayerShuffle = appSettings.shuffleUsesExoplayer.value
-            player.shuffleModeEnabled = savedShuffle && useExoPlayerShuffle
+            player.shuffleModeEnabled = savedShuffle
             Log.d(TAG, "Restored player shuffle mode: ${player.shuffleModeEnabled} (useExoPlayerShuffle=$useExoPlayerShuffle)")
         }
         if (appSettings.repeatModePersistence.value) {
@@ -994,6 +994,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             val oldPlayer = player
             val wrappedNewPlayer = wrapPlayer(newPlayer)
             player = wrappedNewPlayer
+            // The incoming player selected its occurrence before this listener was
+            // attached. Consume that request here; Previous must not reserve it again.
+            consumePlayNextThrough(newPlayer.currentMediaItem)
             if (appSettings.useDefaultPlaybackSpeed.value) {
                 appSettings.setPlaybackSpeed(appSettings.defaultPlaybackSpeed.value)
                 rhythmPlayerEngine.applyPlaybackRate(appSettings.playbackRate.value)
@@ -1034,6 +1037,19 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                     preloadController.addOrUpdateQueue(mediaItems)
                 }
                 scheduleCollapseForBtLyrics()
+            }
+
+            override fun onEvents(player: Player, events: Player.Events) {
+                if (!isMutatingBtVirtualQueue && !restoringSavedQueue && musicAssistantPlayer == null &&
+                    events.containsAny(Player.EVENT_TIMELINE_CHANGED, Player.EVENT_POSITION_DISCONTINUITY,
+                        Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED)) {
+                    val snapshot = playbackQueueSnapshot()
+                    val tokens = snapshot.items.map { it.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN).orEmpty() }
+                    val remaining = remainingPlayNext(tokens, snapshot.currentIndex, pendingPlayNextTokens)
+                    pendingPlayNextTokens.clear()
+                    pendingPlayNextTokens.addAll(remaining)
+                    persistServiceQueue()
+                }
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -1171,6 +1187,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
 
                 // A controller reconnect and a metadata-only replacement are not new tracks.
                 // Keep this policy in the service so background Next behaves identically.
+                if (!restoringSavedQueue) consumePlayNextThrough(mediaItem)
                 val entryToken = mediaItem?.mediaMetadata?.extras?.getString(PlayNextCommand.ENTRY_TOKEN)
                 val newOccurrence = transitionMediaId != lastHandledPlayerTransitionMediaId ||
                     entryToken != lastHandledPlayerEntryToken ||
@@ -1719,6 +1736,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                         builder.add(SessionCommand(PlayNextCommand.ACTION, Bundle.EMPTY))
                         builder.add(SessionCommand(PlayNextCommand.GET_QUEUE, Bundle.EMPTY))
                         builder.add(SessionCommand(PlayNextCommand.CLEAR_EXCEPT_CURRENT, Bundle.EMPTY))
+                        builder.add(SessionCommand(PlayNextCommand.PERSIST_QUEUE, Bundle.EMPTY))
                         builder.add(SessionCommand(QueueEntryCommand.ACTION, Bundle.EMPTY))
                         builder.add(SessionCommand("UPDATE_ACTIVE_LYRIC", Bundle.EMPTY))
                         builder.add(SessionCommand("UPDATE_LYRICS_DATA", Bundle.EMPTY))
@@ -2464,9 +2482,11 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         val items = snapshot.items
         val index = snapshot.currentIndex
         if (items.isEmpty() || index !in items.indices) return
-        appSettings.setSavedQueue(items.map { it.mediaId })
-        appSettings.setSavedQueueIndex(index)
-        appSettings.setSavedPlaybackPosition(player.currentPosition)
+        val tokens = items.map { it.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN).orEmpty() }
+        val pending = remainingPlayNext(tokens, index, pendingPlayNextTokens)
+        val present = tokens.toSet()
+        appSettings.savePlaybackQueue(SavedPlaybackQueue(items.map { it.mediaId }, tokens, pending,
+            originalQueueTokens.filter { it in present }, player.shuffleModeEnabled), index, player.currentPosition)
     }
 
     private fun publishVirtualQueueState() {
@@ -2628,9 +2648,66 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
     }
 
     private val pendingPlayNextTokens = mutableListOf<String>()
+    private val originalQueueTokens = mutableListOf<String>()
+
+    private fun consumePlayNextThrough(item: MediaItem?) {
+        val consumed = pendingPlayNextTokens.indexOf(item?.mediaMetadata?.extras?.getString(PlayNextCommand.ENTRY_TOKEN))
+        if (consumed >= 0) pendingPlayNextTokens.subList(0, consumed + 1).clear()
+    }
+
+    /** All controller, notification and app shuffle changes operate on the real queue. */
+    private fun setQueueShuffle(enabled: Boolean, force: Boolean = false, freshSelection: Boolean = false) {
+        val raw = rhythmPlayerEngine.masterPlayer as ExoPlayer
+        val wasEnabled = if (btVirtualOriginalQueue != null) btVirtualOriginalShuffleMode else raw.shuffleModeEnabled
+        if (!force && wasEnabled == enabled) return
+        // A preloaded crossfade must not later restore an obsolete queue snapshot.
+        if (rhythmPlayerEngine.isTransitionRunning()) rhythmPlayerEngine.snapCompleteTransition()
+        if (::transitionController.isInitialized) transitionController.cancelPendingTransition()
+        val snapshot = playbackQueueSnapshot()
+        if (snapshot.currentIndex !in snapshot.items.indices) {
+            raw.shuffleModeEnabled = enabled
+            return
+        }
+        val tokens = snapshot.items.map { it.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN).orEmpty() }
+        if ((!wasEnabled && !freshSelection) || originalQueueTokens.isEmpty()) {
+            originalQueueTokens.clear()
+            originalQueueTokens.addAll(tokens)
+        }
+        val plan = planQueueShuffle(tokens, snapshot.currentIndex, pendingPlayNextTokens,
+            originalQueueTokens, enabled, freshSelection = freshSelection)
+        val byToken = tokens.zip(snapshot.items).toMap()
+        val ordered = plan.order.map(byToken::getValue)
+        val current = plan.order.indexOf(tokens[snapshot.currentIndex])
+        val alreadyMutating = isMutatingBtVirtualQueue
+        isMutatingBtVirtualQueue = true
+        try {
+            if (btVirtualOriginalQueue != null) {
+                btVirtualOriginalQueue = ordered
+                btVirtualCurrentOriginalIndex = current
+                btVirtualHistory.clear()
+                btVirtualHistory.addAll(ordered.take(current).mapIndexed { i, item -> BtVirtualQueueItem(item, i) })
+                btVirtualUpcoming.clear()
+                btVirtualUpcoming.addAll(ordered.drop(current + 1).mapIndexed { i, item -> BtVirtualQueueItem(item, i + current + 1) })
+                btVirtualOriginalShuffleMode = enabled
+                raw.shuffleModeEnabled = enabled
+            } else {
+                chromahub.rhythm.app.infrastructure.service.player.applyQueueShuffleOrder(
+                    raw, plan.order, enabled, appSettings.shuffleUsesExoplayer.value
+                ) { raw.setShuffleOrder(chromahub.rhythm.app.infrastructure.service.player.RhythmShuffleOrder(it)) }
+            }
+            pendingPlayNextTokens.clear()
+            pendingPlayNextTokens.addAll(plan.pending)
+        } finally { isMutatingBtVirtualQueue = alreadyMutating }
+        if (appSettings.shuffleModePersistence.value) appSettings.setSavedShuffleState(enabled)
+        publishVirtualQueueState()
+        persistServiceQueue()
+        notifyBtVirtualCommands()
+    }
 
     private fun enqueuePlayNext(items: List<MediaItem>): Bundle {
         require(items.isNotEmpty())
+        if (rhythmPlayerEngine.isTransitionRunning()) rhythmPlayerEngine.snapCompleteTransition()
+        if (::transitionController.isInitialized) transitionController.cancelPendingTransition()
         val virtual = btVirtualOriginalQueue?.takeIf { btVirtualQueueActive() }
         val original = virtual ?: List(player.mediaItemCount) { player.getMediaItemAt(it) }
         val current = if (virtual != null) btVirtualCurrentOriginalIndex else player.currentMediaItemIndex
@@ -2681,7 +2758,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         pendingPlayNextTokens.addAll(plan.remainingPending)
         pendingPlayNextTokens.addAll(additions.mapNotNull { it.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN) })
         // Adding to a paused/active queue does not resume it or seek away from its current song.
-        if (currentIndex == -1 || player.playbackState == Player.STATE_ENDED || player.playbackState == Player.STATE_IDLE) {
+        if (currentIndex == -1 || player.playbackState == Player.STATE_ENDED) {
             if (virtual != null) {
                 btVirtualAdvance()
             } else {
@@ -2689,7 +2766,12 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 player.prepare()
             }
             player.play()
+        } else if (player.playbackState == Player.STATE_IDLE) {
+            // A restored/stopped queue can already have a current occurrence. Preparing
+            // it is safe; seeking to the request and resuming would discard paused intent.
+            player.prepare()
         }
+        persistServiceQueue()
         return Bundle().apply {
             putBoolean(PlayNextCommand.VIRTUAL_QUEUE, virtual != null)
             putInt(PlayNextCommand.INSERTION_INDEX, plan.displayInsertionIndex)
@@ -2704,6 +2786,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         libraryContinuationJob?.cancel()
         libraryContinuationActive = false
         pendingPlayNextTokens.clear()
+        originalQueueTokens.clear()
         isMutatingBtVirtualQueue = true
         try {
             if (btVirtualOriginalQueue != null) {
@@ -2759,7 +2842,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                         audio.mode != AudioManager.MODE_NORMAL || audio.isMusicActive ||
                         (appSettings.stopPlaybackOnZeroVolume.value && appSettings.useSystemVolume.value &&
                             audio.getStreamVolume(AudioManager.STREAM_MUSIC) == 0)) return@collectLatest
-                    player.shuffleModeEnabled = appSettings.shuffleUsesExoplayer.value && appSettings.savedShuffleState.value
+                    player.shuffleModeEnabled = appSettings.shuffleModePersistence.value && appSettings.savedShuffleState.value
                     player.repeatMode = when (appSettings.savedRepeatMode.value) {
                         1 -> Player.REPEAT_MODE_ALL
                         2 -> Player.REPEAT_MODE_ONE
@@ -2783,14 +2866,14 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         if (ids.isEmpty() || index !in ids.indices) return null
         val songs = withContext(Dispatchers.IO) { serviceMusicRepository.getSongsByIds(ids) }
         val restored = restorePlaybackOccurrences(ids, index, position, songs.associateBy { it.id }) ?: return null
+        val items = restored.items.map { song -> MediaItem.Builder()
+            .setMediaId(song.id).setUri(song.uri)
+            .setMediaMetadata(MediaMetadata.Builder().setTitle(song.title).setArtist(song.artist)
+                .setAlbumTitle(song.album).setArtworkUri(song.artworkUri).setDurationMs(song.duration).build())
+            .build() }
         return MediaSession.MediaItemsWithStartPosition(
-            restored.items.mapIndexed { index, song -> tokenizedQueueItem(MediaItem.Builder()
-                .setMediaId(song.id).setUri(song.uri)
-                .setMediaMetadata(MediaMetadata.Builder().setTitle(song.title).setArtist(song.artist)
-                    .setAlbumTitle(song.album).setArtworkUri(song.artworkUri).setDurationMs(song.duration)
-                    .setExtras(Bundle().apply { if (index == 0) putBoolean(PlayNextCommand.RESTORED_TRAVERSAL, true) })
-                    .build())
-                .build()) }, restored.index, restored.positionMs)
+            restoredQueueItems(items, appSettings.savedPlaybackQueueFor(ids), appSettings.shuffleModePersistence.value),
+            restored.index, restored.positionMs)
     }
 
     private fun promoteBeforePlayback() {
@@ -2936,6 +3019,14 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 .build()
         }
 
+        override fun setShuffleModeEnabled(shuffleModeEnabled: Boolean) {
+            if (musicAssistantPlayer != null || isMutatingBtVirtualQueue || restoringSavedQueue) {
+                super.setShuffleModeEnabled(shuffleModeEnabled)
+            } else {
+                setQueueShuffle(shuffleModeEnabled)
+            }
+        }
+
         override fun getRepeatMode(): Int =
             if (btVirtualOriginalQueue != null && btVirtualQueueActive()) {
                 btVirtualOriginalRepeatMode
@@ -3007,35 +3098,47 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         private inline fun replaceQueueWithSavedTraversal(
             mediaItems: List<MediaItem>, replace: (List<MediaItem>) -> Unit
         ) {
-            val restored = mediaItems.firstOrNull()?.mediaMetadata?.extras
-                ?.getBoolean(PlayNextCommand.RESTORED_TRAVERSAL) == true
-            val items = mediaItems.mapIndexed { index, item ->
-                val clean = if (restored && index == 0) {
-                    val extras = Bundle(item.mediaMetadata.extras ?: Bundle.EMPTY).apply {
-                        remove(PlayNextCommand.RESTORED_TRAVERSAL)
-                    }
-                    item.buildUpon().setMediaMetadata(item.mediaMetadata.buildUpon().setExtras(extras).build()).build()
-                } else item
-                tokenizedQueueItem(clean)
+            // Music Assistant owns its own occurrence IDs, ordering and shuffle command.
+            if (musicAssistantPlayer != null) { replace(mediaItems); return }
+            val extras = mediaItems.firstOrNull()?.mediaMetadata?.extras
+            val restored = extras?.getBoolean(PlayNextCommand.RESTORED_TRAVERSAL) == true
+            val requestedShuffle = if (extras?.containsKey(PlayNextCommand.REQUESTED_SHUFFLE) == true)
+                extras.getBoolean(PlayNextCommand.REQUESTED_SHUFFLE) else shuffleModeEnabled
+            val items = mediaItems.map { item ->
+                val clean = Bundle(item.mediaMetadata.extras ?: Bundle.EMPTY).apply {
+                    remove(PlayNextCommand.RESTORED_TRAVERSAL)
+                    remove(PlayNextCommand.REQUESTED_SHUFFLE)
+                    remove(PlayNextCommand.RESTORED_PENDING)
+                    remove(PlayNextCommand.RESTORED_ORIGINAL)
+                }
+                tokenizedQueueItem(item.buildUpon().setMediaMetadata(item.mediaMetadata.buildUpon().setExtras(clean).build()).build())
             }
-            if (!restored) {
-                replace(items)
-                return
-            }
+            val internalMutation = isMutatingBtVirtualQueue
+            if (internalMutation) { replace(items); return }
             restoringSavedQueue = true
             try {
                 replace(items)
-                // ExoPlayer creates a fresh random order when a playlist is replaced.
-                // Restore the persisted traversal while retaining the user's shuffle mode.
-                chromahub.rhythm.app.infrastructure.service.player.RhythmShuffleOrder
-                    .forRestoredTraversal(items.size, shuffleModeEnabled)?.let { order ->
-                        (rhythmPlayerEngine.masterPlayer as? ExoPlayer)?.setShuffleOrder(order)
-                    }
-                // With shuffle off, retain ExoPlayer's latent random order so enabling
-                // shuffle later still changes traversal instead of leaving a sorted queue.
-            } finally {
-                restoringSavedQueue = false
-            }
+                val tokens = items.map { it.mediaMetadata.extras!!.getString(PlayNextCommand.ENTRY_TOKEN)!! }
+                originalQueueTokens.clear()
+                originalQueueTokens.addAll(if (restored)
+                    extras?.getStringArrayList(PlayNextCommand.RESTORED_ORIGINAL).orEmpty().ifEmpty { tokens }
+                    else tokens)
+                if (restored) {
+                    val raw = rhythmPlayerEngine.masterPlayer as ExoPlayer
+                    // Persisted traversal is already shuffled. Never shuffle it a second time.
+                    raw.setShuffleOrder(chromahub.rhythm.app.infrastructure.service.player.RhythmShuffleOrder(IntArray(items.size) { it }))
+                    raw.shuffleModeEnabled = requestedShuffle
+                    pendingPlayNextTokens.clear()
+                    pendingPlayNextTokens.addAll(remainingPlayNext(tokens, raw.currentMediaItemIndex,
+                        extras?.getStringArrayList(PlayNextCommand.RESTORED_PENDING).orEmpty()))
+                } else if (!requestedShuffle) {
+                    (rhythmPlayerEngine.masterPlayer as ExoPlayer).shuffleModeEnabled = false
+                } else if (items.isNotEmpty()) {
+                    // Starting a shuffled context has no played prefix yet: every other
+                    // occurrence belongs after the explicitly selected starting song.
+                    setQueueShuffle(requestedShuffle, force = true, freshSelection = requestedShuffle)
+                }
+            } finally { restoringSavedQueue = false }
             persistServiceQueue()
         }
 
@@ -3084,7 +3187,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 libraryContinuationJob?.cancel()
             }
             restoreBeforeExternalQueueMutation()
-            super.setMediaItem(tokenizedQueueItem(mediaItem))
+            replaceQueueWithSavedTraversal(listOf(mediaItem)) { super.setMediaItem(it.single()) }
         }
 
         override fun setMediaItem(mediaItem: MediaItem, startPositionMs: Long) {
@@ -3096,7 +3199,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 libraryContinuationJob?.cancel()
             }
             restoreBeforeExternalQueueMutation()
-            super.setMediaItem(tokenizedQueueItem(mediaItem), startPositionMs)
+            replaceQueueWithSavedTraversal(listOf(mediaItem)) { super.setMediaItem(it.single(), startPositionMs) }
         }
 
         override fun setMediaItem(mediaItem: MediaItem, resetPosition: Boolean) {
@@ -3108,7 +3211,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 libraryContinuationJob?.cancel()
             }
             restoreBeforeExternalQueueMutation()
-            super.setMediaItem(tokenizedQueueItem(mediaItem), resetPosition)
+            replaceQueueWithSavedTraversal(listOf(mediaItem)) { super.setMediaItem(it.single(), resetPosition) }
         }
 
         override fun addMediaItem(mediaItem: MediaItem) {
@@ -3182,6 +3285,8 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         override fun clearMediaItems() {
             if (!isMutatingBtVirtualQueue) {
                 pendingPlayNextTokens.clear()
+                originalQueueTokens.clear()
+                appSettings.clearSavedQueue()
                 libraryContinuationActive = false
                 queueClearedByUser = false
                 libraryContinuationJob?.cancel()
@@ -3624,7 +3729,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                         "Playback changed while restoring"
                     }
                     if (isForPlayback) {
-                        player.shuffleModeEnabled = appSettings.shuffleUsesExoplayer.value && appSettings.savedShuffleState.value
+                        player.shuffleModeEnabled = appSettings.shuffleModePersistence.value && appSettings.savedShuffleState.value
                         player.repeatMode = when (appSettings.savedRepeatMode.value) {
                             1 -> Player.REPEAT_MODE_ALL
                             2 -> Player.REPEAT_MODE_ONE
@@ -3662,6 +3767,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                 availableCommands.add(SessionCommand(PlayNextCommand.GET_QUEUE, Bundle.EMPTY))
                 availableCommands.add(SessionCommand(QueueEntryCommand.ACTION, Bundle.EMPTY))
                 availableCommands.add(SessionCommand(PlayNextCommand.CLEAR_EXCEPT_CURRENT, Bundle.EMPTY))
+                availableCommands.add(SessionCommand(PlayNextCommand.PERSIST_QUEUE, Bundle.EMPTY))
             }
             availableCommands.add(SessionCommand("UPDATE_ACTIVE_LYRIC", Bundle.EMPTY))
             availableCommands.add(SessionCommand("UPDATE_LYRICS_DATA", Bundle.EMPTY))
@@ -3682,6 +3788,13 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             customCommand: SessionCommand,
             args: Bundle
         ): ListenableFuture<SessionResult> {
+            if (customCommand.customAction == PlayNextCommand.PERSIST_QUEUE) {
+                if (controller.packageName != packageName || !::player.isInitialized) {
+                    return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
+                }
+                persistServiceQueue()
+                return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+            }
             if (customCommand.customAction == QueueEntryCommand.ACTION) {
                 if (controller.packageName != packageName || !::player.isInitialized) {
                     return Futures.immediateFuture(SessionResult(SessionError.ERROR_PERMISSION_DENIED))
@@ -4370,8 +4483,6 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
-        val pendingIndex = pendingPlayNextTokens.indexOf(mediaItem?.mediaMetadata?.extras?.getString(PlayNextCommand.ENTRY_TOKEN))
-        if (pendingIndex >= 0) repeat(pendingIndex + 1) { pendingPlayNextTokens.removeAt(0) }
         val transitionMediaId = mediaItem?.mediaId
         if (isBluetoothMetadataTransition(
                 mediaItem = mediaItem,

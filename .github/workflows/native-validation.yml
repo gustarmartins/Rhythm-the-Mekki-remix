@@ -147,6 +147,10 @@ jobs:
             -e class chromahub.rhythm.app.shared.presentation.PlaybackRegressionAndroidTest \
             chromahub.rhythm.app.debug.test/androidx.test.runner.AndroidJUnitRunner | tee playback-regressions.txt
           grep -q '^OK (' playback-regressions.txt
+          adb -s emulator-5554 shell am instrument -w -r \
+            -e class chromahub.rhythm.app.infrastructure.service.QueueServiceAndroidTest \
+            chromahub.rhythm.app.debug.test/androidx.test.runner.AndroidJUnitRunner | tee queue-service-regressions.txt
+          grep -q '^OK (' queue-service-regressions.txt
       - name: Preserve interaction diagnostics separately from APK downloads
         uses: actions/upload-artifact@v7
         if: always() && inputs.build_mode != 'profile'
@@ -155,6 +159,7 @@ jobs:
           path: |
             coroutine-runtime-regression.txt
             playback-regressions.txt
+            queue-service-regressions.txt
             emulator.log
             android-runtime.log
             android-last-frame.png

@@ -5,6 +5,7 @@ object PlayNextCommand {
     const val ACTION = "chromahub.rhythm.app.ENQUEUE_PLAY_NEXT"
     const val GET_QUEUE = "chromahub.rhythm.app.GET_PLAYBACK_QUEUE"
     const val CLEAR_EXCEPT_CURRENT = "chromahub.rhythm.app.CLEAR_QUEUE_EXCEPT_CURRENT"
+    const val PERSIST_QUEUE = "chromahub.rhythm.app.PERSIST_PLAYBACK_QUEUE"
     const val OFFSET = "queue_offset"
     const val LIMIT = "queue_limit"
     const val TOTAL = "queue_total"
@@ -19,6 +20,8 @@ object PlayNextCommand {
     // The saved list is already in playback traversal order, including native shuffle.
     const val RESTORED_TRAVERSAL = "rhythm_restored_traversal"
     const val REQUESTED_SHUFFLE = "rhythm_requested_shuffle"
+    const val RESTORED_PENDING = "rhythm_restored_pending"
+    const val RESTORED_ORIGINAL = "rhythm_restored_original"
 }
 
 internal data class PlayNextInsertion(

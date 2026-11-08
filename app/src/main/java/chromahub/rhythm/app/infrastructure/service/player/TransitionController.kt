@@ -196,6 +196,14 @@ class TransitionController(
                 }
             }
 
+            override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+                if (isInDestructiveState()) return
+                invalidateScheduledTransitions()
+                transitionSchedulerJob?.cancel()
+                engine.cancelNext()
+                engine.masterPlayer.currentMediaItem?.let { scheduleTransitionFor(it) }
+            }
+
             override fun onRepeatModeChanged(repeatMode: Int) {
                 if (isInDestructiveState()) {
                     Log.d(TAG, "Repeat mode changed. Ignore cancellation since transitioning.")

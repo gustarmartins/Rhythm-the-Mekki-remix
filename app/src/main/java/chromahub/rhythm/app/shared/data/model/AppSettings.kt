@@ -3712,6 +3712,29 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         }
     }
 
+    internal fun savedPlaybackQueueFor(ids: List<String>): chromahub.rhythm.app.infrastructure.service.SavedPlaybackQueue? =
+        runCatching {
+            Gson().fromJson(prefs.getString("saved_playback_queue_occurrences", null),
+                chromahub.rhythm.app.infrastructure.service.SavedPlaybackQueue::class.java)
+                ?.takeIf { it.matches(ids) }
+        }.getOrNull()
+
+    internal fun savePlaybackQueue(
+        queue: chromahub.rhythm.app.infrastructure.service.SavedPlaybackQueue, index: Int, position: Long
+    ) {
+        // Save IDs, occurrence metadata, cursor and position together. The service owns
+        // this snapshot; UI reconnects must not overwrite it with a stale song-ID list.
+        prefs.edit {
+            putString(KEY_SAVED_QUEUE, Gson().toJson(queue.ids))
+            putString("saved_playback_queue_occurrences", Gson().toJson(queue))
+            putInt(KEY_SAVED_QUEUE_INDEX, index)
+            putLong(KEY_SAVED_PLAYBACK_POSITION, position)
+        }
+        _savedQueue.value = queue.ids
+        _savedQueueIndex.value = index
+        _savedPlaybackPosition.value = position
+    }
+
     fun setSavedQueue(songIds: List<String>) {
         val json = Gson().toJson(songIds)
         prefs.edit { putString(KEY_SAVED_QUEUE, json) }
@@ -3751,6 +3774,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
     }
     
     fun clearSavedQueue() {
+        prefs.edit { remove("saved_playback_queue_occurrences") }
         prefs.edit { remove(KEY_SAVED_QUEUE) }
         prefs.edit { remove(KEY_SAVED_QUEUE_INDEX) }
         prefs.edit { remove(KEY_SAVED_PLAYBACK_POSITION) }

@@ -11,6 +11,8 @@
 
 # Keep model classes used for Gson serialization in shared settings, playlists, etc.
 -keep class chromahub.rhythm.app.shared.data.model.** { *; }
+# Persisted queue occurrence keys must survive upgrades between independently minified Nightlies.
+-keep class chromahub.rhythm.app.infrastructure.service.SavedPlaybackQueue { *; }
 
 # Keep PlaylistImportExportUtils inner data classes (PlaylistExportData, PlaylistSongEntry)
 # used for JSON playlist export/import via Gson reflection

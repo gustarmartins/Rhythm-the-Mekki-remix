@@ -337,7 +337,23 @@ internal class MusicAssistantPlayer(
         if (!wasPlaying) client.api().playerAction(target(), MusicAssistantApi.PlayerAction.PAUSE)
     }
     override fun handleSetRepeatMode(repeatMode: Int) = submit { client.command("player_queues/repeat", "queue_id" to queueId(), "repeat_mode" to when (repeatMode) { REPEAT_MODE_ONE -> "one"; REPEAT_MODE_ALL -> "all"; else -> "off" }); Unit }
-    override fun handleSetShuffleModeEnabled(shuffleModeEnabled: Boolean) = submit { client.command("player_queues/shuffle", "queue_id" to queueId(), "shuffle_enabled" to shuffleModeEnabled); Unit }
+    override fun handleSetShuffleModeEnabled(shuffleModeEnabled: Boolean) = submit {
+        refresh()
+        val id = queueId()
+        val current = queue?.currentOccurrenceId
+        val requests = pendingManual.toList()
+        client.command("player_queues/shuffle", "queue_id" to id, "shuffle_enabled" to shuffleModeEnabled)
+        if (current != null && requests.isNotEmpty()) {
+            restoreServerPlayNext(requests, current,
+                read = {
+                    val state = client.api().activeQueue(target())
+                    check(state?.id == id) { "Server queue changed during shuffle" }
+                    state?.currentOccurrenceId to readItems(id, state?.itemCount ?: 0).map { it.occurrenceId }
+                },
+                move = { token, shift -> client.command("player_queues/move_item", "queue_id" to id,
+                    "queue_item_id" to token, "pos_shift" to shift) })
+        }
+    }
     fun editQueueEntry(token: String, operation: String, targetToken: String?): ListenableFuture<Void> = submit {
         refresh()
         val id = queueId()
