@@ -5771,7 +5771,14 @@ class MusicRepository(context: Context) {
             }
 
             if (ext.equals("lrc", ignoreCase = true) || ext.equals("elrc", ignoreCase = true) || ext.equals("txt", ignoreCase = true)) {
-                val lrcParsed = parseLrcFile(content)
+                val lrcParsed = parseLrcFile(content)?.let { parsed ->
+                    parsed.copy(
+                        sourceDurationMs = parsed.sourceDurationMs
+                            ?: LyricsTimingPolicy.extractLrcLengthHeaderMs(content),
+                        sourceTempoRatio = parsed.sourceTempoRatio
+                            ?: LyricsTimingPolicy.extractLrcSpeedFactorHeader(content)
+                    )
+                }
                 if (lrcParsed != null) return lrcParsed
             }
 
@@ -5936,7 +5943,16 @@ class MusicRepository(context: Context) {
 
             if (plainLyrics != null || syncedLyrics != null) {
                 Log.d(TAG, "Successfully parsed .lrc file - Synced: ${syncedLyrics != null}, Plain: ${plainLyrics != null}")
-                return LyricsData(plainLyrics, syncedLyrics, null)
+                // Header lines are not kept in syncedLyrics, so carry the tempo hints separately:
+                // [length:] = duration of the audio the timestamps were made for,
+                // [x-speed-factor:] = explicit sped-up (Nightcore) ratio to divide timestamps by.
+                return LyricsData(
+                    plainLyrics = plainLyrics,
+                    syncedLyrics = syncedLyrics,
+                    wordByWordLyrics = null,
+                    sourceDurationMs = LyricsTimingPolicy.extractLrcLengthHeaderMs(lrcContent),
+                    sourceTempoRatio = LyricsTimingPolicy.extractLrcSpeedFactorHeader(lrcContent)
+                )
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error parsing .lrc file", e)

@@ -88,4 +88,42 @@ class LyricsTimingPolicyTest {
         )
         assertEquals(lrc, result.syncedLyrics)
     }
+
+    @Test
+    fun speedFactorHeader_isParsedAndRejectsImplausibleValues() {
+        assertEquals(1.25, LyricsTimingPolicy.extractLrcSpeedFactorHeader("[ti:x]\n[x-speed-factor:1.25]\n[00:01.00]a")!!, 1e-9)
+        assertEquals(1.3098, LyricsTimingPolicy.extractLrcSpeedFactorHeader("[x-nightcore-speed: 1.3098x]")!!, 1e-9)
+        assertEquals(null, LyricsTimingPolicy.extractLrcSpeedFactorHeader("[x-speed-factor:9]"))
+        assertEquals(null, LyricsTimingPolicy.extractLrcSpeedFactorHeader("[ti:none]"))
+    }
+
+    @Test
+    fun explicitTempoRatio_dividesTimestampsExactlyOnceWithoutDurationGuess() {
+        val raw = LyricsData(
+            plainLyrics = "a\nb",
+            syncedLyrics = "[00:10.00]a\n[02:30.00]b",
+            source = "Local File",
+            sourceTempoRatio = 1.25
+        )
+        val scaled = LyricsTimingPolicy.adjustToTrackDuration(raw, targetDurationMs = 128_000L, isTempoEdited = false)
+        assertEquals("[00:08.00]a\n[02:00.00]b", scaled.syncedLyrics)
+        assertEquals(null, scaled.sourceTempoRatio)
+        // Re-running over already adjusted lyrics must not scale again.
+        val again = LyricsTimingPolicy.adjustToTrackDuration(scaled, targetDurationMs = 128_000L, isTempoEdited = true)
+        assertEquals(scaled.syncedLyrics, again.syncedLyrics)
+    }
+
+    @Test
+    fun prescaledNightcoreLrcWithLengthHeader_isNotRescaledByHeuristics() {
+        // Last vocal line is 20s before the end; without a trusted source length the old guess
+        // (last line + 3.5s) would wrongly stretch this file.
+        val raw = LyricsData(
+            plainLyrics = "a\nb",
+            syncedLyrics = "[00:10.00]a\n[02:00.00]b",
+            source = "Local File",
+            sourceDurationMs = 146_000L
+        )
+        val result = LyricsTimingPolicy.adjustToTrackDuration(raw, targetDurationMs = 146_000L, isTempoEdited = true)
+        assertEquals(raw.syncedLyrics, result.syncedLyrics)
+    }
 }

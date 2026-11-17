@@ -18,7 +18,12 @@ data class LyricsData(
     val source: String? = null, // Source of lyrics: "LRCLib", "Embedded", "Local File", etc.
     val isCorrected: Boolean? = null,
     val cacheVersion: Int? = null,
-    val sourceDurationMs: Long? = null
+    val sourceDurationMs: Long? = null,
+    /**
+     * Explicit playback-rate ratio between the lyric timeline and the audio (e.g. 1.25 for a
+     * Nightcore edit that plays 25% faster). Timestamps are divided by this value. Cleared once applied.
+     */
+    val sourceTempoRatio: Double? = null
 ) : Parcelable {
     
     /**

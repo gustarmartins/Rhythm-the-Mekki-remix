@@ -21,6 +21,9 @@ object LyricsTimingPolicy {
     private val lrcLengthHeaderRegex = Regex(
         "(?i)\\[length\\s*:\\s*(\\d+)\\s*[:.]\\s*(\\d+(?:[.:]\\d+)?)\\s*]"
     )
+    private val lrcSpeedHeaderRegex = Regex(
+        "(?i)\\[\\s*(?:x-speed-factor|x-nightcore-speed|x-tempo-ratio)\\s*:\\s*(\\d+(?:\\.\\d+)?)\\s*x?\\s*]"
+    )
     private val lrcLineTimestampRegex = Regex(
         "\\[(\\d+)[.:](\\d+)([.:]\\d+)?(?:-(\\d+)[.:](\\d+)([.:]\\d+)?)?]"
     )
@@ -47,6 +50,22 @@ object LyricsTimingPolicy {
         val seconds = match.groupValues[2].replace(':', '.').toDoubleOrNull() ?: return null
         return (minutes * 60_000L + (seconds * 1000.0).roundToLong()).takeIf { it > 0L }
     }
+
+    /**
+     * Reads an explicit tempo ratio header (e.g. `[x-speed-factor:1.25]` = audio is 25% faster
+     * than the timeline in this file). Returns null for absent or implausible values.
+     */
+    fun extractLrcSpeedFactorHeader(lrc: String?): Double? {
+        if (lrc.isNullOrBlank()) return null
+        val factor = lrcSpeedHeaderRegex.find(lrc)?.groupValues?.get(1)?.toDoubleOrNull() ?: return null
+        return factor.takeIf { it.isFinite() && it in MIN_EXPLICIT_RATIO..MAX_EXPLICIT_RATIO }
+    }
+
+    /** Percentage speed-up/slow-down helper: ratio 1.25 -> +25.0. */
+    fun ratioToPercent(ratio: Double): Double = (ratio - 1.0) * 100.0
+
+    private const val MIN_EXPLICIT_RATIO = 0.5
+    private const val MAX_EXPLICIT_RATIO = 2.5
 
     private data class TimelineStats(
         val maxTimelineMs: Long,
@@ -204,7 +223,27 @@ object LyricsTimingPolicy {
         isTempoEdited: Boolean = false,
         catalogDurationsMs: List<Long> = emptyList()
     ): LyricsData {
-        if (targetDurationMs == null || targetDurationMs < 15_000L || !lyrics.hasSyncedLyrics()) {
+        if (!lyrics.hasSyncedLyrics()) return lyrics
+
+        // An explicit tempo ratio (header or provider-supplied) is authoritative: the audio plays
+        // `ratio` times faster than the lyric timeline, so every timestamp is divided by it. No
+        // duration guess is needed, and it is applied exactly once.
+        val explicitRatio = lyrics.sourceTempoRatio?.takeIf {
+            it.isFinite() && it in MIN_EXPLICIT_RATIO..MAX_EXPLICIT_RATIO
+        }
+        if (explicitRatio != null) {
+            if (abs(explicitRatio - 1.0) < 0.001) return lyrics.copy(sourceTempoRatio = null)
+            val scale = 1.0 / explicitRatio
+            return lyrics.copy(
+                syncedLyrics = lyrics.syncedLyrics?.let { scaleLrcTimestamps(it, scale) },
+                wordByWordLyrics = lyrics.wordByWordLyrics?.let { scaleWordByWordJson(it, scale) },
+                sourceDurationMs = targetDurationMs?.takeIf { it > 0L }
+                    ?: lyrics.sourceDurationMs?.let { (it * scale).roundToLong() },
+                sourceTempoRatio = null
+            )
+        }
+
+        if (targetDurationMs == null || targetDurationMs < 15_000L) {
             return lyrics
         }
         val stats = inspectTimeline(lyrics) ?: return lyrics
