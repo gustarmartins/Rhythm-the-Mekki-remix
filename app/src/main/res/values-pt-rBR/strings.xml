@@ -54,7 +54,9 @@
     <string name="settings_context_queue_preference_desc">Explore toda a biblioteca, incluindo opcionalmente músicas do mesmo artista ou gênero.</string>
     <string name="settings_context_pref_random">Biblioteca em ordem aleatória</string>
     <string name="settings_lastfm_recommendations">Sugestões do Last.fm</string>
-    <string name="settings_lastfm_recommendations_desc">Quando a fila terminar, misturar artistas semelhantes na reprodução da biblioteca. Reproduz apenas músicas deste dispositivo.</string>
+    <string name="settings_lastfm_recommendations_desc">Usar artistas semelhantes nas recomendações da tela inicial e na continuação da biblioteca. Reproduz apenas músicas deste dispositivo.</string>
+    <string name="home_recommended_lastfm_subtitle">Artistas semelhantes do Last.fm, na sua biblioteca</string>
+    <string name="home_recommended_mix_title">Feito para você</string>
     <string name="settings_lastfm_api_key">Chave de API do Last.fm</string>
     <string name="settings_lastfm_key_desc">Use sua chave de API do Last.fm para buscar artistas semelhantes. Envia o artista atual ao Last.fm; não exige login nem histórico de reprodução. A reprodução offline sempre funciona.</string>
     <string name="settings_lastfm_get_key">Obter uma chave de API do Last.fm</string>

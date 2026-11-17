@@ -447,6 +447,7 @@ fun StyledProgressBar(
     val displayProgress = if (onSeek != null) renderedNormalizedProgress.floatValue else progress
     val containerHeight = when {
         hasThumb -> thumbContainerHeight(height, effectiveThumbSize)
+        style == ProgressStyle.WAVY -> height.coerceAtLeast(24.dp)
         style == ProgressStyle.DOTS -> height.coerceAtLeast(24.dp)
         onSeek != null -> height.coerceAtLeast(24.dp)
         else -> height

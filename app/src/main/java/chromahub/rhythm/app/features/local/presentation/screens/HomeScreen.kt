@@ -327,7 +327,37 @@ fun HomeScreen(
     // Home section order bottom sheet state
     var showHomeSectionOrderSheet by remember { mutableStateOf(false) }
 
-    val isLibraryRefreshing by musicViewModel.isLibraryRefreshing.collectAsState()
+    val homeFeedRefreshing by musicViewModel.homeFeed.refreshing.collectAsState()
+    val favoriteIds by musicViewModel.favoriteSongs.collectAsState()
+    val discoverCount by appSettings.homeDiscoverItemCount.collectAsState()
+    val recommendationCount by appSettings.homeRecommendedCount.collectAsState()
+    val showHomeRecommendations by appSettings.homeShowRecommended.collectAsState()
+    val lastFmEnabled by appSettings.lastFmRecommendationsEnabled.collectAsState()
+    val lastFmKey by appSettings.lastFmApiKey.collectAsState()
+    val splitArtists by appSettings.artistSeparatorEnabled.collectAsState()
+    val artistDelimiters by appSettings.artistSeparatorDelimiters.collectAsState()
+    val homeFeedInput = remember(albums, songs, recentlyPlayed, favoriteIds, discoverCount,
+        recommendationCount, showHomeRecommendations, lastFmEnabled, lastFmKey, splitArtists, artistDelimiters) {
+        chromahub.rhythm.app.features.local.presentation.viewmodel.HomeFeedInput(
+            albums, songs, recentlyPlayed, favoriteIds, discoverCount, recommendationCount,
+            showHomeRecommendations, lastFmEnabled, lastFmKey, splitArtists, artistDelimiters
+        )
+    }
+    LaunchedEffect(isStreamingMode, homeFeedInput) {
+        if (!isStreamingMode) musicViewModel.homeFeed.update(homeFeedInput)
+    }
+    val latestHomeFeedInput by rememberUpdatedState(homeFeedInput)
+    val latestIsStreamingMode by rememberUpdatedState(isStreamingMode)
+    val homeLifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(homeLifecycleOwner, musicViewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME && !latestIsStreamingMode) {
+                musicViewModel.homeFeed.update(latestHomeFeedInput)
+            }
+        }
+        homeLifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { homeLifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     var streamingIsRefreshing by remember { mutableStateOf(false) }
     LaunchedEffect(streamingIsLoading) {
         if (!streamingIsLoading) streamingIsRefreshing = false
@@ -679,9 +709,9 @@ fun HomeScreen(
                 onNavigateToRhythmGuard = onNavigateToRhythmGuard,
                 musicViewModel = musicViewModel,
                 coroutineScope = coroutineScope,
-                isRefreshing = isLibraryRefreshing,
+                isRefreshing = homeFeedRefreshing,
                 onRefresh = {
-                    musicViewModel.refreshLibrary(showMediaScanLoader = false)
+                    musicViewModel.homeFeed.refresh()
                 }
             )
         }
@@ -1438,12 +1468,10 @@ private fun ModernScrollableContent(
     val showRecentlyAdded by appSettings.homeShowRecentlyAdded.collectAsState()
     val showRecommended by appSettings.homeShowRecommended.collectAsState()
     val showListeningStats by appSettings.homeShowListeningStats.collectAsState()
-    val discoverItemCount by appSettings.homeDiscoverItemCount.collectAsState()
     val recentlyPlayedCount by appSettings.homeRecentlyPlayedCount.collectAsState()
     val artistsCount by appSettings.homeArtistsCount.collectAsState()
     val newReleasesCount by appSettings.homeNewReleasesCount.collectAsState()
     val recentlyAddedCount by appSettings.homeRecentlyAddedCount.collectAsState()
-    val recommendedCount by appSettings.homeRecommendedCount.collectAsState()
 
     // Rhythm Guard States (pulled up from LazyColumn block)
     val rhythmGuardMode by appSettings.rhythmGuardMode.collectAsState()
@@ -1507,52 +1535,8 @@ private fun ModernScrollableContent(
         }
     }
 
-    // Featured albums with stable ID preservation across library & background metadata updates
-    var currentFeaturedAlbums by remember { mutableStateOf<List<Album>>(emptyList()) }
-
-    // Synchronize currentFeaturedAlbums when library/albums change without reshuffling
-    LaunchedEffect(albums, discoverItemCount) {
-        if (albums.isEmpty()) {
-            currentFeaturedAlbums = emptyList()
-            return@LaunchedEffect
-        }
-        val targetCount = discoverItemCount.coerceAtLeast(1)
-        if (currentFeaturedAlbums.isEmpty()) {
-            currentFeaturedAlbums = albums.shuffled().take(targetCount)
-        } else {
-            val albumsById = albums.associateBy { it.id }
-            val updated = currentFeaturedAlbums.mapNotNull { albumsById[it.id] }
-            if (updated.size < targetCount && albums.size > updated.size) {
-                val existingIds = updated.map { it.id }.toSet()
-                val remaining = albums.filter { it.id !in existingIds }.shuffled()
-                currentFeaturedAlbums = (updated + remaining).take(targetCount)
-            } else if (updated.size > targetCount) {
-                currentFeaturedAlbums = updated.take(targetCount)
-            } else if (updated.isNotEmpty()) {
-                currentFeaturedAlbums = updated
-            } else {
-                currentFeaturedAlbums = albums.shuffled().take(targetCount)
-            }
-        }
-    }
-
-    // Auto-refresh featured content periodically every 45s (stable loop, decoupled from album list emissions)
-    val latestAlbums by rememberUpdatedState(albums)
-    val latestDiscoverItemCount by rememberUpdatedState(discoverItemCount)
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(45000)
-            val currentList = latestAlbums
-            val targetCount = latestDiscoverItemCount.coerceAtLeast(1)
-            if (currentList.isNotEmpty()) {
-                currentFeaturedAlbums = if (currentList.size > targetCount) {
-                    currentList.shuffled().take(targetCount)
-                } else {
-                    currentList.shuffled()
-                }
-            }
-        }
-    }
+    val homeFeed by musicViewModel.homeFeed.feed.collectAsState()
+    val currentFeaturedAlbums = homeFeed.albums
 
     val lazyListState = rememberLazyListState()
     val isTablet = widthSizeClass != WindowWidthSizeClass.Compact || windowScreenWidthDp() >= 600
@@ -1768,44 +1752,9 @@ private fun ModernScrollableContent(
                 }
                 "RECOMMENDED" -> {
                     if (showRecommended) {
-                        val favoriteSongsState = musicViewModel.favoriteSongs.collectAsState()
-                        val recommendedSongs by rememberOffMain(emptyList<Song>(), recentlyPlayed, songs, recommendedCount, favoriteSongsState.value) {
-                            val favoriteIds = favoriteSongsState.value
-                            val favoriteSongsList = songs.filter { it.id in favoriteIds }
-
-                            var result = if (recentlyPlayed.isNotEmpty()) {
-                                val playedArtists = recentlyPlayed.map { it.artist }.distinct()
-                                val playedAlbums = recentlyPlayed.map { it.album }.distinct()
-
-                                songs.filter { song ->
-                                    (song.artist in playedArtists || song.album in playedAlbums) &&
-                                            !recentlyPlayed.contains(song)
-                                }.shuffled()
-                            } else {
-                                emptyList()
-                            }
-
-                            if (result.isEmpty() && recentlyPlayed.isNotEmpty()) {
-                                val playedArtists = recentlyPlayed.map { it.artist }.distinct()
-                                val playedAlbums = recentlyPlayed.map { it.album }.distinct()
-                                result = songs.filter { song ->
-                                    song.artist in playedArtists || song.album in playedAlbums
-                                }.shuffled()
-                            }
-
-                            if (result.isEmpty()) {
-                                result = favoriteSongsList.shuffled()
-                            }
-
-                            if (result.isEmpty()) {
-                                result = songs.shuffled()
-                            }
-
-                            result.take(recommendedCount)
-                        }
-
                         ModernRecommendedSection(
-                            recommendedSongs = recommendedSongs,
+                            recommendedSongs = homeFeed.recommendations,
+                            usesLastFm = homeFeed.usesLastFm,
                             artists = availableArtists,
                             onSongClick = onSongClick,
                             onPlayClick = { songsToPlay ->
@@ -2281,43 +2230,28 @@ private fun ModernFeaturedSection(
 
     val screenWidth = windowScreenWidthDp().dp
     val isTablet = widthSizeClass != WindowWidthSizeClass.Compact
-    val coroutineScope = rememberCoroutineScope()
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val appSettings = remember { AppSettings.getInstance(context) }
+    val autoScroll by appSettings.homeDiscoverAutoScroll.collectAsState()
+    val autoScrollInterval by appSettings.homeDiscoverAutoScrollInterval.collectAsState()
+    val carouselState = rememberCarouselState { albums.size }
+    LaunchedEffect(albums.size, autoScroll, autoScrollInterval) {
+        if (albums.isNotEmpty() && !carouselState.isScrollInProgress) {
+            carouselState.scrollToItem(carouselState.currentItem.coerceIn(0, albums.lastIndex))
+        }
+        if (autoScroll && albums.size > 1) {
+            while (true) {
+                delay(autoScrollInterval.coerceAtLeast(1) * 1000L)
+                if (!carouselState.isScrollInProgress) {
+                    carouselState.animateScrollToItem(
+                        (carouselState.currentItem + 1) % albums.size,
+                        animationSpec = tween(durationMillis = 900)
+                    )
+                }
+            }
+        }
+    }
 
     if (isTablet) {
-        val carouselState = rememberCarouselState { albums.size }
-
-        DisposableEffect(lifecycleOwner) {
-            val observer = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME) {
-                    if (albums.isNotEmpty() && !carouselState.isScrollInProgress) {
-                        coroutineScope.launch {
-                            carouselState.scrollToItem(carouselState.currentItem.coerceIn(0, albums.lastIndex))
-                        }
-                    }
-                }
-            }
-            lifecycleOwner.lifecycle.addObserver(observer)
-            onDispose {
-                lifecycleOwner.lifecycle.removeObserver(observer)
-            }
-        }
-
-        LaunchedEffect(albums.size) {
-            if (albums.size > 1) {
-                while (true) {
-                    delay(4500)
-                    if (!carouselState.isScrollInProgress) {
-                        val nextItem = (carouselState.currentItem + 1) % albums.size
-                        carouselState.animateScrollToItem(
-                            nextItem,
-                            animationSpec = tween(durationMillis = 800)
-                        )
-                    }
-                }
-            }
-        }
-
         val carouselHeight = when (heightSizeClass) {
             WindowHeightSizeClass.Compact -> 240.dp
             else -> 280.dp
@@ -2472,42 +2406,6 @@ private fun ModernFeaturedSection(
             }
         }
     } else {
-        val carouselState = rememberCarouselState { albums.size }
-
-        DisposableEffect(lifecycleOwner) {
-            val observer = LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME) {
-                    if (albums.isNotEmpty() && !carouselState.isScrollInProgress) {
-                        coroutineScope.launch {
-                            carouselState.scrollToItem(carouselState.currentItem.coerceIn(0, albums.lastIndex))
-                        }
-                    }
-                }
-            }
-            lifecycleOwner.lifecycle.addObserver(observer)
-            onDispose {
-                lifecycleOwner.lifecycle.removeObserver(observer)
-            }
-        }
-
-        LaunchedEffect(albums.size) {
-            if (albums.size > 1) {
-                if (!carouselState.isScrollInProgress) {
-                    carouselState.scrollToItem(carouselState.currentItem.coerceIn(0, albums.lastIndex))
-                }
-                while (true) {
-                    delay(4500)
-                    if (!carouselState.isScrollInProgress) {
-                        val currentItem = carouselState.currentItem
-                        val nextItem = (currentItem + 1) % albums.size
-                        carouselState.animateScrollToItem(
-                            nextItem,
-                            animationSpec = tween(durationMillis = 900)
-                        )
-                    }
-                }
-            }
-        }
         val headerHeight = when (heightSizeClass) {
             WindowHeightSizeClass.Compact -> 280.dp
             else -> screenWidth
@@ -3099,6 +2997,7 @@ private fun ModernListeningStatsSection(
 @Composable
 private fun ModernRecommendedSection(
     recommendedSongs: List<Song>,
+    usesLastFm: Boolean = false,
     artists: List<Artist>,
     onSongClick: (Song) -> Unit,
     onPlayClick: (List<Song>) -> Unit
@@ -3115,7 +3014,7 @@ private fun ModernRecommendedSection(
     ) {
         ModernSectionTitle(
             title = context.getString(R.string.home_recommended_title),
-            subtitle = context.getString(R.string.home_recommended_subtitle)
+            subtitle = context.getString(if (usesLastFm) R.string.home_recommended_lastfm_subtitle else R.string.home_recommended_subtitle)
         )
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -3139,7 +3038,9 @@ private fun ModernRecommendedSection(
                 } ?: artists.find { it.name.equals(primaryArtistName, ignoreCase = true) }
             }
 
-            val artistName = recommendedArtist?.name ?: primaryArtistName
+            val artistName = if (recommendedSongs.map { it.artist.lowercase(java.util.Locale.ROOT) }.distinct().size > 1) {
+                stringResource(R.string.home_recommended_mix_title)
+            } else recommendedArtist?.name ?: primaryArtistName
             val artistArtworkUri = recommendedArtist?.artworkUri ?: firstSong?.artworkUri
             val cardBgColor = MaterialTheme.colorScheme.surfaceContainerHigh
             val onCardBgColor = MaterialTheme.colorScheme.onSurface

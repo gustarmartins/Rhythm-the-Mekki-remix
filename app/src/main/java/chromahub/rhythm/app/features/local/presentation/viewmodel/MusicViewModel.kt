@@ -133,6 +133,8 @@ import chromahub.rhythm.app.shared.data.repository.PlaybackStatsRepository
 
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
+    internal val homeFeed = HomeFeedStateHolder(viewModelScope)
+
     sealed class RestoreResult {
         object Idle : RestoreResult()
         object Queued : RestoreResult()
