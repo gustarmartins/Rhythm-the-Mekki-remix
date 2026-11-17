@@ -93,7 +93,8 @@ internal class HomeFeedStateHolder(
                 publish(rotate, refreshRecommendations)
                 if (request != generation) return@launch
                 // Rebinding metadata/history must not keep extending the rotation deadline.
-                if (rotate && (next.albums.isNotEmpty() || next.songs.isNotEmpty())) refreshedAt = timestamp
+                val publishedInput = input ?: next
+                if (rotate && (publishedInput.albums.isNotEmpty() || publishedInput.songs.isNotEmpty())) refreshedAt = timestamp
                 // Local results stay available while this optional, bounded request is pending.
                 if (refreshRecommendations && next.showRecommendations && next.lastFmEnabled && next.lastFmKey.isNotBlank()) {
                     val seed = withContext(Dispatchers.Default) { recommendationSeed(input ?: next) }

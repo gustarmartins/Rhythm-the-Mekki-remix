@@ -195,4 +195,19 @@ class HomeFeedStateHolderTest {
         assertEquals(3, holder.feed.value.recommendations.size)
         assertFalse(holder.feed.value.usesLastFm)
     }
+
+    @Test fun libraryArrivingDuringInitialPreparationStartsOneFreshSession() = runBlocking {
+        var calls = 0
+        val holder = HomeFeedStateHolder(this, now = { 1000 }) { _, _ -> calls++; setOf("björk") }
+        val source = input()
+        holder.update(source.copy(albums = emptyList(), songs = emptyList(), recentlyPlayed = emptyList()))
+        // Both emissions happen before the initial worker runs, as during cold Room loading.
+        holder.update(source)
+        holder.awaitFeed()
+        val original = holder.feed.value
+        holder.update(source); holder.awaitFeed()
+        assertSame(original, holder.feed.value)
+        assertEquals(1, calls)
+        assertEquals(6, original.albums.size)
+    }
 }
