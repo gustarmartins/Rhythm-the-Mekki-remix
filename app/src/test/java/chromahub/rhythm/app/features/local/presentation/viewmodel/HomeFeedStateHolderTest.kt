@@ -78,6 +78,22 @@ class HomeFeedStateHolderTest {
         assertEquals(8, holder.feed.value.albums.size)
     }
 
+    @Test fun metadataAndHistoryUpdatesDoNotKeepPostponingTheFreshnessDeadline() = runBlocking {
+        var time = 1000L
+        var calls = 0
+        val holder = HomeFeedStateHolder(this, now = { time }) { _, _ -> calls++; setOf("björk") }
+        val source = input()
+        holder.update(source); holder.awaitFeed()
+        time += HomeFeedStateHolder.FRESHNESS_MS / 2
+        val updated = source.copy(albums = source.albums.map { it.copy(title = "Updated ${it.id}") },
+            recentlyPlayed = source.recentlyPlayed.map { it.copy(title = "Updated title") })
+        holder.update(updated); holder.awaitFeed()
+        assertEquals(1, calls)
+        time += HomeFeedStateHolder.FRESHNESS_MS / 2
+        holder.update(updated); holder.awaitFeed()
+        assertEquals(2, calls)
+    }
+
     @Test fun libraryFiltersRemoveIneligibleSongsAndAlbumsWithoutReshufflingSurvivors() = runBlocking {
         val holder = HomeFeedStateHolder(this, now = { 1000 }, random = Random(4)) { _, _ -> setOf("björk") }
         val source = input()
