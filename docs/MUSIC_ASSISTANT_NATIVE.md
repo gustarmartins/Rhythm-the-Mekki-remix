@@ -125,7 +125,7 @@ group synchronization and Android Auto still require separate acceptance.
 The Sendspin module is adapted from the official
 [Music Assistant mobile client](https://github.com/music-assistant/mobile-app/tree/d1f3c7fc0a9eb7d8d45beccbe45583d95bd0679e),
 under Apache 2.0. Its license, provenance and adaptation notice are included in
-`sendspin/` and the APK's license assets. The Stable 6.0 release remains MA-free.
+`sendspin/` and the APK's license assets. Stable 6.1 includes this native integration; historical Stable 6.0 remains MA-free.
 
 ## October 14 follow-up
 

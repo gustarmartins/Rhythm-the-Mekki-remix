@@ -39,10 +39,11 @@ name. Build metadata is ignored for semantic precedence. Release titles start
 with the clean version, for example **v6.0.0 - Rhythm Stable**.
 
 Stable is manually dispatched with `channel=stable` on `release/*`. Main push
-builds use `channel=nightly`. Stable must exclude Music Assistant source and
-manifest entries until that integration has been explicitly approved for Stable.
-Backup exclusions for credentials retained by older experimental installs remain
-active even on Stable; they do not enable the feature.
+builds use `channel=nightly`. Stable 6.1.0 promotes the accepted 6.1 Nightly
+feature set, including native Music Assistant/Sendspin. The historical 6.0 Stable
+line remains MA-free. `check_release_features.py` and APK verification preserve
+that versioned boundary. Credential and backup exclusions remain active on
+both channels.
 The legacy `release.yml` publisher is retired to prevent duplicate counters,
 unverified publication and unsolicited channel broadcasts.
 

@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import zipfile
+from check_release_features import music_assistant_allowed
 
 EXPECTED_SIGNER = 'e627f9a94ddce07a35d98c3e9a603d15d61c83d3e9283e1513c08dbedc801822'
 
@@ -42,9 +43,9 @@ def verify():
             package = subprocess.check_output([str(build_tools / 'aapt'), 'dump', 'badging', str(apk)], text=True).splitlines()[0]
             assert "name='chromahub.rhythm.app'" in package and f"versionCode='{code}'" in package
             assert f"versionName='{version}+{suffix}'" in package
-            if manifest['channel'] == 'stable':
+            if not music_assistant_allowed(manifest['channel'], version):
                 compiled_manifest = subprocess.check_output([str(build_tools / 'aapt'), 'dump', 'xmltree', str(apk), 'AndroidManifest.xml'], text=True)
-                assert 'musicassistant' not in compiled_manifest.lower(), 'Stable APK contains Music Assistant'
+                assert 'musicassistant' not in compiled_manifest.lower(), 'This Stable release line excludes Music Assistant'
             verify_font_storage(apk)
             digest = hashlib.sha256(apk.read_bytes()).hexdigest()
             shutil.copy2(apk, destination / apk.name)

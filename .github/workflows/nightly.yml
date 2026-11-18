@@ -49,17 +49,8 @@ jobs:
       - name: Allocate release version
         id: version
         run: python3 scripts/nightly_version.py
-      - name: Check Stable excludes Music Assistant
-        if: env.RELEASE_CHANNEL == 'stable'
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          bad = [str(p) for p in Path('app/src').rglob('*') if p.is_file()
-                 and p.suffix in ('.kt', '.java', '.xml')
-                 and p != Path('app/src/main/res/xml/data_extraction_rules.xml')
-                 and ('musicassistant' in p.read_text().lower() or 'music_assistant' in p.read_text().lower())]
-          assert not bad, 'Music Assistant must stay on Nightly: ' + ', '.join(bad)
-          PY
+      - name: Check release feature policy
+        run: python3 scripts/check_release_features.py --channel "$RELEASE_CHANNEL" --version "${{ steps.version.outputs.name }}"
       - name: Restore release signing
         env:
           SIGNING_KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}

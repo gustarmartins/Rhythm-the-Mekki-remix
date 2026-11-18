@@ -1,5 +1,9 @@
 # Music Assistant
 
+This document describes the historical web integration. For the current native
+Music Assistant/Sendspin integration in Stable 6.1+ and Nightly, see
+[MUSIC_ASSISTANT_NATIVE.md](MUSIC_ASSISTANT_NATIVE.md). Stable 6.0 remains MA-free.
+
 Music Assistant is experimental and stays on the **6.1 Nightly** development
 line. Stable 6.0.0 excludes it. The native catalog/control adapters are being
 implemented separately; see [native integration status and feature comparison](MUSIC_ASSISTANT_NATIVE.md).

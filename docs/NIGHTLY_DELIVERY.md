@@ -6,7 +6,8 @@ See [VERSIONING.md](VERSIONING.md) for the version naming and allocation contrac
 
 - Push `main`: build and publish a Nightly for the development version.
 - Dispatch `nightly.yml` on a `release/*` branch with `channel=stable`: build and
-  publish Stable. Music Assistant source and manifest entries are prohibited.
+  publish Stable. Stable 6.1+ includes the accepted native Music Assistant/Sendspin
+  integration; the historical 6.0 line remains MA-free.
 - Dispatch on `main` with `channel=nightly`: build a fresh Nightly.
 
 Each source commit/channel gets its own concurrency group; a duplicate run of the
