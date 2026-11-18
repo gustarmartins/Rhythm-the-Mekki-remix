@@ -6,6 +6,7 @@
 package chromahub.rhythm.app.features.local.data.repository
 import chromahub.rhythm.app.util.LyricsOrigin
 import chromahub.rhythm.app.util.LyricsTimingPolicy
+import chromahub.rhythm.app.util.grantedLyricDocuments
 import chromahub.rhythm.app.util.firstAvailableLyrics
 import chromahub.rhythm.app.util.boundedLyricsLookup
 import chromahub.rhythm.app.util.firstAvailableLyricsProvider
@@ -5676,14 +5677,19 @@ class MusicRepository(context: Context) {
                 }
                 val resolvedDirectory = directory?.takeIf(DocumentFile::isDirectory) ?: continue
 
+                val documents = grantedLyricDocuments(context, resolvedDirectory, candidateNames)
                 for (candidateName in candidateNames) {
-                    val lyricDocument = resolvedDirectory.findFile(candidateName)
+                    val uri = documents[candidateName] ?: continue
+                    val lyricDocument = DocumentFile.fromSingleUri(context, uri)
                         ?.takeIf { it.isFile && it.canRead() }
                         ?: continue
-                    val content = context.contentResolver.openInputStream(lyricDocument.uri)
-                        ?.bufferedReader()
-                        ?.use { it.readText() }
-                        ?: continue
+                    val content = try {
+                        context.contentResolver.openInputStream(lyricDocument.uri)?.bufferedReader()?.use { it.readText() }
+                    } catch (_: java.io.FileNotFoundException) {
+                        null
+                    } catch (_: SecurityException) {
+                        null
+                    } ?: continue
                     val parsed = parseLocalLyricsFile(
                         content = content,
                         ext = candidateName.substringAfterLast('.', "")
