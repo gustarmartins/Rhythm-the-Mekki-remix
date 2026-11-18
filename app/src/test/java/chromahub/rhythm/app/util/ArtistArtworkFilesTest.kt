@@ -3,6 +3,7 @@ package chromahub.rhythm.app.util
 
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.File
 
 class ArtistArtworkFilesTest {
     @Test fun unicodeAndPunctuationCollisionsReceiveDifferentPrivateFiles() {
@@ -22,5 +23,11 @@ class ArtistArtworkFilesTest {
     @Test fun filenamesCannotEscapeTheArtistCacheDirectory() {
         val name = ArtistArtworkFiles.fileName("../../a/b:")
         assertFalse(name.contains('/')); assertFalse(name.contains("..")); assertTrue(name.endsWith(".jpg"))
+    }
+    @Test fun onlyTheOldInternalCacheFileIsSubjectToMigration() {
+        val directory = File("/app/artist_images")
+        assertTrue(ArtistArtworkFiles.isLegacyFile("A/B", File(directory, "A_B.jpg"), directory))
+        assertFalse(ArtistArtworkFiles.isLegacyFile("A/B", File("/Music/A_B.jpg"), directory))
+        assertFalse(ArtistArtworkFiles.isLegacyFile("A/B", File(directory, ArtistArtworkFiles.fileName("A/B")), directory))
     }
 }

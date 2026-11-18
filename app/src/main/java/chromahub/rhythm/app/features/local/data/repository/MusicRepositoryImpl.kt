@@ -2093,12 +2093,13 @@ class MusicRepository(context: Context) {
         try {
             val artistEntities = roomDb.artistDao().getArtists(groupByAlbumArtist)
             if (artistEntities.isEmpty()) return@withContext null
+            val legacyOwners = artistLegacyOwners(artistEntities.map { it.name })
 
             artistEntities.map { entity ->
                 Artist(
                     id = entity.id,
                     name = entity.name,
-                    artworkUri = entity.artworkUri?.let { it.toUri() },
+                    artworkUri = validateArtistArtwork(entity.name, entity.artworkUri?.toUri(), legacyOwners),
                     numberOfAlbums = entity.numberOfAlbums,
                     numberOfTracks = entity.numberOfTracks
                 )
@@ -2114,10 +2115,12 @@ class MusicRepository(context: Context) {
      */
     private suspend fun saveArtistsToRoom(artists: List<Artist>, groupByAlbumArtist: Boolean) = withContext(Dispatchers.IO) {
         try {
-            val legacyOwners = ArtistArtworkFiles.legacyOwners(artists.map { it.name })
+            val legacyOwners = artistLegacyOwners(artists.map { it.name })
             val artistEntities = artists.map { artist ->
-                val placeholderUri = artist.artworkUri?.takeIf { it.scheme == "file" && it.lastPathSegment?.startsWith("placeholder_") == true }
-                val resolvedUri = if (placeholderUri != null) findLocalArtistImage(artist.name, legacyOwners[ArtistArtworkFiles.legacyName(artist.name)].orEmpty()) else artist.artworkUri ?: findLocalArtistImage(artist.name, legacyOwners[ArtistArtworkFiles.legacyName(artist.name)].orEmpty())
+                val artwork = validateArtistArtwork(artist.name, artist.artworkUri, legacyOwners)
+                val placeholderUri = artwork?.takeIf { it.scheme == "file" && it.lastPathSegment?.startsWith("placeholder_") == true }
+                val resolvedUri = artwork?.takeUnless { placeholderUri != null }
+                    ?: findLocalArtistImage(artist.name, legacyOwners[ArtistArtworkFiles.legacyName(artist.name)].orEmpty())
                 ArtistEntity(
                     id = artist.id,
                     name = artist.name,
@@ -2442,7 +2445,7 @@ class MusicRepository(context: Context) {
      */
     suspend fun fetchArtistImages(artists: List<Artist>): List<Artist> =
         withContext(Dispatchers.IO) {
-            val legacyOwners = ArtistArtworkFiles.legacyOwners(artists.map { it.name })
+            val legacyOwners = artistLegacyOwners(artists.map { it.name })
             val updatedArtists = mutableListOf<Artist>()
             val placeholderArtists = mutableSetOf<String>()
 
@@ -2465,7 +2468,8 @@ class MusicRepository(context: Context) {
                 return@withContext artists
             }
 
-            for (artist in artists) {
+            for (sourceArtist in artists) {
+            val artist = sourceArtist.copy(artworkUri = validateArtistArtwork(sourceArtist.name, sourceArtist.artworkUri, legacyOwners))
             OptionalWorkController.run(OptionalWork.ARTWORK) {
                 try {
                     Log.d(TAG, "Processing artist: ${artist.name}")
@@ -2480,7 +2484,7 @@ class MusicRepository(context: Context) {
                     }
 
                     // Check cache first
-                    val cachedUri = artistImageCache[artist.name]
+                    val cachedUri = validateArtistArtwork(artist.name, artistImageCache[artist.name], legacyOwners)
                     if (cachedUri != null) {
                         Log.d(TAG, "Using cached image for artist: ${artist.name}")
                         updatedArtists.add(artist.copy(artworkUri = cachedUri))
@@ -6312,6 +6316,19 @@ class MusicRepository(context: Context) {
     /**
      * Finds locally stored artist image
      */
+    private suspend fun artistLegacyOwners(names: List<String>): Map<String, Set<String>> {
+        // Fetches run in small batches. A batch alone cannot establish unique ownership.
+        val allNames = names + roomDb.artistDao().getArtists(false).map { it.name } +
+            roomDb.artistDao().getArtists(true).map { it.name }
+        return ArtistArtworkFiles.legacyOwners(allNames)
+    }
+
+    private fun validateArtistArtwork(name: String, uri: Uri?, owners: Map<String, Set<String>>): Uri? {
+        val path = uri?.takeIf { it.scheme == "file" }?.path ?: return uri
+        if (!ArtistArtworkFiles.isLegacyFile(name, File(path), File(context.filesDir, "artist_images"))) return uri
+        return findLocalArtistImage(name, owners[ArtistArtworkFiles.legacyName(name)].orEmpty())
+    }
+
     private fun findLocalArtistImage(artistName: String, owners: Set<String>): Uri? {
         if (artistName.isBlank()) return null
         val directory = File(context.filesDir, "artist_images")

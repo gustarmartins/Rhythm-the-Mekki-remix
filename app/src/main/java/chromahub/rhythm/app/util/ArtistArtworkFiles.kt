@@ -4,6 +4,7 @@ package chromahub.rhythm.app.util
 import java.security.MessageDigest
 import java.text.Normalizer
 import java.util.Locale
+import java.io.File
 
 internal object ArtistArtworkFiles {
     fun key(name: String): String = Normalizer.normalize(name, Normalizer.Form.NFKC).trim().lowercase(Locale.ROOT)
@@ -22,4 +23,6 @@ internal object ArtistArtworkFiles {
         names.groupBy(::legacyName).mapValues { (_, values) -> values.map(::key).toSet() }
     fun canMigrate(name: String, owners: Set<String>): Boolean =
         owners == setOf(key(name)) && legacyName(name).removeSuffix(".jpg").any { it != '_' }
+    fun isLegacyFile(name: String, file: File, cacheDirectory: File): Boolean =
+        file.parentFile?.absolutePath == cacheDirectory.absolutePath && file.name == legacyName(name)
 }
