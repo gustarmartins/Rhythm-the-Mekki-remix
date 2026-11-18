@@ -124,9 +124,11 @@ fun AudioQualityIcon(
                 AudioQualityDetector.QualityType.DSD_HIGH_RES,
                 AudioQualityDetector.QualityType.HI_RES_STUDIO_MASTER,
                 AudioQualityDetector.QualityType.HI_RES_LOSSLESS -> R.drawable.ic_high_res
+                AudioQualityDetector.QualityType.DOLBY_ATMOS,
                 AudioQualityDetector.QualityType.DOLBY_LOSSLESS,
                 AudioQualityDetector.QualityType.DOLBY_LOSSY_SURROUND -> R.drawable.ic_dolby
                 AudioQualityDetector.QualityType.DTS_SURROUND -> R.drawable.ic_dts
+                AudioQualityDetector.QualityType.MPEG_H_3D,
                 AudioQualityDetector.QualityType.LOSSLESS_SURROUND -> R.drawable.ic_surround_sound
                 AudioQualityDetector.QualityType.CD_QUALITY_LOSSLESS -> R.drawable.ic_cd
                 AudioQualityDetector.QualityType.LOSSY_COMPRESSED -> if (quality.qualityDescription.contains("320")) R.drawable.ic_hq else null
@@ -206,9 +208,11 @@ fun AudioQualityIcon(
                 AudioQualityDetector.QualityType.DSD_HIGH_RES,
                 AudioQualityDetector.QualityType.HI_RES_STUDIO_MASTER,
                 AudioQualityDetector.QualityType.HI_RES_LOSSLESS -> R.drawable.ic_high_res
+                AudioQualityDetector.QualityType.DOLBY_ATMOS,
                 AudioQualityDetector.QualityType.DOLBY_LOSSLESS,
                 AudioQualityDetector.QualityType.DOLBY_LOSSY_SURROUND -> R.drawable.ic_dolby
                 AudioQualityDetector.QualityType.DTS_SURROUND -> R.drawable.ic_dts
+                AudioQualityDetector.QualityType.MPEG_H_3D,
                 AudioQualityDetector.QualityType.LOSSLESS_SURROUND -> R.drawable.ic_surround_sound
                 AudioQualityDetector.QualityType.CD_QUALITY_LOSSLESS -> R.drawable.ic_cd
                 AudioQualityDetector.QualityType.LOSSY_COMPRESSED -> if (quality.qualityDescription.contains("320")) R.drawable.ic_hq else null
@@ -341,6 +345,15 @@ fun AudioQualityBadges(
                             icon = R.drawable.ic_high_res,
                             qualityLevel = QualityLevel.EXCELLENT
                         )
+                    }
+
+                    AudioQualityDetector.QualityType.DOLBY_ATMOS -> {
+                        QualityBadge(text = "DOLBY ATMOS", icon = R.drawable.ic_dolby,
+                            qualityLevel = if (quality.isLossless) QualityLevel.EXCELLENT else QualityLevel.STANDARD)
+                    }
+                    AudioQualityDetector.QualityType.MPEG_H_3D -> {
+                        QualityBadge(text = "MPEG-H 3D", icon = R.drawable.ic_surround_sound,
+                            qualityLevel = QualityLevel.STANDARD)
                     }
 
                     AudioQualityDetector.QualityType.DOLBY_LOSSLESS -> {

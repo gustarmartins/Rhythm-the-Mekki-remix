@@ -141,6 +141,8 @@ import android.content.ActivityNotFoundException
 import android.widget.Toast
 import android.provider.DocumentsContract
 import android.util.Log
+import java.io.File
+import chromahub.rhythm.app.util.StoragePathUtils
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import chromahub.rhythm.app.R
@@ -5881,33 +5883,45 @@ fun EnhancedMediaScanContent(
         if (result.resultCode == Activity.RESULT_OK) {
             result.data?.data?.let { uri ->
                 try {
-                    val docId = DocumentsContract.getTreeDocumentId(uri)
-                    val split = docId.split(":")
+                    val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                } catch (e: Exception) {
+                    Log.w("OnboardingMediaScan", "Failed to take persistable URI permission", e)
+                }
 
-                    if (split.size >= 2) {
-                        val storageType = split[0]
-                        val relativePath = split[1]
-
-                        val fullPath = when (storageType) {
-                            "primary" -> "/storage/emulated/0/$relativePath"
-                            "home" -> "/storage/emulated/0/$relativePath"
-                            else -> {
-                                if (storageType.contains("-")) {
-                                    "/storage/$storageType/$relativePath"
-                                } else {
-                                    "/storage/emulated/0/$relativePath"
-                                }
-                            }
-                        }
-
+                try {
+                    val fullPath = StoragePathUtils.getPathFromTreeUri(context, uri)
+                    if (!fullPath.isNullOrBlank()) {
+                        val folderName = File(fullPath).name.ifEmpty { fullPath }
                         if (isBlacklistMode) {
                             appSettings.addFolderToBlacklist(fullPath)
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.folder_blocked_success, folderName),
+                                Toast.LENGTH_SHORT
+                            ).show()
                         } else {
                             appSettings.addFolderToWhitelist(fullPath)
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.folder_whitelisted_success, folderName),
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
+                    } else {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.error_folder_add_failed),
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 } catch (e: Exception) {
                     Log.e("OnboardingMediaScan", "Error parsing folder path", e)
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.error_folder_add_failed),
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
         }
@@ -8953,8 +8967,8 @@ private fun IntegrationsSettingsCards(
             add(
                 onboardingToggleItem(
                     null,
-                    "Deezer",
-                    "Get high-quality album covers and track details automatically",
+                    context.getString(R.string.onboarding_integration_deezer),
+                    context.getString(R.string.api_deezer_desc),
                     deezerApiEnabled,
                     onDeezerChange,
                     null
@@ -8977,8 +8991,8 @@ private fun IntegrationsSettingsCards(
             add(
                 onboardingToggleItem(
                     null,
-                    "Lyrically",
-                    "Enjoy beautiful, word-by-word synchronized lyrics",
+                    context.getString(R.string.apimanagementsettingsscreen_lyrically),
+                    context.getString(R.string.api_lyrically_desc),
                     lyricallyApiEnabled,
                     onLyricallyChange,
                     null
@@ -8989,8 +9003,8 @@ private fun IntegrationsSettingsCards(
             add(
                 onboardingToggleItem(
                     null,
-                    "LrcLib",
-                    "Find and download synchronized scrolling lyrics",
+                    context.getString(R.string.onboarding_integration_lrclib),
+                    context.getString(R.string.api_lrclib_desc),
                     lrclibApiEnabled,
                     onLrcLibChange,
                     null
@@ -9001,8 +9015,8 @@ private fun IntegrationsSettingsCards(
             add(
                 onboardingToggleItem(
                     null,
-                    "YouTube Music",
-                    "Access matching song details and recommendations",
+                    context.getString(R.string.onboarding_integration_ytmusic),
+                    context.getString(R.string.api_ytmusic_desc),
                     ytMusicApiEnabled,
                     onYtMusicChange,
                     null
@@ -9013,8 +9027,8 @@ private fun IntegrationsSettingsCards(
             add(
                 onboardingToggleItem(
                     null,
-                    "Wikipedia",
-                    "Fetch album details and descriptions for About section",
+                    context.getString(R.string.onboarding_integration_wikipedia),
+                    context.getString(R.string.onboarding_integration_wikipedia_desc),
                     wikipediaApiEnabled,
                     onWikipediaChange,
                     null

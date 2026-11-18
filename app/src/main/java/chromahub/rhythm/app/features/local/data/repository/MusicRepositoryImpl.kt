@@ -14,6 +14,7 @@ import chromahub.rhythm.app.network.awaitLyricsBody
 import chromahub.rhythm.app.shared.data.model.ScanProgress
 import chromahub.rhythm.app.core.domain.scan.LibraryScanJournal
 import chromahub.rhythm.app.core.domain.scan.librarySnapshotNeedsRefresh
+import chromahub.rhythm.app.util.ArtistArtworkFiles
 import chromahub.rhythm.app.core.domain.scan.MediaScanEngine
 import chromahub.rhythm.app.core.domain.scan.MediaScanScope
 import chromahub.rhythm.app.core.domain.scan.MediaLibraryFingerprint
@@ -184,13 +185,11 @@ class MusicRepository(context: Context) {
 
     private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-    // In-memory buffer for pending date-added writes to avoid SharedPreferences write loops
-    private val pendingDateAddedWrites = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
 
     // Genre cache using SharedPreferences
     private val genrePrefs: SharedPreferences by lazy { context.getSharedPreferences("genre_cache", Context.MODE_PRIVATE) }
     private val artworkPrefs: SharedPreferences by lazy { context.getSharedPreferences("artwork_overrides", Context.MODE_PRIVATE) }
-    private val dateAddedPrefs: SharedPreferences by lazy { context.getSharedPreferences("song_date_added_cache", Context.MODE_PRIVATE) }
     private val libraryScanPrefs: SharedPreferences by lazy { context.getSharedPreferences("library_scan_metadata", Context.MODE_PRIVATE) }
 
     private val scanJournal by lazy { LibraryScanJournal(libraryScanPrefs) }
@@ -954,72 +953,14 @@ class MusicRepository(context: Context) {
         )
     }
 
-    private fun dateAddedCacheKeyForPath(filePath: String): String {
-        val normalizedPath = filePath
-            .trim()
-            .replace('\\', '/')
-            .lowercase(Locale.ROOT)
+    private fun resolveStableDateAdded(
+        filePath: String?, observedDateAddedMs: Long, songId: String? = null,
+        title: String = "", artist: String = "", album: String = "", durationMs: Long = 0
+    ): Long = mediaScanEngine.dateAddedResolver.resolveDateAdded(
+        filePath, observedDateAddedMs, songId, title, artist, album, durationMs
+    )
 
-        val digest = MessageDigest.getInstance("SHA-256")
-            .digest(normalizedPath.toByteArray(Charsets.UTF_8))
-
-        val hex = buildString(digest.size * 2) {
-            digest.forEach { byte ->
-                append(((byte.toInt() ushr 4) and 0xF).toString(16))
-                append((byte.toInt() and 0xF).toString(16))
-            }
-        }
-
-        return "date_added_$hex"
-    }
-
-    private fun resolveStableDateAdded(filePath: String?, observedDateAddedMs: Long): Long {
-        val normalizedObservedDate = (if (observedDateAddedMs in 1..99_999_999_999L) observedDateAddedMs * 1000L else observedDateAddedMs)
-            .takeIf { it > 0L } ?: System.currentTimeMillis()
-        val resolvedPath = filePath?.trim()?.takeIf { it.isNotBlank() } ?: return normalizedObservedDate
-
-        val key = try {
-            dateAddedCacheKeyForPath(resolvedPath)
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to compute date-added cache key for path", e)
-            return normalizedObservedDate
-        }
-
-        val rawCachedDate = pendingDateAddedWrites[key] ?: dateAddedPrefs.getLong(key, -1L)
-        val cachedDate = if (rawCachedDate in 1..99_999_999_999L) rawCachedDate * 1000L else rawCachedDate
-        if (cachedDate > 0L) {
-            val stableDate = minOf(cachedDate, normalizedObservedDate)
-            if (stableDate != rawCachedDate) {
-                pendingDateAddedWrites[key] = stableDate
-            }
-            return stableDate
-        }
-
-        pendingDateAddedWrites[key] = normalizedObservedDate
-        return normalizedObservedDate
-    }
-
-    private fun flushPendingDateAddedWrites() {
-        if (pendingDateAddedWrites.isEmpty()) return
-
-        val updates = mutableMapOf<String, Long>()
-        synchronized(pendingDateAddedWrites) {
-            updates.putAll(pendingDateAddedWrites)
-            pendingDateAddedWrites.clear()
-        }
-
-        if (updates.isEmpty()) return
-        Log.d(TAG, "Flushing ${updates.size} stable date-added values to SharedPreferences")
-        try {
-            dateAddedPrefs.edit {
-            for ((key, value) in updates) {
-                putLong(key, value)
-            }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to flush stable date-added values to SharedPreferences", e)
-        }
-    }
+    private fun flushPendingDateAddedWrites() = mediaScanEngine.dateAddedResolver.flush()
 
     private fun createSongFromFile(file: File, appSettings: AppSettings): Song? {
         val retriever = android.media.MediaMetadataRetriever()
@@ -1108,7 +1049,7 @@ class MusicRepository(context: Context) {
             trackNumber = trackNumber,
             year = year,
             genre = null,
-            dateAdded = resolveStableDateAdded(file.absolutePath, file.lastModified()),
+            dateAdded = resolveStableDateAdded(file.absolutePath, file.lastModified(), title = title, artist = artist, album = album, durationMs = duration),
             dateModified = file.lastModified(),
             albumArtist = albumArtist,
             bitrate = null,
@@ -1421,7 +1362,7 @@ class MusicRepository(context: Context) {
             val discNumber = if (mediaStoreDisc > 0) mediaStoreDisc else inferredDisc
             val year = cursor.getInt(indices.year)
             val observedDateAdded = cursor.getLong(indices.dateAdded) * 1000L
-            val dateAdded = resolveStableDateAdded(filePath, observedDateAdded)
+            val dateAdded = resolveStableDateAdded(filePath, observedDateAdded, id.toString(), title, artist, album, duration)
             val observedDateModified = cursor.getLong(indices.dateModified) * 1000L
             val dateModified = observedDateModified
                 .takeIf { it > 0L }
@@ -2173,9 +2114,10 @@ class MusicRepository(context: Context) {
      */
     private suspend fun saveArtistsToRoom(artists: List<Artist>, groupByAlbumArtist: Boolean) = withContext(Dispatchers.IO) {
         try {
+            val legacyOwners = ArtistArtworkFiles.legacyOwners(artists.map { it.name })
             val artistEntities = artists.map { artist ->
                 val placeholderUri = artist.artworkUri?.takeIf { it.scheme == "file" && it.lastPathSegment?.startsWith("placeholder_") == true }
-                val resolvedUri = if (placeholderUri != null) findLocalArtistImage(artist.name) else artist.artworkUri ?: findLocalArtistImage(artist.name)
+                val resolvedUri = if (placeholderUri != null) findLocalArtistImage(artist.name, legacyOwners[ArtistArtworkFiles.legacyName(artist.name)].orEmpty()) else artist.artworkUri ?: findLocalArtistImage(artist.name, legacyOwners[ArtistArtworkFiles.legacyName(artist.name)].orEmpty())
                 ArtistEntity(
                     id = artist.id,
                     name = artist.name,
@@ -2500,6 +2442,7 @@ class MusicRepository(context: Context) {
      */
     suspend fun fetchArtistImages(artists: List<Artist>): List<Artist> =
         withContext(Dispatchers.IO) {
+            val legacyOwners = ArtistArtworkFiles.legacyOwners(artists.map { it.name })
             val updatedArtists = mutableListOf<Artist>()
             val placeholderArtists = mutableSetOf<String>()
 
@@ -2546,7 +2489,7 @@ class MusicRepository(context: Context) {
 
                     if (artistArtworkSource != chromahub.rhythm.app.shared.data.model.ArtistArtworkSource.API_ONLY) {
                         // Check local storage for artist image
-                        val localImage = findLocalArtistImage(artist.name)
+                        val localImage = findLocalArtistImage(artist.name, legacyOwners[ArtistArtworkFiles.legacyName(artist.name)].orEmpty())
                         if (localImage != null) {
                             Log.d(TAG, "Using local image for artist: ${artist.name}")
                             artistImageCache[artist.name] = localImage
@@ -6369,13 +6312,28 @@ class MusicRepository(context: Context) {
     /**
      * Finds locally stored artist image
      */
-    private fun findLocalArtistImage(artistName: String): Uri? {
-        val fileName = "${artistName}.jpg".replace(Regex("[^a-zA-Z0-9._-]"), "_")
-        val file = File(context.filesDir, "artist_images/$fileName")
-        return if (file.exists()) {
-            Uri.fromFile(file).buildUpon().appendQueryParameter("t", file.lastModified().toString()).build()
-        } else {
-            null
+    private fun findLocalArtistImage(artistName: String, owners: Set<String>): Uri? {
+        if (artistName.isBlank()) return null
+        val directory = File(context.filesDir, "artist_images")
+        val file = File(directory, ArtistArtworkFiles.fileName(artistName))
+        fun uri(target: File) = Uri.fromFile(target).buildUpon()
+            .appendQueryParameter("t", target.lastModified().toString()).build()
+        if (file.isFile) return uri(file)
+        val canonical = ArtistArtworkFiles.key(artistName)
+        val retired = "artist_legacy_retired_$canonical"
+        if (artworkPrefs.getBoolean(retired, false) || !ArtistArtworkFiles.canMigrate(artistName, owners)) return null
+        val legacyName = ArtistArtworkFiles.legacyName(artistName)
+        val ownerKey = "artist_legacy_owner_$legacyName"
+        val recordedOwner = artworkPrefs.getString(ownerKey, null)
+        if (recordedOwner != null && recordedOwner != canonical) return null
+        val legacy = File(directory, legacyName)
+        if (!legacy.isFile) return null
+        return try {
+            legacy.copyTo(file, overwrite = false)
+            artworkPrefs.edit { putString(ownerKey, canonical) }
+            uri(file)
+        } catch (_: Exception) {
+            uri(legacy) // Preserve the original and its display if the safe copy fails.
         }
     }
 
@@ -6422,7 +6380,24 @@ class MusicRepository(context: Context) {
 
         if (candidateDirs.isEmpty()) return null
 
-        val preferredNames = listOf(
+        val imageExtensions = listOf(".jpg", ".jpeg", ".png", ".webp")
+        val artistSpecificNames = imageExtensions.map { ext -> "${normalizedArtistName.lowercase(Locale.ROOT)}$ext" }
+
+        for (dir in candidateDirs) {
+            val files = dir.listFiles() ?: continue
+            if (files.isEmpty()) continue
+
+            val byLowerName = files
+                .filter { it.isFile }
+                .associateBy { it.name.lowercase(Locale.ROOT) }
+
+            for (specificName in artistSpecificNames) {
+                val match = byLowerName[specificName] ?: continue
+                return Uri.fromFile(match)
+            }
+        }
+
+        val preferredGenericNames = listOf(
             "artist.jpg",
             "artist.jpeg",
             "artist.png",
@@ -6434,14 +6409,34 @@ class MusicRepository(context: Context) {
         )
 
         for (dir in candidateDirs) {
+            val isHostArtistForDir = dir.name.equals(normalizedArtistName, ignoreCase = true) || candidateSongs.any { song ->
+                val songPath = getFilePathFromUri(song.uri) ?: return@any false
+                val songFile = File(songPath)
+                val albumDir = songFile.parentFile
+                val isUnderDir = albumDir == dir || albumDir?.parentFile == dir || albumDir?.parentFile?.parentFile == dir
+                if (!isUnderDir) return@any false
+
+                val explicitAlbumArtist = song.albumArtist?.trim().orEmpty()
+                val primaryArtist = if (explicitAlbumArtist.isNotBlank() && !explicitAlbumArtist.equals("<unknown>", ignoreCase = true)) {
+                    explicitAlbumArtist
+                } else {
+                    song.artist
+                }
+                val firstSplitArtist = splitArtistNames(primaryArtist, preloadedCharDelimiters).firstOrNull()?.trim()
+                primaryArtist.equals(normalizedArtistName, ignoreCase = true) ||
+                    firstSplitArtist.equals(normalizedArtistName, ignoreCase = true)
+            }
+
+            if (!isHostArtistForDir) continue
+
             val files = dir.listFiles() ?: continue
             if (files.isEmpty()) continue
 
             val byLowerName = files
                 .filter { it.isFile }
-                .associateBy { it.name.lowercase() }
+                .associateBy { it.name.lowercase(Locale.ROOT) }
 
-            for (preferred in preferredNames) {
+            for (preferred in preferredGenericNames) {
                 val match = byLowerName[preferred] ?: continue
                 return Uri.fromFile(match)
             }
@@ -6457,7 +6452,7 @@ class MusicRepository(context: Context) {
         if (!chromahub.rhythm.app.util.OptionalWorkController.imageNetworkAllowed()) return
         var temporary: File? = null
         try {
-            val fileName = "${artistName}.jpg".replace(Regex("[^a-zA-Z0-9._-]"), "_")
+            val fileName = ArtistArtworkFiles.fileName(artistName)
             val imageDir = File(context.filesDir, "artist_images").apply { mkdirs() }
             val staged = File.createTempFile("artist_", ".tmp", imageDir)
             temporary = staged
@@ -6495,7 +6490,7 @@ class MusicRepository(context: Context) {
      */
     suspend fun saveArtistArtwork(artistName: String, artworkUri: Uri?): Uri? = withContext(Dispatchers.IO) {
         try {
-            val fileName = "${artistName}.jpg".replace(Regex("[^a-zA-Z0-9._-]"), "_")
+            val fileName = ArtistArtworkFiles.fileName(artistName)
             val imageDir = File(context.filesDir, "artist_images")
             if (!imageDir.exists()) {
                 imageDir.mkdirs()
@@ -6503,6 +6498,7 @@ class MusicRepository(context: Context) {
             val file = File(imageDir, fileName)
 
             if (artworkUri == null) {
+                artworkPrefs.edit { putBoolean("artist_legacy_retired_${ArtistArtworkFiles.key(artistName)}", true) }
                 if (file.exists()) {
                     file.delete()
                 }

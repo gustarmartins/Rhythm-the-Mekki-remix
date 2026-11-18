@@ -37,6 +37,7 @@ import chromahub.rhythm.app.util.AutoEQManager
 import chromahub.rhythm.app.util.HapticType
 import chromahub.rhythm.app.util.HapticUtils
 import chromahub.rhythm.app.shared.data.model.AutoEQProfile
+import chromahub.rhythm.app.shared.data.model.AppSettings
 import chromahub.rhythm.app.shared.presentation.screens.settings.SettingsSearchBar
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -81,10 +82,14 @@ fun AutoEQPresetPickerBottomSheet(
     var showFilters by remember { mutableStateOf(false) }
     var initialDeviceFilterApplied by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
+    val appSettings = remember { AppSettings.getInstance(context) }
+    val customProfiles by appSettings.customAutoEQProfiles.collectAsState()
+
+    LaunchedEffect(customProfiles) {
         loading = true
         try {
             val manager = AutoEQManager(context.applicationContext)
+            manager.setCustomProfiles(customProfiles)
             manager.loadProfiles()
             profiles = manager.getAllProfiles()
             allBrands = manager.getAllBrands()

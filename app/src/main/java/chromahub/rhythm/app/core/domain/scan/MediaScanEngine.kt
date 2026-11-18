@@ -48,6 +48,8 @@ class MediaScanEngine(
     private val database: RhythmDatabase,
     private val appSettings: AppSettings
 ) {
+    val dateAddedResolver = StableDateAddedResolver(context)
+
     companion object {
         private const val TAG = "MediaScanEngine"
         private val sharedScanMutex = Mutex()
@@ -101,12 +103,9 @@ class MediaScanEngine(
         Log.i(TAG, "Library scan started: reason=$reason, forceRefresh=$forceRefresh, background=$background, minimumDuration=${minimumDuration}ms")
         report(ScanProgress(0, 0, ScanPhase.Songs, 0))
 
-        // Query existing DB entries into an O(1) Map by ID
-        val existingDbSongs = if (!effectiveForceRefresh) {
-            database.songDao().getAllSongs().associateBy { it.id }
-        } else {
-            emptyMap()
-        }
+        val allExistingSongs = database.songDao().getAllSongs()
+        dateAddedResolver.prepareForScan(allExistingSongs)
+        val existingDbSongs = if (!effectiveForceRefresh) allExistingSongs.associateBy { it.id } else emptyMap()
 
         val mediaScanMode = appSettings.mediaScanMode.value
         val whitelistedFolders = appSettings.whitelistedFolders.value
@@ -237,6 +236,7 @@ class MediaScanEngine(
                         } else {
                             defaultArt
                         }
+                        dateAddedResolver.claimExistingSong(existing.id)
                         scannedSongs.add(existing.copy(artworkUri = existingArt))
                         seenIds.add(id)
                     } else {
@@ -249,14 +249,14 @@ class MediaScanEngine(
                         val discFromStore = if (colDiscNumber >= 0) cursor.getInt(colDiscNumber) else 0
                         val rawYear = cursor.getInt(colYear)
                         val rawDateAdded = cursor.getLong(colDateAdded)
-                        val dateAdded = if (rawDateAdded in 1..99_999_999_999L) {
+                        val observedDateAdded = if (rawDateAdded in 1..99_999_999_999L) {
                             rawDateAdded * 1000L
                         } else if (rawDateAdded > 0L) {
                             rawDateAdded
                         } else {
                             System.currentTimeMillis()
                         }
-                        val finalDateModified = dateModified.takeIf { it > 0L } ?: dateAdded
+                        val finalDateModified = dateModified.takeIf { it > 0L } ?: observedDateAdded
                         val rawGenre = if (colGenre >= 0) cursor.getString(colGenre) else null
                         val rawAlbumArtist = if (colAlbumArtist >= 0) cursor.getString(colAlbumArtist) else null
 
@@ -359,6 +359,7 @@ class MediaScanEngine(
                             defaultArtworkUri
                         }
 
+                        val dateAdded = dateAddedResolver.resolveDateAdded(path, observedDateAdded, id, title, artist, album, duration)
                         val entity = SongEntity(
                             id = id,
                             title = title,
@@ -422,6 +423,7 @@ class MediaScanEngine(
                 }
             }
 
+            dateAddedResolver.flush()
             appSettings.setLastScanTimestamp(System.currentTimeMillis())
             // A scan no longer decodes embedded artwork. Mark the deferred pass pending only
             // when the user requested per-song artwork; that worker persists progress in small

@@ -3203,4 +3203,7 @@
     <string name="audio_effect_decrease">Diminuir %1$s em 1%%</string>
     <string name="audio_effect_increase">Aumentar %1$s em 1%%</string>
     <string name="audio_effect_step_hint">1% por toque</string>
+    <string name="folder_blocked_success">Pasta bloqueada: %1$s</string>
+    <string name="folder_whitelisted_success">Pasta permitida: %1$s</string>
+    <string name="error_folder_add_failed">Não foi possível identificar a pasta. Selecione uma pasta válida.</string>
 </resources>

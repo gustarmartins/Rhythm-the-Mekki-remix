@@ -3138,7 +3138,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             
             // Now, update our in-memory list _artists
             _artists.value = _artists.value.map { currentArtist ->
-                if (currentArtist.name == artist.name) {
+                if (currentArtist.name.equals(artist.name, ignoreCase = true)) {
                     currentArtist.copy(artworkUri = updatedUri)
                 } else {
                     currentArtist

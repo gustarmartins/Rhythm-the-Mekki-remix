@@ -1797,11 +1797,7 @@ fun ExpressivePlayerScreen(
                                                 )
                                             }
                                             "REPEAT" -> {
-                                                val repeatIcon = when (repeatMode) {
-                                                    2 -> RhythmIcons.Player.RepeatOne
-                                                    1 -> RhythmIcons.Player.Repeat
-                                                    else -> RhythmIcons.Player.Repeat
-                                                }
+                                                val repeatIcon = chromahub.rhythm.app.shared.presentation.components.icons.repeatModeIcon(repeatMode)
                                                 RhythmDetailActionButton(
                                                     onClick = { HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT); onToggleRepeat() },
                                                     onLongClick = onButtonLongClick,
@@ -2084,11 +2080,7 @@ fun ExpressivePlayerScreen(
                                                 )
                                             }
                                             "REPEAT" -> {
-                                                val repeatIcon = when (repeatMode) {
-                                                    2 -> RhythmIcons.Player.RepeatOne
-                                                    1 -> RhythmIcons.Player.Repeat
-                                                    else -> RhythmIcons.Player.Repeat
-                                                }
+                                                val repeatIcon = chromahub.rhythm.app.shared.presentation.components.icons.repeatModeIcon(repeatMode)
                                                 RhythmDetailActionButton(
                                                     onClick = { HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT); onToggleRepeat() },
                                                     onLongClick = onButtonLongClick,

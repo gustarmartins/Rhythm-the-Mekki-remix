@@ -213,7 +213,11 @@ object AudioFormatDetector {
         // Determine if lossless based on codec
         // CRITICAL: Only codecs that preserve bit-perfect audio data are lossless
         // High bitrate does NOT make lossy codecs lossless (e.g., 320kbps MP3 is still lossy)
-        val isLossless = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD", "TrueHD", "Dolby Atmos", "DTS-HD MA", "DTS:X", "AIFF", "MIDI") ||
+        val isTrueHDAtmos = codec == "Dolby Atmos" && (mime.contains("truehd", ignoreCase = true) || mime.contains("mlp", ignoreCase = true))
+        val isLosslessDTSX = codec == "DTS:X" && (mime.contains("dts-hd", ignoreCase = true) || mime.contains("dtshd", ignoreCase = true) || mime.contains("lossless", ignoreCase = true))
+        val isLossless = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD", "TrueHD", "DTS-HD MA", "AIFF", "WavPack", "TAK", "TTA", "MIDI") ||
+                         isTrueHDAtmos ||
+                         isLosslessDTSX ||
                          codec.contains("LOSSLESS", ignoreCase = true)
         
         // Determine if Dolby (expanded detection)
@@ -225,7 +229,7 @@ object AudioFormatDetector {
         val isDTS = codec.contains("DTS", ignoreCase = true)
         
         // Determine if Hi-Res (>= 48kHz sample rate for lossless, or >2000 kbps)
-        val isHiRes = sampleRate >= 48000 || (isLossless && bitrateKbps >= 2000) || codec == "DSD"
+        val isHiRes = (isLossless && (sampleRate >= 48000 || bitrateKbps >= 2000)) || codec == "DSD"
         
         // Try to detect bit depth for lossless formats
         var bitDepth = 0
@@ -338,7 +342,7 @@ object AudioFormatDetector {
                 mime?.contains("alac", ignoreCase = true) == true -> "ALAC"
                 mime?.contains("flac", ignoreCase = true) == true -> "FLAC"
                 mime?.contains("truehd", ignoreCase = true) == true || mime?.contains("mlp", ignoreCase = true) == true -> "TrueHD"
-                mime?.contains("atmos", ignoreCase = true) == true -> "Dolby Atmos"
+                mime?.contains("eac3-joc", ignoreCase = true) == true || mime?.contains("atmos", ignoreCase = true) == true || mime?.contains("joc", ignoreCase = true) == true -> "Dolby Atmos"
                 mime?.contains("ac4", ignoreCase = true) == true -> "AC-4"
                 mime?.contains("eac3", ignoreCase = true) == true || mime?.contains("ec-3", ignoreCase = true) == true || mime?.contains("eac", ignoreCase = true) == true -> "E-AC-3"
                 mime?.contains("ac3", ignoreCase = true) == true || mime?.contains("ac-3", ignoreCase = true) == true -> "AC-3"
@@ -346,6 +350,11 @@ object AudioFormatDetector {
                 mime?.contains("dts-hd", ignoreCase = true) == true || mime?.contains("dts.hd", ignoreCase = true) == true || mime?.contains("dtshd", ignoreCase = true) == true -> "DTS-HD MA"
                 mime?.contains("dts", ignoreCase = true) == true -> "DTS"
                 mime?.contains("dsd", ignoreCase = true) == true || mime?.contains("x-dsd", ignoreCase = true) == true -> "DSD"
+                mime?.contains("ape", ignoreCase = true) == true || path.endsWith(".ape") -> "APE"
+                mime?.contains("wavpack", ignoreCase = true) == true || path.endsWith(".wv") -> "WavPack"
+                path.endsWith(".tak") -> "TAK"
+                path.endsWith(".tta") -> "TTA"
+                mime?.contains("aiff", ignoreCase = true) == true || path.endsWith(".aiff") || path.endsWith(".aif") -> "AIFF"
                 mime?.contains("mp4", ignoreCase = true) == true || path.endsWith(".mp4") || path.endsWith(".m4a") -> "AAC"
                 path.endsWith(".mka") -> "MKA"
                 mime?.contains("mpeg", ignoreCase = true) == true -> "MP3"
@@ -354,10 +363,14 @@ object AudioFormatDetector {
                 else -> "Unknown"
             }
             
-            val isLossless = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "DSD", "TrueHD", "Dolby Atmos", "DTS-HD MA", "DTS:X")
+            val isTrueHDAtmos = codec == "Dolby Atmos" && (mime?.contains("truehd", ignoreCase = true) == true || mime?.contains("mlp", ignoreCase = true) == true)
+            val isLosslessDTSX = codec == "DTS:X" && (mime?.contains("dts-hd", ignoreCase = true) == true || mime?.contains("dtshd", ignoreCase = true) == true || mime?.contains("lossless", ignoreCase = true) == true)
+            val isLossless = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD", "TrueHD", "DTS-HD MA", "AIFF", "WavPack", "TAK", "TTA") ||
+                             isTrueHDAtmos ||
+                             isLosslessDTSX
             val isDolby = codec in listOf("AC-3", "AC-4", "E-AC-3", "TrueHD", "Dolby Atmos")
             val isDTS = codec.contains("DTS", ignoreCase = true)
-            val isHiRes = sampleRate >= 48000 || isLossless
+            val isHiRes = (isLossless && sampleRate >= 48000) || codec == "DSD"
             
             return AudioFormatInfo(
                 codec = codec,
@@ -441,7 +454,11 @@ object AudioFormatDetector {
         val bitrate = song?.bitrate ?: 0
         val bitrateKbps = if (bitrate > 0) bitrate / 1000 else 0
 
-        val isLossless = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD", "TrueHD", "Dolby Atmos", "DTS-HD MA", "DTS:X", "AIFF", "MIDI") ||
+        val isTrueHDAtmos = codec == "Dolby Atmos" && (rawCodec.contains("truehd", ignoreCase = true) || rawCodec.contains("mlp", ignoreCase = true))
+        val isLosslessDTSX = codec == "DTS:X" && (rawCodec.contains("dts-hd", ignoreCase = true) || rawCodec.contains("dtshd", ignoreCase = true) || rawCodec.contains("lossless", ignoreCase = true))
+        val isLossless = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD", "TrueHD", "DTS-HD MA", "AIFF", "WavPack", "TAK", "TTA", "MIDI") ||
+                isTrueHDAtmos ||
+                isLosslessDTSX ||
                 codec.contains("LOSSLESS", ignoreCase = true)
 
         val isDolby = codec in listOf("AC-3", "AC-4", "E-AC-3", "TrueHD", "Dolby Atmos") ||
@@ -450,17 +467,21 @@ object AudioFormatDetector {
 
         val isDTS = codec.contains("DTS", ignoreCase = true)
 
-        val isHiRes = sampleRate >= 48000 || (isLossless && bitrateKbps >= 2000) || codec == "DSD"
+        val isHiRes = (isLossless && (sampleRate >= 48000 || bitrateKbps >= 2000)) || codec == "DSD"
 
         val formatName = when {
             codec == "ALAC" -> "Apple Lossless"
             codec == "FLAC" -> "FLAC Lossless"
             codec == "E-AC-3" -> "Dolby Digital Plus"
             codec == "AC-3" -> "Dolby Digital"
+            codec == "AC-4" -> "Dolby AC-4"
             codec == "TrueHD" -> "Dolby TrueHD"
             codec == "Dolby Atmos" -> "Dolby Atmos"
             codec == "DTS-HD MA" -> "DTS-HD Master Audio"
+            codec == "DTS:X" -> "DTS:X"
             codec == "DTS" -> "DTS Audio"
+            codec == "MPEG-H" -> "MPEG-H 3D Audio"
+            codec == "WavPack" -> "WavPack Lossless"
             codec == "AAC" && bitrateKbps > 256 -> "AAC High Quality"
             else -> codec
         }
@@ -505,21 +526,37 @@ object AudioFormatDetector {
             uriStr.contains(".wav") || uriStr.contains("format=wav") -> "WAV"
             uriStr.contains(".dsf") || uriStr.contains(".dff") -> "DSD"
             uriStr.contains(".mp3") || uriStr.contains("format=mp3") -> "MP3"
+            uriStr.contains(".ape") -> "APE"
+            uriStr.contains(".wv") -> "WavPack"
+            uriStr.contains(".tak") -> "TAK"
+            uriStr.contains(".tta") -> "TTA"
+            uriStr.contains(".aiff") || uriStr.contains(".aif") -> "AIFF"
+            uriStr.contains(".ac3") -> "AC-3"
+            uriStr.contains(".eac3") || uriStr.contains(".ec3") -> "E-AC-3"
+            uriStr.contains(".ac4") -> "AC-4"
+            uriStr.contains(".thd") || uriStr.contains(".truehd") -> "TrueHD"
+            uriStr.contains(".dtshd") -> "DTS-HD MA"
+            uriStr.contains(".dtsx") -> "DTS:X"
+            uriStr.contains(".dts") -> "DTS"
+            uriStr.contains(".mhm") || uriStr.contains(".mhm1") -> "MPEG-H"
             else -> "Unknown"
         }
     }
 
     private fun normalizeCodec(raw: String): String {
-        val upper = raw.trim().uppercase()
+        val upper = raw.trim().uppercase(java.util.Locale.ROOT)
         return when {
             upper.contains("FLAC") -> "FLAC"
             upper.contains("ALAC") -> "ALAC"
             upper.contains("OPUS") -> "Opus"
             upper.contains("VORBIS") || upper == "OGG" -> "Vorbis"
+            upper.contains("MPEGH") || upper.contains("MPEG-H") || upper.contains("MHM1") -> "MPEG-H"
+            upper.contains("WAVPACK") || upper == "WV" || upper.endsWith(".WV") -> "WavPack"
             upper.contains("AAC") || upper == "MP4A" -> "AAC"
             upper.contains("MP3") || upper.contains("MPEG") -> "MP3"
             upper.contains("TRUEHD") || upper.contains("MLP") -> "TrueHD"
-            upper.contains("ATMOS") || upper.contains("EAC3-JOC") -> "Dolby Atmos"
+            upper.contains("ATMOS") || upper.contains("EAC3-JOC") || upper.contains("EC-3-JOC") || upper.contains("EAC3_JOC") || upper.contains("JOC") -> "Dolby Atmos"
+            upper.contains("AC4") || upper.contains("AC-4") -> "AC-4"
             upper.contains("EAC3") || upper.contains("EC-3") -> "E-AC-3"
             upper.contains("AC3") || upper.contains("AC-3") -> "AC-3"
             upper.contains("DTS-HD") || upper.contains("DTSHD") -> "DTS-HD MA"
@@ -528,6 +565,10 @@ object AudioFormatDetector {
             upper.contains("DSD") -> "DSD"
             upper.contains("WAV") -> "WAV"
             upper.contains("PCM") || upper.contains("RAW") -> "PCM"
+            upper.contains("APE") || upper.contains("MONKEYS") -> "APE"
+            upper.contains("TAK") -> "TAK"
+            upper.contains("TTA") -> "TTA"
+            upper.contains("AIFF") || upper.contains("AIF") -> "AIFF"
             else -> raw.trim()
         }
     }

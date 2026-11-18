@@ -1873,11 +1873,7 @@ fun ExpressiveToggleButtonGroup(
         ExpressiveMorphingToggleButton(
             isActive = repeatMode != 0,
             onClick = onToggleRepeat,
-            icon = when (repeatMode) {
-                1 -> RhythmIcons.RepeatOne
-                2 -> RhythmIcons.Repeat
-                else -> RhythmIcons.Repeat
-            },
+            icon = chromahub.rhythm.app.shared.presentation.components.icons.repeatModeIcon(repeatMode),
             label = stringResource(R.string.player_chip_repeat),
             isDarkTheme = isDarkTheme,
             isCompactHeight = isCompactHeight,

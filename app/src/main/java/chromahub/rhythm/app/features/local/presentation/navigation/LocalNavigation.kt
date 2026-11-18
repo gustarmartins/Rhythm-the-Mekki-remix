@@ -4525,15 +4525,10 @@ private fun LocalNavigationContent(
                                 },
                                 song = songToAdd,
                                 onConfirmWithSong = { name ->
-                                    viewModel.createPlaylist(name)
-                                    // The new playlist will be at the end of the list
-                                    val newPlaylist = viewModel.playlists.value.last()
-                                    viewModel.addSongToPlaylist(
-                                        songToAdd,
-                                        newPlaylist.id
-                                    ) { message ->
+                                    viewModel.createPlaylist(name, listOf(songToAdd)) { message ->
                                         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                                     }
+                                    showCreatePlaylistDialog = false
                                     viewModel.clearSelectedSongForPlaylist()
                                     navigateBackOrToLanding()
                                 }

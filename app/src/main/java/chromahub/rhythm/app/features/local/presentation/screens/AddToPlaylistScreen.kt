@@ -336,7 +336,6 @@ private fun SongSelectionItem(
     )
     
     Surface(
-        onClick = onSongClick,
         modifier = modifier
             .fillMaxWidth()
             .graphicsLayer {

@@ -96,7 +96,9 @@ fun EqualizerPresetOrderBottomSheet(
     val hiddenPresets by appSettings.hiddenEqualizerPresets.collectAsState()
     val customPresets by appSettings.customEqualizerPresets.collectAsState()
     val pinnedAutoEQ by appSettings.pinnedAutoEQProfiles.collectAsState()
+    val customAutoEQ by appSettings.customAutoEQProfiles.collectAsState()
     val currentAutoEQ by appSettings.autoEQProfile.collectAsState()
+    val autoEQProfiles by musicViewModel.autoEQProfiles.collectAsState()
     val userDevicesJson by appSettings.userAudioDevices.collectAsState()
     val userDevices = remember(userDevicesJson) {
         chromahub.rhythm.app.shared.data.model.UserAudioDevice.fromJson(userDevicesJson)
@@ -110,7 +112,7 @@ fun EqualizerPresetOrderBottomSheet(
     // Build the master list of all known presets
     val builtInNames = remember { appSettings.defaultEqualizerPresetOrder }
 
-    val allAutoEQNames = remember(pinnedAutoEQ, currentAutoEQ, userDevices) {
+    val allAutoEQNames = remember(pinnedAutoEQ, currentAutoEQ, userDevices, customAutoEQ) {
         val names = mutableListOf<String>()
         names.addAll(pinnedAutoEQ)
         if (currentAutoEQ.isNotBlank() && currentAutoEQ != "None" && currentAutoEQ !in names) {
@@ -120,6 +122,11 @@ fun EqualizerPresetOrderBottomSheet(
             val profile = device.autoEQProfileName
             if (!profile.isNullOrBlank() && profile != "None" && profile !in names) {
                 names.add(profile)
+            }
+        }
+        customAutoEQ.forEach { custom ->
+            if (custom.name.isNotBlank() && custom.name !in names) {
+                names.add(custom.name)
             }
         }
         names.distinct()
@@ -132,11 +139,14 @@ fun EqualizerPresetOrderBottomSheet(
         return when {
             key.startsWith("AutoEQ: ") -> {
                 val profileName = key.removePrefix("AutoEQ: ")
+                val profile = autoEQProfiles.find { it.name.equals(profileName, ignoreCase = true) }
+                    ?: customAutoEQ.find { it.name.equals(profileName, ignoreCase = true) }
+                val bands = profile?.bands ?: List(10) { 0f }
                 UnifiedEqualizerPreset(
                     id = key,
                     name = profileName,
                     type = EqualizerPresetType.AUTO_EQ,
-                    bands = List(10) { 0f },
+                    bands = bands,
                     isDeletable = true
                 )
             }

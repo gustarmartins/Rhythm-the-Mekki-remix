@@ -405,6 +405,7 @@ fun EqualizerScreen(
     val pinnedAutoEQ by viewModel.pinnedAutoEQProfiles.collectAsState()
     val autoEQProfiles by viewModel.autoEQProfiles.collectAsState()
     val currentAutoEQProfile by viewModel.appSettings.autoEQProfile.collectAsState()
+    val customAutoEQProfiles by viewModel.customAutoEQProfiles.collectAsState()
     val userDevicesJson by viewModel.appSettings.userAudioDevices.collectAsState()
     val userDevices = remember(userDevicesJson) {
         chromahub.rhythm.app.shared.data.model.UserAudioDevice.fromJson(userDevicesJson)
@@ -433,13 +434,27 @@ fun EqualizerScreen(
         )
     }
 
-    val allAvailablePresets = remember(builtInPresets, customPresets, pinnedAutoEQ, currentAutoEQProfile, autoEQProfiles, userDevices) {
+    val allAvailablePresets = remember(builtInPresets, customPresets, customAutoEQProfiles, pinnedAutoEQ, currentAutoEQProfile, autoEQProfiles, userDevices, selectedPreset, bandLevels) {
         val list = mutableListOf<EqualizerPreset>()
+
+        fun resolveAutoEQBands(profileName: String): List<Float> {
+            val foundProfile = autoEQProfiles.find { it.name.equals(profileName, ignoreCase = true) }
+                ?: customAutoEQProfiles.find { it.name.equals(profileName, ignoreCase = true) }
+            if (foundProfile != null && foundProfile.bands.size == 10) {
+                return foundProfile.bands
+            }
+            val activeName = currentAutoEQProfile.ifBlank { selectedPreset.removePrefix("AutoEQ: ") }
+            if (profileName.equals(activeName, ignoreCase = true) && bandLevels.size == 10 && bandLevels.any { it != 0f }) {
+                return bandLevels
+            }
+            return List(10) { 0f }
+        }
 
         // 1. AutoEQ profiles (First by default)
         pinnedAutoEQ.forEach { pinnedName ->
+            val bands = resolveAutoEQBands(pinnedName)
             val profile = autoEQProfiles.find { it.name.equals(pinnedName, ignoreCase = true) }
-            val bands = profile?.bands ?: List(10) { 0f }
+                ?: customAutoEQProfiles.find { it.name.equals(pinnedName, ignoreCase = true) }
             list.add(
                 EqualizerPreset(
                     name = "AutoEQ: $pinnedName",
@@ -455,8 +470,9 @@ fun EqualizerScreen(
         if (currentAutoEQProfile.isNotBlank() && currentAutoEQProfile != "None") {
             val activeKey = "AutoEQ: $currentAutoEQProfile"
             if (list.none { it.name == activeKey }) {
+                val bands = resolveAutoEQBands(currentAutoEQProfile)
                 val profile = autoEQProfiles.find { it.name.equals(currentAutoEQProfile, ignoreCase = true) }
-                val bands = profile?.bands ?: List(10) { 0f }
+                    ?: customAutoEQProfiles.find { it.name.equals(currentAutoEQProfile, ignoreCase = true) }
                 list.add(
                     EqualizerPreset(
                         name = activeKey,
@@ -475,8 +491,9 @@ fun EqualizerScreen(
             if (!profileName.isNullOrBlank() && profileName != "None") {
                 val deviceKey = "AutoEQ: $profileName"
                 if (list.none { it.name == deviceKey }) {
+                    val bands = resolveAutoEQBands(profileName)
                     val profile = autoEQProfiles.find { it.name.equals(profileName, ignoreCase = true) }
-                    val bands = profile?.bands ?: List(10) { 0f }
+                        ?: customAutoEQProfiles.find { it.name.equals(profileName, ignoreCase = true) }
                     list.add(
                         EqualizerPreset(
                             name = deviceKey,
@@ -488,6 +505,23 @@ fun EqualizerScreen(
                         )
                     )
                 }
+            }
+        }
+
+        customAutoEQProfiles.forEach { customAutoEQ ->
+            val key = "AutoEQ: ${customAutoEQ.name}"
+            if (list.none { it.name.equals(key, ignoreCase = true) || it.id.equals(key, ignoreCase = true) }) {
+                val bands = if (customAutoEQ.bands.size == 10) customAutoEQ.bands else resolveAutoEQBands(customAutoEQ.name)
+                list.add(
+                    EqualizerPreset(
+                        name = key,
+                        icon = RhythmIcons.HeadphonesFilled,
+                        bands = bands,
+                        type = EqualizerPresetType.AUTO_EQ,
+                        id = key,
+                        brand = customAutoEQ.brand
+                    )
+                )
             }
         }
 

@@ -4929,9 +4929,11 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
     // Song Rating Methods
     // Whitelisted Folders Methods
     fun addFolderToWhitelist(folderPath: String) {
+        val normalized = chromahub.rhythm.app.util.StoragePathUtils.sanitizeAndNormalizePath(folderPath)
+        if (normalized.isBlank()) return
         val currentList = _whitelistedFolders.value.toMutableList()
-        if (!currentList.contains(folderPath)) {
-            currentList.add(folderPath)
+        if (!currentList.contains(normalized)) {
+            currentList.add(normalized)
             val json = Gson().toJson(currentList)
             prefs.edit { putString(KEY_WHITELISTED_FOLDERS, json) }
             _whitelistedFolders.value = currentList

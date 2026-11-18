@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import chromahub.rhythm.app.shared.presentation.components.icons.RhythmIcons
 import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolIcon
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
+import chromahub.rhythm.app.util.StoragePathUtils
 
 import android.app.Activity
 import android.content.ClipData
@@ -249,6 +250,10 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
         mutableStateOf(mediaScanMode)
     }
 
+    LaunchedEffect(mediaScanMode) {
+        currentMode = mediaScanMode
+    }
+
     // Bottom sheet states
     var showSongsBottomSheet by remember { mutableStateOf(false) }
     var showFoldersBottomSheet by remember { mutableStateOf(false) }
@@ -262,38 +267,45 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
         if (result.resultCode == Activity.RESULT_OK) {
             result.data?.data?.let { uri ->
                 try {
-                    val docId = DocumentsContract.getTreeDocumentId(uri)
-                    val split = docId.split(":")
+                    val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                } catch (e: Exception) {
+                    Log.w("MediaScanSettingsScreen", "Failed to take persistable URI permission", e)
+                }
 
-                    if (split.size >= 2) {
-                        val storageType = split[0] // e.g., "primary", "home", or specific SD card ID
-                        val relativePath = split[1] // e.g., "Music/MyFolder"
-
-                        // Build the full path based on storage type
-                        val fullPath = when (storageType) {
-                            "primary" -> "/storage/emulated/0/$relativePath"
-                            "home" -> "/storage/emulated/0/$relativePath"
-                            else -> {
-                                // For SD cards or other storage, try to construct path
-                                // This is a best-effort approach
-                                if (storageType.contains("-")) {
-                                    // SD card UUID format
-                                    "/storage/$storageType/$relativePath"
-                                } else {
-                                    // Fallback to emulated storage
-                                    "/storage/emulated/0/$relativePath"
-                                }
-                            }
-                        }
-
+                try {
+                    val fullPath = StoragePathUtils.getPathFromTreeUri(context, uri)
+                    if (!fullPath.isNullOrBlank()) {
+                        val folderName = File(fullPath).name.ifEmpty { fullPath }
                         if (currentMode == MediaScanMode.BLACKLIST) {
                             appSettings.addFolderToBlacklist(fullPath)
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.folder_blocked_success, folderName),
+                                Toast.LENGTH_SHORT
+                            ).show()
                         } else {
                             appSettings.addFolderToWhitelist(fullPath)
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.folder_whitelisted_success, folderName),
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
+                    } else {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.error_folder_add_failed),
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 } catch (e: Exception) {
-                    Log.e("MediaScanSettingsScreen", "Error parsing folder path", e)
+                    Log.e("MediaScanSettingsScreen", "Error resolving folder path", e)
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.error_folder_add_failed),
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
         }
@@ -317,7 +329,7 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
     }
 
     val detectedMusicFolders = remember(allSongs) {
-        allSongs.mapNotNull { song ->
+        val songFolders = allSongs.mapNotNull { song ->
             val path = song.path ?: if (song.uri.scheme == "file") song.uri.path else null
             path?.let { p ->
                 try {
@@ -326,7 +338,9 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
                     null
                 }
             }
-        }.distinct().sorted()
+        }
+        val commonFolders = StoragePathUtils.getCommonMediaFolders(context)
+        (commonFolders + songFolders).distinct().sorted()
     }
 
     val suggestedFolders = remember(detectedMusicFolders, filteredFoldersList) {
@@ -436,13 +450,9 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
                     onClick = {
                         HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
                         if (currentMode == MediaScanMode.BLACKLIST) {
-                            blacklistedFolders.forEach { folder ->
-                                appSettings.removeFolderFromBlacklist(folder)
-                            }
+                            appSettings.clearFolderBlacklist()
                         } else {
-                            whitelistedFolders.forEach { folder ->
-                                appSettings.removeFolderFromWhitelist(folder)
-                            }
+                            appSettings.clearFolderWhitelist()
                         }
                     }
                 )
@@ -1067,10 +1077,21 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
                             Card(
                                 onClick = {
                                     HapticUtils.performHapticFeedback(context, haptic, HapticType.LIGHT)
+                                    val folderName = File(folder).name.ifEmpty { folder }
                                     if (currentMode == MediaScanMode.BLACKLIST) {
                                         appSettings.addFolderToBlacklist(folder)
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.folder_blocked_success, folderName),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                     } else {
                                         appSettings.addFolderToWhitelist(folder)
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.folder_whitelisted_success, folderName),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
                                     }
                                 },
                                 modifier = Modifier
@@ -1169,13 +1190,9 @@ fun MediaScanSettingsScreen(onBackClick: () -> Unit) {
                                 onClick = {
                                     HapticUtils.performHapticFeedback(context, haptic, HapticType.HEAVY)
                                     if (currentMode == MediaScanMode.BLACKLIST) {
-                                        blacklistedFolders.forEach { folder ->
-                                            appSettings.removeFolderFromBlacklist(folder)
-                                        }
+                                        appSettings.clearFolderBlacklist()
                                     } else {
-                                        whitelistedFolders.forEach { folder ->
-                                            appSettings.removeFolderFromWhitelist(folder)
-                                        }
+                                        appSettings.clearFolderWhitelist()
                                     }
                                     showFoldersBottomSheet = false
                                 },

@@ -3022,4 +3022,7 @@
     <string name="audio_effect_decrease">Decrease %1$s by 1%%</string>
     <string name="audio_effect_increase">Increase %1$s by 1%%</string>
     <string name="audio_effect_step_hint">1% per tap</string>
+    <string name="folder_blocked_success">Blocked folder: %1$s</string>
+    <string name="folder_whitelisted_success">Whitelisted folder: %1$s</string>
+    <string name="error_folder_add_failed">Could not resolve folder path. Please select a valid folder.</string>
 </resources>

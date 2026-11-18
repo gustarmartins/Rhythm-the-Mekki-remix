@@ -832,10 +832,11 @@ fun LibraryScreen(
 
 
     val isListAtTop by remember(
-        selectedTabIndex, visibleTabIds, playlistViewType, albumViewType, artistViewType
+        selectedTabIndex, pagerState.currentPage, visibleTabIds, playlistViewType, albumViewType, artistViewType
     ) {
         derivedStateOf {
-            when (visibleTabIds.getOrNull(selectedTabIndex)) {
+            val activeTab = visibleTabIds.getOrNull(pagerState.currentPage) ?: visibleTabIds.getOrNull(selectedTabIndex)
+            when (activeTab) {
                 "SONGS" -> songsListState.firstVisibleItemIndex == 0 && songsListState.firstVisibleItemScrollOffset == 0
                 "LIKED" -> likedSongsListState.firstVisibleItemIndex == 0 && likedSongsListState.firstVisibleItemScrollOffset == 0
                 "DATES" -> datesListState.firstVisibleItemIndex == 0 && datesListState.firstVisibleItemScrollOffset == 0
@@ -1920,23 +1921,32 @@ fun LibraryScreen(
                             }
                             }
 
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(24.dp)
-                                    .align(Alignment.TopCenter)
-                                    .background(
-                                        brush = Brush.verticalGradient(
-                                            colors = listOf(
-                                                MaterialTheme.colorScheme.background,
-                                                MaterialTheme.colorScheme.background.copy(alpha = 0.72f),
-                                                MaterialTheme.colorScheme.background.copy(alpha = 0.32f),
-                                                Color.Transparent
+                            val topBlendAlpha by androidx.compose.animation.core.animateFloatAsState(
+                                targetValue = if (!isListAtTop) 1f else 0f,
+                                animationSpec = androidx.compose.animation.core.tween(durationMillis = 200),
+                                label = "library_top_blend_alpha"
+                            )
+
+                            if (topBlendAlpha > 0f) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(24.dp)
+                                        .align(Alignment.TopCenter)
+                                        .graphicsLayer { alpha = topBlendAlpha }
+                                        .background(
+                                            brush = Brush.verticalGradient(
+                                                colors = listOf(
+                                                    MaterialTheme.colorScheme.background,
+                                                    MaterialTheme.colorScheme.background.copy(alpha = 0.72f),
+                                                    MaterialTheme.colorScheme.background.copy(alpha = 0.32f),
+                                                    Color.Transparent
+                                                )
                                             )
                                         )
-                                    )
-                                    .zIndex(5f)
-                            )
+                                        .zIndex(5f)
+                                )
+                            }
                         androidx.compose.animation.AnimatedVisibility(
                             visible = isMediaScanning,
                             enter = fadeIn() + expandVertically(),
@@ -6307,17 +6317,22 @@ fun isLosslessAudio(song: Song): Boolean {
     val codec = song.codec?.uppercase() ?: ""
 
     if (codec.isNotEmpty()) {
+        if (isDolbyAtmos(song)) {
+            return codec.contains("TRUEHD") || codec.contains("MLP")
+        }
+
         val isLossyCodec = codec.contains("MP3") || codec.contains("AAC") ||
                           codec.contains("OGG") || codec.contains("OPUS") ||
                           codec.contains("VORBIS") || codec.contains("AC-3") ||
                           codec.contains("AC3") || codec.contains("E-AC-3") ||
-                          codec.contains("EAC3") || codec.contains("MP2") ||
+                          codec.contains("EAC3") || codec.contains("AC-4") ||
+                          codec.contains("AC4") || codec.contains("MP2") ||
                           codec.contains("AMR") ||
                           (codec.contains("WMA") && !codec.contains("LOSSLESS"))
 
         if (isLossyCodec) return false
 
-        val isLosslessCodec = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD", "TRUEHD", "DOLBY ATMOS", "DTS-HD MA", "DTS:X", "AIFF", "MIDI", "WV", "TAK", "TTA") ||
+        val isLosslessCodec = codec in listOf("ALAC", "FLAC", "PCM", "WAV", "APE", "DSD", "TRUEHD", "MLP", "DTS-HD MA", "AIFF", "MIDI", "WV", "TAK", "TTA") ||
                              codec.contains("LOSSLESS", ignoreCase = true) ||
                              codec.contains("APPLE LOSSLESS", ignoreCase = true)
 
@@ -6393,11 +6408,20 @@ fun isDolbyOrSurround(song: Song): Boolean {
     val codec = song.codec?.uppercase() ?: ""
     return (song.channels ?: 2) > 2 ||
            codec.contains("AC-3") ||
+           codec.contains("AC3") ||
            codec.contains("E-AC-3") ||
+           codec.contains("EAC3") ||
+           codec.contains("EC-3") ||
+           codec.contains("EC3") ||
+           codec.contains("AC-4") ||
+           codec.contains("AC4") ||
            codec.contains("DOLBY") ||
            codec.contains("TRUEHD") ||
            codec.contains("ATMOS") ||
-           codec.contains("DTS")
+           codec.contains("JOC") ||
+           codec.contains("DTS") ||
+           codec.contains("MPEG-H") ||
+           codec.contains("MHM")
 }
 
 fun isDSD(song: Song): Boolean {
@@ -6420,35 +6444,39 @@ fun isDTS(song: Song): Boolean {
 
 fun isDolbyAtmos(song: Song): Boolean {
     val codec = song.codec?.uppercase() ?: ""
-    return codec.contains("ATMOS") || codec.contains("TRUEHD")
+    return codec.contains("ATMOS") ||
+           codec.contains("EAC3-JOC") ||
+           codec.contains("EAC3_JOC") ||
+           codec.contains("E-AC-3-JOC") ||
+           codec.contains("EC-3-JOC") ||
+           codec.contains("EC3-JOC") ||
+           codec.contains("JOC") ||
+           (codec.contains("AC-4") && codec.contains("IMS")) ||
+           (codec.contains("AC4") && codec.contains("IMS"))
 }
 
 fun isDolbyDigital(song: Song): Boolean {
     val codec = song.codec?.uppercase() ?: ""
-    return (codec.contains("AC-3") || codec.contains("AC3")) &&
-           !codec.contains("ATMOS") &&
-           !codec.contains("TRUEHD") &&
-           !codec.contains("E-AC-3") &&
-           !codec.contains("EAC3")
+    if (isDolbyAtmos(song) || isDolbyDigitalPlus(song)) return false
+    return (codec.contains("AC-3") || codec.contains("AC3") || codec.contains("DOLBY DIGITAL")) &&
+           !codec.contains("TRUEHD")
 }
 
 fun isDolbyDigitalPlus(song: Song): Boolean {
     val codec = song.codec?.uppercase() ?: ""
-    return (codec.contains("E-AC-3") || codec.contains("EAC3")) &&
-           !codec.contains("ATMOS") &&
+    if (isDolbyAtmos(song)) return false
+    return (codec.contains("E-AC-3") || codec.contains("EAC3") || codec.contains("EC-3") || codec.contains("EC3") || codec.contains("DOLBY DIGITAL PLUS")) &&
            !codec.contains("TRUEHD")
 }
 
 fun isLossyAudio(song: Song): Boolean {
     val codec = song.codec?.uppercase() ?: ""
     if (codec.isEmpty()) return false
-    val lossyCodecs = listOf("MP3", "AAC", "OGG", "OPUS", "VORBIS", "WMA")
+    if (isDolbyOrSurround(song)) return false
+    val lossyCodecs = listOf("MP3", "AAC", "OGG", "OPUS", "VORBIS", "WMA", "MP2", "AMR", "LC3")
     val isLossyCodec = lossyCodecs.any { codec.contains(it) } &&
                        !codec.contains("LOSSLESS")
-    if (isLossyCodec) return true
-    if (codec.contains("AC-3") || codec.contains("E-AC-3") || codec.contains("AC3") || codec.contains("EAC3") || codec.contains("AC4") || codec.contains("AC-4")) return true
-    if (codec == "MP2" || codec.contains("AMR")) return true
-    return false
+    return isLossyCodec
 }
 
 fun isCDQuality(song: Song): Boolean {

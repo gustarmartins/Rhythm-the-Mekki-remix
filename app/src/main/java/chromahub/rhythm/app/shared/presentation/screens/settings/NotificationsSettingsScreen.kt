@@ -20,8 +20,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -41,6 +43,11 @@ import chromahub.rhythm.app.R
 import chromahub.rhythm.app.shared.data.model.AppSettings
 import chromahub.rhythm.app.shared.presentation.components.Material3SettingsGroup
 import chromahub.rhythm.app.shared.presentation.components.Material3SettingsItem
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AdaptiveSheetScrollContainer
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.RhythmAdaptiveModalSheet
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.SheetAdaptiveType
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.StandardBottomSheetHeader
+import chromahub.rhythm.app.shared.presentation.components.bottomsheets.groupedBottomSheetItemShape
 import chromahub.rhythm.app.shared.presentation.components.common.CollapsibleHeaderScreen
 import chromahub.rhythm.app.shared.presentation.components.common.ExpressiveShapeTarget
 import chromahub.rhythm.app.shared.presentation.components.common.rememberExpressiveShapeFor
@@ -327,19 +334,41 @@ fun NotificationsSettingsScreen(onBackClick: () -> Unit) {
     }
 
     if (showPulseIntervalDialog) {
-        AlertDialog(
+        val sheetState = rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded)
+        )
+
+        RhythmAdaptiveModalSheet(
+            adaptiveType = SheetAdaptiveType.COMPACT_DIALOG,
+            modifier = Modifier.widthIn(max = 640.dp).fillMaxWidth(),
             onDismissRequest = { showPulseIntervalDialog = false },
-            icon = {
-                Icon(
-                    imageVector = RhythmIcons.AccessTime,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
-                )
+            sheetState = sheetState,
+            dragHandle = {
+                BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.primary)
             },
-            title = { Text(stringResource(R.string.settings_rhythm_pulse_interval_dialog_title)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
+        ) {
+            StandardBottomSheetHeader(
+                title = stringResource(R.string.settings_rhythm_pulse_interval),
+                subtitle = stringResource(R.string.settings_rhythm_pulse_notifications_desc),
+                visible = true
+            )
+
+            val scrollState = rememberScrollState()
+
+            AdaptiveSheetScrollContainer(
+                scrollState = scrollState,
+                modifier = Modifier.fillMaxWidth()
+            ) { endPadding ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                        .padding(start = 24.dp, end = 24.dp + endPadding, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     val intervals = listOf(
                         6 to stringResource(R.string.settings_interval_every_6_hours),
                         12 to stringResource(R.string.settings_interval_every_12_hours),
@@ -348,7 +377,9 @@ fun NotificationsSettingsScreen(onBackClick: () -> Unit) {
                         72 to stringResource(R.string.settings_interval_every_72_hours)
                     )
 
-                    intervals.forEach { (hours, label) ->
+                    intervals.forEachIndexed { index, (hours, label) ->
+                        val isSelected = rhythmPulseNotificationIntervalHours == hours
+
                         Card(
                             onClick = {
                                 HapticUtils.performHapticFeedback(context, hapticFeedback, HapticType.LIGHT)
@@ -356,44 +387,56 @@ fun NotificationsSettingsScreen(onBackClick: () -> Unit) {
                                 showPulseIntervalDialog = false
                             },
                             colors = CardDefaults.cardColors(
-                                containerColor = if (rhythmPulseNotificationIntervalHours == hours)
+                                containerColor = if (isSelected)
                                     MaterialTheme.colorScheme.primaryContainer
                                 else
-                                    MaterialTheme.colorScheme.surfaceVariant
+                                    MaterialTheme.colorScheme.surfaceContainerHigh
                             ),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = groupedBottomSheetItemShape(index, intervals.size),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(16.dp),
+                                    .padding(20.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                Icon(
+                                    imageVector = RhythmIcons.AccessTime,
+                                    contentDescription = null,
+                                    tint = if (isSelected)
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(if (isSelected) 30.dp else 26.dp)
+                                )
+
+                                Spacer(modifier = Modifier.width(16.dp))
+
                                 Text(
                                     text = label,
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = if (rhythmPulseNotificationIntervalHours == hours) FontWeight.Bold else FontWeight.Normal,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isSelected)
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    else
+                                        MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.weight(1f)
                                 )
-                                if (rhythmPulseNotificationIntervalHours == hours) {
+
+                                if (isSelected) {
                                     Icon(
                                         imageVector = RhythmIcons.CheckCircle,
                                         contentDescription = stringResource(R.string.ui_selected),
-                                        tint = MaterialTheme.colorScheme.primary
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
                         }
                     }
                 }
-            },
-            confirmButton = {
-                OutlinedButton(onClick = { showPulseIntervalDialog = false }) {
-                    Text(stringResource(R.string.ui_close))
-                }
-            },
-            shape = RoundedCornerShape(24.dp)
-        )
+            }
+        }
     }
 }
