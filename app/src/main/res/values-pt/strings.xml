@@ -2593,4 +2593,10 @@
     <string name="audio_effect_decrease">Diminuir %1$s em 1%%</string>
     <string name="audio_effect_increase">Aumentar %1$s em 1%%</string>
     <string name="audio_effect_step_hint">1% por toque</string>
+    <string name="play_next_selected_track_desc">Coloca a música selecionada na fila após os teus pedidos anteriores.</string>
+    <string name="play_next_queue_position">%1$s está na posição %2$d da fila</string>
+    <plurals name="play_next_queued_tracks">
+        <item quantity="one">%d música na fila</item>
+        <item quantity="other">%d músicas na fila</item>
+    </plurals>
 </resources>

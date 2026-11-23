@@ -3206,4 +3206,10 @@
     <string name="folder_blocked_success">Pasta bloqueada: %1$s</string>
     <string name="folder_whitelisted_success">Pasta permitida: %1$s</string>
     <string name="error_folder_add_failed">Não foi possível identificar a pasta. Selecione uma pasta válida.</string>
+    <string name="play_next_selected_track_desc">Coloca a música selecionada na fila após os seus pedidos anteriores.</string>
+    <string name="play_next_queue_position">%1$s está na posição %2$d da fila</string>
+    <plurals name="play_next_queued_tracks">
+        <item quantity="one">%d música na fila</item>
+        <item quantity="other">%d músicas na fila</item>
+    </plurals>
 </resources>

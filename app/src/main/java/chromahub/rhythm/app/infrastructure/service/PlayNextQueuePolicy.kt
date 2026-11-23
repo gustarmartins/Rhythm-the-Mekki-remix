@@ -13,6 +13,7 @@ object PlayNextCommand {
     const val IDS = "queue_ids"
     const val SOURCE = "queue_source"
     const val ITEMS = "items"
+    const val LIST_PLAYBACK = "list_playback"
     const val ENTRY_TOKEN = "rhythm_play_next_entry"
     const val INSERTION_INDEX = "insertion_index"
     const val VIRTUAL_QUEUE = "virtual_queue"
@@ -22,6 +23,16 @@ object PlayNextCommand {
     const val REQUESTED_SHUFFLE = "rhythm_requested_shuffle"
     const val RESTORED_PENDING = "rhythm_restored_pending"
     const val RESTORED_ORIGINAL = "rhythm_restored_original"
+}
+
+// The prefix survives queue persistence because occurrence tokens are saved verbatim.
+internal const val LIST_PLAYBACK_TOKEN_PREFIX = "list-playback/"
+
+/** A second album (or its next Binder batch) follows the already queued list material. */
+internal fun queuedListPrefix(upcoming: List<String?>, manual: List<String>): List<String> {
+    val reserved = manual.toHashSet()
+    return upcoming.asSequence().filterNot { it in reserved }
+        .takeWhile { it?.startsWith(LIST_PLAYBACK_TOKEN_PREFIX) == true }.filterNotNull().toList()
 }
 
 internal data class PlayNextInsertion(
@@ -42,7 +53,8 @@ internal fun planPlayNextInsertion(
     currentIndex: Int,
     playbackOrder: List<Int>,
     pendingTokens: List<String>,
-    addedCount: Int
+    addedCount: Int,
+    listPlayback: Boolean = false
 ): PlayNextInsertion {
     require(addedCount > 0)
     require(playbackOrder.sorted() == entryTokens.indices.toList())
@@ -53,7 +65,10 @@ internal fun planPlayNextInsertion(
     val future = playbackOrder.drop(currentPosition + 1).mapNotNull { entryTokens[it] }.toSet()
     val pending = candidates.filter { it in future }
     val byToken = entryTokens.withIndex().filter { it.value != null }.associate { it.value to it.index }
-    val pendingIndices = pending.mapNotNull { byToken[it] }
+    val ahead = if (listPlayback) pending + queuedListPrefix(
+        playbackOrder.drop(currentPosition + 1).map { entryTokens[it] }, pending
+    ) else pending
+    val pendingIndices = ahead.mapNotNull { byToken[it] }
     val insertion = (pendingIndices.lastOrNull()?.plus(1) ?: (currentIndex + 1))
         .coerceIn(0, entryTokens.size)
     fun remap(index: Int) = if (index >= insertion) index + addedCount else index
@@ -63,6 +78,6 @@ internal fun planPlayNextInsertion(
     val order = context.take(split).map(::remap) + pendingIndices.map(::remap) +
         (insertion until insertion + addedCount) + context.drop(split).map(::remap)
     return PlayNextInsertion(
-        insertion, split + pending.size, split - 1, order, pending
+        insertion, split + ahead.size, split - 1, order, pending
     )
 }

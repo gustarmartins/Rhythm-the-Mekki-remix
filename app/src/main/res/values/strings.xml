@@ -3025,4 +3025,10 @@
     <string name="folder_blocked_success">Blocked folder: %1$s</string>
     <string name="folder_whitelisted_success">Whitelisted folder: %1$s</string>
     <string name="error_folder_add_failed">Could not resolve folder path. Please select a valid folder.</string>
+    <string name="play_next_selected_track_desc">Queue the selected song after your earlier requests.</string>
+    <string name="play_next_queue_position">%1$s is #%2$d in Up next</string>
+    <plurals name="play_next_queued_tracks">
+        <item quantity="one">Queued %d song</item>
+        <item quantity="other">Queued %d songs</item>
+    </plurals>
 </resources>

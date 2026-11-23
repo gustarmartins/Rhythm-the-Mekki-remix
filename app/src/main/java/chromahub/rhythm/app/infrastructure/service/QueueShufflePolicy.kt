@@ -22,7 +22,8 @@ internal fun planQueueShuffle(
     require(current in tokens.indices)
     val requests = if (freshSelection) emptyList() else remainingPlayNext(tokens, current, pending)
     val prefix = if (freshSelection) listOf(tokens[current]) else tokens.take(current + 1)
-    val excluded = (prefix + requests).toSet()
+    val lists = if (freshSelection) emptyList() else queuedListPrefix(tokens.drop(current + 1), requests)
+    val excluded = (prefix + requests + lists).toSet()
     val context = tokens.filterNot { it in excluded }
     val ordered = if (enabled) context.shuffled(random) else {
         val available = context.toSet()
@@ -30,7 +31,7 @@ internal fun planQueueShuffle(
         val known = restored.toSet()
         restored + context.filterNot { it in known }
     }
-    return QueueShufflePlan(prefix + requests + ordered, requests)
+    return QueueShufflePlan(prefix + requests + lists + ordered, requests)
 }
 
 /** One coherent service-owned save, including the order to restore when shuffle is disabled. */

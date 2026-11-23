@@ -80,6 +80,15 @@ class QueueServiceAndroidTest {
                 }
                 val before = snapshot(controller)
                 val current = before.getStringArrayList(QueueEntryCommand.TOKENS)!![7]
+                val albumIds = List(30) { "album-track-$it" }
+                for (batch in albumIds.chunked(24)) {
+                    command(controller, PlayNextCommand.ACTION, Bundle().apply {
+                        putBoolean(PlayNextCommand.LIST_PLAYBACK, true)
+                        putParcelableArrayList(PlayNextCommand.ITEMS, ArrayList(batch.map {
+                            item(it).toBundleIncludeLocalConfiguration()
+                        }))
+                    })
+                }
                 command(controller, PlayNextCommand.ACTION, Bundle().apply {
                     putParcelableArrayList(PlayNextCommand.ITEMS, arrayListOf(
                         item("Jump").toBundleIncludeLocalConfiguration(),
@@ -93,11 +102,12 @@ class QueueServiceAndroidTest {
                 for (enabled in listOf(true, false, true)) {
                     main { controller.shuffleModeEnabled = enabled }
                     val actual = snapshot(controller)
-                    assertEquals(2080, actual.getInt(PlayNextCommand.TOTAL))
+                    assertEquals(2080 + albumIds.size, actual.getInt(PlayNextCommand.TOTAL))
                     assertEquals(7, actual.getInt(PlayNextCommand.CURRENT_INDEX))
                     assertEquals(current, actual.getStringArrayList(QueueEntryCommand.TOKENS)!![7])
                     assertEquals(requested, actual.getStringArrayList(QueueEntryCommand.TOKENS)!!.subList(8, 11))
                     assertEquals(listOf("Jump", "Jump", "Brave"), actual.getStringArrayList(PlayNextCommand.IDS)!!.subList(8, 11))
+                    assertEquals(albumIds, actual.getStringArrayList(PlayNextCommand.IDS)!!.drop(11).take(albumIds.size))
                     assertEquals(17000L, main { controller.currentPosition })
                     assertFalse(main { controller.playWhenReady })
                 }

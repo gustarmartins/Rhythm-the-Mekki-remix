@@ -6,12 +6,12 @@ import org.junit.Test
 class PlayNextQueuePolicyTest {
     private class Queue(var tokens: MutableList<String?>, var order: List<Int>, var current: Int) {
         var pending = emptyList<String>()
-        fun add(vararg entries: String) {
-            val plan = planPlayNextInsertion(tokens, current, order, pending, entries.size)
+        fun add(vararg entries: String, listPlayback: Boolean = false) {
+            val plan = planPlayNextInsertion(tokens, current, order, pending, entries.size, listPlayback)
             tokens.addAll(plan.insertionIndex, entries.toList())
             if (current >= plan.insertionIndex) current += entries.size
             order = plan.playbackOrder
-            pending = plan.remainingPending + entries
+            pending = if (listPlayback) plan.remainingPending else plan.remainingPending + entries
         }
         fun future() = order.drop(order.indexOf(current) + 1).map { tokens[it] }
         fun next() { current = order[order.indexOf(current) + 1] }
@@ -28,6 +28,37 @@ class PlayNextQueuePolicyTest {
         val q = Queue(mutableListOf(null, "tail"), listOf(0, 1), 0)
         q.add("Jump", "Brave"); q.add("Jet Rocket"); q.add("four", "five")
         assertEquals(listOf("Jump", "Brave", "Jet Rocket", "four", "five", "tail"), q.future())
+    }
+
+    @Test fun individualRequestsInterruptAPlayingAlbumAndTheAlbumThenResumes() {
+        val album = List(105) { "$LIST_PLAYBACK_TOKEN_PREFIX$it" }
+        // Current is last in physical order, with a different next track in shuffle traversal.
+        val q = Queue(mutableListOf("tail", "history", "current"), listOf(1, 2, 0), 2)
+        album.chunked(24).forEach { q.add(*it.toTypedArray(), listPlayback = true) }
+        assertEquals(album + "tail", q.future())
+        q.next()
+        q.add("Brave-1", "Brave-2")
+        q.add("other-request")
+        assertEquals(listOf("Brave-1", "Brave-2", "other-request") + album.drop(1) + "tail", q.future())
+        assertEquals(album.first(), q.tokens[q.current])
+        assertEquals(listOf("Brave-1", "Brave-2", "other-request"), q.pending)
+    }
+
+    @Test fun laterAlbumsFollowEarlierListsAndLeaveManualRequestsAtTheFront() {
+        val q = Queue(mutableListOf("current", "tail"), listOf(0, 1), 0)
+        val first = LIST_PLAYBACK_TOKEN_PREFIX + "album-one"
+        val second = LIST_PLAYBACK_TOKEN_PREFIX + "album-two"
+        q.add(first, listPlayback = true)
+        q.add("manual")
+        q.add(second, listPlayback = true)
+        assertEquals(listOf("manual", first, second, "tail"), q.future())
+        val traversal = q.order.map { q.tokens[it]!! }
+        val saved = SavedPlaybackQueue(traversal, traversal, q.pending, traversal, true)
+        for (shuffle in listOf(false, true)) {
+            val plan = planQueueShuffle(saved.tokens, 0, saved.pending, saved.original, shuffle)
+            assertEquals(traversal, plan.order)
+            assertEquals(listOf("manual"), plan.pending)
+        }
     }
 
     @Test fun nativeShuffleWithCurrentAtLastPhysicalIndexKeepsContextTraversal() {

@@ -565,7 +565,6 @@ fun PlaylistDetailScreen(
             onPlayNext = {
                 onPlayNext(targetSong)
                 showSongOptionsSheet = false
-                Toast.makeText(context, context.getString(R.string.will_play_next, targetSong.title), Toast.LENGTH_SHORT).show()
             },
             onAddToQueue = {
                 onAddToQueue(targetSong)

@@ -74,7 +74,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
     val repository = StreamingMusicModule.provideStreamingMusicRepository(application)
     private val providerRepository = repository as? StreamingMusicRepositoryImpl
     private val notificationManager = StreamingNotificationManager(application)
-    private var queueSelectionHandler: ((suspend () -> List<StreamingSong>) -> Unit)? = null
+    private var queueSelectionHandler: ((Boolean, suspend () -> List<StreamingSong>) -> Unit)? = null
     private var queueSelectionRequested: (() -> Boolean)? = null
     private var playbackHandler: ((List<StreamingSong>, Int, Boolean) -> Boolean)? = null
     private var seekProgressHandler: ((Float) -> Unit)? = null
@@ -656,7 +656,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
 
     fun setPlaybackHandler(
         shouldEnqueueSelection: () -> Boolean = { false },
-        onQueueSelection: (suspend () -> List<StreamingSong>) -> Unit = {},
+        onQueueSelection: (Boolean, suspend () -> List<StreamingSong>) -> Unit = { _, _ -> },
         handler: (List<StreamingSong>, Int, Boolean) -> Boolean
     ) {
         queueSelectionRequested = shouldEnqueueSelection
@@ -1171,7 +1171,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
             val requested = if (enqueueWholeList) {
                 if (shuffle) playableQueue.shuffled() else playableQueue
             } else listOf(selected)
-            queueSelectionHandler?.invoke {
+            queueSelectionHandler?.invoke(enqueueWholeList) {
                 requested.mapNotNull { resolveSongForEnqueue(it) }
             }
             return
@@ -1274,7 +1274,7 @@ class StreamingMusicViewModel(application: Application) : AndroidViewModel(appli
         suspend fun resolve(): List<StreamingSong> = albums.flatMap { getAlbumSongs(it) }
         // Reserve FIFO order before fetching album contents.
         if (queueSelectionRequested?.invoke() == true) {
-            queueSelectionHandler?.invoke {
+            queueSelectionHandler?.invoke(true) {
                 resolve().let { if (shuffle) it.shuffled() else it }
             }
             return

@@ -5292,9 +5292,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             !appSettings.shouldResumeOnSongSelection(controller.isPlaying, controller.playWhenReady)
     }
 
-    fun enqueueSelectionIfRequested(songs: List<Song>): Boolean {
+    fun enqueueSelectionIfRequested(songs: List<Song>, listPlayback: Boolean = false): Boolean {
         if (songs.isEmpty() || !queuesNewSelections()) return false
-        playNext(songs)
+        playNextResolving(listPlayback) { songs }
         return true
     }
 
@@ -5535,7 +5535,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         startIndex: Int = 0,
         sourceLabel: String? = null
     ) {
-        if (enqueueSelectionIfRequested(songs.drop(startIndex.coerceAtLeast(0)))) return
+        if (enqueueSelectionIfRequested(songs.drop(startIndex.coerceAtLeast(0)), listPlayback = true)) return
         if (songs.isEmpty()) {
             Log.w(TAG, "Ignoring list play request for empty song list")
             return
@@ -5915,7 +5915,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun playAlbum(album: Album) {
         if (queuesNewSelections()) {
-            playNextResolving { (album.songs.ifEmpty { repository.getSongsForAlbumLocal(album.id) }).sortedWith { a, b -> compareByDiscThenTrack(a, b) } }
+            playNextResolving(listPlayback = true) { (album.songs.ifEmpty { repository.getSongsForAlbumLocal(album.id) }).sortedWith { a, b -> compareByDiscThenTrack(a, b) } }
             return
         }
         viewModelScope.launch {
@@ -5949,7 +5949,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun playArtist(artist: Artist) {
         if (queuesNewSelections()) {
-            playNextResolving { repository.getSongsForArtist(artist.id) }
+            playNextResolving(listPlayback = true) { repository.getSongsForArtist(artist.id) }
             return
         }
         viewModelScope.launch {
@@ -6019,7 +6019,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 pinStartIndex = keepShuffle,
                 respectQueueRule = false
             )
-            "play_next" -> playNext(songs.drop(startIndex.coerceIn(0, songs.lastIndex)))
+            "play_next" -> playNext(songs[startIndex.coerceIn(0, songs.lastIndex)])
             "add_to_end" -> insertQueueListAndPlay(songs, startIndex, insertAfterCurrent = false)
             else -> {
                 Log.w(TAG, "Unknown list queue action '$action', falling back to replace")
@@ -8732,7 +8732,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** Reserve FIFO order before any streaming URL resolution or background conversion. */
-    fun playNextResolving(resolveSongs: suspend () -> List<Song>) {
+    fun playNextResolving(listPlayback: Boolean = false, resolveSongs: suspend () -> List<Song>) {
         viewModelScope.launch {
             playNextRequests.withLock {
                 _queueOperationError.value = null
@@ -8751,11 +8751,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     if ((controller.currentMediaItem == null || controller.playbackState == Player.STATE_IDLE ||
                             controller.playbackState == Player.STATE_ENDED) && !canStartPlayback("playNext")) return@withLock
                     // Bounded commands avoid Binder's transaction limit for albums and large lists.
-                    for (batch in songs.chunked(24)) {
+                    var firstPosition: Int? = null
+                    for ((batchIndex, batch) in songs.chunked(24).withIndex()) {
                         val bundles = withContext(Dispatchers.Default) {
                             batch.map { it.toMediaItem().toBundleIncludeLocalConfiguration() }
                         }
                         val args = Bundle().apply {
+                            putBoolean(PlayNextCommand.LIST_PLAYBACK, listPlayback)
                             putParcelableArrayList(PlayNextCommand.ITEMS, ArrayList(bundles))
                         }
                         val result = suspendCancellableCoroutine<SessionResult> { continuation ->
@@ -8768,10 +8770,20 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                             }, androidx.core.content.ContextCompat.getMainExecutor(getApplication()))
                         }
                         check(result.resultCode == SessionResult.RESULT_SUCCESS) { "Playback service rejected queue addition (${result.resultCode})" }
+                        if (batchIndex == 0 && result.extras.containsKey(PlayNextCommand.INSERTION_INDEX)) {
+                            firstPosition = result.extras.getInt(PlayNextCommand.INSERTION_INDEX) -
+                                result.extras.getInt(PlayNextCommand.CURRENT_INDEX)
+                        }
                         syncServiceOwnedQueue(controller)
                     }
                     val context = getApplication<android.app.Application>().applicationContext
-                    android.widget.Toast.makeText(context, context.getString(R.string.playing_next_simple, songs.first().title), android.widget.Toast.LENGTH_SHORT).show()
+                    val position = firstPosition ?: 0
+                    val message = when {
+                        songs.size > 1 -> context.resources.getQuantityString(R.plurals.play_next_queued_tracks, songs.size, songs.size)
+                        position > 1 -> context.getString(R.string.play_next_queue_position, songs.first().title, position)
+                        else -> context.getString(R.string.playing_next_simple, songs.first().title)
+                    }
+                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
                 } catch (cancelled: kotlinx.coroutines.CancellationException) {
                     throw cancelled
                 } catch (e: Exception) {
@@ -9104,7 +9116,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      * Plays a list of songs as a queue.
      */
     fun playSongs(songs: List<Song>, sourceLabel: String? = null) {
-        if (enqueueSelectionIfRequested(songs)) return
+        if (enqueueSelectionIfRequested(songs, listPlayback = true)) return
         Log.d(TAG, "Playing list of songs (force replace): ${songs.size} songs")
         playListWithContinuation(songs, startIndex = 0, sourceLabel = sourceLabel)
     }
@@ -9114,7 +9126,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
      * Respects the shuffleUsesExoplayer setting.
      */
     fun playShuffled(songs: List<Song>) {
-        if (enqueueSelectionIfRequested(songs.shuffled())) return
+        if (enqueueSelectionIfRequested(songs.shuffled(), listPlayback = true)) return
         Log.d(TAG, "Playing shuffled list of songs: ${songs.size} songs")
         if (songs.isNotEmpty()) {
             playQueue(songs, enableShuffle = true)
@@ -9126,7 +9138,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun playShuffledSongs() {
         val allSongs = _songs.value
         if (allSongs.isEmpty()) return
-        if (enqueueSelectionIfRequested(allSongs.shuffled())) return
+        if (enqueueSelectionIfRequested(allSongs.shuffled(), listPlayback = true)) return
         playQueue(allSongs, enableShuffle = true)
     }
 
@@ -9744,7 +9756,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun playPlaylistShuffled(playlist: Playlist) {
-        if (enqueueSelectionIfRequested(playlist.songs.shuffled())) return
+        if (enqueueSelectionIfRequested(playlist.songs.shuffled(), listPlayback = true)) return
         Log.d(TAG, "Playing shuffled playlist: ${playlist.name}")
         if (playlist.songs.isNotEmpty()) {
             playQueue(playlist.songs, enableShuffle = true)

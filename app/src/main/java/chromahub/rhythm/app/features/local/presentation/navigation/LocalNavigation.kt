@@ -1087,8 +1087,8 @@ private fun LocalNavigationContent(
     LaunchedEffect(streamingMusicViewModel, viewModel, navController) {
         streamingMusicViewModel.setPlaybackHandler(
             shouldEnqueueSelection = { viewModel.queuesNewSelections() },
-            onQueueSelection = { resolveSongs ->
-                viewModel.playNextResolving { resolveSongs().mapNotNull { it.toLocalSong() } }
+            onQueueSelection = { listPlayback, resolveSongs ->
+                viewModel.playNextResolving(listPlayback) { resolveSongs().mapNotNull { it.toLocalSong() } }
             }
         ) { streamingQueue, startIndex, shuffle ->
             val mappedQueue = streamingQueue.mapNotNull { it.toLocalSong() }

@@ -2704,7 +2704,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         notifyBtVirtualCommands()
     }
 
-    private fun enqueuePlayNext(items: List<MediaItem>): Bundle {
+    private fun enqueuePlayNext(items: List<MediaItem>, listPlayback: Boolean): Bundle {
         require(items.isNotEmpty())
         if (rhythmPlayerEngine.isTransitionRunning()) rhythmPlayerEngine.snapCompleteTransition()
         if (::transitionController.isInitialized) transitionController.cancelPendingTransition()
@@ -2728,11 +2728,12 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
         val plan = planPlayNextInsertion(
             original.map { it.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN) },
-            currentIndex, order, pendingPlayNextTokens, items.size
+            currentIndex, order, pendingPlayNextTokens, items.size, listPlayback
         )
         val additions = items.map { item ->
             val extras = Bundle(item.mediaMetadata.extras ?: Bundle.EMPTY).apply {
-                putString(PlayNextCommand.ENTRY_TOKEN, java.util.UUID.randomUUID().toString())
+                val token = java.util.UUID.randomUUID().toString()
+                putString(PlayNextCommand.ENTRY_TOKEN, if (listPlayback) LIST_PLAYBACK_TOKEN_PREFIX + token else token)
             }
             item.buildUpon().setMediaMetadata(item.mediaMetadata.buildUpon().setExtras(extras).build()).build()
         }
@@ -2756,7 +2757,9 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         }
         pendingPlayNextTokens.clear()
         pendingPlayNextTokens.addAll(plan.remainingPending)
-        pendingPlayNextTokens.addAll(additions.mapNotNull { it.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN) })
+        if (!listPlayback) {
+            pendingPlayNextTokens.addAll(additions.mapNotNull { it.mediaMetadata.extras?.getString(PlayNextCommand.ENTRY_TOKEN) })
+        }
         // Adding to a paused/active queue does not resume it or seek away from its current song.
         if (currentIndex == -1 || player.playbackState == Player.STATE_ENDED) {
             if (virtual != null) {
@@ -3904,7 +3907,7 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
                         result
                     } else {
                         if (musicAssistantPlayer?.isReleased == true) switchMusicSource(items)
-                        Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS, enqueuePlayNext(items)))
+                        Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS, enqueuePlayNext(items, args.getBoolean(PlayNextCommand.LIST_PLAYBACK))))
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Unable to enqueue Play Next request", e)

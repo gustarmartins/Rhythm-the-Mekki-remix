@@ -452,7 +452,7 @@ fun QueueListActionDialog(
                                 color = MaterialTheme.colorScheme.onSecondaryContainer
                             )
                             Text(
-                                text = context.getString(R.string.list_queue_action_play_next_desc),
+                                text = context.getString(R.string.play_next_selected_track_desc),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
                             )
