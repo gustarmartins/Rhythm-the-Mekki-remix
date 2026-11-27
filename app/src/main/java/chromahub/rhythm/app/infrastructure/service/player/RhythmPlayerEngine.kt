@@ -11,7 +11,6 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.util.Log
 import androidx.annotation.OptIn
-import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
@@ -298,6 +297,14 @@ class RhythmPlayerEngine(
             launch { appSettings.virtualizerEnabled.collect { updateTrackSelectionParameters() } }
             launch { appSettings.monoAudioEnabled.collect { updateTrackSelectionParameters() } }
             launch { appSettings.isAudioOffloadActive.collect { updateTrackSelectionParameters() } }
+            launch {
+                appSettings.systemSpatialAudio.collect { allowed ->
+                    val attributes = musicOutputAttributes(allowed)
+                    for (player in listOf(playerA, playerB)) {
+                        if (player.audioAttributes != attributes) player.setAudioAttributes(attributes, false)
+                    }
+                }
+            }
             launch { appSettings.playbackRate.collect { applyPlaybackRate(it) } }
             launch { appSettings.gaplessPlayback.collect { updateTrackSelectionParameters() } }
             launch { appSettings.skipSilenceEnabled.collect { updateTrackSelectionParameters() } }
@@ -431,11 +438,6 @@ class RhythmPlayerEngine(
             setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
         }
 
-        val audioAttributes = AudioAttributes.Builder()
-            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-            .setUsage(C.USAGE_MEDIA)
-            .build()
-
         val okHttpClient = UserTrustManager.buildUserTrustingHttpClientBuilder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
@@ -487,7 +489,7 @@ class RhythmPlayerEngine(
             .build().apply {
                 setShuffleOrder(RhythmShuffleOrder(0))
                 this.trackSelectionParameters = trackSelectionParameters
-                setAudioAttributes(audioAttributes, handleAudioFocus)
+                setAudioAttributes(musicOutputAttributes(appSettings.systemSpatialAudio.value), handleAudioFocus)
                 setHandleAudioBecomingNoisy(true)
                 setWakeMode(C.WAKE_MODE_LOCAL)
                 setSkipSilenceEnabled(appSettings.skipSilenceEnabled.value)

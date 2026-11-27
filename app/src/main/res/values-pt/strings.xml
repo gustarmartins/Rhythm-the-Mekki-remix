@@ -65,6 +65,8 @@
     <string name="settings_remember_repeat_mode_desc">Restaure o modo de repetição após reiniciar.</string>
     <string name="settings_remember_shuffle_mode">Persistir no modo aleatório</string>
     <string name="settings_remember_shuffle_mode_desc">Restaure o modo aleatório após reiniciar.</string>
+    <string name="settings_system_spatial_audio">Permitir áudio espacial do sistema</string>
+    <string name="settings_system_spatial_audio_desc">Permitir que o Android aplique áudio espacial a músicas e saídas compatíveis.</string>
     <string name="settings_audio_effects">Transições e Saída</string>
     <string name="settings_resume_on_device_reconnect">Retomada Automática</string>
     <string name="settings_resume_on_device_reconnect_desc">Retomada automática quando os dispositivos de áudio são reconectados</string>

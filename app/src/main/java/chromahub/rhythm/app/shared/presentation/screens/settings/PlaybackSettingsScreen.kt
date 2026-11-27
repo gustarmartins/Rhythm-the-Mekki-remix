@@ -15,6 +15,7 @@ import chromahub.rhythm.app.shared.presentation.components.icons.MaterialSymbolI
 import chromahub.rhythm.app.shared.presentation.components.icons.Icon
 
 import android.content.Context
+import android.os.Build
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -69,6 +70,7 @@ fun PlaybackSettingsScreen(
     val crossfadeEnabled by appSettings.crossfade.collectAsState()
     val crossfadeDuration by appSettings.crossfadeDuration.collectAsState()
     val stopPlaybackOnAppClose by appSettings.stopPlaybackOnAppClose.collectAsState()
+    val systemSpatialAudio by appSettings.systemSpatialAudio.collectAsState()
     val monoAudioEnabled by appSettings.monoAudioEnabled.collectAsState()
     val useSystemVolume by appSettings.useSystemVolume.collectAsState()
     val resumeOnDeviceReconnect by appSettings.resumeOnDeviceReconnect.collectAsState()
@@ -167,7 +169,14 @@ fun PlaybackSettingsScreen(
             ),
             SettingGroup(
                 title = context.getString(R.string.settings_audio_effects),
-                items = listOf(
+                items = listOfNotNull(
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S_V2) SettingItem(
+                        icon = MaterialSymbolIcon("spatial_audio", filled = true),
+                        title = context.getString(R.string.settings_system_spatial_audio),
+                        description = context.getString(R.string.settings_system_spatial_audio_desc),
+                        toggleState = systemSpatialAudio,
+                        onToggleChange = { appSettings.setSystemSpatialAudio(it) }
+                    ) else null,
                     SettingItem(
                         icon = MaterialSymbolIcon("graphic_eq", filled = true),
                         title = context.getString(R.string.settings_gapless_playback),

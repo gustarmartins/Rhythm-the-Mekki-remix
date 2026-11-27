@@ -161,6 +161,7 @@ class AppSettings private constructor(context: Context) {
         private const val KEY_REPLAY_GAIN_DRC = "replay_gain_drc"
         private const val KEY_REPLAY_GAIN_PREAMP = "replay_gain_preamp"
         private const val KEY_REPLAY_GAIN_PREAMP_UNTAGGED = "replay_gain_preamp_untagged"
+        private const val KEY_SYSTEM_SPATIAL_AUDIO = "system_spatial_audio"
         private const val KEY_SKIP_SILENCE = "skip_silence_enabled"
         private const val KEY_AUDIO_ROUTING_MODE = "audio_routing_mode" // "default", "app", "system"
         private const val KEY_RESUME_ON_DEVICE_RECONNECT = "resume_on_device_reconnect"
@@ -801,6 +802,9 @@ class AppSettings private constructor(context: Context) {
 
     private val _replayGainPreampUntagged = MutableStateFlow(prefs.getFloat(KEY_REPLAY_GAIN_PREAMP_UNTAGGED, 0f))
     val replayGainPreampUntagged: StateFlow<Float> = _replayGainPreampUntagged.asStateFlow()
+
+    private val _systemSpatialAudio = MutableStateFlow(prefs.getBoolean(KEY_SYSTEM_SPATIAL_AUDIO, true))
+    val systemSpatialAudio: StateFlow<Boolean> = _systemSpatialAudio.asStateFlow()
 
     private val _skipSilenceEnabled = MutableStateFlow(prefs.getBoolean(KEY_SKIP_SILENCE, false))
     val skipSilenceEnabled: StateFlow<Boolean> = _skipSilenceEnabled.asStateFlow()
@@ -2720,6 +2724,11 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
     fun setCrossfadeOnSkip(enable: Boolean) {
         prefs.edit { putBoolean(KEY_CROSSFADE_ON_SKIP, enable) }
         _crossfadeOnSkip.value = enable
+    }
+
+    fun setSystemSpatialAudio(enable: Boolean) {
+        prefs.edit { putBoolean(KEY_SYSTEM_SPATIAL_AUDIO, enable) }
+        _systemSpatialAudio.value = enable
     }
 
     fun setSkipSilenceEnabled(enable: Boolean) {
@@ -5970,6 +5979,7 @@ private val _autoCheckForUpdates = MutableStateFlow(prefs.getBoolean(KEY_AUTO_CH
         _replayGainPreamp.value = prefs.getFloat(KEY_REPLAY_GAIN_PREAMP, 0f)
         _replayGainPreampUntagged.value = prefs.getFloat(KEY_REPLAY_GAIN_PREAMP_UNTAGGED, 0f)
         _audioOffloadEnabled.value = prefs.getBoolean(KEY_AUDIO_OFFLOAD_ENABLED, false)
+        _systemSpatialAudio.value = prefs.getBoolean(KEY_SYSTEM_SPATIAL_AUDIO, true)
         _skipSilenceEnabled.value = prefs.getBoolean(KEY_SKIP_SILENCE, false)
         _batterySaverAutoEnabled.value = prefs.getBoolean("battery_saver_auto_enabled", true)
         _batterySaverThreshold.value = prefs.getInt("battery_saver_threshold", 15)
