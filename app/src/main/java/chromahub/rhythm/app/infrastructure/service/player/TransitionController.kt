@@ -335,8 +335,6 @@ class TransitionController(
                 return@launch
             }
             
-            val window = Timeline.Window()
-            timeline.getWindow(currentWindowIndex, window)
             nextIndex = timeline.getNextWindowIndex(
                 currentWindowIndex,
                 repeatMode,
