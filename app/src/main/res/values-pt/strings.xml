@@ -71,7 +71,7 @@
     <string name="settings_resume_on_device_reconnect">Retomada Automática</string>
     <string name="settings_resume_on_device_reconnect_desc">Retomada automática quando os dispositivos de áudio são reconectados</string>
     <string name="settings_gapless_playback">Reprodução sem intervalos</string>
-    <string name="settings_gapless_playback_desc">Mude de faixa sem silêncio.</string>
+    <string name="settings_gapless_playback_desc">Prepara a faixa seguinte para que os álbuns contínuos sejam reproduzidos sem pausa na transição automática.</string>
     <string name="settings_crossfade">Faixa Crossfade</string>
     <string name="settings_crossfade_desc">Combine faixas de saída e de entrada.</string>
     <string name="settings_crossfade_duration">Duração do esmaecimento</string>
