@@ -11,10 +11,8 @@ import androidx.media3.common.Timeline
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import androidx.media3.common.util.Log
-import androidx.media3.common.util.Util
 import androidx.media3.exoplayer.audio.ToFloatPcmAudioProcessor
 import java.nio.ByteBuffer
-import kotlin.math.abs
 
 @androidx.media3.common.util.UnstableApi
 class ReplayGainAudioProcessor : BaseAudioProcessor() {
@@ -77,91 +75,9 @@ class ReplayGainAudioProcessor : BaseAudioProcessor() {
                 if (localCurrentGain == 1f && localTargetGain == 1f) {
                     outputBuffer.put(inputBuffer)
                 } else {
-                    val needsRamp = abs(localTargetGain - localCurrentGain) > 0.0001f
-                    if (!needsRamp) {
-                        val g = localTargetGain
-                        while (inputBuffer.hasRemaining()) {
-                            when (inputAudioFormat.encoding) {
-                                C.ENCODING_PCM_8BIT -> outputBuffer.put(
-                                    (inputBuffer.get() * g).toInt().toByte()
-                                )
-
-                                C.ENCODING_PCM_16BIT, C.ENCODING_PCM_16BIT_BIG_ENDIAN ->
-                                    outputBuffer.putShort(
-                                        (inputBuffer.getShort() * g).toInt().toShort()
-                                    )
-
-                                C.ENCODING_PCM_24BIT, C.ENCODING_PCM_24BIT_BIG_ENDIAN -> {
-                                    Util.putInt24(
-                                        outputBuffer, (Util.getInt24(
-                                            inputBuffer,
-                                            inputBuffer.position()
-                                        ) * g).toInt()
-                                            .shl(8).shr(8)
-                                    )
-                                    inputBuffer.position(inputBuffer.position() + 3)
-                                }
-
-                                C.ENCODING_PCM_32BIT, C.ENCODING_PCM_32BIT_BIG_ENDIAN ->
-                                    outputBuffer.putInt((inputBuffer.getInt() * g).toInt())
-
-                                C.ENCODING_PCM_FLOAT -> outputBuffer.putFloat(
-                                    inputBuffer.getFloat() * g
-                                )
-
-                                C.ENCODING_PCM_DOUBLE -> outputBuffer.putDouble(
-                                    inputBuffer.getDouble() * g
-                                )
-
-                                else -> throw IllegalStateException("unreachable, bad encoding")
-                            }
-                        }
-                        currentGain = localTargetGain
-                    } else {
-                        val gainStep = if (frameCount > 0) (localTargetGain - localCurrentGain) / frameCount else 0f
-                        var effectiveGain = localCurrentGain
-                        val channels = inputAudioFormat.channelCount
-                        for (f in 0 until frameCount) {
-                            effectiveGain += gainStep
-                            for (c in 0 until channels) {
-                                when (inputAudioFormat.encoding) {
-                                    C.ENCODING_PCM_8BIT -> outputBuffer.put(
-                                        (inputBuffer.get() * effectiveGain).toInt().toByte()
-                                    )
-
-                                    C.ENCODING_PCM_16BIT, C.ENCODING_PCM_16BIT_BIG_ENDIAN ->
-                                        outputBuffer.putShort(
-                                            (inputBuffer.getShort() * effectiveGain).toInt().toShort()
-                                        )
-
-                                    C.ENCODING_PCM_24BIT, C.ENCODING_PCM_24BIT_BIG_ENDIAN -> {
-                                        Util.putInt24(
-                                            outputBuffer, (Util.getInt24(
-                                                inputBuffer,
-                                                inputBuffer.position()
-                                            ) * effectiveGain).toInt()
-                                                .shl(8).shr(8)
-                                        )
-                                        inputBuffer.position(inputBuffer.position() + 3)
-                                    }
-
-                                    C.ENCODING_PCM_32BIT, C.ENCODING_PCM_32BIT_BIG_ENDIAN ->
-                                        outputBuffer.putInt((inputBuffer.getInt() * effectiveGain).toInt())
-
-                                    C.ENCODING_PCM_FLOAT -> outputBuffer.putFloat(
-                                        inputBuffer.getFloat() * effectiveGain
-                                    )
-
-                                    C.ENCODING_PCM_DOUBLE -> outputBuffer.putDouble(
-                                        inputBuffer.getDouble() * effectiveGain
-                                    )
-
-                                    else -> throw IllegalStateException("unreachable, bad encoding")
-                                }
-                            }
-                        }
-                        currentGain = localTargetGain
-                    }
+                    scalePcm(inputBuffer, outputBuffer, inputAudioFormat.encoding,
+                        inputAudioFormat.channelCount, frameCount, localCurrentGain, localTargetGain)
+                    currentGain = localTargetGain
                 }
             }
         }

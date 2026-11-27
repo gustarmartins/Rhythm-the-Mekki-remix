@@ -10,6 +10,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Timeline
 import androidx.media3.common.audio.AudioProcessor
 import org.junit.After
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -180,6 +181,23 @@ class ReplayGainAudioProcessorTest {
         val expectedGain = ReplayGainUtil.dbToAmpl(-8.0f)
         assertEquals(expectedGain, processor.targetGain, 0.001f)
         assertEquals(expectedGain, processor.currentGain, 0.001f)
+    }
+
+    @Test
+    fun untaggedPositivePreampSaturatesWithoutReversingPeakPolarity() {
+        processor.setMode(ReplayGainUtil.Mode.Track)
+        processor.setNonRgGain(6)
+        processor.setReduceGain(false)
+        processor.configure(createStereo16BitFormat())
+        processor.flush()
+        val input = createByteBufferWithShorts(24000, -24000, 1000, -1000)
+        processor.queueInput(input)
+        val samples = processor.output.asShortBuffer()
+        assertEquals(Short.MAX_VALUE, samples.get())
+        assertEquals(Short.MIN_VALUE, samples.get())
+        assertEquals((1000 * ReplayGainUtil.dbToAmpl(6f)).toInt().toShort(), samples.get())
+        assertEquals((-1000 * ReplayGainUtil.dbToAmpl(6f)).toInt().toShort(), samples.get())
+        assertFalse(samples.hasRemaining())
     }
 
     @Test
