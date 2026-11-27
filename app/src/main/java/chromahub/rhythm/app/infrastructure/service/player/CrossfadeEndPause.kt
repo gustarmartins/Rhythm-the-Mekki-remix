@@ -9,6 +9,29 @@ internal fun shouldArmCrossfadeEndPause(remainingUntilTransitionMs: Long): Boole
 internal fun playbackTimeMs(mediaDurationMs: Long, speed: Float): Long =
     (mediaDurationMs / speed.toDouble()).toLong()
 
+/** Estimate progress between coarse AudioTrack position updates near a scheduled fade. */
+internal class CrossfadePositionClock {
+    private var lastPositionMs: Long? = null
+    private var lastAdvanceTimeMs = 0L
+    private var observedStepMs = 0L
+
+    fun position(positionMs: Long, bufferedMs: Long, playing: Boolean, speed: Float, nowMs: Long): Long {
+        if (!playing) {
+            lastPositionMs = null
+            return positionMs
+        }
+        val previous = lastPositionMs
+        if (previous != positionMs) {
+            observedStepMs = if (previous == null) 0L else (positionMs - previous).coerceAtLeast(0L)
+            lastPositionMs = positionMs
+            lastAdvanceTimeMs = nowMs
+        }
+        // Never project beyond buffered audio, one observed position step, or 450 ms of wall time.
+        val elapsed = (nowMs - lastAdvanceTimeMs).coerceIn(0L, 450L)
+        return positionMs + minOf((elapsed * speed).toLong(), observedStepMs, (bufferedMs - positionMs).coerceAtLeast(0L))
+    }
+}
+
 internal data class CrossfadeWindow(val startPositionMs: Long, val durationMs: Long) {
     companion object {
         fun forTrack(trackDurationMs: Long, speed: Float, requestedMs: Int): CrossfadeWindow? {

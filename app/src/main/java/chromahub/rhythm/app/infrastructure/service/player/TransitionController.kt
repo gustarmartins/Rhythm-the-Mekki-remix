@@ -5,6 +5,7 @@
 
 package chromahub.rhythm.app.infrastructure.service.player
 
+import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.C
@@ -442,12 +443,19 @@ class TransitionController(
             }
 
             // Adaptive polling — sleep longer when far from transition point
-            while (player.currentPosition < transitionPoint && isActive) {
+            val positionClock = CrossfadePositionClock()
+            while (isActive) {
                 if (!isLatestSchedule(generation, expectedMediaId, player)) {
                     Log.d(TAG, "Aborting stale schedule while polling transition point.")
                     return@launch
                 }
-                val remaining = playbackTimeMs(transitionPoint - player.currentPosition, speed)
+                val reported = player.currentPosition
+                val nearFade = playbackTimeMs(transitionPoint - reported, speed) <= 2_000L
+                val position = if (nearFade) {
+                    positionClock.position(reported, player.bufferedPosition, player.isPlaying, speed, SystemClock.elapsedRealtime())
+                } else reported
+                if (position >= transitionPoint) break
+                val remaining = playbackTimeMs(transitionPoint - position, speed)
                 if (shouldArmCrossfadeEndPause(remaining)) engine.setPauseAtEndOfMediaItems(true)
                 val sleep = when {
                     remaining > 5000 -> 1000L

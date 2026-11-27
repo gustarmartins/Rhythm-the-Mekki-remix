@@ -20,6 +20,22 @@ class CrossfadeEndPauseTest {
         assertEquals(1_500L, playbackTimeMs(3_000, 2f))
     }
 
+    @Test fun nearEndClockInterpolatesCoarsePlayingPositionsWithinBufferedAudio() {
+        val clock = CrossfadePositionClock()
+        fun sample(pos: Long, now: Long, playing: Boolean = true, buffer: Long = 6_000L) =
+            clock.position(pos, buffer, playing, 0.5f, now)
+        assertEquals(5_292L, sample(5_292, 10_783))
+        assertEquals(5_462L, sample(5_462, 11_112))
+        assertEquals(5_475L, sample(5_462, 11_138))
+        assertEquals(5_470L, sample(5_462, 11_150, buffer = 5_470))
+        assertEquals(5_632L, sample(5_462, 12_000))
+        assertEquals(5_462L, sample(5_462, 12_020, playing = false))
+        assertEquals(5_462L, sample(5_462, 14_100))
+        assertEquals(5_462L, sample(5_462, 14_300))
+        assertEquals(1_000L, sample(1_000, 14_320))
+        assertEquals(1_000L, sample(1_000, 14_620))
+    }
+
     @Test fun aShortTrackMustHaveEnoughListeningTimeForBothSidesOfTheOverlap() {
         assertNull(CrossfadeWindow.forTrack(1_900, 2f, 4_000))
         assertNull(CrossfadeWindow.forTrack(8_000, 1f, 0))
