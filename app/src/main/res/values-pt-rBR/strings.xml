@@ -74,7 +74,7 @@
     <string name="settings_remember_shuffle_mode">Manter modo aleatório</string>
     <string name="settings_remember_shuffle_mode_desc">Restaura o modo aleatório após reiniciar.</string>
     <string name="settings_system_spatial_audio">Permitir áudio espacial do sistema</string>
-    <string name="settings_system_spatial_audio_desc">Permite que o Android aplique áudio espacial a músicas e saídas compatíveis.</string>
+    <string name="settings_system_spatial_audio_desc">Permite áudio espacial do Android em saídas compatíveis. A mudança é aplicada quando a reprodução termina.</string>
     <string name="settings_audio_effects">Transições e saída</string>
     <string name="settings_resume_on_device_reconnect">Retomada automática</string>
     <string name="settings_resume_on_device_reconnect_desc">Retoma automaticamente a reprodução quando os dispositivos de áudio são reconectados</string>

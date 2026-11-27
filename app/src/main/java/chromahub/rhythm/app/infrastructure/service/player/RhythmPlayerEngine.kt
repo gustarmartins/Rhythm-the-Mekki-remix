@@ -288,6 +288,27 @@ class RhythmPlayerEngine(
         isReleased = false
         Log.d(TAG, "RhythmPlayerEngine initialized. SessionA=${playerA.audioSessionId}, initialVolume=$initVolume")
 
+        // Updating these attributes rebuilds AudioTrack and can discard already-buffered PCM.
+        // Treat both decks as one output, including a paused track or prepared crossfade.
+        fun applySpatialAudioWhenStopped() {
+            if (!scope.isActive) return
+            val decks = listOf(playerA, playerB)
+            if (decks.any { it.playbackState != Player.STATE_IDLE && it.playbackState != Player.STATE_ENDED }) return
+            val attributes = musicOutputAttributes(appSettings.systemSpatialAudio.value)
+            for (deck in decks) {
+                if (deck.audioAttributes != attributes) deck.setAudioAttributes(attributes, false)
+            }
+        }
+        val spatialListener = object : Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) {
+                    applySpatialAudioWhenStopped()
+                }
+            }
+        }
+        playerA.addListener(spatialListener)
+        playerB.addListener(spatialListener)
+
         // Reactively update track selection parameters when settings change
         scope.launch {
             launch { appSettings.crossfade.collect { updateTrackSelectionParameters() } }
@@ -297,14 +318,7 @@ class RhythmPlayerEngine(
             launch { appSettings.virtualizerEnabled.collect { updateTrackSelectionParameters() } }
             launch { appSettings.monoAudioEnabled.collect { updateTrackSelectionParameters() } }
             launch { appSettings.isAudioOffloadActive.collect { updateTrackSelectionParameters() } }
-            launch {
-                appSettings.systemSpatialAudio.collect { allowed ->
-                    val attributes = musicOutputAttributes(allowed)
-                    for (player in listOf(playerA, playerB)) {
-                        if (player.audioAttributes != attributes) player.setAudioAttributes(attributes, false)
-                    }
-                }
-            }
+            launch { appSettings.systemSpatialAudio.collect { applySpatialAudioWhenStopped() } }
             launch { appSettings.playbackRate.collect { applyPlaybackRate(it) } }
             launch { appSettings.gaplessPlayback.collect { updateTrackSelectionParameters() } }
             launch { appSettings.skipSilenceEnabled.collect { updateTrackSelectionParameters() } }

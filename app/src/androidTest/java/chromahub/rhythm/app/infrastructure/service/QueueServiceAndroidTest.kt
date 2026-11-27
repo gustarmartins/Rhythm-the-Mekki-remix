@@ -57,6 +57,7 @@ class QueueServiceAndroidTest {
         require(context.packageName.endsWith(".debug"))
         val settings = AppSettings.getInstance(context)
         val previousGapless = settings.gaplessPlayback.value
+        val previousSpatial = settings.systemSpatialAudio.value
         val previousCrossfade = settings.crossfade.value
         val wav = File.createTempFile("gapless-boundary", ".wav", context.cacheDir)
         val bytesPerSecond = 16_000 // mono 8 kHz, 16-bit PCM
@@ -71,6 +72,7 @@ class QueueServiceAndroidTest {
             val player = main {
                 settings.setCrossfade(false)
                 settings.setGaplessPlayback(true)
+                settings.setSystemSpatialAudio(true)
                 engine.initialize()
                 (engine.masterPlayer as ExoPlayer).apply { volume = 0f }
             }
@@ -109,13 +111,27 @@ class QueueServiceAndroidTest {
                 await("Explicit next advances exactly once (gapless=$gapless)") {
                     player.currentMediaItem?.mediaId == "manual" && player.playWhenReady
                 }
-                main { player.pause() }
+                val allowedNext = !gapless
+                val previousBehavior = main { player.audioAttributes.spatializationBehavior }
+                main { settings.setSystemSpatialAudio(allowedNext) }
+                instrumentation.waitForIdleSync()
+                main {
+                    assertEquals(previousBehavior, player.audioAttributes.spatializationBehavior)
+                    player.pause()
+                    assertEquals(previousBehavior, player.audioAttributes.spatializationBehavior)
+                    player.stop()
+                }
+                val expectedBehavior = if (allowedNext) C.SPATIALIZATION_BEHAVIOR_AUTO else C.SPATIALIZATION_BEHAVIOR_NEVER
+                await("Spatial preference applies after stopping the prepared output") {
+                    player.audioAttributes.spatializationBehavior == expectedBehavior
+                }
             }
         } finally {
             main {
                 engine.release()
                 settings.setCrossfade(previousCrossfade)
                 settings.setGaplessPlayback(previousGapless)
+                settings.setSystemSpatialAudio(previousSpatial)
             }
             wav.delete()
         }
