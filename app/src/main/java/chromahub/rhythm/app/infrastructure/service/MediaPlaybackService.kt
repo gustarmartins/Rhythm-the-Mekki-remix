@@ -49,7 +49,6 @@ import chromahub.rhythm.app.shared.data.model.BluetoothLyricsTextMode
 import chromahub.rhythm.app.shared.data.model.Song
 import chromahub.rhythm.app.infrastructure.service.player.RhythmPlayerEngine
 import chromahub.rhythm.app.infrastructure.service.player.TransitionController
-import chromahub.rhythm.app.infrastructure.service.player.PreloadController
 import chromahub.rhythm.app.infrastructure.service.player.replaygain.ReplayGainCache
 import chromahub.rhythm.app.infrastructure.service.player.MissingLocalMediaClassifier
 import chromahub.rhythm.app.infrastructure.service.util.RhythmBitmapLoader
@@ -95,7 +94,6 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
     private lateinit var player: Player
     private var musicAssistantPlayer: MusicAssistantPlayer? = null
     private lateinit var customCommands: List<CommandButton>
-    private lateinit var preloadController: PreloadController
 
     private var controller: MediaController? = null
     private val foregroundPromotion = ForegroundPromotionState()
@@ -616,9 +614,6 @@ class MediaPlaybackService : MediaLibraryService(), Player.Listener {
         // Initialize settings manager (fast operation)
         appSettings = AppSettings.getInstance(applicationContext)
         
-        // Initialize preloader
-        preloadController = PreloadController()
-        
         // Initialize Rhythm audio processors early (before player creation)
         try {
             rhythmBassBoostProcessor = chromahub.rhythm.app.infrastructure.audio.RhythmBassBoostProcessor().apply {
@@ -1029,13 +1024,6 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         // Store reference for proper cleanup in onDestroy
         playerListener = object : Player.Listener {
             override fun onTimelineChanged(timeline: androidx.media3.common.Timeline, reason: Int) {
-                if (musicAssistantPlayer == null && ::preloadController.isInitialized) {
-                    val mediaItems = mutableListOf<MediaItem>()
-                    for (i in 0 until player.mediaItemCount) {
-                        mediaItems.add(player.getMediaItemAt(i))
-                    }
-                    preloadController.addOrUpdateQueue(mediaItems)
-                }
                 scheduleCollapseForBtLyrics()
             }
 
@@ -1164,13 +1152,6 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
             }
             
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                if (::preloadController.isInitialized) {
-                    val currentIndex = player.currentMediaItemIndex
-                    if (currentIndex != androidx.media3.common.C.INDEX_UNSET) {
-                        preloadController.setPlayingIndex(currentIndex)
-                    }
-                }
-
                 val transitionMediaId = mediaItem?.mediaId
                 if (isBluetoothMetadataTransition(
                         mediaItem = mediaItem,
@@ -2074,9 +2055,6 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
 
         // Apply Replay Gain settings
         rhythmPlayerEngine.applyReplayGainSettings(if (isBitPerfect) false else appSettings.replayGain.value)
-
-        // Apply gapless playback setting
-        rhythmPlayerEngine.setGaplessPlayback(appSettings.gaplessPlayback.value)
 
         // Apply skip silence setting
         rhythmPlayerEngine.setSkipSilenceEnabled(if (isBitPerfect) false else appSettings.skipSilenceEnabled.value)
@@ -3645,11 +3623,6 @@ notificationManager.createNotificationChannel(sleepTimerChannel)
         audioEffectsInitJob?.cancel()
         cancelSleepTimerProgressNotification()
         serviceScope.cancel()
-        
-        // Release preloader
-        if (::preloadController.isInitialized) {
-            preloadController.release()
-        }
         
         // Remove player listener before releasing player
         if (::player.isInitialized) {

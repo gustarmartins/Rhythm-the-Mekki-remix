@@ -82,6 +82,9 @@ class RhythmPlayerEngine(
     private val monoProcessor: RhythmMonoAudioProcessor? = null
 ) {
     companion object {
+        // Use the same startup buffer for the current item and its expected successor.
+        private const val BUFFER_FOR_PLAYBACK_MS = 1_500
+        private val gaplessPreload = ExoPlayer.PreloadConfiguration(BUFFER_FOR_PLAYBACK_MS * 1_000L)
         private const val TAG = "RhythmPlayerEngine"
     }
 
@@ -350,7 +353,7 @@ class RhythmPlayerEngine(
         replayGainProcessor: ReplayGainAudioProcessor? = null
     ): ExoPlayer {
         val loadControl = DefaultLoadControl.Builder()
-            .setBufferDurationsMs(15_000, 30_000, 1_500, 2_500)
+            .setBufferDurationsMs(15_000, 30_000, BUFFER_FOR_PLAYBACK_MS, 2_500)
             .setBackBuffer(10_000, false)
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
@@ -518,18 +521,21 @@ class RhythmPlayerEngine(
         playerA.pauseAtEndOfMediaItems = shouldPause
     }
 
-    /**
-     * Enables or disables gapless playback.
-     * When enabled, uses ExoPlayer's native gapless mechanism.
-     */
-    fun setGaplessPlayback(enabled: Boolean) {
-        if (::playerA.isInitialized) {
-            playerA.pauseAtEndOfMediaItems = !enabled
+    private fun updatePlaylistPreload() {
+        val appSettings = AppSettings.getInstance(context)
+        // A crossfade queues the incoming item on the other deck. Normal playback preloads
+        // through the master's existing timeline, preserving its shuffle order and entry tokens.
+        val target = if (appSettings.gaplessPlayback.value && !appSettings.crossfade.value) {
+            gaplessPreload
+        } else {
+            ExoPlayer.PreloadConfiguration.DEFAULT
         }
-        if (::playerB.isInitialized) {
-            playerB.pauseAtEndOfMediaItems = !enabled
+        if (playerA.preloadConfiguration.targetPreloadDurationUs != target.targetPreloadDurationUs) {
+            playerA.preloadConfiguration = target
         }
-        Log.d(TAG, "Gapless playback ${if (enabled) "enabled" else "disabled"}")
+        if (playerB.preloadConfiguration.targetPreloadDurationUs != C.TIME_UNSET) {
+            playerB.preloadConfiguration = ExoPlayer.PreloadConfiguration.DEFAULT
+        }
     }
 
     fun setSkipSilenceEnabled(enabled: Boolean) {
@@ -728,6 +734,7 @@ class RhythmPlayerEngine(
         val incomingReplayGain = if (incomingPlayer === playerA) playerAReplayGain else playerBReplayGain
         playerA = incomingPlayer
         playerB = outgoingPlayer
+        updatePlaylistPreload()
         activeReplayGainProcessor = incomingReplayGain
 
         // Sync ReplayGain formats for the incoming player
@@ -787,12 +794,12 @@ class RhythmPlayerEngine(
         if (isFading) {
             val configuredDuration = settings.durationMs.toLong().coerceAtLeast(500L)
             val remainingAudio = if (playerB.duration > 0 && playerB.currentPosition >= 0) {
-                (playerB.duration - playerB.currentPosition).coerceAtLeast(500L)
+                playbackTimeMs(playerB.duration - playerB.currentPosition, playerB.playbackParameters.speed).coerceAtLeast(0L)
             } else {
                 configuredDuration
             }
             val fadeDuration = if (!settings.isManualSkip) {
-                configuredDuration.coerceAtMost(remainingAudio)
+                configuredDuration.coerceAtMost(remainingAudio).coerceAtLeast(1L)
             } else {
                 configuredDuration
             }
@@ -824,8 +831,9 @@ class RhythmPlayerEngine(
                     break
                 }
 
+                val started = android.os.SystemClock.elapsedRealtime()
                 delay(stepMs)
-                elapsed += stepMs
+                if (playerA.playWhenReady) elapsed += android.os.SystemClock.elapsedRealtime() - started
             }
         } else {
             playerA.volume = targetVolume
@@ -939,7 +947,8 @@ class RhythmPlayerEngine(
 
     fun updateTrackSelectionParameters() {
         scope.launch(Dispatchers.Main) {
-            if (!::playerA.isInitialized || !::playerB.isInitialized) return@launch
+            if (!::playerA.isInitialized || !::playerB.isInitialized || isReleased) return@launch
+            updatePlaylistPreload()
             val appSettings = AppSettings.getInstance(context)
             val paramsA = buildTrackSelectionParameters(playerA.trackSelectionParameters, appSettings)
             val paramsB = buildTrackSelectionParameters(playerB.trackSelectionParameters, appSettings)

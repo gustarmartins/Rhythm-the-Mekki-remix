@@ -9,6 +9,7 @@ import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
@@ -171,6 +172,13 @@ class TransitionController(
 
                 if (mediaItem != null) {
                     scheduleTransitionFor(mediaItem)
+                }
+            }
+
+            override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
+                if (appSettings.crossfade.value && !isInDestructiveState()) {
+                    engine.setPauseAtEndOfMediaItems(false)
+                    engine.masterPlayer.currentMediaItem?.let { scheduleTransitionFor(it) }
                 }
             }
 
@@ -417,42 +425,22 @@ class TransitionController(
 
             if (!isActive || !isLatestSchedule(generation, expectedMediaId, player)) return@launch
 
-            val minFade = 500L
-            val guardWindow = 150L
-            val leadTimeMs = 50L
-
-            if (duration < minFade * 2) {
-                Log.w(TAG, "Track too short for crossfade (duration=$duration).")
+            val speed = player.playbackParameters.speed
+            val window = CrossfadeWindow.forTrack(duration, speed, settings.durationMs)
+            if (window == null) {
                 engine.setPauseAtEndOfMediaItems(false)
                 return@launch
             }
-
-            val maxAllowedFade = (duration * 0.45f).toLong().coerceAtLeast(minFade)
-            val effectiveDuration = settings.durationMs.toLong()
-                .coerceIn(minFade, maxAllowedFade)
-                .coerceAtMost((duration - guardWindow).coerceAtLeast(minFade))
-
-            val transitionPoint = (duration - effectiveDuration - leadTimeMs).coerceAtLeast(0L)
-
-            Log.d(TAG, "Scheduled crossfade at ${transitionPoint}ms (trackDur: $duration, leadTime: ${leadTimeMs}ms). Fade: ${effectiveDuration}ms")
-
-            // Handle case where we're already past the transition point
-            if (transitionPoint <= player.currentPosition) {
-                val remaining = duration - player.currentPosition
-                val adjustedDuration = (remaining - guardWindow).coerceAtLeast(minFade)
-                if (remaining > guardWindow + minFade / 2) {
-                    if (isLatestSchedule(generation, expectedMediaId, player)) {
-                        Log.w(TAG, "Already past transition point! Triggering immediately.")
-                        engine.setPauseAtEndOfMediaItems(true)
-                        engine.performTransition(settings.copy(durationMs = adjustedDuration.toInt()))
-                    } else {
-                        Log.d(TAG, "Skipping immediate trigger for stale schedule.")
-                    }
-                } else {
-                    Log.w(TAG, "Too close to end (${remaining}ms left). Skipping to avoid glitch.")
+            val transitionPoint = window.startPositionMs
+            var fadeMs = window.durationMs
+            if (player.currentPosition >= transitionPoint) {
+                val remainingMs = playbackTimeMs(duration - player.currentPosition, speed)
+                if (remainingMs <= 400L) {
                     engine.setPauseAtEndOfMediaItems(false)
+                    return@launch
                 }
-                return@launch
+                // Leave the existing 150 ms end guard when re-entering an overlap late.
+                fadeMs = (remainingMs - 150L).coerceIn(500L, window.durationMs)
             }
 
             // Adaptive polling — sleep longer when far from transition point
@@ -461,7 +449,7 @@ class TransitionController(
                     Log.d(TAG, "Aborting stale schedule while polling transition point.")
                     return@launch
                 }
-                val remaining = transitionPoint - player.currentPosition
+                val remaining = playbackTimeMs(transitionPoint - player.currentPosition, speed)
                 if (shouldArmCrossfadeEndPause(remaining)) engine.setPauseAtEndOfMediaItems(true)
                 val sleep = when {
                     remaining > 5000 -> 1000L
@@ -472,11 +460,17 @@ class TransitionController(
                 delay(sleep)
             }
 
+            if (!player.isPlaying) {
+                // A near-end seek or a transient pause must not start the incoming item.
+                // onIsPlayingChanged will schedule it again once playback resumes.
+                engine.setPauseAtEndOfMediaItems(false)
+                return@launch
+            }
             if (isActive && isLatestSchedule(generation, expectedMediaId, player)) {
                 setState(TransitionState.TRANSITIONING)
                 Log.d(TAG, "FIRING TRANSITION NOW!")
                 engine.setPauseAtEndOfMediaItems(true)
-                engine.performTransition(settings.copy(durationMs = effectiveDuration.toInt()))
+                engine.performTransition(settings.copy(durationMs = fadeMs.toInt()))
                 watchForTransitionCompletion(generation)
             } else {
                 Log.d(TAG, "Job cancelled before firing.")
@@ -522,23 +516,14 @@ class TransitionController(
         }
 
         val crossfadeDurationMs = (appSettings.crossfadeDuration.value * 1000).toInt()
-        val minFade = 500L
-        val guardWindow = 150L
-
-        val maxFadeDuration = (duration - guardWindow).coerceAtLeast(minFade)
-        val effectiveDuration = crossfadeDurationMs.toLong()
-            .coerceAtLeast(minFade)
-            .coerceAtMost(maxFadeDuration)
-
-        val transitionPoint = duration - effectiveDuration
-
-        if (positionMs >= transitionPoint) {
-            Log.d(TAG, "Seek is PAST the transition point ($transitionPoint <= $positionMs). Skipping crossfade to avoid premature skip.")
+        val window = CrossfadeWindow.forTrack(duration, player.playbackParameters.speed, crossfadeDurationMs)
+        if (window == null || positionMs >= window.startPositionMs) {
+            Log.d(TAG, "Seek reached the end overlap. Continuing native playback.")
             engine.cancelNext()
             engine.setPauseAtEndOfMediaItems(false)
             setState(TransitionState.IDLE)
         } else {
-            Log.d(TAG, "Seek is BEFORE the transition point ($positionMs < $transitionPoint). Rescheduling transition.")
+            Log.d(TAG, "Seek is BEFORE the transition point ($positionMs < ${window.startPositionMs}). Rescheduling transition.")
             engine.cancelNext()
             scheduleTransitionFor(mediaItem)
         }

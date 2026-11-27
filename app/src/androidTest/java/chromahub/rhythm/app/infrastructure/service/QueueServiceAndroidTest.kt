@@ -2,16 +2,20 @@
 package chromahub.rhythm.app.infrastructure.service
 
 import android.content.ComponentName
+import android.os.Build
 import android.os.Bundle
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import androidx.media3.session.SessionToken
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import chromahub.rhythm.app.infrastructure.service.player.RhythmPlayerEngine
 import chromahub.rhythm.app.shared.data.model.AppSettings
 import java.io.File
 import java.nio.ByteBuffer
@@ -48,6 +52,74 @@ class QueueServiceAndroidTest {
     }
     private fun snapshot(controller: MediaController) = command(controller, PlayNextCommand.GET_QUEUE,
         Bundle().apply { putInt(PlayNextCommand.LIMIT, 200) })
+
+    @Test fun gaplessPreloadingTracksTheSettingWithoutPausingAutomaticOrManualTraversal() {
+        require(context.packageName.endsWith(".debug"))
+        val settings = AppSettings.getInstance(context)
+        val previousGapless = settings.gaplessPlayback.value
+        val previousCrossfade = settings.crossfade.value
+        val wav = File.createTempFile("gapless-boundary", ".wav", context.cacheDir)
+        val bytesPerSecond = 16_000 // mono 8 kHz, 16-bit PCM
+        val size = bytesPerSecond * 2
+        val header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
+            .put("RIFF".toByteArray()).putInt(36 + size).put("WAVEfmt ".toByteArray())
+            .putInt(16).putShort(1).putShort(1).putInt(8_000).putInt(bytesPerSecond)
+            .putShort(2).putShort(16).put("data".toByteArray()).putInt(size).array()
+        wav.outputStream().use { it.write(header); it.write(ByteArray(size)) }
+        val engine = main { RhythmPlayerEngine(context) }
+        try {
+            val player = main {
+                settings.setCrossfade(false)
+                settings.setGaplessPlayback(true)
+                engine.initialize()
+                (engine.masterPlayer as ExoPlayer).apply { volume = 0f }
+            }
+            await("Gapless enables native playlist preload") {
+                player.preloadConfiguration.targetPreloadDurationUs == 1_500_000L
+            }
+            main { settings.setCrossfade(true) }
+            await("Crossfade's other deck owns preload") {
+                player.preloadConfiguration.targetPreloadDurationUs == C.TIME_UNSET
+            }
+            for (gapless in listOf(false, true)) {
+                main {
+                    settings.setCrossfade(false)
+                    settings.setGaplessPlayback(gapless)
+                }
+                await("Gapless preference reaches ExoPlayer") {
+                    val expectedUs = if (gapless) 1_500_000L else C.TIME_UNSET
+                    player.preloadConfiguration.targetPreloadDurationUs == expectedUs &&
+                        !player.pauseAtEndOfMediaItems &&
+                        (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+                            player.trackSelectionParameters.audioOffloadPreferences.isGaplessSupportRequired == gapless)
+                }
+                main {
+                    val uri = android.net.Uri.fromFile(wav)
+                    val queue = listOf("first", "second", "manual").map {
+                        MediaItem.Builder().setMediaId(it).setUri(uri).build()
+                    }
+                    player.setMediaItems(queue)
+                    player.prepare()
+                    player.play()
+                }
+                await("First item auto-advances while playing (gapless=$gapless)") {
+                    player.currentMediaItem?.mediaId == "second" && player.playWhenReady
+                }
+                main { player.seekToNextMediaItem() }
+                await("Explicit next advances exactly once (gapless=$gapless)") {
+                    player.currentMediaItem?.mediaId == "manual" && player.playWhenReady
+                }
+                main { player.pause() }
+            }
+        } finally {
+            main {
+                engine.release()
+                settings.setCrossfade(previousCrossfade)
+                settings.setGaplessPlayback(previousGapless)
+            }
+            wav.delete()
+        }
+    }
 
     @Test fun playNextSurvivesBothShuffleEnginesThroughRealServiceAndController() {
         require(context.packageName.endsWith(".debug"))
